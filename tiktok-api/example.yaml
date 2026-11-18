@@ -1,0 +1,14 @@
+# Read the TikTok profile and its latest videos.
+#   TIKTOK_ACCESS_TOKEN=... graphrt run tiktok-api/example.yaml --plugins .
+version: "1"
+name: tiktok-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: profile, type: tiktok-api.get_user_info, fields: "open_id,display_name,follower_count" }
+    - { id: videos, type: tiktok-api.list_videos, limit: 3, fields: "id,title,view_count" }
+    - { id: answer, type: answer, answer: "{{#profile.data.display_name#}} ({{#profile.data.follower_count#}} followers)\nLatest videos: {{#videos.data#}}" }
+  edges:
+    - { source: start, target: profile }
+    - { source: profile, target: videos }
+    - { source: videos, target: answer }
