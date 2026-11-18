@@ -202,3 +202,14 @@ test("refreshCredentials returning false surfaces the auth_error", async () => {
   await assert.rejects(client.request({ path: "/x" }), (error) => error.kind === "auth_error");
   assert.equal(fakeFetch.calls.length, 1);
 });
+
+test("an explicitly undefined fetchImpl falls back to the global fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = createFakeFetch([{ body: { via: "global" } }]);
+  try {
+    const client = createApiClient({ baseUrl: "https://api.example.com", fetchImpl: undefined, retryBaseDelayMs: 1 });
+    assert.deepEqual(await client.request({ path: "/x" }), { via: "global" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -37,14 +37,16 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  * const me = await client.request({ path: "/me", query: { fields: ["id", "name"] } });
  */
 export function createApiClient(options) {
+  // Drop undefined options so callers can pass e.g. `fetchImpl: undefined` without losing the default.
+  const providedOptions = Object.fromEntries(Object.entries(options).filter(([, optionValue]) => optionValue !== undefined));
   const clientSettings = {
-    fetchImpl: globalThis.fetch,
+    fetchImpl: (...fetchArguments) => globalThis.fetch(...fetchArguments),
     maxRetries: 2,
     retryBaseDelayMs: 1000,
     timeoutMs: 30000,
     defaultHeaders: {},
     parseError: () => ({}),
-    ...options,
+    ...providedOptions,
   };
   const requestWithHeaders = (requestOptions) => sendWithRetries(clientSettings, requestOptions);
   const request = async (requestOptions) => (await requestWithHeaders(requestOptions)).body;

@@ -1,6 +1,6 @@
 /**
  * Copies shared/lib into every shared-based plugin's lib/shared/ and
- * regenerates each graphrt-plugin.json from its definition.mjs.
+ * regenerates each graphrt-plugin.json and OPERATIONS.md from its definition.mjs.
  *
  * Plugins are installed one directory at a time (`graphrt plugin install <dir>`),
  * so each one carries its own copy of the shared code.
@@ -52,6 +52,30 @@ async function syncManifest(pluginDirectory) {
     throw new Error(`${pluginDirectory}: definition name \`${pluginDefinition.name}\` must match the directory name`);
   }
   writeIfChanged(join(pluginDirectory, "graphrt-plugin.json"), `${JSON.stringify(buildManifest(pluginDefinition), null, 2)}\n`);
+  writeIfChanged(join(pluginDirectory, "OPERATIONS.md"), renderOperationsReference(pluginDefinition));
+}
+
+function renderOperationsReference(pluginDefinition) {
+  const operationRows = pluginDefinition.operations.map((operation) => {
+    const requiredNames = new Set(operation.parameters.required ?? []);
+    const parameterList = Object.keys(operation.parameters.properties)
+      .map((parameterName) => (requiredNames.has(parameterName) ? `**${parameterName}**` : parameterName))
+      .join(", ");
+    return `| \`${operation.name}\` | ${operation.description.replaceAll("|", "\\|")} | ${parameterList} |`;
+  });
+  return [
+    `# ${pluginDefinition.name} operations`,
+    "",
+    "Generated from `definition.mjs` by `npm run sync` — do not edit by hand.",
+    "",
+    `Each operation is a node \`${pluginDefinition.name}.<operation>\` (outputs \`data\`, \`next_cursor\`) and a tool \`<operation>\`.`,
+    "Nodes also accept an optional `access_token`. **Bold** parameters are required.",
+    "",
+    "| Operation | Description | Parameters |",
+    "|-----------|-------------|------------|",
+    ...operationRows,
+    "",
+  ].join("\n");
 }
 
 function writeIfChanged(filePath, expectedContent) {
