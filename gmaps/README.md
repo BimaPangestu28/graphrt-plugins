@@ -1,0 +1,81 @@
+# gmaps
+
+## Overview
+A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that searches Google Maps with a headless
+Chromium browser (Playwright) and returns business phone numbers, addresses, websites and ratings.
+Free: no API key or paid service.
+
+> **Warning:** scraping Google Maps breaks Google's Terms of Service. Heavy use triggers a CAPTCHA
+> (the node fails with `blocked`), and the selectors break whenever Google changes the Maps UI.
+> Keep volumes low. For production use, consider the paid Google Places API.
+
+## Features
+- `gmaps.search` node: query → `results`, `phones`, `count`
+- `gmaps/gmaps_search` tool for `tool` and `agent` nodes
+- Scrolls the result list up to `max_results` (1–100); handles searches that open a single place
+- Per-place progress events, cancellation, clear errors (`invalid_input`, `blocked`, `setup_required`)
+
+## Prerequisites
+- Node.js >= 18
+- graphrt with plugin support
+- About 150 MB of disk for Chromium
+
+## Installation
+```bash
+cd gmaps
+npm install
+npx playwright install chromium
+graphrt plugin install .
+```
+The plugin runs `node plugin.mjs` from its own directory, so `node_modules/` must sit next to it.
+If you install it from git, run the two `npm`/`npx` commands inside the installed copy
+(`~/.graphrt/plugins/gmaps`).
+
+## Quick Start
+```bash
+graphrt run gmaps/example.yaml --plugins . --input query="bengkel motor Bandung"
+# Found 5 places. Phones: ["081222888397", ...]
+```
+
+## Usage
+```yaml
+- id: search
+  type: gmaps.search
+  query: "{{#start.query#}}"
+  max_results: 20
+```
+Then use `{{#search.phones#}}`, `{{#search.results#}}` or `{{#search.count#}}`.
+
+## Configuration
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `query` | string | (required) | What to search for, e.g. `kopi Bandung` |
+| `max_results` | integer | `20` | Maximum places to return (1–100) |
+| `language` | string | `id` | Google Maps interface language (`id`, `en`, `pt-BR`, …) |
+| `headless` | boolean | `true` | Set `false` to watch the browser |
+
+Outputs:
+- `results`: `array[object]` of `{name, phone, address, website, rating, maps_url}`. Fields are `null` when missing.
+- `phones`: `array[string]` of unique phone numbers, digits only with an optional leading `+`.
+- `count`: integer.
+
+Timing: about 1–1.5 s per place. Node timeout is 5 minutes and at most 2 searches run at once.
+
+## Errors
+| Kind | When |
+|------|------|
+| `invalid_input` | Bad config |
+| `blocked` | Google served a CAPTCHA / unusual-traffic page (retryable after ~10 min) |
+| `setup_required` | Chromium is not installed: run `npx playwright install chromium` |
+| `browser_error` | Browser failed to start for another reason |
+| `cancelled` | The run was cancelled |
+
+## Development
+```bash
+npm test   # unit tests for the pure parsing helpers (no browser)
+```
+Code layout: `lib/parse.mjs` (pure helpers), `lib/scraper.mjs` (Playwright), `plugin.mjs` (protocol wiring),
+`graphrt-plugin.mjs` (vendored graphrt JS SDK).
+
+## License
+Apache-2.0

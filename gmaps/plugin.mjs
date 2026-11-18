@@ -1,0 +1,53 @@
+// graphrt plugin `gmaps`: search Google Maps and extract business phone numbers.
+//
+// Run it in a workflow with:  graphrt run example.yaml --plugins <parent dir>
+// Never console.log (stdout carries the plugin protocol); use console.error.
+import { Plugin } from "./graphrt-plugin.mjs";
+import { collectPhones, validateSearchConfig } from "./lib/parse.mjs";
+import { searchPlaces } from "./lib/scraper.mjs";
+
+const SEARCH_PARAMETERS = {
+  type: "object",
+  properties: {
+    query: { type: "string", description: "What to search on Google Maps, e.g. \"bengkel motor Bandung\"" },
+    max_results: { type: "integer", minimum: 1, maximum: 100, default: 20, description: "Maximum places to return" },
+    language: { type: "string", default: "id", description: "Google Maps interface language code" },
+    headless: { type: "boolean", default: true, description: "Run the browser without a window" },
+  },
+  required: ["query"],
+};
+
+/**
+ * Validates config, runs the Maps search and shapes the shared output.
+ *
+ * @param config - Raw node config or tool arguments (object)
+ * @param hooks - `{signal, onProgress}` forwarded to searchPlaces
+ * @returns `{results, phones, count}` (Promise<object>)
+ * @throws PluginError - From validation or the scraper
+ */
+async function runSearch(config, hooks) {
+  const searchOptions = validateSearchConfig(config);
+  const results = await searchPlaces(searchOptions, hooks);
+  return { results, phones: collectPhones(results), count: results.length };
+}
+
+new Plugin("gmaps")
+  .node("gmaps.search", async (ctx, req) => {
+    const searchOutput = await runSearch(req.config, {
+      signal: ctx.signal,
+      onProgress: (progressInfo) => ctx.progress("place", progressInfo),
+    });
+    return { outputs: searchOutput };
+  })
+  .tool(
+    {
+      name: "gmaps_search",
+      description: "Search Google Maps and return matching places with phone, address, website and rating",
+      parameters: SEARCH_PARAMETERS,
+    },
+    async (toolArguments) => {
+      const searchOutput = await runSearch(toolArguments, {});
+      return { text: JSON.stringify(searchOutput.results), data: searchOutput };
+    },
+  )
+  .run();

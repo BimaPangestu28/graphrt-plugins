@@ -1,0 +1,108 @@
+{
+  "name": "gmaps",
+  "version": "0.1.0",
+  "description": "Search Google Maps with a headless browser and extract business phone numbers (free, no API key)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 2
+  },
+  "nodes": [
+    {
+      "kind": "gmaps.search",
+      "title": "Google Maps search",
+      "description": "Searches Google Maps and returns places with their phone numbers",
+      "category": "integration",
+      "icon": "map",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search on Google Maps (templates allowed)"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Maximum places to return"
+          },
+          "language": {
+            "type": "string",
+            "default": "id",
+            "description": "Google Maps interface language code"
+          },
+          "headless": {
+            "type": "boolean",
+            "default": true,
+            "description": "Run the browser without a window"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "results",
+          "type": "array[object]",
+          "description": "Places: {name, phone, address, website, rating, maps_url}"
+        },
+        {
+          "name": "phones",
+          "type": "array[string]",
+          "description": "Unique phone numbers found"
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "description": "Number of places returned"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "gmaps_search",
+      "description": "Search Google Maps and return matching places with phone, address, website and rating",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search on Google Maps (templates allowed)"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Maximum places to return"
+          },
+          "language": {
+            "type": "string",
+            "default": "id",
+            "description": "Google Maps interface language code"
+          },
+          "headless": {
+            "type": "boolean",
+            "default": true,
+            "description": "Run the browser without a window"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  ]
+}
