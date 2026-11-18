@@ -1,0 +1,11 @@
+# Meta Graph API research (2026-11-18)
+- Versions: v27.0 (Nov 4 2026, partly verified), v26.0 (Jul 29 2026, verified). Base https://graph.facebook.com/{ver}. IG Login host graph.instagram.com.
+- Page token from GET /me/accounts (user token). IG id: GET /{page-id}?fields=instagram_business_account.
+- Page: GET /{page-id}?fields=id,name,about,category,followers_count,link,picture,instagram_business_account
+  GET /{page-id}/feed?fields=id,message,created_time,permalink_url ; POST /{page-id}/feed message,link,published,scheduled_publish_time ; POST /{page-id}/photos url,message ; POST /{post-id} message (edit) ; DELETE /{post-id}
+  GET /{object-id}/comments filter=toplevel|stream, summary, order ; POST /{object-id}/comments message,attachment_url ; POST /{comment-id} is_hidden ; DELETE /{comment-id} ; POST/DELETE /{comment-id}/likes
+- IG: GET /{ig-id}?fields=username,name,profile_picture_url,followers_count,follows_count,media_count ; GET /{ig-id}/media?fields=id,caption,media_type,media_product_type,media_url,permalink,timestamp,like_count,comments_count
+  POST /{ig-id}/media image_url|video_url,caption,alt_text,media_type REELS|STORIES|CAROUSEL,is_carousel_item,children ; GET /{container}?fields=status_code (IN_PROGRESS|FINISHED|ERROR|EXPIRED|PUBLISHED) ; POST /{ig-id}/media_publish creation_id ; GET /{ig-id}/content_publishing_limit
+  GET /{media-id}/comments fields=id,text,timestamp,username,hidden,like_count ; GET/POST /{comment-id}/replies message ; POST /{comment-id} hide ; DELETE /{comment-id}
+- Messaging: GET /{page-id}/conversations?platform=messenger|instagram&user_id ; GET /{conversation-id}?fields=messages{id,created_time,from,to,message} ; POST /{page-id}/messages {recipient{id}, messaging_type RESPONSE|UPDATE|MESSAGE_TAG, tag HUMAN_AGENT, message{text}|{attachment{type,payload{url,is_reusable}}}} → {recipient_id,message_id}. 24h window; only HUMAN_AGENT tag remains (others error since Apr 2026).
+- Pagination paging.cursors.after + paging.next. Errors {error{message,type,code,error_subcode,error_user_msg,fbtrace_id}}. Throttle codes 4,17,32,613,341,80001,80002,80006 ; token 190,102 ; perms 10,200-299 ; 506 duplicate ; 1,2 transient. Header X-Business-Use-Case-Usage estimated_time_to_regain_access (min).

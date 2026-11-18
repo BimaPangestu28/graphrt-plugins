@@ -1,0 +1,14 @@
+# Read the Page and its latest posts.
+#   META_ACCESS_TOKEN=... META_PAGE_ID=... graphrt run meta-api/example.yaml --plugins .
+version: "1"
+name: meta-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: page, type: meta-api.get_page, fields: "id,name,followers_count" }
+    - { id: posts, type: meta-api.list_page_posts, limit: 3 }
+    - { id: answer, type: answer, answer: "{{#page.data.name#}} ({{#page.data.followers_count#}} followers)\nLatest posts: {{#posts.data#}}" }
+  edges:
+    - { source: start, target: page }
+    - { source: page, target: posts }
+    - { source: posts, target: answer }

@@ -1,0 +1,1817 @@
+{
+  "name": "meta-api",
+  "version": "0.1.0",
+  "description": "Facebook Page, Instagram, Messenger and Instagram Direct via the official Meta Graph API",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "META_ACCESS_TOKEN",
+      "META_PAGE_ID",
+      "META_IG_USER_ID",
+      "META_GRAPH_VERSION"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 420000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "meta-api.get_page",
+      "title": "Get Facebook Page",
+      "description": "Read Facebook Page details (name, category, followers, linked Instagram account).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,name,about,category,followers_count,link,picture,instagram_business_account"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.list_page_posts",
+      "title": "List Page posts",
+      "description": "List posts on the Facebook Page feed, newest first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,message,created_time,permalink_url,status_type,full_picture"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.create_page_post",
+      "title": "Create Page post",
+      "description": "Publish (or schedule) a text and/or link post on the Facebook Page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Post text"
+          },
+          "link": {
+            "type": "string",
+            "description": "URL to attach"
+          },
+          "published": {
+            "type": "boolean",
+            "default": true,
+            "description": "false creates an unpublished post"
+          },
+          "scheduled_publish_time": {
+            "type": "integer",
+            "description": "Unix time 10 minutes to 30 days ahead; implies published=false"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.create_page_photo_post",
+      "title": "Create Page photo post",
+      "description": "Publish a photo post on the Facebook Page from a public image URL.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public image URL"
+          },
+          "message": {
+            "type": "string",
+            "description": "Caption"
+          },
+          "published": {
+            "type": "boolean",
+            "default": true
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.update_page_post",
+      "title": "Update Page post",
+      "description": "Edit the text of a Page post this app created.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "description": "Post id, e.g. 1234_5678"
+          },
+          "message": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id",
+          "message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.delete_page_post",
+      "title": "Delete Page post",
+      "description": "Delete a Page post.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "description": "Post id, e.g. 1234_5678"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.list_comments",
+      "title": "List Facebook comments",
+      "description": "List comments on a Page post, photo or comment (use a comment id to list its replies).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Post, photo or comment id"
+          },
+          "filter": {
+            "type": "string",
+            "enum": [
+              "toplevel",
+              "stream"
+            ],
+            "default": "toplevel",
+            "description": "stream = all comments incl. replies"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "chronological",
+              "reverse_chronological"
+            ]
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,message,created_time,from,like_count,comment_count,is_hidden,parent,attachment"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.reply_to_comment",
+      "title": "Reply on Facebook",
+      "description": "Comment on a Page post or reply to a comment as the Page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Post id (new comment) or comment id (reply)"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attachment_url": {
+            "type": "string",
+            "description": "Optional image URL"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_id",
+          "message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.set_comment_hidden",
+      "title": "Hide/unhide Facebook comment",
+      "description": "Hide or unhide a comment on the Page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id",
+          "hidden"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.delete_comment",
+      "title": "Delete Facebook comment",
+      "description": "Delete a comment on the Page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.like_comment",
+      "title": "Like Facebook comment",
+      "description": "Like a comment as the Page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.unlike_comment",
+      "title": "Unlike Facebook comment",
+      "description": "Remove the Page's like from a comment.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.get_instagram_account",
+      "title": "Get Instagram account",
+      "description": "Read the Instagram professional account (username, followers, media count).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,username,name,biography,profile_picture_url,followers_count,follows_count,media_count,website"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.list_instagram_media",
+      "title": "List Instagram media",
+      "description": "List the account's posts, reels and carousels, newest first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,caption,media_type,media_product_type,media_url,permalink,timestamp,like_count,comments_count"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.get_instagram_publishing_limit",
+      "title": "Get Instagram publishing limit",
+      "description": "Read how many posts the account published in the last 24 hours and its quota.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.publish_instagram_media",
+      "title": "Publish to Instagram",
+      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "IMAGE",
+              "VIDEO",
+              "REELS",
+              "STORIES",
+              "CAROUSEL"
+            ],
+            "default": "IMAGE"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public JPEG URL (IMAGE, STORIES)"
+          },
+          "video_url": {
+            "type": "string",
+            "description": "Public video URL (VIDEO/REELS, STORIES)"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "alt_text": {
+            "type": "string",
+            "description": "Alt text for images"
+          },
+          "share_to_feed": {
+            "type": "boolean",
+            "description": "REELS: also show in the feed"
+          },
+          "carousel_items": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            },
+            "description": "CAROUSEL: 2-10 items, each {image_url} or {video_url}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.list_instagram_comments",
+      "title": "List Instagram comments",
+      "description": "List comments on an Instagram media item.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,timestamp,username,hidden,like_count,parent_id"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.list_instagram_comment_replies",
+      "title": "List Instagram comment replies",
+      "description": "List replies to an Instagram comment.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,timestamp,username,hidden,like_count,parent_id"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.reply_to_instagram_comment",
+      "title": "Reply to Instagram comment",
+      "description": "Reply to a comment on the account's Instagram media.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id",
+          "message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.set_instagram_comment_hidden",
+      "title": "Hide/unhide Instagram comment",
+      "description": "Hide or unhide a comment on the account's Instagram media.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id",
+          "hidden"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.delete_instagram_comment",
+      "title": "Delete Instagram comment",
+      "description": "Delete a comment on the account's Instagram media.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.list_conversations",
+      "title": "List conversations",
+      "description": "List the Page's Messenger or Instagram Direct conversations, optionally for one person.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "messenger",
+              "instagram"
+            ],
+            "default": "messenger"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Only the conversation with this PSID/IGSID"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,updated_time,participants,unread_count,message_count,snippet"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.list_conversation_messages",
+      "title": "List conversation messages",
+      "description": "List messages in a Messenger or Instagram Direct conversation, newest first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,created_time,from,to,message,attachments"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.send_message",
+      "title": "Send message",
+      "description": "Send a Messenger or Instagram Direct message from the Page to a PSID/IGSID. Free-form only within 24 h of their last message; otherwise use MESSAGE_TAG + HUMAN_AGENT.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "recipient_id": {
+            "type": "string",
+            "description": "PSID (Messenger) or IGSID (Instagram)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text"
+          },
+          "attachment_url": {
+            "type": "string",
+            "description": "Public URL of an attachment (instead of text)"
+          },
+          "attachment_type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "file"
+            ],
+            "default": "image"
+          },
+          "messaging_type": {
+            "type": "string",
+            "enum": [
+              "RESPONSE",
+              "UPDATE",
+              "MESSAGE_TAG"
+            ],
+            "default": "RESPONSE"
+          },
+          "tag": {
+            "type": "string",
+            "enum": [
+              "HUMAN_AGENT"
+            ],
+            "description": "Required with MESSAGE_TAG"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "recipient_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-api.api_request",
+      "title": "Meta Graph API request",
+      "description": "Call any Meta Graph API endpoint that has no dedicated operation, e.g. path \"/me/accounts\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/accounts\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_page",
+      "description": "Read Facebook Page details (name, category, followers, linked Instagram account).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,name,about,category,followers_count,link,picture,instagram_business_account"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_page_posts",
+      "description": "List posts on the Facebook Page feed, newest first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,message,created_time,permalink_url,status_type,full_picture"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "create_page_post",
+      "description": "Publish (or schedule) a text and/or link post on the Facebook Page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Post text"
+          },
+          "link": {
+            "type": "string",
+            "description": "URL to attach"
+          },
+          "published": {
+            "type": "boolean",
+            "default": true,
+            "description": "false creates an unpublished post"
+          },
+          "scheduled_publish_time": {
+            "type": "integer",
+            "description": "Unix time 10 minutes to 30 days ahead; implies published=false"
+          }
+        }
+      }
+    },
+    {
+      "name": "create_page_photo_post",
+      "description": "Publish a photo post on the Facebook Page from a public image URL.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public image URL"
+          },
+          "message": {
+            "type": "string",
+            "description": "Caption"
+          },
+          "published": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "image_url"
+        ]
+      }
+    },
+    {
+      "name": "update_page_post",
+      "description": "Edit the text of a Page post this app created.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "description": "Post id, e.g. 1234_5678"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "post_id",
+          "message"
+        ]
+      }
+    },
+    {
+      "name": "delete_page_post",
+      "description": "Delete a Page post.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "description": "Post id, e.g. 1234_5678"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "list_comments",
+      "description": "List comments on a Page post, photo or comment (use a comment id to list its replies).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Post, photo or comment id"
+          },
+          "filter": {
+            "type": "string",
+            "enum": [
+              "toplevel",
+              "stream"
+            ],
+            "default": "toplevel",
+            "description": "stream = all comments incl. replies"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "chronological",
+              "reverse_chronological"
+            ]
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,message,created_time,from,like_count,comment_count,is_hidden,parent,attachment"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      }
+    },
+    {
+      "name": "reply_to_comment",
+      "description": "Comment on a Page post or reply to a comment as the Page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Post id (new comment) or comment id (reply)"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attachment_url": {
+            "type": "string",
+            "description": "Optional image URL"
+          }
+        },
+        "required": [
+          "object_id",
+          "message"
+        ]
+      }
+    },
+    {
+      "name": "set_comment_hidden",
+      "description": "Hide or unhide a comment on the Page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "hidden": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "comment_id",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "name": "delete_comment",
+      "description": "Delete a comment on the Page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "like_comment",
+      "description": "Like a comment as the Page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "unlike_comment",
+      "description": "Remove the Page's like from a comment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "get_instagram_account",
+      "description": "Read the Instagram professional account (username, followers, media count).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,username,name,biography,profile_picture_url,followers_count,follows_count,media_count,website"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_instagram_media",
+      "description": "List the account's posts, reels and carousels, newest first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,caption,media_type,media_product_type,media_url,permalink,timestamp,like_count,comments_count"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_instagram_publishing_limit",
+      "description": "Read how many posts the account published in the last 24 hours and its quota.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          }
+        }
+      }
+    },
+    {
+      "name": "publish_instagram_media",
+      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ig_user_id": {
+            "type": "string",
+            "description": "Instagram account id (default: META_IG_USER_ID)"
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "IMAGE",
+              "VIDEO",
+              "REELS",
+              "STORIES",
+              "CAROUSEL"
+            ],
+            "default": "IMAGE"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public JPEG URL (IMAGE, STORIES)"
+          },
+          "video_url": {
+            "type": "string",
+            "description": "Public video URL (VIDEO/REELS, STORIES)"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "alt_text": {
+            "type": "string",
+            "description": "Alt text for images"
+          },
+          "share_to_feed": {
+            "type": "boolean",
+            "description": "REELS: also show in the feed"
+          },
+          "carousel_items": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            },
+            "description": "CAROUSEL: 2-10 items, each {image_url} or {video_url}"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_instagram_comments",
+      "description": "List comments on an Instagram media item.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,timestamp,username,hidden,like_count,parent_id"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      }
+    },
+    {
+      "name": "list_instagram_comment_replies",
+      "description": "List replies to an Instagram comment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,timestamp,username,hidden,like_count,parent_id"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "reply_to_instagram_comment",
+      "description": "Reply to a comment on the account's Instagram media.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "comment_id",
+          "message"
+        ]
+      }
+    },
+    {
+      "name": "set_instagram_comment_hidden",
+      "description": "Hide or unhide a comment on the account's Instagram media.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          },
+          "hidden": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "comment_id",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "name": "delete_instagram_comment",
+      "description": "Delete a comment on the account's Instagram media.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Instagram comment id"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "list_conversations",
+      "description": "List the Page's Messenger or Instagram Direct conversations, optionally for one person.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "messenger",
+              "instagram"
+            ],
+            "default": "messenger"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Only the conversation with this PSID/IGSID"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,updated_time,participants,unread_count,message_count,snippet"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_conversation_messages",
+      "description": "List messages in a Messenger or Instagram Direct conversation, newest first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,created_time,from,to,message,attachments"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a Messenger or Instagram Direct message from the Page to a PSID/IGSID. Free-form only within 24 h of their last message; otherwise use MESSAGE_TAG + HUMAN_AGENT.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (default: META_PAGE_ID)"
+          },
+          "recipient_id": {
+            "type": "string",
+            "description": "PSID (Messenger) or IGSID (Instagram)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text"
+          },
+          "attachment_url": {
+            "type": "string",
+            "description": "Public URL of an attachment (instead of text)"
+          },
+          "attachment_type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "file"
+            ],
+            "default": "image"
+          },
+          "messaging_type": {
+            "type": "string",
+            "enum": [
+              "RESPONSE",
+              "UPDATE",
+              "MESSAGE_TAG"
+            ],
+            "default": "RESPONSE"
+          },
+          "tag": {
+            "type": "string",
+            "enum": [
+              "HUMAN_AGENT"
+            ],
+            "description": "Required with MESSAGE_TAG"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id"
+          }
+        },
+        "required": [
+          "recipient_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Meta Graph API endpoint that has no dedicated operation, e.g. path \"/me/accounts\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/accounts\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
