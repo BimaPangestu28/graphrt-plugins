@@ -1,0 +1,16 @@
+# Read a spreadsheet's sheets and the first rows of its first sheet.
+#   GOOGLE_REFRESH_TOKEN=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... graphrt run google-sheets/example.yaml --plugins .
+#   or: GOOGLE_SERVICE_ACCOUNT_JSON=/path/to/key.json graphrt run google-sheets/example.yaml --plugins .
+# The id is Google's public sample spreadsheet; replace it with your own (the part of the URL between /d/ and /edit).
+version: "1"
+name: google-sheets-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: spreadsheet, type: google-sheets.get_spreadsheet, spreadsheet_id: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" }
+    - { id: rows, type: google-sheets.read_range, spreadsheet_id: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms", sheet: "Class Data", range: "A1:F5" }
+    - { id: answer, type: answer, answer: "{{#spreadsheet.data.title#}}: {{#rows.data.values#}}" }
+  edges:
+    - { source: start, target: spreadsheet }
+    - { source: spreadsheet, target: rows }
+    - { source: rows, target: answer }
