@@ -2,7 +2,8 @@
  * Small HTTP client shared by the social-media plugins.
  *
  * Responsibilities: build URLs, attach credentials, encode JSON/form bodies,
- * retry safely (429 always, 5xx/network only for idempotent methods), honour
+ * retry safely (429 always, 5xx/network only for idempotent methods or requests
+ * marked `idempotent: true`), honour
  * Retry-After, and turn failures into PluginErrors with stable `kind`s:
  * invalid_input, auth_error, permission_denied, not_found, rate_limited,
  * api_error, network_error, cancelled.
@@ -34,8 +35,10 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  * @param options.timeoutMs - Per-attempt timeout (number, default 30000)
  * @param options.defaultHeaders - Headers sent on every request (object)
  * @returns `{request, requestWithHeaders}`; request options are
- *   `{method, path, query, json, form, body, headers, signal, redactResponse, timeoutMs}`
- *   (`timeoutMs` overrides the client's per-attempt timeout, e.g. for large uploads)
+ *   `{method, path, query, json, form, body, headers, signal, redactResponse, timeoutMs, idempotent}`
+ *   (`timeoutMs` overrides the client's per-attempt timeout, e.g. for large uploads; `idempotent: true` marks a
+ *   request that is safe to repeat although its method is not, e.g. a search sent as POST: its 5xx and network
+ *   failures are retried like a GET's and carry no "outcome unknown" note. Never set it on a write.)
  *
  * @example
  * const client = createApiClient({ baseUrl, authorize: ({ headers }) => { headers.authorization = `Bearer ${token}`; } });
@@ -60,7 +63,8 @@ export function createApiClient(options) {
 
 async function sendWithRetries(clientSettings, requestOptions) {
   const method = (requestOptions.method ?? "GET").toUpperCase();
-  const normalizedOptions = { ...requestOptions, method };
+  const isIdempotent = requestOptions.idempotent === true || IDEMPOTENT_METHODS.has(method);
+  const normalizedOptions = { ...requestOptions, method, isIdempotent };
   let preparedRequest = await prepareRequest(clientSettings, normalizedOptions);
   let hasRefreshedCredentials = false;
   for (let attempt = 0; ; attempt += 1) {
@@ -95,7 +99,8 @@ async function prepareRequest(clientSettings, requestOptions) {
   const body = encodeBody(requestOptions, headers);
   const secrets = collectSecrets(headers, query, extraSecrets);
   const timeoutMs = requestOptions.timeoutMs ?? clientSettings.timeoutMs;
-  return { url, method: requestOptions.method, init: { method: requestOptions.method, headers, body }, secrets, timeoutMs };
+  const isIdempotent = requestOptions.isIdempotent;
+  return { url, method: requestOptions.method, isIdempotent, init: { method: requestOptions.method, headers, body }, secrets, timeoutMs };
 }
 
 function rejectBodyOnReadMethods(requestOptions) {
@@ -184,7 +189,7 @@ function classifyTransportFailure(transportError, callerSignal, preparedRequest)
   if (callerSignal?.aborted) return new PluginError("Request cancelled", { kind: "cancelled" });
   const isTimeout = transportError?.name === "TimeoutError";
   const reason = isTimeout ? "request timed out" : String(transportError?.cause?.message ?? transportError?.message ?? transportError);
-  const isIdempotent = IDEMPOTENT_METHODS.has(preparedRequest.method);
+  const isIdempotent = preparedRequest.isIdempotent;
   const message = `Network error: ${reason}${isIdempotent ? "" : UNKNOWN_OUTCOME_NOTE}`;
   return new PluginError(redact(message, preparedRequest.secrets), { kind: "network_error", retryable: isIdempotent });
 }
@@ -205,7 +210,7 @@ function buildHttpError(clientSettings, fetchResponse, responseBody, preparedReq
   const kind = parsedError.kind ?? defaultKindForStatus(status);
   const apiMessage = parsedError.message ?? extractGenericMessage(responseBody) ?? fetchResponse.statusText;
   const retryAfterMs = parsedError.retryAfterMs ?? parseRetryAfter(fetchResponse.headers.get("retry-after"));
-  const isIdempotent = IDEMPOTENT_METHODS.has(preparedRequest.method);
+  const isIdempotent = preparedRequest.isIdempotent;
   const isServerFailure = kind === "api_error" && status >= 500;
   const retryable = parsedError.retryable ?? (kind === "rate_limited" || (isServerFailure && isIdempotent));
   const outcomeNote = isServerFailure && !isIdempotent ? UNKNOWN_OUTCOME_NOTE : "";

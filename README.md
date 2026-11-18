@@ -20,10 +20,12 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [whatsapp-api](whatsapp-api/) | WhatsApp Business Cloud API: send text, templates, media and interactive messages, manage templates and the profile | 19 |
 | [google-sheets](google-sheets/) | Google Sheets: read ranges, append rows, update and clear cells, find and upsert rows by header (OAuth or service account) | 11 |
 | [google-business-profile-api](google-business-profile-api/) | Google Business Profile: locations, hours, reviews and replies, posts and daily performance metrics (API access needs Google approval) | 13 |
+| [shopee-api](shopee-api/) | Shopee Open Platform v2 (signed): shop info, products, stock and price, orders and shipping, seller chat | 15 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).
-  The exception is token refresh, which is node only, so tokens never reach an LLM.
+  The exceptions are node only, so an LLM can never call them: token refresh (tokens never reach an LLM) and
+  high-risk writes such as marketplace price/stock/shipping changes and WhatsApp Desktop sends.
 - **`api_request` for agents is read-only:** an agent calling `api_request` as a tool may only use GET; writes
   through it must be a workflow node or a dedicated operation.
 - **Operation lists:** each plugin's full list is in its `OPERATIONS.md`, and its setup (tokens, permissions,

@@ -1,0 +1,15 @@
+# Read the Shopee shop and its first items.
+#   SHOPEE_PARTNER_ID=... SHOPEE_PARTNER_KEY=... SHOPEE_SHOP_ID=... SHOPEE_ACCESS_TOKEN=... \
+#   graphrt run shopee-api/example.yaml --plugins .
+version: "1"
+name: shopee-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: shop, type: shopee-api.get_shop_info }
+    - { id: items, type: shopee-api.get_item_list, limit: 3 }
+    - { id: answer, type: answer, answer: "{{#shop.data.shop_name#}} ({{#shop.data.region#}})\nItems: {{#items.data#}}" }
+  edges:
+    - { source: start, target: shop }
+    - { source: shop, target: items }
+    - { source: items, target: answer }
