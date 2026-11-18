@@ -9,6 +9,7 @@
  *     createClient: ({ accessToken, environment, fetchImpl }) => client,
  *     resolveAccessToken?: ({ environment, nodeToken }) => token | null,  // replaces the env lookup
  *     localOnly?: true,                       // no network, no secrets, no node `access_token` (e.g. desktop control)
+ *     noCredentials?: true,                   // public API: network but no token, no secrets, no node `access_token`
  *     limits?: { timeout_ms, max_concurrency },
  *     operations: [{ name, title, description, parameters, run }],
  *   }
@@ -47,7 +48,7 @@ export function buildDescriptors(pluginDefinition) {
     category: "integration",
     config_schema: {
       ...operation.parameters,
-      properties: pluginDefinition.localOnly
+      properties: !offersNodeToken(pluginDefinition)
         ? operation.parameters.properties
         : { ...operation.parameters.properties, access_token: ACCESS_TOKEN_PROPERTY },
     },
@@ -80,11 +81,12 @@ export function buildManifest(pluginDefinition) {
     command: "node",
     args: ["plugin.mjs"],
     // secrets: true lets a node's `access_token` (from a secret) arrive unmasked once the plugin is trusted.
-    // A localOnly plugin talks to no API, so it asks for neither the network nor secrets.
+    // A localOnly plugin talks to no API, so it asks for neither the network nor secrets; a noCredentials plugin
+    // calls a public API, so it needs the network but no secrets.
     permissions: {
       network: !pluginDefinition.localOnly,
-      secrets: !pluginDefinition.localOnly,
-      env: [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? [])],
+      secrets: offersNodeToken(pluginDefinition),
+      env: listPermittedEnv(pluginDefinition),
     },
     limits: { ...DEFAULT_LIMITS, ...pluginDefinition.limits },
     nodes,
@@ -93,11 +95,26 @@ export function buildManifest(pluginDefinition) {
 }
 
 /**
+ * Whether nodes accept an `access_token` override (and the plugin therefore needs plaintext secrets).
+ *
+ * @param pluginDefinition - Plugin definition (object)
+ * @returns False for localOnly and noCredentials plugins (boolean)
+ */
+export function offersNodeToken(pluginDefinition) {
+  return !pluginDefinition.localOnly && !pluginDefinition.noCredentials;
+}
+
+function listPermittedEnv(pluginDefinition) {
+  const envNames = [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? [])].filter(Boolean);
+  return [...new Set(envNames)];
+}
+
+/**
  * Creates a function that validates arguments, picks the token and runs an operation.
  *
  * @param pluginDefinition - Plugin definition (object)
  * @param environment - Environment variables, usually process.env (object)
- * @param runnerOptions - Optional `{fetchImpl}` passed to createClient, for tests (object)
+ * @param runnerOptions - Optional `{fetchImpl, resolveHostAddresses}` passed to createClient, for tests (object)
  * @returns `(operationName, rawArguments, {source, signal}) => Promise<{data, next_cursor}>`
  * @throws PluginError kinds `invalid_input` (unknown operation or bad args), `auth_error` (no token)
  */
@@ -109,11 +126,18 @@ export function createOperationRunner(pluginDefinition, environment, runnerOptio
       throw new PluginError(`Unknown operation \`${operationName}\``, { kind: "invalid_input" });
     }
     const args = validateArguments(operation.parameters, rawArguments);
-    const accessToken = await pickAccessToken(pluginDefinition, environment, rawArguments, source);
-    const client = pluginDefinition.createClient({ accessToken, environment, fetchImpl: runnerOptions.fetchImpl });
+    const accessToken = pluginDefinition.noCredentials ? undefined : await pickAccessToken(pluginDefinition, environment, rawArguments, source);
+    const client = pluginDefinition.createClient(buildClientOptions(accessToken, environment, runnerOptions));
     const result = await operation.run({ client, args, environment, signal, source });
     return { data: result?.data ?? null, next_cursor: result?.next_cursor ?? null };
   };
+}
+
+// Only test doubles that were given are passed, so a definition's own defaults are never overwritten with undefined.
+function buildClientOptions(accessToken, environment, runnerOptions) {
+  const clientOptions = { accessToken, environment, fetchImpl: runnerOptions.fetchImpl };
+  if (runnerOptions.resolveHostAddresses) clientOptions.resolveHostAddresses = runnerOptions.resolveHostAddresses;
+  return clientOptions;
 }
 
 /**

@@ -3,13 +3,13 @@
  * URL (no credentials) and PUT its bytes to the LinkedIn upload URL.
  *
  * The download follows redirects by hand and refuses http and internal hosts
- * on every hop (see public-https-fetch.mjs). The upload URL is on a different
+ * on every hop (see shared/public-https-fetch.mjs). The upload URL is on a different
  * LinkedIn host than the REST API, so the shared client (which only allows its
  * own origin) cannot be used. The Bearer token is sent only when that host is
  * https and ends with `.linkedin.com`.
  */
 import { PluginError } from "./shared/graphrt-plugin.mjs";
-import { fetchPublicHttps } from "./public-https-fetch.mjs";
+import { fetchPublicHttps } from "./shared/public-https-fetch.mjs";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 /** Each transfer (the whole download including redirects, or the PUT) gets this long. */

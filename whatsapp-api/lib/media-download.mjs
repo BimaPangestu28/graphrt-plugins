@@ -3,7 +3,7 @@
  *
  * The download never carries credentials (it does not use the API client).
  * Redirects are followed by hand and every hop must be https on a public host
- * (see public-https-fetch.mjs). The MIME type is checked against what WhatsApp
+ * (see shared/public-https-fetch.mjs). The MIME type is checked against what WhatsApp
  * accepts for the media type, and reading stops past the size limit.
  *
  * Supported types and limits: developers.facebook.com/docs/whatsapp/cloud-api/reference/media
@@ -11,7 +11,7 @@
  */
 import { PluginError } from "./shared/graphrt-plugin.mjs";
 import { rejectInput } from "./client.mjs";
-import { fetchPublicHttps } from "./public-https-fetch.mjs";
+import { fetchPublicHttps } from "./shared/public-https-fetch.mjs";
 
 const KILOBYTE = 1024;
 const MEGABYTE = 1024 * KILOBYTE;

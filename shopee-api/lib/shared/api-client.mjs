@@ -38,7 +38,9 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  *   `{method, path, query, json, form, body, headers, signal, redactResponse, timeoutMs, idempotent}`
  *   (`timeoutMs` overrides the client's per-attempt timeout, e.g. for large uploads; `idempotent: true` marks a
  *   request that is safe to repeat although its method is not, e.g. a search sent as POST: its 5xx and network
- *   failures are retried like a GET's and carry no "outcome unknown" note. Never set it on a write.)
+ *   failures are retried like a GET's and carry no "outcome unknown" note. Never set it on a write. `idempotent: false`
+ *   marks a PUT or DELETE that must not be repeated, e.g. one that sends a message: it is never retried after a 5xx
+ *   or network failure and its errors carry the "outcome unknown" note.)
  *
  * @example
  * const client = createApiClient({ baseUrl, authorize: ({ headers }) => { headers.authorization = `Bearer ${token}`; } });
@@ -63,7 +65,7 @@ export function createApiClient(options) {
 
 async function sendWithRetries(clientSettings, requestOptions) {
   const method = (requestOptions.method ?? "GET").toUpperCase();
-  const isIdempotent = requestOptions.idempotent === true || IDEMPOTENT_METHODS.has(method);
+  const isIdempotent = typeof requestOptions.idempotent === "boolean" ? requestOptions.idempotent : IDEMPOTENT_METHODS.has(method);
   const normalizedOptions = { ...requestOptions, method, isIdempotent };
   let preparedRequest = await prepareRequest(clientSettings, normalizedOptions);
   let hasRefreshedCredentials = false;

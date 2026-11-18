@@ -343,3 +343,12 @@ test("a per-request timeoutMs overrides the client timeout", async () => {
   await assert.rejects(client.request({ path: "/x" }), (error) => error.kind === "network_error");
   assert.deepEqual(await client.request({ path: "/x", timeoutMs: 500 }), {});
 });
+
+test("idempotent: false makes a PUT or DELETE a non-repeatable write: no 5xx retry and the unknown-outcome note", async () => {
+  const fakeFetch = createFakeFetch([{ status: 503 }, { body: {} }]);
+  await assert.rejects(
+    createTestClient(fakeFetch).request({ method: "DELETE", path: "/messages/1", idempotent: false }),
+    (error) => error.kind === "api_error" && error.retryable === false && /outcome unknown/i.test(error.message),
+  );
+  assert.equal(fakeFetch.calls.length, 1);
+});
