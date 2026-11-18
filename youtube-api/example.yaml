@@ -1,0 +1,15 @@
+# Read my channel and its latest uploads.
+#   YOUTUBE_ACCESS_TOKEN=... graphrt run youtube-api/example.yaml --plugins .
+#   or: YOUTUBE_REFRESH_TOKEN=... YOUTUBE_CLIENT_ID=... YOUTUBE_CLIENT_SECRET=... graphrt run youtube-api/example.yaml --plugins .
+version: "1"
+name: youtube-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: channel, type: youtube-api.get_my_channel }
+    - { id: videos, type: youtube-api.list_my_videos, uploads_playlist_id: "{{#channel.data.contentDetails.relatedPlaylists.uploads#}}", limit: 3 }
+    - { id: answer, type: answer, answer: "{{#channel.data.snippet.title#}} ({{#channel.data.statistics.subscriberCount#}} subscribers)\nLatest uploads: {{#videos.data.videos#}}" }
+  edges:
+    - { source: start, target: channel }
+    - { source: channel, target: videos }
+    - { source: videos, target: answer }

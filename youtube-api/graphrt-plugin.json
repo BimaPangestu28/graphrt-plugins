@@ -1,0 +1,1149 @@
+{
+  "name": "youtube-api",
+  "version": "0.1.0",
+  "description": "YouTube channel, videos, comments and live chat via the official YouTube Data API v3",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "YOUTUBE_ACCESS_TOKEN",
+      "YOUTUBE_REFRESH_TOKEN",
+      "YOUTUBE_CLIENT_ID",
+      "YOUTUBE_CLIENT_SECRET"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "youtube-api.get_my_channel",
+      "title": "Get my YouTube channel",
+      "description": "Read the authenticated user's channel (title, statistics, uploads playlist id).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "default": "snippet,contentDetails,statistics",
+            "description": "Comma-separated resource parts"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.list_my_videos",
+      "title": "List my YouTube videos",
+      "description": "List the authenticated channel's uploads, newest first. Pass `uploads_playlist_id` (returned in data) to skip the channel lookup.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "uploads_playlist_id": {
+            "type": "string",
+            "description": "Uploads playlist id (UU...); looked up from the channel when empty"
+          },
+          "part": {
+            "type": "string",
+            "default": "snippet,contentDetails"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size (max 50)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.get_videos",
+      "title": "Get YouTube videos",
+      "description": "Read details of up to 50 videos by id (snippet, status, statistics, duration).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Video ids"
+          },
+          "part": {
+            "type": "string",
+            "default": "snippet,status,statistics,contentDetails"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.update_video_metadata",
+      "title": "Update YouTube video metadata",
+      "description": "Change a video's title, description, tags or category. Reads the current snippet first, so fields you omit keep their values.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "Video id, e.g. dQw4w9WgXcQ"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New title (max 100 characters)"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Replaces the tag list"
+          },
+          "category_id": {
+            "type": "string",
+            "description": "Video category id, e.g. 22 (People & Blogs)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.delete_video",
+      "title": "Delete YouTube video",
+      "description": "Permanently delete one of the authenticated channel's videos.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "Video id, e.g. dQw4w9WgXcQ"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.list_comment_threads",
+      "title": "List YouTube comment threads",
+      "description": "List top-level comments (with some replies) on a video, or on all of a channel's videos. Filter by search terms or moderation status.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "Video id (or pass channel_id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id: threads on all of its videos"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "time",
+              "relevance"
+            ]
+          },
+          "search_terms": {
+            "type": "string",
+            "description": "Only comments containing these terms"
+          },
+          "moderation_status": {
+            "type": "string",
+            "enum": [
+              "published",
+              "heldForReview",
+              "likelySpam"
+            ],
+            "description": "Needs the channel owner's token for non-published"
+          },
+          "text_format": {
+            "type": "string",
+            "enum": [
+              "plainText",
+              "html"
+            ],
+            "default": "plainText",
+            "description": "Format of textDisplay"
+          },
+          "part": {
+            "type": "string",
+            "default": "snippet,replies"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.list_comment_replies",
+      "title": "List YouTube comment replies",
+      "description": "List all replies to a top-level comment.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Top-level comment id"
+          },
+          "text_format": {
+            "type": "string",
+            "enum": [
+              "plainText",
+              "html"
+            ],
+            "default": "plainText",
+            "description": "Format of textDisplay"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "parent_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.post_comment",
+      "title": "Post YouTube comment",
+      "description": "Post a new top-level comment on a video.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel that owns the video (optional)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.reply_to_comment",
+      "title": "Reply to YouTube comment",
+      "description": "Reply to a top-level comment.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Top-level comment id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "parent_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.update_comment",
+      "title": "Edit YouTube comment",
+      "description": "Change the text of a comment the authenticated user wrote.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.delete_comment",
+      "title": "Delete YouTube comment",
+      "description": "Delete a comment the authenticated user wrote.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.set_comment_moderation_status",
+      "title": "Moderate YouTube comments",
+      "description": "Publish, hold for review or reject up to 50 comments on your channel; optionally ban the author when rejecting.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "comment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50
+          },
+          "moderation_status": {
+            "type": "string",
+            "enum": [
+              "heldForReview",
+              "published",
+              "rejected"
+            ]
+          },
+          "ban_author": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only with rejected"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_ids",
+          "moderation_status"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.list_live_chat_messages",
+      "title": "List YouTube live chat messages",
+      "description": "Read live chat messages. Pass next_cursor back to get only newer messages, waiting polling_interval_ms between calls. Costs 5 quota units per call.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "live_chat_id": {
+            "type": "string",
+            "description": "Live chat id (or pass video_id)"
+          },
+          "video_id": {
+            "type": "string",
+            "description": "Live video id; its active chat is looked up (1 extra quota unit)"
+          },
+          "part": {
+            "type": "string",
+            "default": "id,snippet,authorDetails"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 2000,
+            "default": 500,
+            "description": "Page size (200–2000)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.send_live_chat_message",
+      "title": "Send YouTube live chat message",
+      "description": "Post a text message to a live chat as the authenticated channel.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "live_chat_id": {
+            "type": "string",
+            "description": "Live chat id (or pass video_id)"
+          },
+          "video_id": {
+            "type": "string",
+            "description": "Live video id; its active chat is looked up (1 extra quota unit)"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Message text (max 200 characters)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-api.api_request",
+      "title": "YouTube Data API request",
+      "description": "Call any YouTube Data API endpoint that has no dedicated operation, e.g. path \"/playlists\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/playlists\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_my_channel",
+      "description": "Read the authenticated user's channel (title, statistics, uploads playlist id).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "default": "snippet,contentDetails,statistics",
+            "description": "Comma-separated resource parts"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_my_videos",
+      "description": "List the authenticated channel's uploads, newest first. Pass `uploads_playlist_id` (returned in data) to skip the channel lookup.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "uploads_playlist_id": {
+            "type": "string",
+            "description": "Uploads playlist id (UU...); looked up from the channel when empty"
+          },
+          "part": {
+            "type": "string",
+            "default": "snippet,contentDetails"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size (max 50)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_videos",
+      "description": "Read details of up to 50 videos by id (snippet, status, statistics, duration).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Video ids"
+          },
+          "part": {
+            "type": "string",
+            "default": "snippet,status,statistics,contentDetails"
+          }
+        },
+        "required": [
+          "video_ids"
+        ]
+      }
+    },
+    {
+      "name": "update_video_metadata",
+      "description": "Change a video's title, description, tags or category. Reads the current snippet first, so fields you omit keep their values.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "Video id, e.g. dQw4w9WgXcQ"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New title (max 100 characters)"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Replaces the tag list"
+          },
+          "category_id": {
+            "type": "string",
+            "description": "Video category id, e.g. 22 (People & Blogs)"
+          }
+        },
+        "required": [
+          "video_id"
+        ]
+      }
+    },
+    {
+      "name": "delete_video",
+      "description": "Permanently delete one of the authenticated channel's videos.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "Video id, e.g. dQw4w9WgXcQ"
+          }
+        },
+        "required": [
+          "video_id"
+        ]
+      }
+    },
+    {
+      "name": "list_comment_threads",
+      "description": "List top-level comments (with some replies) on a video, or on all of a channel's videos. Filter by search terms or moderation status.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "Video id (or pass channel_id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id: threads on all of its videos"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "time",
+              "relevance"
+            ]
+          },
+          "search_terms": {
+            "type": "string",
+            "description": "Only comments containing these terms"
+          },
+          "moderation_status": {
+            "type": "string",
+            "enum": [
+              "published",
+              "heldForReview",
+              "likelySpam"
+            ],
+            "description": "Needs the channel owner's token for non-published"
+          },
+          "text_format": {
+            "type": "string",
+            "enum": [
+              "plainText",
+              "html"
+            ],
+            "default": "plainText",
+            "description": "Format of textDisplay"
+          },
+          "part": {
+            "type": "string",
+            "default": "snippet,replies"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_comment_replies",
+      "description": "List all replies to a top-level comment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Top-level comment id"
+          },
+          "text_format": {
+            "type": "string",
+            "enum": [
+              "plainText",
+              "html"
+            ],
+            "default": "plainText",
+            "description": "Format of textDisplay"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "parent_id"
+        ]
+      }
+    },
+    {
+      "name": "post_comment",
+      "description": "Post a new top-level comment on a video.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel that owns the video (optional)"
+          }
+        },
+        "required": [
+          "video_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "reply_to_comment",
+      "description": "Reply to a top-level comment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Top-level comment id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          }
+        },
+        "required": [
+          "parent_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "update_comment",
+      "description": "Change the text of a comment the authenticated user wrote.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          }
+        },
+        "required": [
+          "comment_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "delete_comment",
+      "description": "Delete a comment the authenticated user wrote.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "set_comment_moderation_status",
+      "description": "Publish, hold for review or reject up to 50 comments on your channel; optionally ban the author when rejecting.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "comment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50
+          },
+          "moderation_status": {
+            "type": "string",
+            "enum": [
+              "heldForReview",
+              "published",
+              "rejected"
+            ]
+          },
+          "ban_author": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only with rejected"
+          }
+        },
+        "required": [
+          "comment_ids",
+          "moderation_status"
+        ]
+      }
+    },
+    {
+      "name": "list_live_chat_messages",
+      "description": "Read live chat messages. Pass next_cursor back to get only newer messages, waiting polling_interval_ms between calls. Costs 5 quota units per call.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "live_chat_id": {
+            "type": "string",
+            "description": "Live chat id (or pass video_id)"
+          },
+          "video_id": {
+            "type": "string",
+            "description": "Live video id; its active chat is looked up (1 extra quota unit)"
+          },
+          "part": {
+            "type": "string",
+            "default": "id,snippet,authorDetails"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 2000,
+            "default": 500,
+            "description": "Page size (200–2000)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "send_live_chat_message",
+      "description": "Post a text message to a live chat as the authenticated channel.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "live_chat_id": {
+            "type": "string",
+            "description": "Live chat id (or pass video_id)"
+          },
+          "video_id": {
+            "type": "string",
+            "description": "Live video id; its active chat is looked up (1 extra quota unit)"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Message text (max 200 characters)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any YouTube Data API endpoint that has no dedicated operation, e.g. path \"/playlists\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/playlists\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
