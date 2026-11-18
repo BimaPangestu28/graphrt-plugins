@@ -1,0 +1,16 @@
+# YouTube Data API v3 research (2026-11-18)
+- Base `https://www.googleapis.com/youtube/v3`; OAuth Bearer (scopes youtube.readonly, youtube.force-ssl, youtube, youtube.upload); refresh POST https://oauth2.googleapis.com/token grant_type=refresh_token. Public reads may use key=API_KEY.
+- Quota 10k units/day; since 2026-06-01 search.list and videos.insert own buckets of 100 calls/day.
+- channels GET part=snippet,contentDetails,statistics mine=true (1) → contentDetails.relatedPlaylists.uploads
+- playlistItems GET playlistId, part=snippet,contentDetails, maxResults≤50 (1)
+- search GET forMine=true type=video (search bucket)
+- videos GET id (≤50 csv) part=snippet,status,statistics,contentDetails (1); PUT part=snippet body {id, snippet{title,categoryId,description,tags}} (50) — omitted fields cleared; DELETE id (50)
+- Upload resumable POST /upload/youtube/v3/videos?uploadType=resumable&part=snippet,status → Location → PUT bytes (optional).
+- commentThreads GET one of videoId|allThreadsRelatedToChannelId|id, part=snippet,replies, maxResults 1–100, order time|relevance, searchTerms, textFormat, moderationStatus published|heldForReview|likelySpam (1)
+- comments GET parentId|id maxResults 1–100 (1)
+- commentThreads POST part=snippet {snippet{channelId, videoId, topLevelComment{snippet{textOriginal}}}} (50)
+- comments POST part=snippet {snippet{parentId,textOriginal}} (50); PUT part=snippet {id, snippet{textOriginal}} (50); DELETE id (50)
+- comments/setModerationStatus POST id(csv≤50) moderationStatus heldForReview|published|rejected banAuthor (only rejected) → 204 (50)
+- markAsSpam deprecated — skip. No DM API.
+- liveChat/messages GET liveChatId part=id,snippet,authorDetails (5); POST {snippet{liveChatId,type:textMessageEvent,textMessageDetails{messageText}}} (20); DELETE id.
+- Pagination pageToken/nextPageToken. Errors {error{code,message,errors[{domain,reason,message}]}}; reasons quotaExceeded (don't retry), commentsDisabled, forbidden, insufficientPermissions, authorizationRequired, videoNotFound, commentNotFound.

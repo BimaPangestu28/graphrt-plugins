@@ -1,0 +1,14 @@
+# Threads API research (2026-11-18)
+- Base `https://graph.threads.net/v1.0`; user token (access_token query or Bearer). Refresh GET /refresh_access_token?grant_type=th_refresh_token&access_token= (token ≥24h old).
+- Scopes: threads_basic, threads_content_publish, threads_read_replies, threads_manage_replies, threads_manage_insights, threads_manage_mentions, threads_keyword_search, threads_delete, threads_profile_discovery.
+- GET /me fields id,username,name,threads_profile_picture_url,threads_biography,is_verified
+- GET /me/threads, /me/replies (fields, since, until, limit ≤100, before/after)
+- GET /profile_lookup?username=  (threads_profile_discovery)
+- Publish: POST /me/threads {media_type TEXT|IMAGE|VIDEO|CAROUSEL, text, image_url, video_url, is_carousel_item, children(csv), reply_to_id, reply_control everyone|accounts_you_follow|mentioned_only|parent_post_author_only|followers_only, quote_post_id, poll_attachment{option_a..d}, link_attachment, topic_tag, alt_text} → id; GET /{container}?fields=status,error_message (IN_PROGRESS|FINISHED|PUBLISHED|ERROR|EXPIRED); POST /me/threads_publish creation_id → id
+- POST /{media-id}/repost; DELETE /{media-id} (threads_delete)
+- GET /{media-id}/replies, /{media-id}/conversation (fields, reverse)
+- POST /{reply-id}/manage_reply hide=true|false
+- GET /{media-id}/pending_replies approval_status; POST /{reply-id}/manage_pending_reply approve=true|false
+- GET /me/mentions; GET /keyword_search q, search_type TOP|RECENT, search_mode KEYWORD|TAG
+- GET /me/threads_publishing_limit fields=quota_usage,config,reply_quota_usage,reply_config,delete_quota_usage,delete_config
+- No DM API. Pagination paging.cursors.before/after (+paging.next). Errors likely Graph {error{message,type,code,error_subcode,fbtrace_id}}.

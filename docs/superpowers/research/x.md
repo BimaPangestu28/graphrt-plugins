@@ -1,0 +1,14 @@
+# X API v2 research (2026-11-18, from docs.x.com/openapi.json)
+- Base `https://api.x.com`. OAuth2 user token (PKCE). Refresh POST https://api.x.com/2/oauth2/token form grant_type=refresh_token,refresh_token,client_id. Access tokens 2h; refresh needs offline.access.
+- Scopes: tweet.read tweet.write users.read dm.read dm.write offline.access media.write like.write tweet.moderate.write. App-only bearer = public reads only.
+- Pay-per-use: post create $0.015 ($0.20 with URL), post read $0.005, user read $0.010, DM read $0.010, DM send $0.015.
+- GET /2/users/me, /2/users/by/username/{username} (user.fields, expansions)
+- POST /2/tweets {text, reply{in_reply_to_tweet_id}, quote_tweet_id (Enterprise), media{media_ids}, poll{options[2-4],duration_minutes}, reply_settings} → data{id,text}
+- DELETE /2/tweets/{id}; GET /2/tweets/{id}; GET /2/users/{id}/tweets (max_results 5-100, pagination_token, exclude); GET /2/users/{id}/mentions; GET /2/tweets/search/recent (query, max_results 10-100, next_token) — replies via query=conversation_id:{id}
+- PUT /2/tweets/{id}/hidden {hidden} (tweet.moderate.write)
+- POST /2/users/{id}/likes {tweet_id}; DELETE /2/users/{id}/likes/{tweet_id}; POST /2/users/{id}/retweets {tweet_id}; DELETE /2/users/{id}/retweets/{source_tweet_id}
+- GET /2/dm_events; /2/dm_conversations/{id}/dm_events; /2/dm_conversations/with/{participant_id}/dm_events (max_results 1-100, pagination_token, dm_event.fields, expansions)
+- POST /2/dm_conversations/with/{participant_id}/messages {text, attachments[{media_id}]}; POST /2/dm_conversations/{id}/messages; POST /2/dm_conversations {conversation_type:"Group", participant_ids, message{text}}
+- POST /2/media/upload (multipart media, media_category tweet_image|dm_image) → data{id}
+- Field names: spec uses post.fields; legacy tweet.fields — verify live.
+- Pagination meta.next_token → pagination_token. Errors RFC7807 {type,title,detail,status} or {errors[]}; 200 may carry errors[] partials. Rate headers x-rate-limit-limit/remaining/reset (unix s).
