@@ -19,7 +19,14 @@ export const sessionOperations = [
     parameters: {
       type: "object",
       properties: {
-        timeout_seconds: { type: "integer", minimum: 30, maximum: 280, default: 180, description: "How long to wait for the scan" },
+        // Capped at 240 so loading + scan + the 8 s settle + browser start stay under the 300 s manifest timeout.
+        timeout_seconds: {
+          type: "integer",
+          minimum: 30,
+          maximum: 240,
+          default: 180,
+          description: "How long to wait for WhatsApp Web to load and the QR code to be scanned, in total",
+        },
       },
     },
     run: async ({ client, args, signal }) => ({

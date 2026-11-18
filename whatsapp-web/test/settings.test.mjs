@@ -4,11 +4,11 @@ import { EventEmitter } from "node:events";
 import { resolveSettings } from "../lib/settings.mjs";
 import { installShutdownHandlers } from "../lib/shutdown.mjs";
 
-test("settings defaults: profile under ~/.graphrt, 15 min idle, 5 s interval, 50 a day, no file dirs", () => {
+test("settings defaults: profile under ~/.graphrt, 15 min idle, 30 s interval, 50 a day, no file dirs", () => {
   assert.deepEqual(resolveSettings({ HOME: "/Users/someone" }), {
     profileDirectory: "/Users/someone/.graphrt/whatsapp-web/profile",
     idleTimeoutMs: 900000,
-    minSendIntervalMs: 5000,
+    minSendIntervalMs: 30000,
     dailySendLimit: 50,
     allowedFileDirectories: [],
   });

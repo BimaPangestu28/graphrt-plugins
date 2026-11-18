@@ -5,8 +5,11 @@ import {
   classifyLaunchError,
   isUnsupportedBrowserPage,
   determineLoginStatus,
+  findMismatchedChatId,
   findNewOutgoingMessage,
-  mergeChatRows,
+  isSameEditableText,
+  matchesSentContent,
+  mergeRawChatRows,
   normalizePhoneNumber,
   parseChatRows,
   parseDeliveryStatus,
@@ -18,11 +21,21 @@ import {
 test("normalizePhoneNumber strips formatting and keeps international digits", () => {
   assert.equal(normalizePhoneNumber("+62 812-3456-789"), "628123456789");
   assert.equal(normalizePhoneNumber("(+1) 415 555 0100"), "14155550100");
+  assert.equal(normalizePhoneNumber("0062 812 3456 789"), "628123456789", "00 is the international prefix");
 });
 
-for (const badNumber of ["0812", "abc", "+62 812 3456 7890 1234", "62x8123456789", "0081234567"]) {
+for (const badNumber of ["0812", "abc", "+62 812 3456 7890 1234", "62x8123456789", "00012345678", "+0812345678"]) {
   test(`normalizePhoneNumber rejects ${JSON.stringify(badNumber)}`, () => {
     assert.throws(() => normalizePhoneNumber(badNumber), { kind: "invalid_input" });
+  });
+}
+
+for (const numberWithoutCountryCode of ["08123456789", "628123456789", "812 3456 789"]) {
+  test(`normalizePhoneNumber refuses ${JSON.stringify(numberWithoutCountryCode)} without + or 00 (it could be read as another country)`, () => {
+    assert.throws(
+      () => normalizePhoneNumber(numberWithoutCountryCode),
+      (error) => error.kind === "invalid_input" && /country code/.test(error.message) && /\+62/.test(error.message),
+    );
   });
 }
 
@@ -86,10 +99,16 @@ test("parseChatRows reads name, time, preview and unread count, ordered by posit
   ]);
 });
 
-test("mergeChatRows keeps the first sighting of each chat and appends new ones", () => {
-  const firstBatch = [{ name: "A", unread_count: 0 }, { name: "B", unread_count: 1 }];
-  const merged = mergeChatRows(firstBatch, [{ name: "B", unread_count: 5 }, { name: "C", unread_count: 0 }]);
-  assert.deepEqual(merged.map((chat) => [chat.name, chat.unread_count]), [["A", 0], ["B", 1], ["C", 0]]);
+test("parseChatRows counts a chat marked as unread (badge without a number) as 1 unread", () => {
+  const [chat] = parseChatRows([{ top: 0, title: "Budi", text: "Budi\n09:00\nok", unreadLabel: "Unread" }]);
+  assert.equal(chat.unread_count, 1);
+  assert.equal(chat.last_message, "ok");
+});
+
+test("mergeRawChatRows keeps rows already seen once, by list position, and keeps two chats with the same name", () => {
+  const firstBatch = [{ top: 0, title: "A" }, { top: 72, title: "Budi" }];
+  const merged = mergeRawChatRows(firstBatch, [{ top: 72, title: "Budi" }, { top: 144, title: "Budi" }, { top: 216, title: "C" }]);
+  assert.deepEqual(merged.map((row) => [row.top, row.title]), [[0, "A"], [72, "Budi"], [144, "Budi"], [216, "C"]]);
 });
 
 const LOGIN_STATUS_CASES = [
@@ -105,13 +124,62 @@ for (const [signals, expected] of LOGIN_STATUS_CASES) {
 
 test("findNewOutgoingMessage ignores known and incoming messages", () => {
   const rawRows = [
-    { dataId: "true_6281@c.us_OLD", prePlainText: null, text: "old", iconNames: ["msg-dblcheck"], iconLabels: [] },
-    { dataId: "false_6281@c.us_IN", prePlainText: null, text: "incoming", iconNames: [], iconLabels: [] },
+    { dataId: "true_6281@c.us_OLD", prePlainText: null, text: "new", iconNames: ["msg-dblcheck"], iconLabels: [] },
+    { dataId: "false_6281@c.us_IN", prePlainText: null, text: "new", iconNames: [], iconLabels: [] },
     { dataId: "true_6281@c.us_NEW", prePlainText: null, text: "new", iconNames: ["msg-time"], iconLabels: [] },
   ];
-  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD"])).id, "NEW");
-  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD"])).status, "pending");
-  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD", "NEW"])), null);
+  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD"]), { text: "new" }).id, "NEW");
+  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD"]), { text: "new" }).status, "pending");
+  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD", "NEW"]), { text: "new" }), null);
+});
+
+test("findNewOutgoingMessage only confirms a new outgoing message with the sent text", () => {
+  const rawRows = [
+    { dataId: "true_6281@c.us_OTHER", prePlainText: null, text: "sent from the phone meanwhile", iconNames: ["msg-check"], iconLabels: [] },
+  ];
+  assert.equal(findNewOutgoingMessage(rawRows, new Set(), { text: "halo" }), null);
+});
+
+const SENT_CONTENT_CASES = [
+  [{ text: "a\nb" }, "a\nb", true],
+  [{ text: "  halo   dunia \n" }, "halo dunia", true],
+  [{ text: "*bold* and _it_ 😀" }, "bold and it ", true],
+  [{ text: "halo" }, "halo!", false],
+  [{ text: "halo" }, null, false],
+  [{ text: `${"long message ".repeat(20)}end` }, `${"long message ".repeat(10)}... Read more`, true],
+  [{ text: "short" }, "sho... Read more", false],
+  [{ caption: "lihat", fileName: "p.png" }, "lihat", true],
+  [{ caption: "lihat", fileName: "p.png" }, null, false],
+  [{ caption: "", fileName: "invoice.pdf" }, null, true],
+  [{ caption: "", fileName: "invoice.pdf" }, "invoice.pdf 2 pages", true],
+  [{ caption: "", fileName: "invoice.pdf" }, "some other text", false],
+];
+for (const [expectedContent, bubbleText, expected] of SENT_CONTENT_CASES) {
+  test(`matchesSentContent ${JSON.stringify(expectedContent).slice(0, 50)} vs ${JSON.stringify(bubbleText)?.slice(0, 40)} → ${expected}`, () =>
+    assert.equal(matchesSentContent({ text: bubbleText }, expectedContent), expected));
+}
+
+const EDITABLE_TEXT_CASES = [
+  ["halo", "halo", true],
+  ["a\nb", "a\n\nb", true],
+  ["halo", "\u00a0halo\u200b ", true],
+  ["halo", "draft from yesterday halo", false],
+  ["halo", "", false],
+  ["halo", null, false],
+  ["", "", true],
+  ["", "leftover", false],
+];
+for (const [intendedText, composerText, expected] of EDITABLE_TEXT_CASES) {
+  test(`isSameEditableText ${JSON.stringify(intendedText)} vs composer ${JSON.stringify(composerText)} → ${expected}`, () =>
+    assert.equal(isSameEditableText(composerText, intendedText), expected));
+}
+
+test("findMismatchedChatId returns the first message whose chat is not the phone number", () => {
+  const row = (dataId) => ({ dataId, prePlainText: null, text: "x", iconNames: [], iconLabels: [] });
+  assert.equal(findMismatchedChatId([row("false_628123456789@c.us_A"), row("true_628123456789@c.us_B")], "628123456789"), null);
+  assert.equal(findMismatchedChatId([], "628123456789"), null);
+  assert.equal(findMismatchedChatId([row("false_6281234567890@c.us_A")], "628123456789"), "6281234567890@c.us");
+  assert.equal(findMismatchedChatId([row("false_98765432101234@lid_A")], "628123456789"), "98765432101234@lid");
 });
 
 test("buildDesktopUserAgent drops the Headless marker and matches the platform", () => {

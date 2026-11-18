@@ -3,6 +3,10 @@
  * between sends and a daily cap, persisted as JSON so they hold across
  * plugin restarts. The "day" is the local calendar day of the clock.
  *
+ * Fails closed: an unreadable or corrupt state file blocks sending (`rate_limited`)
+ * instead of resetting the counters, and a clock that moved back to an earlier day
+ * keeps the saved day's count.
+ *
  * State file: `{ "day": "2026-11-18", "count": 3, "last_send_at": 1763467200000 }`.
  */
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -47,7 +51,7 @@ export function createSendGuard({ stateFilePath, minIntervalMs, dailyLimit, cloc
       await waitForInterval((await readState()).last_send_at, minIntervalMs, clock, signal);
       const currentState = await readState();
       assertUnderDailyLimit(currentState, dailyLimit, clock.now());
-      const nextState = { day: formatLocalDay(clock.now()), count: currentState.count + 1, last_send_at: clock.now() };
+      const nextState = { day: currentState.day, count: currentState.count + 1, last_send_at: clock.now() };
       await writeStateAtomically(stateFilePath, nextState);
       return { sends_today: nextState.count, daily_limit: dailyLimit };
     },
@@ -83,17 +87,43 @@ function assertUnderDailyLimit(sendState, dailyLimit, nowMs) {
 }
 
 async function readSendState(stateFilePath, today) {
-  const emptyState = { day: today, count: 0, last_send_at: null };
+  let rawContent;
+  try {
+    rawContent = await readFile(stateFilePath, "utf8");
+  } catch (readError) {
+    if (readError.code === "ENOENT") return { day: today, count: 0, last_send_at: null };
+    throw unusableStateError(stateFilePath, readError.message);
+  }
+  const savedState = parseSavedState(rawContent);
+  if (!savedState) throw unusableStateError(stateFilePath, "its content is not a valid send state");
+  // Days compare as YYYY-MM-DD strings; a saved day "ahead" of the clock means the clock moved back.
+  if (savedState.day >= today) return savedState;
+  return { day: today, count: 0, last_send_at: savedState.last_send_at };
+}
+
+function parseSavedState(rawContent) {
   let savedState;
   try {
-    savedState = JSON.parse(await readFile(stateFilePath, "utf8"));
-  } catch (readError) {
-    if (readError.code !== "ENOENT") console.error(`[whatsapp-web] ignoring unreadable send state ${stateFilePath}: ${readError.message}`);
-    return emptyState;
+    savedState = JSON.parse(rawContent);
+  } catch {
+    return null;
   }
-  const lastSendAt = Number.isFinite(savedState?.last_send_at) ? savedState.last_send_at : null;
-  if (savedState?.day !== today) return { ...emptyState, last_send_at: lastSendAt };
-  return { day: today, count: Number.isInteger(savedState.count) ? savedState.count : 0, last_send_at: lastSendAt };
+  const isValid =
+    savedState !== null &&
+    typeof savedState === "object" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(String(savedState.day)) &&
+    Number.isInteger(savedState.count) &&
+    savedState.count >= 0 &&
+    (savedState.last_send_at === null || Number.isFinite(savedState.last_send_at));
+  return isValid ? { day: savedState.day, count: savedState.count, last_send_at: savedState.last_send_at } : null;
+}
+
+function unusableStateError(stateFilePath, reason) {
+  return new PluginError(
+    `WhatsApp Web sending is blocked: the send counter file ${stateFilePath} cannot be used (${reason}). ` +
+      "Fix it, or delete it to reset today's send count (the daily limit then starts again from 0).",
+    { kind: "rate_limited", retryable: false },
+  );
 }
 
 async function writeStateAtomically(stateFilePath, sendState) {

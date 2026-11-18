@@ -111,6 +111,54 @@ test("an already-aborted signal fails before launching", () =>
     assert.equal(launcher.launches.length, 0);
   }));
 
+test("cancelling while the browser is still launching never runs the task", async () => {
+  const controller = new AbortController();
+  const fakeLauncher = createFakeLauncher();
+  const abortingLauncher = async (...launchArguments) => {
+    controller.abort();
+    return fakeLauncher(...launchArguments);
+  };
+  await withSession({ launchPersistentContext: abortingLauncher }, async ({ session }) => {
+    let didTaskRun = false;
+    const pending = session.run(async () => {
+      didTaskRun = true;
+    }, { signal: controller.signal });
+    await assert.rejects(pending, { kind: "cancelled" });
+    assert.equal(didTaskRun, false, "a send must not start after the run was cancelled");
+  });
+});
+
+test("a crashed tab is closed and replaced by a fresh page", () =>
+  withSession({}, async ({ session, launcher }) => {
+    let firstPage;
+    await session.run(async (page) => {
+      firstPage = page;
+    });
+    firstPage.emit("crash");
+    let secondPage;
+    await session.run(async (page) => {
+      secondPage = page;
+    });
+    assert.notEqual(secondPage, firstPage);
+    assert.equal(firstPage.closed, true, "the crashed page is closed");
+    assert.equal(launcher.contexts[0].pagesCreated.length, 2);
+  }));
+
+test("a page that reports itself closed is not reused", () =>
+  withSession({}, async ({ session, launcher }) => {
+    let firstPage;
+    await session.run(async (page) => {
+      firstPage = page;
+    });
+    firstPage.isClosed = () => true; // still listed by the context, but dead
+    let secondPage;
+    await session.run(async (page) => {
+      secondPage = page;
+    });
+    assert.notEqual(secondPage, firstPage);
+    assert.equal(launcher.contexts[0].pagesCreated.length, 2);
+  }));
+
 test("a missing Chromium is reported as setup_required", () =>
   withSession(
     {

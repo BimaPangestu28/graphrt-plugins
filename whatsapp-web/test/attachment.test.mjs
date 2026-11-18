@@ -64,6 +64,52 @@ test("an https URL is downloaded to a temporary file that cleanup removes", asyn
   assert.equal(existsSync(dirname(attachment.filePath)), false);
 });
 
+/** A body that yields `chunkCount` chunks of `chunkSize` bytes, then `finish(controller)` (close by default). */
+function createCountingBody({ chunkCount, chunkSize = 10, finish = (controller) => controller.close() }) {
+  const body = { pulls: 0 };
+  body.stream = new ReadableStream({
+    pull(controller) {
+      body.pulls += 1;
+      if (body.pulls > chunkCount) return finish(controller);
+      controller.enqueue(new Uint8Array(chunkSize));
+    },
+  });
+  return body;
+}
+
+test("a URL body without content-length is streamed and stopped as soon as it passes the size limit", async () => {
+  const body = createCountingBody({ chunkCount: 100 });
+  const fakeFetch = async () => new Response(body.stream, { status: 200 });
+  await assert.rejects(resolveAttachment("https://x.example/big.bin", { allowedDirectories: [], fetchImpl: fakeFetch, maxBytes: 25 }), { kind: "invalid_input" });
+  assert.ok(body.pulls <= 4, `stopped reading early (read ${body.pulls} chunks)`);
+});
+
+test("a download that breaks mid-body is a network_error", async () => {
+  const body = createCountingBody({ chunkCount: 1, finish: (controller) => controller.error(new TypeError("terminated")) });
+  const fakeFetch = async () => new Response(body.stream, { status: 200 });
+  await assert.rejects(resolveAttachment("https://x.example/a.png", { allowedDirectories: [], fetchImpl: fakeFetch }), (error) => error.kind === "network_error" && /a\.png/.test(error.message));
+});
+
+test("a download that cannot connect is a network_error", async () => {
+  const fakeFetch = async () => {
+    throw new TypeError("fetch failed");
+  };
+  await assert.rejects(resolveAttachment("https://x.example/a.png", { allowedDirectories: [], fetchImpl: fakeFetch }), { kind: "network_error" });
+});
+
+test("a download cancelled mid-body is cancelled", async () => {
+  const controller = new AbortController();
+  const body = createCountingBody({
+    chunkCount: 1,
+    finish: (streamController) => {
+      controller.abort();
+      streamController.error(new DOMException("aborted", "AbortError"));
+    },
+  });
+  const fakeFetch = async () => new Response(body.stream, { status: 200 });
+  await assert.rejects(resolveAttachment("https://x.example/a.png", { allowedDirectories: [], fetchImpl: fakeFetch, signal: controller.signal }), { kind: "cancelled" });
+});
+
 test("URL failures map to not_found / invalid_input", async () => {
   const notFoundFetch = async () => new Response("", { status: 404 });
   await assert.rejects(resolveAttachment("https://x.example/a.png", { allowedDirectories: [], fetchImpl: notFoundFetch }), { kind: "not_found" });

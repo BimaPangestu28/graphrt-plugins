@@ -90,13 +90,20 @@ export const SELECTORS = {
       'div[aria-label*="caption" i] div[contenteditable="true"]',
       'div[contenteditable="true"][data-tab="undefined"]',
     ].join(", "),
-    // Send button in the preview.
+    // Send button candidates; only the one inside the preview is used (see probeMarkFilePreview).
     previewSendButton: [
       'div[role="button"][aria-label="Send"]',
       'button[aria-label="Send"]',
       'span[data-icon="send"]',
       'span[data-icon="wds-ic-send-filled"]',
     ].join(", "),
+    // Media / document preview overlay, used to find the preview when it has no caption box.
+    previewContainer: 'div[data-animate-media-viewer], div[aria-label*="preview" i], div[data-testid*="media-editor"]',
+    // The conversation's own composer: its send button must never be taken for the preview's.
+    previewExcludedArea: "#main footer",
+    // Elements marked by probeMarkFilePreview once the preview is showing.
+    markedPreviewSendButton: '[data-graphrt-preview="send"]',
+    markedPreviewCaption: '[data-graphrt-preview="caption"]',
   },
   dialogs: {
     // Modal shown when /send?phone= points at a number that is not on WhatsApp.

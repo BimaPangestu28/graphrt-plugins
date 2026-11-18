@@ -29,7 +29,7 @@ export function createPluginDefinition(dependencies = {}) {
       "WHATSAPP_WEB_DAILY_SEND_LIMIT",
       "WHATSAPP_WEB_ALLOWED_FILE_DIRS",
     ],
-    // One browser page per profile: operations are serialised anyway. Login waits up to 280 s.
+    // One browser page per profile: operations are serialised anyway. Login takes at most 240 s + 8 s settle + browser start.
     limits: { timeout_ms: 300000, max_concurrency: 1 },
     resolveAccessToken: () => "local",
     createClient,

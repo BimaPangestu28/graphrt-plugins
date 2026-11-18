@@ -35,9 +35,9 @@
           "timeout_seconds": {
             "type": "integer",
             "minimum": 30,
-            "maximum": 280,
+            "maximum": 240,
             "default": 180,
-            "description": "How long to wait for the scan"
+            "description": "How long to wait for WhatsApp Web to load and the QR code to be scanned, in total"
           },
           "access_token": {
             "type": "string",
@@ -176,11 +176,11 @@
         "properties": {
           "phone": {
             "type": "string",
-            "description": "Phone number with country code, e.g. \"+62 812 3456 789\". Works for numbers not in the chat list. Pass this or chat_name."
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
           },
           "chat_name": {
             "type": "string",
-            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name). Pass this or phone."
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
           },
           "limit": {
             "type": "integer",
@@ -218,11 +218,11 @@
         "properties": {
           "phone": {
             "type": "string",
-            "description": "Phone number with country code, e.g. \"+62 812 3456 789\". Works for numbers not in the chat list. Pass this or chat_name."
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
           },
           "chat_name": {
             "type": "string",
-            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name). Pass this or phone."
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
           },
           "text": {
             "type": "string",
@@ -261,11 +261,11 @@
         "properties": {
           "phone": {
             "type": "string",
-            "description": "Phone number with country code, e.g. \"+62 812 3456 789\". Works for numbers not in the chat list. Pass this or chat_name."
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
           },
           "chat_name": {
             "type": "string",
-            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name). Pass this or phone."
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
           },
           "file": {
             "type": "string",
@@ -366,11 +366,11 @@
         "properties": {
           "phone": {
             "type": "string",
-            "description": "Phone number with country code, e.g. \"+62 812 3456 789\". Works for numbers not in the chat list. Pass this or chat_name."
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
           },
           "chat_name": {
             "type": "string",
-            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name). Pass this or phone."
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
           },
           "limit": {
             "type": "integer",
@@ -390,11 +390,11 @@
         "properties": {
           "phone": {
             "type": "string",
-            "description": "Phone number with country code, e.g. \"+62 812 3456 789\". Works for numbers not in the chat list. Pass this or chat_name."
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
           },
           "chat_name": {
             "type": "string",
-            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name). Pass this or phone."
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
           },
           "text": {
             "type": "string",
@@ -415,11 +415,11 @@
         "properties": {
           "phone": {
             "type": "string",
-            "description": "Phone number with country code, e.g. \"+62 812 3456 789\". Works for numbers not in the chat list. Pass this or chat_name."
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
           },
           "chat_name": {
             "type": "string",
-            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name). Pass this or phone."
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
           },
           "file": {
             "type": "string",

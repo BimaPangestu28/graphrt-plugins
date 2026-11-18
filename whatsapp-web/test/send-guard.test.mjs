@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSendGuard } from "../lib/send-guard.mjs";
@@ -83,10 +83,38 @@ test("a daily limit of 0 disables sending", () =>
     await assert.rejects(guard.reserveSend(), { kind: "rate_limited" });
   }));
 
-test("a corrupt state file is treated as empty, not fatal", () =>
+const isClosedStateError = (error) =>
+  error.kind === "rate_limited" && error.retryable === false && /send-state\.json/.test(error.message) && /delete/i.test(error.message);
+
+for (const [description, corruptContent] of [
+  ["not JSON", "{not json"],
+  ["a JSON value that is not an object", "42"],
+  ["an object with a bad count", JSON.stringify({ day: "2026-11-18", count: "many", last_send_at: 1 })],
+  ["an object without a day", JSON.stringify({ count: 1 })],
+]) {
+  test(`a send state file that is ${description} blocks sending (fails closed) and says how to reset`, () =>
+    withGuard({}, async ({ guard, stateFilePath }) => {
+      await writeFile(stateFilePath, corruptContent);
+      await assert.rejects(guard.reserveSend(), isClosedStateError);
+      assert.equal(await readFile(stateFilePath, "utf8"), corruptContent, "the file is left for the user to inspect");
+    }));
+}
+
+test("an unreadable send state file blocks sending", () =>
   withGuard({}, async ({ guard, stateFilePath }) => {
-    await writeFile(stateFilePath, "{not json");
-    assert.equal((await guard.reserveSend()).sends_today, 1);
+    await mkdir(stateFilePath); // reading a directory fails with EISDIR
+    await assert.rejects(guard.reserveSend(), isClosedStateError);
+  }));
+
+test("a clock that moved back to the previous day keeps today's count (never resets early)", () =>
+  withGuard({}, async ({ guard, clock }) => {
+    for (let sendIndex = 0; sendIndex < 3; sendIndex += 1) {
+      await guard.reserveSend();
+      clock.nowMs += 10000;
+    }
+    clock.nowMs = new Date(2026, 10, 17, 23, 0, 0).getTime();
+    await assert.rejects(guard.reserveSend(), { kind: "rate_limited" });
+    assert.equal((await guard.getUsage()).sends_today, 3);
   }));
 
 test("cancellation during the interval wait propagates", () =>

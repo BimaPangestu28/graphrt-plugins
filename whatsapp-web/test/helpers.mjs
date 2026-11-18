@@ -20,7 +20,11 @@ export function createFakePage({ url = "about:blank", probeResponses = new Map()
     actions: [],
     probeCalls: new Map(),
     closeListeners: [],
+    eventListeners: new Map(),
     url: () => page.currentUrl,
+    isClosed: () => page.closed,
+    on: (eventName, listener) => page.eventListeners.set(eventName, [...(page.eventListeners.get(eventName) ?? []), listener]),
+    emit: (eventName) => (page.eventListeners.get(eventName) ?? []).forEach((listener) => listener()),
     async goto(targetUrl) {
       page.actions.push(["goto", targetUrl]);
       page.currentUrl = targetUrl;

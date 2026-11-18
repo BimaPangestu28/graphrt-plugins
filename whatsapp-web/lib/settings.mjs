@@ -6,7 +6,8 @@ import { isAbsolute, join, resolve } from "node:path";
 import { invalidInput } from "./errors.mjs";
 
 export const DEFAULT_IDLE_MINUTES = 15;
-export const DEFAULT_MIN_SEND_INTERVAL_SECONDS = 5;
+// 30 s between sends: a personal account sending in quick bursts risks a WhatsApp ban.
+export const DEFAULT_MIN_SEND_INTERVAL_SECONDS = 30;
 export const DEFAULT_DAILY_SEND_LIMIT = 50;
 
 /**

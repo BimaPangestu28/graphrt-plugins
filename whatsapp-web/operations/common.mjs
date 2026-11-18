@@ -10,11 +10,12 @@ export const TOOL_DEADLINE_MS = 290000;
 export const CHAT_TARGET_PROPERTIES = {
   phone: {
     type: "string",
-    description: "Phone number with country code, e.g. \"+62 812 3456 789\". Works for numbers not in the chat list. Pass this or chat_name.",
+    description:
+      "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name.",
   },
   chat_name: {
     type: "string",
-    description: "Exact chat name as shown in WhatsApp (saved contact name or group name). Pass this or phone.",
+    description: "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone.",
   },
 };
 
@@ -30,7 +31,7 @@ export function resolveChatTarget(args) {
   if (args.phone && chatName) throw invalidInput("Pass either `phone` or `chat_name`, not both");
   if (args.phone) return { phone: normalizePhoneNumber(args.phone) };
   if (chatName) return { name: chatName };
-  throw invalidInput("Pass `phone` (with country code) or `chat_name` (exact name as shown in WhatsApp)");
+  throw invalidInput("Pass `phone` (with + or 00 and the country code, e.g. +62...) or `chat_name` (exact name as shown in WhatsApp)");
 }
 
 /**

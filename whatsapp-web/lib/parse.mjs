@@ -7,25 +7,93 @@ import { PluginError } from "./shared/graphrt-plugin.mjs";
 import { invalidInput } from "./errors.mjs";
 
 const PHONE_FORMATTING_PATTERN = /[\s\-().]/g;
+const INTERNATIONAL_PREFIX_PATTERN = /^(\+|00)/;
 const INTERNATIONAL_DIGITS_PATTERN = /^[1-9]\d{6,14}$/;
 const PRE_PLAIN_TEXT_PATTERN = /^\[(.+?)\]\s?(.*?):\s?$/s;
 const UNREAD_COUNT_PATTERN = /(\d+)/;
+const UNREAD_LABEL_PATTERN = /unread/i;
+const INVISIBLE_CHARACTERS_PATTERN = /[​-‍⁠﻿]/g;
+// Emoji are drawn as <img> (missing from innerText) and *bold*/_italic_/~strike~/`code` markers are hidden in bubbles.
+const UNRENDERED_IN_BUBBLE_PATTERN = /[\p{Extended_Pictographic}\u{fe0f}\u{1f3fb}-\u{1f3ff}*_~`]/gu;
+const READ_MORE_SUFFIX_PATTERN = /\s*(\.\.\.|…)?\s*read more$/i;
+const MIN_TRUNCATED_BUBBLE_LENGTH = 50;
 
 /**
  * Normalises a phone number to the international digits WhatsApp uses (E.164 without "+").
+ * The number must start with "+" or "00": a national number such as "0812..." or a bare
+ * "628..." could be read with the wrong country code and reach a stranger.
  *
- * @param rawPhoneNumber - Number such as "+62 812-3456-789" (string)
+ * @param rawPhoneNumber - Number such as "+62 812-3456-789" or "0062 812 3456 789" (string)
  * @returns Digits only, country code first, e.g. "628123456789" (string)
- * @throws PluginError kind `invalid_input` - When it is not 7–15 digits starting with a country code
+ * @throws PluginError kind `invalid_input` - When there is no "+"/"00" prefix or it is not 7–15 digits
  */
 export function normalizePhoneNumber(rawPhoneNumber) {
-  const digits = String(rawPhoneNumber ?? "").replace(PHONE_FORMATTING_PATTERN, "").replace(/^\+/, "");
-  if (!INTERNATIONAL_DIGITS_PATTERN.test(digits)) {
+  const compactNumber = String(rawPhoneNumber ?? "").replace(PHONE_FORMATTING_PATTERN, "");
+  const digits = compactNumber.replace(INTERNATIONAL_PREFIX_PATTERN, "");
+  if (!INTERNATIONAL_PREFIX_PATTERN.test(compactNumber) || !INTERNATIONAL_DIGITS_PATTERN.test(digits)) {
     throw invalidInput(
-      `\`phone\` must be an international number with country code (7–15 digits, e.g. "+62 812 3456 789"), got ${JSON.stringify(rawPhoneNumber)}`,
+      `\`phone\` must include the country code, starting with + or 00 (7–15 digits, e.g. "+62 812 3456 789" rather than "0812 3456 789"), got ${JSON.stringify(rawPhoneNumber)}`,
     );
   }
   return digits;
+}
+
+/**
+ * Finds a message in the open conversation that belongs to another chat than `phoneDigits`.
+ *
+ * @param rawRows - Message rows from probeMessageRows (Array<object>)
+ * @param phoneDigits - Expected number, digits only (string)
+ * @returns The foreign chat id (e.g. "6281999@c.us" or "123@lid"), or null when every message matches (string | null)
+ */
+export function findMismatchedChatId(rawRows, phoneDigits) {
+  const expectedPrefix = `${phoneDigits}@`;
+  const foreignMessage = parseMessageRows(rawRows, Infinity).find((message) => !message.chat_id.startsWith(expectedPrefix));
+  return foreignMessage?.chat_id ?? null;
+}
+
+/**
+ * Normalises editor or bubble text for comparison: whitespace and line breaks collapse to one space.
+ *
+ * @param text - Raw text (string | null)
+ * @returns Normalised text (string)
+ */
+export function normalizeMessageText(text) {
+  return String(text ?? "").replace(INVISIBLE_CHARACTERS_PATTERN, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Tells whether the message box holds exactly the intended text (ignoring whitespace differences).
+ *
+ * @param composerText - Text read from the editor, null when the editor is missing (string | null)
+ * @param intendedText - Text the plugin typed (string)
+ * @returns true when they match (boolean)
+ */
+export function isSameEditableText(composerText, intendedText) {
+  if (composerText === null || composerText === undefined) return false;
+  return normalizeMessageText(composerText) === normalizeMessageText(intendedText);
+}
+
+/**
+ * Tells whether a sent bubble shows the content the plugin sent.
+ * Long texts are folded behind "Read more", so a long enough prefix also matches.
+ *
+ * @param message - Parsed message `{text}` (object)
+ * @param expectedContent - `{text}` for a text message, `{caption, fileName}` for a file (object)
+ * @returns true when the bubble matches (boolean)
+ */
+export function matchesSentContent(message, expectedContent) {
+  const bubbleText = normalizeBubbleText(message.text);
+  if (expectedContent.text === undefined && !expectedContent.caption) {
+    return bubbleText === "" || bubbleText.includes(normalizeBubbleText(expectedContent.fileName));
+  }
+  const expectedText = normalizeBubbleText(expectedContent.text ?? expectedContent.caption);
+  if (bubbleText === expectedText) return true;
+  const visiblePrefix = READ_MORE_SUFFIX_PATTERN.test(bubbleText) ? normalizeBubbleText(bubbleText.replace(READ_MORE_SUFFIX_PATTERN, "")) : null;
+  return Boolean(visiblePrefix) && visiblePrefix.length >= MIN_TRUNCATED_BUBBLE_LENGTH && expectedText.startsWith(visiblePrefix);
+}
+
+function normalizeBubbleText(text) {
+  return normalizeMessageText(String(text ?? "").replace(UNRENDERED_IN_BUBBLE_PATTERN, ""));
 }
 
 /**
@@ -103,15 +171,16 @@ export function parseMessageRows(rawRows, limit) {
 }
 
 /**
- * Finds the newest outgoing message that was not on screen before sending.
+ * Finds the newest outgoing message that was not on screen before sending and shows the sent content.
  *
  * @param rawRows - Message rows read after sending (Array<object>)
  * @param knownMessageIds - Ids present before sending (Set<string>)
+ * @param expectedContent - See matchesSentContent (object)
  * @returns The new outgoing message, or null (object | null)
  */
-export function findNewOutgoingMessage(rawRows, knownMessageIds) {
-  const newOutgoing = parseMessageRows(rawRows, Infinity).filter((message) => message.from_me && !knownMessageIds.has(message.id));
-  return newOutgoing.at(-1) ?? null;
+export function findNewOutgoingMessage(rawRows, knownMessageIds, expectedContent) {
+  const isSentMessage = (message) => message.from_me && !knownMessageIds.has(message.id) && matchesSentContent(message, expectedContent);
+  return parseMessageRows(rawRows, Infinity).filter(isSentMessage).at(-1) ?? null;
 }
 
 /**
@@ -137,21 +206,26 @@ function parseChatRow(rawRow) {
   return { name, time: detailLines[0] ?? null, last_message: previewLines.join(" ") || null, unread_count: unreadCount };
 }
 
+// A chat "marked as unread" shows a badge without a number: count it as 1.
 function parseUnreadCount(unreadLabel) {
-  const match = UNREAD_COUNT_PATTERN.exec(String(unreadLabel ?? ""));
-  return match ? Number(match[1]) : 0;
+  const labelText = String(unreadLabel ?? "");
+  const match = UNREAD_COUNT_PATTERN.exec(labelText);
+  if (match) return Number(match[1]);
+  return UNREAD_LABEL_PATTERN.test(labelText) ? 1 : 0;
 }
 
 /**
- * Appends chats from a new scroll position, keeping the first sighting of each name.
+ * Appends raw chat rows from a new scroll position, skipping rows already read (same list
+ * position and title). Two different chats with the same name are both kept.
  *
- * @param knownChats - Chats collected so far (Array<object>)
- * @param newChats - Chats read after scrolling (Array<object>)
+ * @param knownRows - Raw rows `{top, title, ...}` collected so far (Array<object>)
+ * @param newRows - Raw rows read after scrolling (Array<object>)
  * @returns New merged array (Array<object>)
  */
-export function mergeChatRows(knownChats, newChats) {
-  const knownNames = new Set(knownChats.map((chat) => chat.name));
-  return [...knownChats, ...newChats.filter((chat) => !knownNames.has(chat.name))];
+export function mergeRawChatRows(knownRows, newRows) {
+  const rowKey = (row) => `${row.top}\u0000${row.title}`;
+  const knownKeys = new Set(knownRows.map(rowKey));
+  return [...knownRows, ...newRows.filter((row) => !knownKeys.has(rowKey(row)))];
 }
 
 /**

@@ -28,13 +28,13 @@ export function createWhatsAppDriver(session) {
       session.run(async (page) => {
         const chat = await openChat(page, target);
         const usage = await beforeSend();
-        return { chat, usage, message: await sendText(page, { text }) };
+        return { chat, usage, message: await sendText(page, { text, signal }) };
       }, { signal }),
     sendFile: ({ target, filePath, caption, asDocument, beforeSend, signal }) =>
       session.run(async (page) => {
         const chat = await openChat(page, target);
         const usage = await beforeSend();
-        return { chat, usage, message: await sendFile(page, { filePath, caption, asDocument }) };
+        return { chat, usage, message: await sendFile(page, { filePath, caption, asDocument, signal }) };
       }, { signal }),
     close: () => session.close(),
   };

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { buildManifest } from "../lib/shared/operations.mjs";
 import { SEND_STATE_FILE_NAME, createClientFactory } from "../lib/client.mjs";
 import { pluginDefinition } from "../definition.mjs";
+import { LOGIN_SETTLE_MS } from "../lib/whatsapp-page.mjs";
 import { createFakeDriver, createTestRunner } from "./helpers.mjs";
 
 async function withRunner(runnerOptions, testBody) {
@@ -25,6 +26,14 @@ test("manifest: login is a node only, every other operation is also a tool, one 
   assert.ok(manifest.permissions.env.includes("WHATSAPP_WEB_DAILY_SEND_LIMIT"));
 });
 
+test("login timeout_seconds is capped so page load + scan + settle stay under the manifest timeout", () => {
+  const loginOperation = pluginDefinition.operations.find((operation) => operation.name === "login");
+  const maximumSeconds = loginOperation.parameters.properties.timeout_seconds.maximum;
+  // timeout_seconds covers loading WhatsApp Web and the scan; the settle and starting the browser come on top.
+  const browserStartAndPollingMarginMs = 45000;
+  assert.ok(maximumSeconds * 1000 + LOGIN_SETTLE_MS + browserStartAndPollingMarginMs <= pluginDefinition.limits.timeout_ms, `maximum ${maximumSeconds} s is too long`);
+});
+
 test("login cannot be called as a tool", () =>
   withRunner({}, async ({ runOperation }) => {
     await assert.rejects(runOperation("login", {}, "tool"), { kind: "invalid_input" });
@@ -40,7 +49,8 @@ const DRIVER_CASES = [
   ["read_messages", { phone: "+62 812-3456-789", limit: 3 }, "tool", "readMessages", { target: { phone: "628123456789" }, limit: 3 }],
   ["read_messages", { chat_name: " Ibu " }, "tool", "readMessages", { target: { name: "Ibu" }, limit: 20 }],
   ["send_message", { chat_name: "Ibu", text: "halo" }, "tool", "sendText", { target: { name: "Ibu" }, text: "halo" }],
-  ["send_message", { phone: "628123456789", text: "a\nb" }, "node", "sendText", { target: { phone: "628123456789" }, text: "a\nb" }],
+  ["send_message", { phone: "+628123456789", text: "a\nb" }, "node", "sendText", { target: { phone: "628123456789" }, text: "a\nb" }],
+  ["send_message", { phone: "0062 812 3456 789", text: "hi" }, "tool", "sendText", { target: { phone: "628123456789" }, text: "hi" }],
 ];
 
 for (const [operationName, args, source, driverMethod, expectedOptions] of DRIVER_CASES) {
@@ -59,6 +69,8 @@ const INVALID_INPUT_CASES = [
   ["read_messages", {}],
   ["read_messages", { phone: "0812345", chat_name: "Ibu" }],
   ["read_messages", { phone: "12" }],
+  ["send_message", { phone: "08123456789", text: "hi" }],
+  ["send_message", { phone: "628123456789", text: "hi" }],
   ["send_message", { chat_name: "Ibu" }],
   ["send_message", { chat_name: "Ibu", text: "" }],
   ["send_message", { chat_name: "Ibu", text: "x".repeat(65537) }],

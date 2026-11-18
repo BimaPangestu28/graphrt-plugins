@@ -8,7 +8,9 @@
  *   shutdown) and when an operation asks for `closeAfter` (login).
  * - Relaunched when an operation needs the other mode (login is headed).
  * - Cancelling an operation closes the page, which makes pending Playwright
- *   calls reject at once; the next operation opens a fresh page.
+ *   calls reject at once; the next operation opens a fresh page. A cancel that
+ *   arrives while the browser is still starting stops the operation before it runs.
+ * - A crashed or closed tab is replaced by a fresh page on the next operation.
  */
 import { mkdir } from "node:fs/promises";
 import { cancelled } from "./errors.mjs";
@@ -34,6 +36,7 @@ const VIEWPORT = { width: 1280, height: 900 };
 export function createBrowserSession({ profileDirectory, idleTimeoutMs, launchPersistentContext = launchWithPlaywright, timers = globalThis }) {
   const queue = createTaskQueue();
   const state = { context: null, isHeaded: false, idleTimer: null, releaseLock: async () => {} };
+  const crashedPages = new WeakSet();
 
   const closeContext = async (reason) => {
     const openContext = state.context;
@@ -58,7 +61,7 @@ export function createBrowserSession({ profileDirectory, idleTimeoutMs, launchPe
       Object.assign(state, { context, isHeaded: headed, releaseLock });
       watchContextClose(state, context, releaseLock);
     }
-    const page = state.context.pages()[0] ?? (await state.context.newPage());
+    const page = await pickUsablePage(state.context, crashedPages);
     page.setDefaultTimeout?.(DEFAULT_ACTION_TIMEOUT_MS);
     return page;
   };
@@ -68,6 +71,8 @@ export function createBrowserSession({ profileDirectory, idleTimeoutMs, launchPe
     cancelIdleClose(state, timers);
     try {
       const page = await openPage(headed);
+      // The run may have been cancelled while the browser was starting; the abort event has already fired.
+      if (signal?.aborted) throw cancelled();
       return await runOnPage(page, task, signal);
     } finally {
       if (closeAfter) await closeContext("operation finished");
@@ -84,6 +89,27 @@ export function createBrowserSession({ profileDirectory, idleTimeoutMs, launchPe
     },
     isOpen: () => state.context !== null,
   };
+}
+
+// Reuses the first live page; a crashed ("Aw, Snap!") or closed tab is closed and replaced by a new one.
+async function pickUsablePage(context, crashedPages) {
+  for (const page of context.pages()) {
+    if (page.isClosed?.()) continue;
+    if (!crashedPages.has(page)) return watchPageCrash(page, crashedPages);
+    console.error("[whatsapp-web] the WhatsApp Web tab crashed; opening a new one");
+    await page.close().catch((closeError) => console.error(`[whatsapp-web] closing the crashed tab failed: ${closeError.message}`));
+  }
+  return watchPageCrash(await context.newPage(), crashedPages);
+}
+
+const watchedPages = new WeakSet();
+
+function watchPageCrash(page, crashedPages) {
+  if (!watchedPages.has(page)) {
+    watchedPages.add(page);
+    page.on?.("crash", () => crashedPages.add(page));
+  }
+  return page;
 }
 
 async function runOnPage(page, task, signal) {
