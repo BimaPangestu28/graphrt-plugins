@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-tiktok-shop-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: TikTok Shop Partner API (products, orders, fulfillment, returns, customer service)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,13 @@
+# List the shops this app is authorized for (each shop's cipher goes in TIKTOK_SHOP_CIPHER).
+#   TIKTOK_SHOP_APP_KEY=... TIKTOK_SHOP_APP_SECRET=... TIKTOK_SHOP_ACCESS_TOKEN=... \
+#   graphrt run tiktok-shop-api/example.yaml --plugins .
+version: "1"
+name: tiktok-shop-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: shops, type: tiktok-shop-api.get_authorized_shops }
+    - { id: answer, type: answer, answer: "Authorized shops: {{#shops.data#}}" }
+  edges:
+    - { source: start, target: shops }
+    - { source: shops, target: answer }
