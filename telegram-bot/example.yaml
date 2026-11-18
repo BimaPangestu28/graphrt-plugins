@@ -1,0 +1,12 @@
+# Read-only: check the bot token and show the bot's own account.
+#   TELEGRAM_BOT_TOKEN=123456:ABC... graphrt run telegram-bot/example.yaml --plugins .
+version: "1"
+name: telegram-bot-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: telegram-bot.get_me }
+    - { id: answer, type: answer, answer: "Bot: {{#me.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: answer }

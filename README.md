@@ -17,6 +17,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [computer-control](computer-control/) | Control macOS apps (incl. WhatsApp Desktop) via the Accessibility tree: read UI, click, type, keys, clipboard, screenshots — limited to an app allowlist | 17 |
 | [whatsapp-web](whatsapp-web/) | Your personal WhatsApp in the background via a headless WhatsApp Web session: read chats, send messages and files (rate limited) | 7 |
 | [whatsapp-api](whatsapp-api/) | WhatsApp Business Cloud API: send text, templates, media and interactive messages, manage templates and the profile | 19 |
+| [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).
   The exception is token refresh, which is node only, so tokens never reach an LLM.
