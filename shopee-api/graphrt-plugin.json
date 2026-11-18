@@ -1,0 +1,1088 @@
+{
+  "name": "shopee-api",
+  "version": "0.1.0",
+  "description": "Shopee seller shop via the Shopee Open Platform v2: products, stock and prices, orders, shipping and seller chat",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SHOPEE_ACCESS_TOKEN",
+      "SHOPEE_PARTNER_ID",
+      "SHOPEE_PARTNER_KEY",
+      "SHOPEE_SHOP_ID",
+      "SHOPEE_REFRESH_TOKEN",
+      "SHOPEE_ENV"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "shopee-api.get_shop_info",
+      "title": "Get Shopee shop info",
+      "description": "Read the authorized Shopee shop: name, region, status, authorization expiry and cross-border flags.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.get_item_list",
+      "title": "List Shopee items",
+      "description": "List the shop's item ids with status and update time (offset paging). Use get_item_base_info for details.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "NORMAL",
+                "BANNED",
+                "UNLIST",
+                "REVIEWING",
+                "SELLER_DELETE",
+                "SHOPEE_DELETE"
+              ]
+            },
+            "default": [
+              "NORMAL"
+            ],
+            "description": "Statuses to include"
+          },
+          "update_time_from": {
+            "type": "integer",
+            "description": "Only items updated at or after this Unix time (seconds)"
+          },
+          "update_time_to": {
+            "type": "integer",
+            "description": "Only items updated at or before this Unix time (seconds)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.get_item_base_info",
+      "title": "Get Shopee item details",
+      "description": "Read base info (name, status, price info, stock info, images) for up to 50 items.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "description": "1-50 item ids"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.update_stock",
+      "title": "Update Shopee stock",
+      "description": "Set seller stock for an item or its models (variations). Check failure_list in the result for models Shopee rejected. If this failed with a network error the update may still have been applied: check with get_item_base_info before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "integer",
+            "description": "Item id"
+          },
+          "stock_list": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 50,
+            "description": "Entries {model_id (0 or omitted for items without models), stock, location_id (only for multi-warehouse shops)}, e.g. [{\"model_id\": 0, \"stock\": 25}]"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id",
+          "stock_list"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.update_price",
+      "title": "Update Shopee price",
+      "description": "Set the original price of an item or its models (variations). Check failure_list in the result. If this failed with a network error the update may still have been applied: check with get_item_base_info before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "integer",
+            "description": "Item id"
+          },
+          "price_list": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 50,
+            "description": "Entries {model_id (0 or omitted for items without models), original_price}, e.g. [{\"model_id\": 0, \"original_price\": 150000}]"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id",
+          "price_list"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.get_order_list",
+      "title": "List Shopee orders",
+      "description": "List order numbers created or updated in a time window of at most 15 days (Unix seconds), optionally by status.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "time_range_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "update_time"
+            ],
+            "default": "create_time"
+          },
+          "time_from": {
+            "type": "integer",
+            "description": "Window start, Unix seconds"
+          },
+          "time_to": {
+            "type": "integer",
+            "description": "Window end, Unix seconds; at most 15 days after time_from"
+          },
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "UNPAID",
+              "READY_TO_SHIP",
+              "PROCESSED",
+              "SHIPPED",
+              "COMPLETED",
+              "IN_CANCEL",
+              "CANCELLED",
+              "INVOICE_PENDING"
+            ],
+            "description": "Only orders in this status"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "time_from",
+          "time_to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.get_order_detail",
+      "title": "Get Shopee order details",
+      "description": "Read up to 50 orders: items, amounts, buyer, recipient address, packages and shipping carrier.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_sns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "1-50 order numbers"
+          },
+          "response_optional_fields": {
+            "type": "string",
+            "default": "buyer_user_id,buyer_username,estimated_shipping_fee,recipient_address,actual_shipping_fee,item_list,pay_time,total_amount,shipping_carrier,payment_method,package_list,note,cancel_reason",
+            "description": "Comma-separated optional fields"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_sns"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.get_shipping_parameter",
+      "title": "Get Shopee shipping parameters",
+      "description": "Read what ship_order needs for an order (info_needed) and the pickup addresses/time slots or drop-off branches.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_sn": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Order number (order_sn)"
+          },
+          "package_number": {
+            "type": "string",
+            "description": "Package number, only for orders split into several packages"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_sn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.ship_order",
+      "title": "Ship a Shopee order",
+      "description": "Arrange shipment for an order with exactly one of pickup, dropoff or non_integrated, as get_shipping_parameter's info_needed says. If this fails with a network error the order may still have been shipped: check with get_tracking_number or get_order_detail before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_sn": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Order number (order_sn)"
+          },
+          "package_number": {
+            "type": "string",
+            "description": "Package number, only for orders split into several packages"
+          },
+          "pickup": {
+            "type": "object",
+            "description": "{address_id, pickup_time_id, tracking_number?}; send {} if info_needed lists pickup with no fields"
+          },
+          "dropoff": {
+            "type": "object",
+            "description": "{branch_id?, sender_real_name?, tracking_number?, slug?}; send {} if no fields are needed"
+          },
+          "non_integrated": {
+            "type": "object",
+            "description": "{tracking_number?} for non-integrated channels"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_sn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.get_tracking_number",
+      "title": "Get Shopee tracking number",
+      "description": "Read the tracking number of a shipped order (empty until the carrier assigns one).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_sn": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Order number (order_sn)"
+          },
+          "package_number": {
+            "type": "string",
+            "description": "Package number, only for orders split into several packages"
+          },
+          "response_optional_fields": {
+            "type": "string",
+            "description": "e.g. plp_number,first_mile_tracking_number,last_mile_tracking_number"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_sn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.sellerchat_get_conversation_list",
+      "title": "List Shopee chat conversations",
+      "description": "List the shop's buyer chat conversations, newest first, with unread counts and the latest message.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "pinned",
+              "unread"
+            ],
+            "default": "all"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.sellerchat_get_message",
+      "title": "Get Shopee chat messages",
+      "description": "Read messages of one chat conversation, newest first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id from sellerchat_get_conversation_list"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.sellerchat_send_message",
+      "title": "Send a Shopee chat message",
+      "description": "Send one message to a buyer: text, an image URL, an item card or an order card. Not for bulk messages. If this fails with a network error the message may have been sent: check sellerchat_get_message before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Buyer user id (to_id / buyer_user_id)"
+          },
+          "message_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "image",
+              "item",
+              "order"
+            ],
+            "default": "text"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text, for message_type text (max 2000 characters)"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Image URL from Shopee's upload_image, for message_type image"
+          },
+          "item_id": {
+            "type": "string",
+            "description": "Item id, for message_type item"
+          },
+          "order_sn": {
+            "type": "string",
+            "description": "Order number, for message_type order"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.refresh_access_token",
+      "title": "Refresh Shopee access token",
+      "description": "Exchange the shop's refresh token for a new access token (valid 4 hours) and a new refresh token (valid 30 days, single use): store both. The partner key is read from SHOPEE_PARTNER_KEY only.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token (default: SHOPEE_REFRESH_TOKEN)"
+          },
+          "shop_id": {
+            "type": "string",
+            "description": "Shop id (default: SHOPEE_SHOP_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopee-api.api_request",
+      "title": "Shopee Open Platform v2 request",
+      "description": "Call any Shopee Open Platform v2 endpoint that has no dedicated operation, e.g. path \"/api/v2/product/get_category\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/api/v2/product/get_category\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "api_type": {
+            "type": "string",
+            "enum": [
+              "shop",
+              "public"
+            ],
+            "default": "shop",
+            "description": "shop = signed with access_token and shop_id (most APIs); public = partner-level APIs signed without them"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_shop_info",
+      "description": "Read the authorized Shopee shop: name, region, status, authorization expiry and cross-border flags.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_item_list",
+      "description": "List the shop's item ids with status and update time (offset paging). Use get_item_base_info for details.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "NORMAL",
+                "BANNED",
+                "UNLIST",
+                "REVIEWING",
+                "SELLER_DELETE",
+                "SHOPEE_DELETE"
+              ]
+            },
+            "default": [
+              "NORMAL"
+            ],
+            "description": "Statuses to include"
+          },
+          "update_time_from": {
+            "type": "integer",
+            "description": "Only items updated at or after this Unix time (seconds)"
+          },
+          "update_time_to": {
+            "type": "integer",
+            "description": "Only items updated at or before this Unix time (seconds)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_item_base_info",
+      "description": "Read base info (name, status, price info, stock info, images) for up to 50 items.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "description": "1-50 item ids"
+          }
+        },
+        "required": [
+          "item_ids"
+        ]
+      }
+    },
+    {
+      "name": "get_order_list",
+      "description": "List order numbers created or updated in a time window of at most 15 days (Unix seconds), optionally by status.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "time_range_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "update_time"
+            ],
+            "default": "create_time"
+          },
+          "time_from": {
+            "type": "integer",
+            "description": "Window start, Unix seconds"
+          },
+          "time_to": {
+            "type": "integer",
+            "description": "Window end, Unix seconds; at most 15 days after time_from"
+          },
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "UNPAID",
+              "READY_TO_SHIP",
+              "PROCESSED",
+              "SHIPPED",
+              "COMPLETED",
+              "IN_CANCEL",
+              "CANCELLED",
+              "INVOICE_PENDING"
+            ],
+            "description": "Only orders in this status"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "time_from",
+          "time_to"
+        ]
+      }
+    },
+    {
+      "name": "get_order_detail",
+      "description": "Read up to 50 orders: items, amounts, buyer, recipient address, packages and shipping carrier.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_sns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "1-50 order numbers"
+          },
+          "response_optional_fields": {
+            "type": "string",
+            "default": "buyer_user_id,buyer_username,estimated_shipping_fee,recipient_address,actual_shipping_fee,item_list,pay_time,total_amount,shipping_carrier,payment_method,package_list,note,cancel_reason",
+            "description": "Comma-separated optional fields"
+          }
+        },
+        "required": [
+          "order_sns"
+        ]
+      }
+    },
+    {
+      "name": "get_shipping_parameter",
+      "description": "Read what ship_order needs for an order (info_needed) and the pickup addresses/time slots or drop-off branches.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_sn": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Order number (order_sn)"
+          },
+          "package_number": {
+            "type": "string",
+            "description": "Package number, only for orders split into several packages"
+          }
+        },
+        "required": [
+          "order_sn"
+        ]
+      }
+    },
+    {
+      "name": "get_tracking_number",
+      "description": "Read the tracking number of a shipped order (empty until the carrier assigns one).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_sn": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Order number (order_sn)"
+          },
+          "package_number": {
+            "type": "string",
+            "description": "Package number, only for orders split into several packages"
+          },
+          "response_optional_fields": {
+            "type": "string",
+            "description": "e.g. plp_number,first_mile_tracking_number,last_mile_tracking_number"
+          }
+        },
+        "required": [
+          "order_sn"
+        ]
+      }
+    },
+    {
+      "name": "sellerchat_get_conversation_list",
+      "description": "List the shop's buyer chat conversations, newest first, with unread counts and the latest message.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "pinned",
+              "unread"
+            ],
+            "default": "all"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "sellerchat_get_message",
+      "description": "Read messages of one chat conversation, newest first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id from sellerchat_get_conversation_list"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      }
+    },
+    {
+      "name": "sellerchat_send_message",
+      "description": "Send one message to a buyer: text, an image URL, an item card or an order card. Not for bulk messages. If this fails with a network error the message may have been sent: check sellerchat_get_message before retrying.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Buyer user id (to_id / buyer_user_id)"
+          },
+          "message_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "image",
+              "item",
+              "order"
+            ],
+            "default": "text"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text, for message_type text (max 2000 characters)"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Image URL from Shopee's upload_image, for message_type image"
+          },
+          "item_id": {
+            "type": "string",
+            "description": "Item id, for message_type item"
+          },
+          "order_sn": {
+            "type": "string",
+            "description": "Order number, for message_type order"
+          }
+        },
+        "required": [
+          "to_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Shopee Open Platform v2 endpoint that has no dedicated operation, e.g. path \"/api/v2/product/get_category\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/api/v2/product/get_category\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "api_type": {
+            "type": "string",
+            "enum": [
+              "shop",
+              "public"
+            ],
+            "default": "shop",
+            "description": "shop = signed with access_token and shop_id (most APIs); public = partner-level APIs signed without them"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

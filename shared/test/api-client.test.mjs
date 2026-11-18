@@ -243,6 +243,35 @@ test("a POST 5xx is not retryable, a GET 5xx is", async () => {
   );
 });
 
+test("a POST marked idempotent is retried after a 5xx", async () => {
+  const fakeFetch = createFakeFetch([{ status: 503 }, { body: { ok: true } }]);
+  const result = await createTestClient(fakeFetch).request({ method: "POST", path: "/search", json: {}, idempotent: true });
+  assert.deepEqual(result, { ok: true });
+  assert.equal(fakeFetch.calls.length, 2);
+});
+
+test("a POST marked idempotent gets retryable errors without the unknown-outcome note", async () => {
+  const serverFailures = [{ status: 500 }, { status: 500 }, { status: 500 }];
+  await assert.rejects(
+    createTestClient(createFakeFetch(serverFailures)).request({ method: "POST", path: "/search", idempotent: true }),
+    (error) => error.kind === "api_error" && error.retryable === true && !/outcome unknown/i.test(error.message),
+  );
+  const networkFailures = [new TypeError("fetch failed"), new TypeError("fetch failed"), new TypeError("fetch failed")];
+  const fakeFetch = createFakeFetch(networkFailures);
+  await assert.rejects(
+    createTestClient(fakeFetch).request({ method: "POST", path: "/search", idempotent: true }),
+    (error) => error.kind === "network_error" && error.retryable === true && !/outcome unknown/i.test(error.message),
+  );
+  assert.equal(fakeFetch.calls.length, 3);
+});
+
+test("idempotent: true is not sent to the API", async () => {
+  const fakeFetch = createFakeFetch([{ body: {} }]);
+  await createTestClient(fakeFetch).request({ method: "POST", path: "/search", json: { q: 1 }, idempotent: true });
+  assert.equal(fakeFetch.calls[0].url, "https://api.example.com/v1/search");
+  assert.equal(fakeFetch.calls[0].init.body, JSON.stringify({ q: 1 }));
+});
+
 test("parseError can mark a rate limit as not retryable (e.g. daily quota)", async () => {
   const fakeFetch = createFakeFetch([{ status: 403 }, { body: {} }]);
   const client = createTestClient(fakeFetch, { parseError: () => ({ kind: "rate_limited", retryable: false, message: "quota" }) });
