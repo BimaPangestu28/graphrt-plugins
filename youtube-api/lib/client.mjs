@@ -11,9 +11,6 @@ const DAILY_QUOTA_REASONS = new Set(["quotaExceeded", "dailyLimitExceeded"]);
 const SHORT_RATE_LIMIT_REASONS = new Set(["rateLimitExceeded", "userRateLimitExceeded"]);
 const PERMISSION_REASONS = new Set(["commentsDisabled", "forbidden", "insufficientPermissions"]);
 const AUTH_REASONS = new Set(["authorizationRequired"]);
-// The shared client retries every rate_limited error unless its wait exceeds 60 s.
-// An infinite wait marks the daily quota as "do not retry"; normalizeQuotaError then clears it.
-const NEVER_RETRY_WAIT_MS = Number.POSITIVE_INFINITY;
 
 /**
  * Creates a YouTube client for the run's credentials.
@@ -32,18 +29,7 @@ export function createYouTubeClient({ accessToken: credentials, fetchImpl }) {
     parseError: parseYouTubeError,
     fetchImpl,
   });
-  return {
-    request: (requestOptions) => apiClient.request(requestOptions).catch(normalizeQuotaError),
-    requestWithHeaders: (requestOptions) => apiClient.requestWithHeaders(requestOptions).catch(normalizeQuotaError),
-  };
-}
-
-function normalizeQuotaError(requestError) {
-  if (requestError?.retryAfterMs !== NEVER_RETRY_WAIT_MS) throw requestError;
-  throw new PluginError(`${requestError.message}. The YouTube quota resets daily at midnight Pacific Time.`, {
-    kind: "rate_limited",
-    retryable: false,
-  });
+  return apiClient;
 }
 
 /**
@@ -51,14 +37,17 @@ function normalizeQuotaError(requestError) {
  *
  * @param status - HTTP status (number)
  * @param body - Parsed response body (object)
- * @returns `{message, kind, retryAfterMs?}`, or `{}` for non-Google bodies (object)
+ * @returns `{message, kind, retryable?}`, or `{}` for non-Google bodies (object)
  */
 export function parseYouTubeError(status, body) {
   const googleError = body?.error;
   if (!googleError || typeof googleError !== "object") return {};
   const reason = googleError.errors?.[0]?.reason;
   const message = reason ? `${googleError.message} (reason ${reason})` : googleError.message;
-  if (DAILY_QUOTA_REASONS.has(reason)) return { message, kind: "rate_limited", retryAfterMs: NEVER_RETRY_WAIT_MS };
+  if (DAILY_QUOTA_REASONS.has(reason)) {
+    // The daily quota cannot clear within a retry window, so never retry it.
+    return { message: `${message}. The YouTube quota resets daily at midnight Pacific Time.`, kind: "rate_limited", retryable: false };
+  }
   return { message, kind: kindForReason(reason) };
 }
 

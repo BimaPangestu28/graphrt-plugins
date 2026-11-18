@@ -71,3 +71,12 @@ test("api errors never contain the access token", async () => {
   const tokenEchoResponse = { status: 401, body: googleError(401, "authorizationRequired", "bad token yt-token") };
   await assert.rejects(runWithResponses("get_videos", { video_ids: ["v1"] }, [tokenEchoResponse]), (error) => error.kind === "auth_error" && !error.message.includes("yt-token"));
 });
+
+test("parseYouTubeError marks the daily quota as not retryable directly", async () => {
+  const { parseYouTubeError } = await import("../lib/client.mjs");
+  const parsed = parseYouTubeError(403, { error: { code: 403, message: "quota", errors: [{ reason: "dailyLimitExceeded" }] } });
+  assert.equal(parsed.kind, "rate_limited");
+  assert.equal(parsed.retryable, false);
+  assert.equal(parsed.retryAfterMs, undefined);
+  assert.match(parsed.message, /midnight Pacific/);
+});
