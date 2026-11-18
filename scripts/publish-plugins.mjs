@@ -53,6 +53,26 @@ function runCommand(command, commandArguments, { allowFailure = false, cwd = REP
   return result;
 }
 
+const NETWORK_ERROR_PATTERN = /timeout|connection reset|EOF|ECONNRESET|502|503|504/i;
+const GH_READ_ATTEMPTS = 3;
+
+/**
+ * Runs an idempotent gh command (view, download, upload --clobber), retrying
+ * network failures. Release creation is not retried: it is not idempotent.
+ */
+function runGhIdempotent(ghArguments, { allowFailure = false } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    const result = runCommand("gh", ghArguments, { allowFailure: true });
+    const isNetworkError = result.status !== 0 && NETWORK_ERROR_PATTERN.test(result.stderr);
+    if (isNetworkError && attempt < GH_READ_ATTEMPTS) {
+      console.error(`gh ${ghArguments[0]} ${ghArguments[1]}: network error, retrying (${attempt}/${GH_READ_ATTEMPTS - 1})`);
+      continue;
+    }
+    if (result.status !== 0 && !allowFailure) throw new Error(`gh ${ghArguments.slice(0, 3).join(" ")} failed: ${result.stderr.trim()}`);
+    return result;
+  }
+}
+
 function runTestSuite(directory) {
   if (!existsSync(join(directory, "test"))) return true;
   const result = spawnSync("sh", ["-c", "node --test --test-reporter=dot test/*.test.mjs"], { cwd: directory, stdio: "inherit" });
@@ -82,7 +102,7 @@ function assertPluginMatchesTarget(pluginName, targetCommit) {
 }
 
 function viewRelease(releaseTag) {
-  const result = runCommand("gh", ["release", "view", releaseTag, "-R", RELEASE_REPOSITORY, "--json", "tagName,assets,isDraft"], { allowFailure: true });
+  const result = runGhIdempotent(["release", "view", releaseTag, "-R", RELEASE_REPOSITORY, "--json", "tagName,assets,isDraft"], { allowFailure: true });
   if (result.status !== 0) {
     if (/release not found/i.test(result.stderr)) return null;
     throw new Error(`gh release view ${releaseTag} failed: ${result.stderr.trim()}`);
@@ -94,7 +114,7 @@ function viewRelease(releaseTag) {
 function describePublishedTarball(releaseTag, tarballName, outputDirectory) {
   const downloadDirectory = join(outputDirectory, "published", releaseTag);
   mkdirSync(downloadDirectory, { recursive: true });
-  runCommand("gh", ["release", "download", releaseTag, "-R", RELEASE_REPOSITORY, "-p", tarballName, "-D", downloadDirectory, "--clobber"]);
+  runGhIdempotent(["release", "download", releaseTag, "-R", RELEASE_REPOSITORY, "-p", tarballName, "-D", downloadDirectory, "--clobber"]);
   const tarballBytes = readFileSync(join(downloadDirectory, tarballName));
   const manifestEntry = readTarGz(tarballBytes).find((entry) => entry.path.endsWith(`/${MANIFEST_FILE_NAME}`) && entry.path.split("/").length === 2);
   if (!manifestEntry) throw new Error(`${releaseTag}: published tarball has no ${MANIFEST_FILE_NAME}`);
@@ -148,7 +168,7 @@ function uploadCatalog(catalogDirectory, targetCommit) {
   const indexPath = join(catalogDirectory, "index.json");
   const sumsPath = join(catalogDirectory, "SHA256SUMS");
   if (viewRelease(CATALOG_TAG)) {
-    runCommand("gh", ["release", "upload", CATALOG_TAG, indexPath, sumsPath, "-R", RELEASE_REPOSITORY, "--clobber"]);
+    runGhIdempotent(["release", "upload", CATALOG_TAG, indexPath, sumsPath, "-R", RELEASE_REPOSITORY, "--clobber"]);
     return;
   }
   const notes = [
