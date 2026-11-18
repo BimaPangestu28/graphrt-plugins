@@ -1,0 +1,1334 @@
+{
+  "name": "google-calendar",
+  "version": "0.1.0",
+  "description": "Google Calendar via the official Calendar API v3: calendars, free/busy, free-slot search and events with Google Meet",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "GOOGLE_CALENDAR_TOOL_ALLOWED_IDS",
+      "GOOGLE_CALENDAR_TOOL_SEND_UPDATES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-calendar.list_calendars",
+      "title": "List Google calendars",
+      "description": "List the calendars on the account's calendar list with id, name, time zone and access role, and whether agent tools may use each one.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "min_access_role": {
+            "type": "string",
+            "enum": [
+              "freeBusyReader",
+              "reader",
+              "writer",
+              "owner"
+            ],
+            "description": "Only calendars with at least this role"
+          },
+          "show_hidden": {
+            "type": "boolean",
+            "description": "Include calendars hidden from the list"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 100
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.query_free_busy",
+      "title": "Query Google Calendar free/busy",
+      "description": "Get busy intervals for up to 50 calendars in a time range. Per-calendar errors (e.g. notFound when not shared) are returned, not thrown.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "default": [
+              "primary"
+            ],
+            "description": "Calendars (or people's calendar emails) to check"
+          },
+          "time_min": {
+            "type": "string",
+            "description": "Range start: RFC 3339 (2026-11-20T00:00:00+07:00) or a local date/date-time read in time_zone"
+          },
+          "time_max": {
+            "type": "string",
+            "description": "Range end (exclusive), same forms"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "time_min",
+          "time_max"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.find_free_slots",
+      "title": "Find free Google Calendar slots",
+      "description": "Find meeting slots of `duration_minutes` when every listed calendar is free, inside working hours (default Mon-Fri 09:00-17:00 in time_zone), with optional buffers around busy time. Range up to 62 days.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "default": [
+              "primary"
+            ],
+            "description": "Calendars (or people's calendar emails) to check"
+          },
+          "time_min": {
+            "type": "string",
+            "description": "Range start: RFC 3339 (2026-11-20T00:00:00+07:00) or a local date/date-time read in time_zone"
+          },
+          "time_max": {
+            "type": "string",
+            "description": "Range end (exclusive), same forms"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "description": "Slot length in minutes"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA zone for working hours and results; default the account's Calendar setting"
+          },
+          "working_hours": {
+            "type": "object",
+            "default": {
+              "mon": [
+                "09:00-17:00"
+              ],
+              "tue": [
+                "09:00-17:00"
+              ],
+              "wed": [
+                "09:00-17:00"
+              ],
+              "thu": [
+                "09:00-17:00"
+              ],
+              "fri": [
+                "09:00-17:00"
+              ]
+            },
+            "description": "Windows per weekday, e.g. {\"mon\": [\"09:00-12:00\", \"13:00-17:00\"], \"sat\": [\"10:00-14:00\"]}; days left out have no slots"
+          },
+          "buffer_minutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440,
+            "default": 0,
+            "description": "Free time to keep before and after busy time"
+          },
+          "slot_step_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "default": 30,
+            "description": "Spacing of candidate start times from each window's start"
+          },
+          "max_slots": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          },
+          "extra_busy": {
+            "type": "array",
+            "description": "More busy time [{\"start\", \"end\"}] as date-times, or dates for whole days"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "time_min",
+          "time_max",
+          "duration_minutes"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.list_events",
+      "title": "List Google Calendar events",
+      "description": "List events in a time range, optionally matching text `q`. Recurring events are expanded and sorted by start by default.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "time_min": {
+            "type": "string",
+            "description": "Only events ending after this (RFC 3339, or a local date/date-time with time_zone)"
+          },
+          "time_max": {
+            "type": "string",
+            "description": "Only events starting before this"
+          },
+          "q": {
+            "type": "string",
+            "description": "Free-text search in title, description, location, attendees"
+          },
+          "single_events": {
+            "type": "boolean",
+            "default": true,
+            "description": "Expand recurring events into single occurrences"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "startTime",
+              "updated"
+            ],
+            "description": "Default startTime when single_events is true"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "show_deleted": {
+            "type": "boolean",
+            "description": "Include cancelled events"
+          },
+          "private_properties": {
+            "type": "object",
+            "description": "Only events whose private properties have these values {name: value}"
+          },
+          "created_by_plugin": {
+            "type": "boolean",
+            "description": "Only events created by this plugin"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2500,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.get_event",
+      "title": "Get Google Calendar event",
+      "description": "Get one event with its times, attendees and their responses, Meet link and private properties.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (from list_events or create_event)"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.create_event",
+      "title": "Create Google Calendar event",
+      "description": "Create an event (timed or all-day) with optional guests, reminders and a Google Meet link. Pass idempotency_key to make retries safe; book_slot re-checks free/busy first and fails `conflict` if the time was taken or the key already booked another time.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Title"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description (plain text or simple HTML)"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location text"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start: date-time \"2026-11-20T09:00:00+07:00\" (or without offset plus `time_zone`), or a date \"2026-11-20\" for an all-day event"
+          },
+          "end": {
+            "type": "string",
+            "description": "End, same form as start (exclusive); for all-day events defaults to the next day"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "attendees": {
+            "type": "array",
+            "description": "Guests: emails or {\"email\", \"optional\", \"display_name\"} objects. On update this replaces the whole list"
+          },
+          "reminders": {
+            "type": "array",
+            "description": "Up to 5 reminders like {\"method\": \"popup\" | \"email\", \"minutes\": 30} (minutes before start, max 40320)"
+          },
+          "use_default_reminders": {
+            "type": "boolean",
+            "description": "Use the calendar's default reminders"
+          },
+          "recurrence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "RFC 5545 lines, e.g. [\"RRULE:FREQ=WEEKLY;COUNT=4\"]; needs time_zone for timed events"
+          },
+          "transparency": {
+            "type": "string",
+            "enum": [
+              "opaque",
+              "transparent"
+            ],
+            "description": "opaque = busy (default), transparent = free"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "default",
+              "public",
+              "private",
+              "confidential"
+            ]
+          },
+          "color_id": {
+            "type": "string",
+            "description": "Event color id (1-11)"
+          },
+          "private_properties": {
+            "type": "object",
+            "description": "Private extended properties {name: value} stored on this calendar's copy, e.g. a booking id"
+          },
+          "add_google_meet": {
+            "type": "boolean",
+            "description": "Create a Google Meet link for the event"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Same key = same event: a repeat returns the existing event instead of a duplicate"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Explicit new event id: 5-1024 characters of a-v and 0-9"
+          },
+          "book_slot": {
+            "type": "boolean",
+            "default": false,
+            "description": "Re-check that the calendar is free for start-end right before creating"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "start"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.update_event",
+      "title": "Update Google Calendar event",
+      "description": "Change some fields of an event (PATCH): only the given fields change; `attendees` replaces the whole guest list. Agent tools may only update events this plugin created.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (from list_events or create_event)"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Title"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description (plain text or simple HTML)"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location text"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start: date-time \"2026-11-20T09:00:00+07:00\" (or without offset plus `time_zone`), or a date \"2026-11-20\" for an all-day event"
+          },
+          "end": {
+            "type": "string",
+            "description": "End, same form as start (exclusive); for all-day events defaults to the next day"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "attendees": {
+            "type": "array",
+            "description": "Guests: emails or {\"email\", \"optional\", \"display_name\"} objects. On update this replaces the whole list"
+          },
+          "reminders": {
+            "type": "array",
+            "description": "Up to 5 reminders like {\"method\": \"popup\" | \"email\", \"minutes\": 30} (minutes before start, max 40320)"
+          },
+          "use_default_reminders": {
+            "type": "boolean",
+            "description": "Use the calendar's default reminders"
+          },
+          "recurrence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "RFC 5545 lines, e.g. [\"RRULE:FREQ=WEEKLY;COUNT=4\"]; needs time_zone for timed events"
+          },
+          "transparency": {
+            "type": "string",
+            "enum": [
+              "opaque",
+              "transparent"
+            ],
+            "description": "opaque = busy (default), transparent = free"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "default",
+              "public",
+              "private",
+              "confidential"
+            ]
+          },
+          "color_id": {
+            "type": "string",
+            "description": "Event color id (1-11)"
+          },
+          "private_properties": {
+            "type": "object",
+            "description": "Private extended properties {name: value} stored on this calendar's copy, e.g. a booking id"
+          },
+          "add_google_meet": {
+            "type": "boolean",
+            "description": "Create a Google Meet link for the event"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.delete_event",
+      "title": "Delete Google Calendar event",
+      "description": "Delete an event. Deleting one that is already deleted succeeds. Agent tools may only delete events this plugin created.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (from list_events or create_event)"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.quick_add",
+      "title": "Quick add Google Calendar event",
+      "description": "Create an event from text, e.g. \"Lunch with Sari tomorrow 12:30-13:30 at Kopi Kenangan\". Not retried after an unknown outcome.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Event description in natural language (English works best)"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-calendar.api_request",
+      "title": "Google Calendar API request",
+      "description": "Call any Google Calendar API endpoint that has no dedicated operation, e.g. path \"/colors\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/colors\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_calendars",
+      "description": "List the calendars on the account's calendar list with id, name, time zone and access role, and whether agent tools may use each one.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "min_access_role": {
+            "type": "string",
+            "enum": [
+              "freeBusyReader",
+              "reader",
+              "writer",
+              "owner"
+            ],
+            "description": "Only calendars with at least this role"
+          },
+          "show_hidden": {
+            "type": "boolean",
+            "description": "Include calendars hidden from the list"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 100
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous page"
+          }
+        }
+      }
+    },
+    {
+      "name": "query_free_busy",
+      "description": "Get busy intervals for up to 50 calendars in a time range. Per-calendar errors (e.g. notFound when not shared) are returned, not thrown.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "default": [
+              "primary"
+            ],
+            "description": "Calendars (or people's calendar emails) to check"
+          },
+          "time_min": {
+            "type": "string",
+            "description": "Range start: RFC 3339 (2026-11-20T00:00:00+07:00) or a local date/date-time read in time_zone"
+          },
+          "time_max": {
+            "type": "string",
+            "description": "Range end (exclusive), same forms"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          }
+        },
+        "required": [
+          "time_min",
+          "time_max"
+        ]
+      }
+    },
+    {
+      "name": "find_free_slots",
+      "description": "Find meeting slots of `duration_minutes` when every listed calendar is free, inside working hours (default Mon-Fri 09:00-17:00 in time_zone), with optional buffers around busy time. Range up to 62 days.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "default": [
+              "primary"
+            ],
+            "description": "Calendars (or people's calendar emails) to check"
+          },
+          "time_min": {
+            "type": "string",
+            "description": "Range start: RFC 3339 (2026-11-20T00:00:00+07:00) or a local date/date-time read in time_zone"
+          },
+          "time_max": {
+            "type": "string",
+            "description": "Range end (exclusive), same forms"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "description": "Slot length in minutes"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA zone for working hours and results; default the account's Calendar setting"
+          },
+          "working_hours": {
+            "type": "object",
+            "default": {
+              "mon": [
+                "09:00-17:00"
+              ],
+              "tue": [
+                "09:00-17:00"
+              ],
+              "wed": [
+                "09:00-17:00"
+              ],
+              "thu": [
+                "09:00-17:00"
+              ],
+              "fri": [
+                "09:00-17:00"
+              ]
+            },
+            "description": "Windows per weekday, e.g. {\"mon\": [\"09:00-12:00\", \"13:00-17:00\"], \"sat\": [\"10:00-14:00\"]}; days left out have no slots"
+          },
+          "buffer_minutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440,
+            "default": 0,
+            "description": "Free time to keep before and after busy time"
+          },
+          "slot_step_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "default": 30,
+            "description": "Spacing of candidate start times from each window's start"
+          },
+          "max_slots": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          },
+          "extra_busy": {
+            "type": "array",
+            "description": "More busy time [{\"start\", \"end\"}] as date-times, or dates for whole days"
+          }
+        },
+        "required": [
+          "time_min",
+          "time_max",
+          "duration_minutes"
+        ]
+      }
+    },
+    {
+      "name": "list_events",
+      "description": "List events in a time range, optionally matching text `q`. Recurring events are expanded and sorted by start by default.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "time_min": {
+            "type": "string",
+            "description": "Only events ending after this (RFC 3339, or a local date/date-time with time_zone)"
+          },
+          "time_max": {
+            "type": "string",
+            "description": "Only events starting before this"
+          },
+          "q": {
+            "type": "string",
+            "description": "Free-text search in title, description, location, attendees"
+          },
+          "single_events": {
+            "type": "boolean",
+            "default": true,
+            "description": "Expand recurring events into single occurrences"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "startTime",
+              "updated"
+            ],
+            "description": "Default startTime when single_events is true"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "show_deleted": {
+            "type": "boolean",
+            "description": "Include cancelled events"
+          },
+          "private_properties": {
+            "type": "object",
+            "description": "Only events whose private properties have these values {name: value}"
+          },
+          "created_by_plugin": {
+            "type": "boolean",
+            "description": "Only events created by this plugin"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2500,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous page"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_event",
+      "description": "Get one event with its times, attendees and their responses, Meet link and private properties.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (from list_events or create_event)"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    {
+      "name": "create_event",
+      "description": "Create an event (timed or all-day) with optional guests, reminders and a Google Meet link. Pass idempotency_key to make retries safe; book_slot re-checks free/busy first and fails `conflict` if the time was taken or the key already booked another time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Title"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description (plain text or simple HTML)"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location text"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start: date-time \"2026-11-20T09:00:00+07:00\" (or without offset plus `time_zone`), or a date \"2026-11-20\" for an all-day event"
+          },
+          "end": {
+            "type": "string",
+            "description": "End, same form as start (exclusive); for all-day events defaults to the next day"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "attendees": {
+            "type": "array",
+            "description": "Guests: emails or {\"email\", \"optional\", \"display_name\"} objects. On update this replaces the whole list"
+          },
+          "reminders": {
+            "type": "array",
+            "description": "Up to 5 reminders like {\"method\": \"popup\" | \"email\", \"minutes\": 30} (minutes before start, max 40320)"
+          },
+          "use_default_reminders": {
+            "type": "boolean",
+            "description": "Use the calendar's default reminders"
+          },
+          "recurrence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "RFC 5545 lines, e.g. [\"RRULE:FREQ=WEEKLY;COUNT=4\"]; needs time_zone for timed events"
+          },
+          "transparency": {
+            "type": "string",
+            "enum": [
+              "opaque",
+              "transparent"
+            ],
+            "description": "opaque = busy (default), transparent = free"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "default",
+              "public",
+              "private",
+              "confidential"
+            ]
+          },
+          "color_id": {
+            "type": "string",
+            "description": "Event color id (1-11)"
+          },
+          "private_properties": {
+            "type": "object",
+            "description": "Private extended properties {name: value} stored on this calendar's copy, e.g. a booking id"
+          },
+          "add_google_meet": {
+            "type": "boolean",
+            "description": "Create a Google Meet link for the event"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Same key = same event: a repeat returns the existing event instead of a duplicate"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Explicit new event id: 5-1024 characters of a-v and 0-9"
+          },
+          "book_slot": {
+            "type": "boolean",
+            "default": false,
+            "description": "Re-check that the calendar is free for start-end right before creating"
+          }
+        },
+        "required": [
+          "start"
+        ]
+      }
+    },
+    {
+      "name": "update_event",
+      "description": "Change some fields of an event (PATCH): only the given fields change; `attendees` replaces the whole guest list. Agent tools may only update events this plugin created.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (from list_events or create_event)"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Title"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description (plain text or simple HTML)"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location text"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start: date-time \"2026-11-20T09:00:00+07:00\" (or without offset plus `time_zone`), or a date \"2026-11-20\" for an all-day event"
+          },
+          "end": {
+            "type": "string",
+            "description": "End, same form as start (exclusive); for all-day events defaults to the next day"
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "attendees": {
+            "type": "array",
+            "description": "Guests: emails or {\"email\", \"optional\", \"display_name\"} objects. On update this replaces the whole list"
+          },
+          "reminders": {
+            "type": "array",
+            "description": "Up to 5 reminders like {\"method\": \"popup\" | \"email\", \"minutes\": 30} (minutes before start, max 40320)"
+          },
+          "use_default_reminders": {
+            "type": "boolean",
+            "description": "Use the calendar's default reminders"
+          },
+          "recurrence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "RFC 5545 lines, e.g. [\"RRULE:FREQ=WEEKLY;COUNT=4\"]; needs time_zone for timed events"
+          },
+          "transparency": {
+            "type": "string",
+            "enum": [
+              "opaque",
+              "transparent"
+            ],
+            "description": "opaque = busy (default), transparent = free"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "default",
+              "public",
+              "private",
+              "confidential"
+            ]
+          },
+          "color_id": {
+            "type": "string",
+            "description": "Event color id (1-11)"
+          },
+          "private_properties": {
+            "type": "object",
+            "description": "Private extended properties {name: value} stored on this calendar's copy, e.g. a booking id"
+          },
+          "add_google_meet": {
+            "type": "boolean",
+            "description": "Create a Google Meet link for the event"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    {
+      "name": "delete_event",
+      "description": "Delete an event. Deleting one that is already deleted succeeds. Agent tools may only delete events this plugin created.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (from list_events or create_event)"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    {
+      "name": "quick_add",
+      "description": "Create an event from text, e.g. \"Lunch with Sari tomorrow 12:30-13:30 at Kopi Kenangan\". Not retried after an unknown outcome.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Calendar id: \"primary\" (the account's main calendar) or an id from list_calendars"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Event description in natural language (English works best)"
+          },
+          "send_updates": {
+            "type": "string",
+            "enum": [
+              "all",
+              "externalOnly",
+              "none"
+            ],
+            "default": "none",
+            "description": "Who gets an email about the change. Agent tools always use none unless GOOGLE_CALENDAR_TOOL_SEND_UPDATES=1"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Calendar API endpoint that has no dedicated operation, e.g. path \"/colors\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/colors\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
