@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-google-calendar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Google Calendar via the official Calendar API v3",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
