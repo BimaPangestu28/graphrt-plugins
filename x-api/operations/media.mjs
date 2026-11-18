@@ -29,7 +29,7 @@ export const mediaOperations = [
       required: ["image_url"],
     },
     run: async ({ client, args, signal }) => {
-      const imageBlob = await downloadImage(client.fetchImpl, args.image_url, signal);
+      const imageBlob = await downloadImage(args.image_url, { fetchImpl: client.fetchImpl, resolveHostAddresses: client.resolveHostAddresses, signal });
       // No json/form option: the client passes the FormData through and fetch sets the multipart boundary.
       const uploadResponse = await client.request({ method: "POST", path: "/2/media/upload", body: buildUploadForm(imageBlob, args.media_category), signal });
       if (!uploadResponse?.data?.id) throw new PluginError("X accepted the upload but returned no media id", { kind: "api_error" });

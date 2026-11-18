@@ -16,7 +16,8 @@ can read chats and messages and send text and files in the background.
 - **Reading:**
   - `list_chats`: name, last message preview, time and unread count, with `unread_only`. A chat you marked
     as unread counts as 1 unread. Two chats with the same name are both listed.
-  - `search_chats`: uses the WhatsApp search box.
+  - `search_chats`: uses the WhatsApp search box. Returns chat and contact rows only (each with
+    `kind`: `chat` or `contact`); section headers and message hits are left out.
   - `read_messages`: the last N messages of a chat. Each message has `id`, `from_me`, `sender`, `time`,
     `text` and delivery `status`.
 - **Sending:**
@@ -33,7 +34,11 @@ can read chats and messages and send text and files in the background.
     box holds exactly that text. If it doesn't, or the run was cancelled, nothing is sent.
 - **One browser per plugin process:**
   - It starts on the first operation and runs operations one at a time.
-  - It closes after `WHATSAPP_WEB_IDLE_MINUTES` without use, and when graphrt stops the plugin.
+  - It closes after `WHATSAPP_WEB_IDLE_MINUTES` without use, and when graphrt stops the plugin. When graphrt
+    closes the plugin's input, running operations get up to 60 s to finish and reply first; a signal
+    (SIGTERM/SIGINT/SIGHUP) closes the browser at once.
+  - A lock file in the profile keeps a second plugin process off the same profile. A lock left by a dead
+    process is taken over.
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md).
 
@@ -108,7 +113,7 @@ from git, run the `npm`/`npx` commands inside the installed copy (`~/.graphrt/pl
 ## Configuration
 | Env var | Default | Description |
 |---------|---------|-------------|
-| `WHATSAPP_WEB_PROFILE_DIR` | `~/.graphrt/whatsapp-web/profile` | Chromium profile holding the WhatsApp session, the send counters (`graphrt-send-state.json`) and a pid lock (`graphrt-whatsapp-web.lock`) |
+| `WHATSAPP_WEB_PROFILE_DIR` | `~/.graphrt/whatsapp-web/profile` | Chromium profile holding the WhatsApp session, the send counters (`graphrt-send-state.json`) and a lock file (`graphrt-whatsapp-web.lock`) |
 | `WHATSAPP_WEB_IDLE_MINUTES` | `15` | Close the background browser after this many idle minutes |
 | `WHATSAPP_WEB_MIN_SEND_INTERVAL_SECONDS` | `30` | Minimum gap between two sends. Bursts of sends from a personal account risk a ban, so keep it high. Waits of up to 60 s happen inline; a longer wait fails with `rate_limited` |
 | `WHATSAPP_WEB_DAILY_SEND_LIMIT` | `50` | Sends per local calendar day. `0` disables sending |

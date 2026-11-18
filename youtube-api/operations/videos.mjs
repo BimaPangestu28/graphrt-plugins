@@ -23,6 +23,7 @@ function mergeSnippet(existingSnippet, args) {
   for (const fieldName of READ_ONLY_SNIPPET_FIELDS) delete mergedSnippet[fieldName];
   if (args.title !== undefined) mergedSnippet.title = args.title;
   if (args.description !== undefined) mergedSnippet.description = args.description;
+  if (args.clear_description) mergedSnippet.description = "";
   if (args.tags !== undefined) mergedSnippet.tags = args.tags;
   if (args.category_id !== undefined) mergedSnippet.categoryId = args.category_id;
   if (!mergedSnippet.categoryId) rejectInput("The video has no categoryId; pass `category_id` (YouTube requires it on update)");
@@ -30,8 +31,9 @@ function mergeSnippet(existingSnippet, args) {
 }
 
 async function updateVideoMetadata({ client, args, signal }) {
-  const hasChange = ["title", "description", "tags", "category_id"].some((fieldName) => args[fieldName] !== undefined);
-  if (!hasChange) rejectInput("Pass at least one of `title`, `description`, `tags` or `category_id`");
+  const hasChange = args.clear_description === true || ["title", "description", "tags", "category_id"].some((fieldName) => args[fieldName] !== undefined);
+  if (!hasChange) rejectInput("Pass at least one of `title`, `description`, `clear_description`, `tags` or `category_id`");
+  if (args.clear_description && args.description !== undefined) rejectInput("Pass either `description` or `clear_description: true`, not both");
   const currentResponse = await client.request({ path: "/videos", query: { part: "snippet", id: args.video_id }, signal });
   const currentVideo = requireFirstItem(currentResponse, `Video ${args.video_id} was not found or is not visible to this account`);
   const snippet = mergeSnippet(currentVideo.snippet ?? {}, args);
@@ -95,7 +97,8 @@ export const videoOperations = [
       properties: {
         video_id: VIDEO_ID_PROPERTY,
         title: { type: "string", minLength: 1, description: "New title (max 100 characters)" },
-        description: { type: "string", description: "New description" },
+        description: { type: "string", description: "New description (an empty string is ignored; use clear_description to empty it)" },
+        clear_description: { type: "boolean", default: false, description: "Set true to remove the description" },
         tags: { type: "array", items: { type: "string" }, description: "Replaces the tag list" },
         category_id: { type: "string", description: "Video category id, e.g. 22 (People & Blogs)" },
       },

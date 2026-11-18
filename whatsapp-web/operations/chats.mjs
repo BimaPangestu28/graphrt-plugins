@@ -26,7 +26,8 @@ export const chatOperations = [
   {
     name: "search_chats",
     title: "Search WhatsApp chats",
-    description: "Search chats and contacts by name or number with the WhatsApp search box; returns the matching rows.",
+    description:
+      "Search chats and contacts by name or number with the WhatsApp search box; returns the matching chat and contact rows (each with `kind`), without section headers or message hits.",
     parameters: {
       type: "object",
       properties: {

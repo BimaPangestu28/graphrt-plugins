@@ -22,19 +22,22 @@ const TOKEN_ERROR_KINDS = { 400: "auth_error", 401: "auth_error", 403: "permissi
 
 // Keyed by client id + refresh token; values `{accessToken, expiresAtMs}` or `{pending: Promise}`.
 const cachedAccessTokens = new Map();
+// Env access tokens that got a 401 and were replaced by the refresh trio; later runs skip them.
+const replacedStaticTokens = new Set();
 
 /**
  * Picks the credentials for one run. Used as the plugin's `resolveAccessToken` hook.
  *
  * @param options - `{environment, nodeToken}` (object)
- * @returns `{staticToken?, refreshGrant?}`; a node token never gets a refresh grant (object)
+ * @returns `{staticToken?, refreshGrant?, partialRefreshHint?}`; a node token never gets a refresh grant.
+ *   `partialRefreshHint` names the missing trio variables when YOUTUBE_ACCESS_TOKEN is set next to an incomplete trio (object)
  * @throws PluginError kind `auth_error` - When neither an access token nor the full refresh trio is set
  */
 export function resolveYouTubeCredentials({ environment, nodeToken }) {
   if (nodeToken) return { staticToken: nodeToken };
   const staticToken = environment?.YOUTUBE_ACCESS_TOKEN?.trim() || undefined;
   const refreshGrant = readRefreshGrant(environment);
-  if (staticToken || refreshGrant) return { staticToken, refreshGrant };
+  if (staticToken || refreshGrant) return { staticToken, refreshGrant, partialRefreshHint: describePartialTrio(environment) };
   throw new PluginError(describeMissingCredentials(environment), { kind: "auth_error" });
 }
 
@@ -43,13 +46,18 @@ function readRefreshGrant(environment) {
   return refreshToken && clientId && clientSecret ? { refreshToken, clientId, clientSecret } : undefined;
 }
 
-function describeMissingCredentials(environment) {
+// Names only the missing variables (never values); undefined when the trio is complete or entirely unset.
+function describePartialTrio(environment) {
   const missingNames = REFRESH_TRIO_NAMES.filter((variableName) => !environment?.[variableName]?.trim());
-  const isPartialTrio = missingNames.length < REFRESH_TRIO_NAMES.length;
-  const partialHint = isPartialTrio ? ` (refresh setup is incomplete: missing ${missingNames.join(", ")})` : "";
+  const isPartialTrio = missingNames.length > 0 && missingNames.length < REFRESH_TRIO_NAMES.length;
+  return isPartialTrio ? `refresh setup is incomplete: missing ${missingNames.join(", ")}` : undefined;
+}
+
+function describeMissingCredentials(environment) {
+  const partialHint = describePartialTrio(environment);
   return (
     "No YouTube credentials: set YOUTUBE_ACCESS_TOKEN, or set YOUTUBE_REFRESH_TOKEN + YOUTUBE_CLIENT_ID + YOUTUBE_CLIENT_SECRET " +
-    `(and allow them in permissions.env), or pass \`access_token\` on the node${partialHint}`
+    `(and allow them in permissions.env), or pass \`access_token\` on the node${partialHint ? ` (${partialHint})` : ""}`
   );
 }
 
@@ -58,36 +66,67 @@ function describeMissingCredentials(environment) {
  *
  * @param credentials - Result of resolveYouTubeCredentials (object)
  * @param fetchImpl - fetch implementation for the token endpoint (function, optional)
- * @returns `{getAccessToken: () => Promise<string>, refreshAccessToken: () => Promise<boolean>}`
+ * @returns `{getAccessToken: (signal?) => Promise<string>, refreshAccessToken: (signal?) => Promise<boolean>}`;
+ *   the optional AbortSignal cancels a token request this caller waits on
  */
 export function createAccessTokenSource(credentials, fetchImpl) {
-  let isUsingStaticToken = Boolean(credentials.staticToken);
-  const getAccessToken = async () =>
-    isUsingStaticToken ? credentials.staticToken : readCachedOrFetchToken(credentials.refreshGrant, fetchImpl, false);
-  const refreshAccessToken = async () => {
-    if (!credentials.refreshGrant) return false;
-    await readCachedOrFetchToken(credentials.refreshGrant, fetchImpl, true);
+  const { staticToken, refreshGrant } = credentials;
+  let isUsingStaticToken = Boolean(staticToken) && !(refreshGrant && replacedStaticTokens.has(staticToken));
+  const getAccessToken = async (signal) => (isUsingStaticToken ? staticToken : readCachedOrFetchToken(refreshGrant, fetchImpl, { isForcedRefresh: false, signal }));
+  const refreshAccessToken = async (signal) => {
+    if (!refreshGrant) return false;
+    await readCachedOrFetchToken(refreshGrant, fetchImpl, { isForcedRefresh: true, signal });
+    if (isUsingStaticToken) replacedStaticTokens.add(staticToken);
     isUsingStaticToken = false;
     return true;
   };
   return { getAccessToken, refreshAccessToken };
 }
 
-async function readCachedOrFetchToken(refreshGrant, fetchImpl, isForcedRefresh) {
+async function readCachedOrFetchToken(refreshGrant, fetchImpl, { isForcedRefresh, signal }) {
   const cacheKey = `${refreshGrant.clientId}\u0000${refreshGrant.refreshToken}`;
   const cachedEntry = cachedAccessTokens.get(cacheKey);
-  if (cachedEntry?.pending) return (await cachedEntry.pending).accessToken;
-  if (!isForcedRefresh && cachedEntry && cachedEntry.expiresAtMs - EXPIRY_SAFETY_MARGIN_MS > Date.now()) return cachedEntry.accessToken;
-  const pending = fetchAccessTokenWithRefreshToken(refreshGrant, fetchImpl);
+  if (cachedEntry?.pending) {
+    const sharedEntry = await waitForSharedRefresh(cachedEntry.pending, signal);
+    if (sharedEntry) return sharedEntry.accessToken;
+  } else if (!isForcedRefresh && cachedEntry && cachedEntry.expiresAtMs - EXPIRY_SAFETY_MARGIN_MS > Date.now()) {
+    return cachedEntry.accessToken;
+  }
+  const pending = fetchAccessTokenWithRefreshToken(refreshGrant, fetchImpl, signal);
   cachedAccessTokens.set(cacheKey, { pending });
   try {
     const freshEntry = await pending;
     cachedAccessTokens.set(cacheKey, freshEntry);
     return freshEntry.accessToken;
   } catch (refreshError) {
-    cachedAccessTokens.delete(cacheKey);
+    if (cachedAccessTokens.get(cacheKey)?.pending === pending) cachedAccessTokens.delete(cacheKey);
     throw refreshError;
   }
+}
+
+// Waits for another caller's token request, but stops when this caller is cancelled. Returns
+// undefined when that request was cancelled by its own caller, so this caller fetches its own token.
+async function waitForSharedRefresh(pending, signal) {
+  try {
+    return await raceWithCancellation(pending, signal);
+  } catch (sharedError) {
+    if (sharedError?.kind === "cancelled" && !signal?.aborted) return undefined;
+    throw sharedError;
+  }
+}
+
+function raceWithCancellation(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(cancelledError());
+  return new Promise((resolve, reject) => {
+    const rejectOnAbort = () => reject(cancelledError());
+    signal.addEventListener("abort", rejectOnAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", rejectOnAbort));
+  });
+}
+
+function cancelledError() {
+  return new PluginError("Google token refresh cancelled", { kind: "cancelled" });
 }
 
 /**
@@ -95,19 +134,22 @@ async function readCachedOrFetchToken(refreshGrant, fetchImpl, isForcedRefresh) 
  *
  * @param refreshGrant - `{refreshToken, clientId, clientSecret}` (object)
  * @param fetchImpl - fetch implementation (function, default global fetch)
+ * @param signal - Caller's cancellation signal, combined with a 30 s timeout (AbortSignal, optional)
  * @returns `{accessToken, expiresAtMs}` (Promise<object>)
- * @throws PluginError kinds `auth_error` (rejected grant/client), `rate_limited`, `api_error`, `network_error`
+ * @throws PluginError kinds `auth_error` (rejected grant/client), `rate_limited`, `api_error`, `network_error`, `cancelled`
  */
-export async function fetchAccessTokenWithRefreshToken(refreshGrant, fetchImpl = (...fetchArguments) => globalThis.fetch(...fetchArguments)) {
+export async function fetchAccessTokenWithRefreshToken(refreshGrant, fetchImpl = (...fetchArguments) => globalThis.fetch(...fetchArguments), signal) {
   const secrets = [refreshGrant.refreshToken, refreshGrant.clientSecret];
   let tokenResponse;
+  let responseBody;
   try {
-    tokenResponse = await fetchImpl(GOOGLE_TOKEN_URL, buildTokenRequest(refreshGrant));
+    tokenResponse = await fetchImpl(GOOGLE_TOKEN_URL, buildTokenRequest(refreshGrant, signal));
+    responseBody = await readJsonBody(tokenResponse);
   } catch (fetchError) {
+    if (signal?.aborted) throw cancelledError();
     const reason = String(fetchError?.cause?.message ?? fetchError?.message ?? fetchError);
     throw new PluginError(redactSecrets(`Google token refresh failed: network error: ${reason}`, secrets), { kind: "network_error", retryable: true });
   }
-  const responseBody = await readJsonBody(tokenResponse);
   if (!tokenResponse.ok) throw buildTokenEndpointError(tokenResponse.status, responseBody, secrets);
   if (typeof responseBody.access_token !== "string" || responseBody.access_token === "") {
     throw new PluginError("Google token refresh failed: the response has no access_token", { kind: "api_error" });
@@ -116,7 +158,7 @@ export async function fetchAccessTokenWithRefreshToken(refreshGrant, fetchImpl =
   return { accessToken: responseBody.access_token, expiresAtMs: Date.now() + expiresInSeconds * 1000 };
 }
 
-function buildTokenRequest(refreshGrant) {
+function buildTokenRequest(refreshGrant, signal) {
   const form = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: refreshGrant.refreshToken,
@@ -127,7 +169,7 @@ function buildTokenRequest(refreshGrant) {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
     body: form.toString(),
-    signal: AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS)]) : AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS),
   };
 }
 
@@ -154,8 +196,9 @@ function redactSecrets(text, secrets) {
 }
 
 /**
- * Empties the module-level access-token cache (for tests).
+ * Empties the module-level access-token cache and the replaced-env-token memory (for tests).
  */
 export function clearCachedAccessTokens() {
   cachedAccessTokens.clear();
+  replacedStaticTokens.clear();
 }

@@ -10,7 +10,7 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | `get_my_channel` | Read the authenticated user's channel (title, statistics, uploads playlist id). | part |
 | `list_my_videos` | List the authenticated channel's uploads, newest first. Pass `uploads_playlist_id` (returned in data) to skip the channel lookup. | uploads_playlist_id, part, limit, cursor |
 | `get_videos` | Read details of up to 50 videos by id (snippet, status, statistics, duration). | **video_ids**, part |
-| `update_video_metadata` | Change a video's title, description, tags or category. Reads the current snippet first, so fields you omit keep their values. | **video_id**, title, description, tags, category_id |
+| `update_video_metadata` | Change a video's title, description, tags or category. Reads the current snippet first, so fields you omit keep their values. | **video_id**, title, description, clear_description, tags, category_id |
 | `delete_video` | Permanently delete one of the authenticated channel's videos. | **video_id** |
 | `list_comment_threads` | List top-level comments (with some replies) on a video, or on all of a channel's videos. Filter by search terms or moderation status. | video_id, channel_id, order, search_terms, moderation_status, text_format, part, limit, cursor |
 | `list_comment_replies` | List all replies to a top-level comment. | **parent_id**, text_format, limit, cursor |

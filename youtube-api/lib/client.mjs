@@ -2,6 +2,7 @@
  * YouTube Data API v3 client: base URL, Bearer auth (static token or the
  * refresh trio), Google error mapping and helpers shared by the operation files.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createApiClient } from "./shared/api-client.mjs";
 import { PluginError } from "./shared/graphrt-plugin.mjs";
 import { createAccessTokenSource } from "./oauth.mjs";
@@ -11,6 +12,8 @@ const DAILY_QUOTA_REASONS = new Set(["quotaExceeded", "dailyLimitExceeded"]);
 const SHORT_RATE_LIMIT_REASONS = new Set(["rateLimitExceeded", "userRateLimitExceeded"]);
 const PERMISSION_REASONS = new Set(["commentsDisabled", "forbidden", "insufficientPermissions"]);
 const AUTH_REASONS = new Set(["authorizationRequired"]);
+// The shared client does not pass the request's signal to authorize/refreshCredentials, so it travels here.
+const requestSignalStorage = new AsyncLocalStorage();
 
 /**
  * Creates a YouTube client for the run's credentials.
@@ -23,13 +26,27 @@ export function createYouTubeClient({ accessToken: credentials, fetchImpl }) {
   const apiClient = createApiClient({
     baseUrl: YOUTUBE_BASE_URL,
     authorize: async ({ headers }) => {
-      headers.authorization = `Bearer ${await tokenSource.getAccessToken()}`;
+      headers.authorization = `Bearer ${await tokenSource.getAccessToken(requestSignalStorage.getStore())}`;
     },
-    refreshCredentials: tokenSource.refreshAccessToken,
+    refreshCredentials: () => tokenSource.refreshAccessToken(requestSignalStorage.getStore()),
     parseError: parseYouTubeError,
     fetchImpl,
   });
-  return apiClient;
+  const runWithRequestSignal = (send) => (requestOptions) =>
+    requestSignalStorage.run(requestOptions?.signal, () => send(requestOptions)).catch((requestError) => {
+      throw addPartialRefreshHint(requestError, credentials.partialRefreshHint);
+    });
+  return { request: runWithRequestSignal(apiClient.request), requestWithHeaders: runWithRequestSignal(apiClient.requestWithHeaders) };
+}
+
+// A rejected YOUTUBE_ACCESS_TOKEN next to an incomplete refresh trio would otherwise fail without saying why no refresh happened.
+function addPartialRefreshHint(requestError, partialRefreshHint) {
+  if (!partialRefreshHint || requestError?.kind !== "auth_error") return requestError;
+  return new PluginError(`${requestError.message} (YOUTUBE_ACCESS_TOKEN was rejected and the ${partialRefreshHint})`, {
+    kind: requestError.kind,
+    retryable: requestError.retryable,
+    retryAfterMs: requestError.retryAfterMs,
+  });
 }
 
 /**

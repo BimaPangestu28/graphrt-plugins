@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { REFRESH_ENVIRONMENT, runKeepingTokenCache, runWithResponses } from "./helpers.mjs";
 import { clearCachedAccessTokens, createAccessTokenSource, fetchAccessTokenWithRefreshToken } from "../lib/oauth.mjs";
 import { createRecordingFetch } from "../lib/shared/testing.mjs";
+import { createOperationRunner } from "../lib/shared/operations.mjs";
+import { pluginDefinition } from "../definition.mjs";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const tokenResponse = (accessToken, expiresIn = 3599) => ({ body: { access_token: accessToken, expires_in: expiresIn, token_type: "Bearer" } });
@@ -147,3 +149,52 @@ const REFRESH_ENVIRONMENT_GRANT = {
   clientId: REFRESH_ENVIRONMENT.YOUTUBE_CLIENT_ID,
   clientSecret: REFRESH_ENVIRONMENT.YOUTUBE_CLIENT_SECRET,
 };
+
+test("cancelling the run aborts a pending Google token request", { timeout: 5000 }, async () => {
+  clearCachedAccessTokens();
+  const tokenRequestSignals = [];
+  const hangingFetch = (url, init = {}) => {
+    tokenRequestSignals.push(init.signal);
+    return new Promise((resolve, reject) => init.signal?.addEventListener("abort", () => reject(init.signal.reason)));
+  };
+  const runOperation = createOperationRunner(pluginDefinition, REFRESH_ENVIRONMENT, { fetchImpl: hangingFetch });
+  const cancelController = new AbortController();
+  setTimeout(() => cancelController.abort(), 20);
+  await assert.rejects(runOperation("get_my_channel", {}, { source: "node", signal: cancelController.signal }), (error) => error.kind === "cancelled");
+  assert.equal(tokenRequestSignals.length, 1);
+  assert.equal(tokenRequestSignals[0].aborted, true);
+});
+
+test("a run that is cancelled while another run's token request is pending does not break that run", async () => {
+  clearCachedAccessTokens();
+  let releaseTokenResponse;
+  const tokenFetch = createRecordingFetch([tokenResponse("shared")]);
+  const slowFetch = (url, init) => new Promise((resolve) => { releaseTokenResponse = () => resolve(tokenFetch(url, init)); });
+  const tokenSource = createAccessTokenSource({ refreshGrant: REFRESH_ENVIRONMENT_GRANT }, slowFetch);
+  const cancelController = new AbortController();
+  const firstWaiter = tokenSource.getAccessToken();
+  const cancelledWaiter = tokenSource.getAccessToken(cancelController.signal);
+  cancelController.abort();
+  await assert.rejects(cancelledWaiter, (error) => error.kind === "cancelled");
+  releaseTokenResponse();
+  assert.equal(await firstWaiter, "shared");
+});
+
+test("a partial refresh setup next to YOUTUBE_ACCESS_TOKEN is named when that token is rejected", async () => {
+  const environment = { YOUTUBE_ACCESS_TOKEN: "expired-env-token", YOUTUBE_REFRESH_TOKEN: "refresh-secret-value" };
+  await assert.rejects(runWithResponses("get_my_channel", {}, [unauthorizedResponse], environment), (error) => {
+    assert.equal(error.kind, "auth_error");
+    assert.match(error.message, /refresh setup is incomplete: missing YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET/);
+    assert.doesNotMatch(error.message, /refresh-secret-value/);
+    return true;
+  });
+});
+
+test("once the refresh trio replaced a rejected env token, later runs skip that token", async () => {
+  const environment = { ...REFRESH_ENVIRONMENT, YOUTUBE_ACCESS_TOKEN: "expired-env-token" };
+  await runWithResponses("get_my_channel", {}, [unauthorizedResponse, tokenResponse("fresh-3"), { body: { items: [{}] } }], environment);
+  const laterRun = await runKeepingTokenCache("get_my_channel", {}, [{ body: { items: [{}] } }], environment);
+  assert.deepEqual(laterRun.calls.map((call) => call.headers.authorization), ["Bearer fresh-3"]);
+  const newEnvTokenRun = await runKeepingTokenCache("get_my_channel", {}, [{ body: { items: [{}] } }], { ...environment, YOUTUBE_ACCESS_TOKEN: "new-env-token" });
+  assert.deepEqual(newEnvTokenRun.calls.map((call) => call.headers.authorization), ["Bearer new-env-token"]);
+});

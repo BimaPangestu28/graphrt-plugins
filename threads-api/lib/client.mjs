@@ -7,7 +7,7 @@ import { PluginError } from "./shared/graphrt-plugin.mjs";
 
 const THREADS_ORIGIN = "https://graph.threads.net";
 export const THREADS_BASE_URL = `${THREADS_ORIGIN}/v1.0`;
-const RATE_LIMIT_CODES = new Set([4, 17, 32, 613]);
+const HOURLY_LIMIT_CODES = new Set([4, 17, 32, 613]);
 const AUTH_ERROR_CODES = new Set([102, 190]);
 const INVALID_INPUT_CODES = new Set([100]);
 const OBJECT_DOES_NOT_EXIST_SUBCODE = 33;
@@ -54,7 +54,7 @@ function requestTokenRefresh({ accessToken, fetchImpl, signal }) {
  *
  * @param status - HTTP status (number)
  * @param body - Parsed response body (object)
- * @returns `{message, kind}` or `{}` for non-Graph bodies (object)
+ * @returns `{message, kind, retryable?}` or `{}` for non-Graph bodies; hourly limits are not retryable (object)
  */
 export function parseThreadsError(status, body) {
   const graphError = body?.error;
@@ -67,12 +67,15 @@ export function parseThreadsError(status, body) {
   ].filter(Boolean);
   const baseMessage = graphError.error_user_msg || graphError.message || "Unknown Threads API error";
   const message = details.length > 0 ? `${baseMessage} (${details.join(", ")})` : baseMessage;
-  return { message, kind: kindForGraphError(code, Number(graphError.error_subcode), graphError.type, status) };
+  const kind = kindForGraphError(code, Number(graphError.error_subcode), graphError.type, status);
+  if (!HOURLY_LIMIT_CODES.has(code)) return { message, kind };
+  // App/user limits are counted per rolling hour: a retry seconds later only spends more of the budget.
+  return { message: `${message}. This is an hourly app/user rate limit; try again later (up to an hour)`, kind, retryable: false };
 }
 
 function kindForGraphError(code, subcode, errorType, status) {
   if (code === 100 && subcode === OBJECT_DOES_NOT_EXIST_SUBCODE) return "not_found";
-  if (RATE_LIMIT_CODES.has(code)) return "rate_limited";
+  if (HOURLY_LIMIT_CODES.has(code)) return "rate_limited";
   if (AUTH_ERROR_CODES.has(code)) return "auth_error";
   if (code === 10 || (code >= 200 && code <= 299)) return "permission_denied";
   if (INVALID_INPUT_CODES.has(code)) return "invalid_input";

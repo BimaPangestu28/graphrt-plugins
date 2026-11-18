@@ -39,12 +39,13 @@ export function createBrowserSession({ profileDirectory, idleTimeoutMs, launchPe
   const crashedPages = new WeakSet();
 
   const closeContext = async (reason) => {
-    const openContext = state.context;
+    // Capture the release paired with this context: a newer launch replaces `state.releaseLock`.
+    const { context: openContext, releaseLock } = state;
     if (!openContext) return;
     state.context = null;
     console.error(`[whatsapp-web] closing browser (${reason})`);
     await closeWithTimeout(openContext);
-    await state.releaseLock();
+    await releaseLock();
   };
 
   const scheduleIdleClose = () => {
@@ -152,6 +153,7 @@ async function launchContext(profileDirectory, headed, launchPersistentContext) 
 }
 
 // A crashed browser or a window closed by the user must not leave a dead context (or a held lock) behind.
+// `releaseLock` belongs to this launch only, so a late close never frees a newer launch's lock.
 function watchContextClose(state, context, releaseLock) {
   context.on?.("close", () => {
     if (state.context === context) state.context = null;

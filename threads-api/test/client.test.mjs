@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseThreadsError, toPage } from "../lib/client.mjs";
-import { runWithResponses } from "./helpers.mjs";
+import { runWithResponses, TEST_ENVIRONMENT } from "./helpers.mjs";
+import { createOperationRunner } from "../lib/shared/operations.mjs";
+import { createRecordingFetch } from "../lib/shared/testing.mjs";
+import { pluginDefinition } from "../definition.mjs";
 
 for (const [code, expectedKind] of [
   [4, "rate_limited"],
@@ -50,10 +53,21 @@ test("an HTTP 400 with Graph code 190 becomes auth_error without leaking the tok
   );
 });
 
-test("an HTTP 400 with Graph code 4 is rate_limited", async () => {
-  // Rate limits are retried; the three canned responses cover the first attempt and both retries.
-  const rateLimited = { status: 400, body: { error: { code: 4, message: "Application request limit reached" } }, headers: { "retry-after": "0" } };
-  await assert.rejects(runWithResponses("get_profile", {}, [rateLimited, rateLimited, rateLimited]), (error) => error.kind === "rate_limited");
+for (const code of [4, 17, 32, 613]) {
+  test(`Graph code ${code} (hourly limit) is rate_limited, not retried, and says so`, async () => {
+    const parsed = parseThreadsError(400, { error: { code, message: "Application request limit reached" } });
+    assert.equal(parsed.retryable, false);
+    assert.match(parsed.message, /hourly/);
+    const rateLimited = { status: 400, body: { error: { code, message: "Application request limit reached" } }, headers: { "retry-after": "0" } };
+    const recordingFetch = createRecordingFetch([rateLimited, { body: { id: "1" } }]);
+    const runOperation = createOperationRunner(pluginDefinition, TEST_ENVIRONMENT, { fetchImpl: recordingFetch });
+    await assert.rejects(runOperation("get_profile", {}, { source: "tool" }), (error) => error.kind === "rate_limited" && error.retryable === false && /hourly/.test(error.message));
+    assert.equal(recordingFetch.calls.length, 1);
+  });
+}
+
+test("a plain HTTP 429 without a Graph rate-limit code keeps the default retry", () => {
+  assert.equal(parseThreadsError(429, { error: { code: 1, message: "busy" } }).retryable, undefined);
 });
 
 test("toPage returns the after cursor only when paging.next exists", () => {

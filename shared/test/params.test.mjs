@@ -52,7 +52,7 @@ for (const [label, invalidArguments, fieldName] of [
   ["integer above maximum", { message: "x", limit: 101 }, "limit"],
   ["fractional integer", { message: "x", limit: "2.5" }, "limit"],
   ["not in enum", { message: "x", visibility: "SECRET" }, "visibility"],
-  ["wrong array item type", { message: "x", media_urls: [1] }, "media_urls"],
+  ["wrong array item type", { message: "x", media_urls: [true] }, "media_urls"],
   ["too many array items", { message: "x", media_urls: ["a", "b", "c", "d"] }, "media_urls"],
   ["object given a string", { message: "x", extra: "nope" }, "extra"],
   ["boolean given garbage", { message: "x", published: "maybe" }, "published"],
@@ -85,4 +85,16 @@ test("validateArguments accepts True/FALSE/1/0 for booleans", () => {
   assert.equal(validateArguments(schema, { message: "x", published: "FALSE" }).published, false);
   assert.equal(validateArguments(schema, { message: "x", published: 1 }).published, true);
   assert.equal(validateArguments(schema, { message: "x", published: "0" }).published, false);
+});
+
+test("validateArguments turns safe integer array items into strings for string items", () => {
+  assert.deepEqual(validateArguments(schema, { message: "x", media_urls: [123, "456"] }).media_urls, ["123", "456"]);
+  assert.deepEqual(validateArguments(schema, { message: "x", media_urls: "[123, 456]" }).media_urls, ["123", "456"]);
+});
+
+test("validateArguments asks to quote array items too large to be exact", () => {
+  assert.throws(
+    () => validateArguments(schema, { message: "x", media_urls: [2 ** 60] }),
+    (error) => error.kind === "invalid_input" && /quote/i.test(error.message),
+  );
 });

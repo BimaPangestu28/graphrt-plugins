@@ -48,7 +48,7 @@ function isMissing(value) {
 }
 
 function validateValue(propertyName, propertySchema, rawValue) {
-  const value = canonicalizeEnum(propertySchema.enum, coerceValue(propertySchema.type, rawValue));
+  const value = canonicalizeEnum(propertySchema.enum, coerceArrayItems(propertySchema, coerceValue(propertySchema.type, rawValue)));
   checkType(propertyName, propertySchema, value);
   checkConstraints(propertyName, propertySchema, value);
   return value;
@@ -77,6 +77,12 @@ function coerceValue(declaredType, rawValue) {
     }
   }
   return rawValue;
+}
+
+// Numeric ids inside string arrays (e.g. `[123, 456]`) get the same exact-string treatment as scalars.
+function coerceArrayItems(propertySchema, value) {
+  if (!Array.isArray(value) || propertySchema.items?.type !== "string") return value;
+  return value.map((item) => (typeof item === "number" ? coerceNumber("string", item) : item));
 }
 
 // IDs often arrive as numbers (unquoted YAML, LLM tool calls); keep them exact.

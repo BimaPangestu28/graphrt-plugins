@@ -94,7 +94,7 @@ graphrt run threads-api/example.yaml --plugins .
 | `invalid_input` | Bad arguments (e.g. text over 500 characters) or Graph code 100 |
 | `auth_error` | Missing, invalid or expired token (Graph 190/102, HTTP 401) |
 | `permission_denied` | Missing permission (Graph 10, 200–299) |
-| `rate_limited` | Throttling (Graph 4, 17, 32, 613, HTTP 429). Retried automatically for up to 60 s |
+| `rate_limited` | Throttling. Graph codes 4, 17, 32 and 613 are hourly app/user limits and are not retried (try again later); a plain HTTP 429 is retried automatically for up to 60 s |
 | `not_found`, `api_error`, `network_error`, `timeout`, `cancelled` | As named |
 
 ## Development

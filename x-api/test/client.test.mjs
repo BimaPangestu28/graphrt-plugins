@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { detectXBodyError, parseXError, toPage } from "../lib/client.mjs";
-import { runWithResponses, rejectsWithKind } from "./helpers.mjs";
+import { runExpectingFailure, runWithResponses, rejectsWithKind } from "./helpers.mjs";
 
 const noHeaders = new Headers();
 const problem = (problemName, extra = {}) => ({ type: `https://api.x.com/2/problems/${problemName}`, title: "T", detail: `detail of ${problemName}`, ...extra });
@@ -93,4 +93,23 @@ test("usage-capped (monthly cap) is rate_limited but never retried", async () =>
   const parsed = parseXError(429, { type: "https://api.twitter.com/2/problems/usage-capped", title: "Usage capped", detail: "cap" }, new Headers());
   assert.equal(parsed.kind, "rate_limited");
   assert.equal(parsed.retryable, false);
+});
+
+test("a 429 without x-rate-limit-reset or Retry-After is not retried", () => {
+  const parsed = parseXError(429, { title: "Too Many Requests" }, new Headers());
+  assert.equal(parsed.kind, "rate_limited");
+  assert.equal(parsed.retryable, false);
+});
+
+test("a 429 with a known reset stays retryable", () => {
+  const resetInSeconds = Math.floor(Date.now() / 1000) + 10;
+  assert.notEqual(parseXError(429, { title: "Too Many Requests" }, new Headers({ "x-rate-limit-reset": String(resetInSeconds) })).retryable, false);
+  assert.notEqual(parseXError(429, { title: "Too Many Requests" }, new Headers({ "retry-after": "5" })).retryable, false);
+});
+
+test("a 429 without a reset header makes a single request", async () => {
+  const tooMany = { status: 429, body: { title: "Too Many Requests", detail: "Too Many Requests" } };
+  const { error, calls } = await runExpectingFailure("get_me", {}, [tooMany, { body: { data: { id: "1" } } }]);
+  assert.equal(error.kind, "rate_limited");
+  assert.equal(calls.length, 1);
 });

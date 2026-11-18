@@ -55,7 +55,9 @@ Then use `{{#search.phones#}}`, `{{#search.results#}}` or `{{#search.count#}}`.
 | `headless` | boolean | `true` | Set `false` to watch the browser |
 
 Outputs:
-- `results`: `array[object]` of `{name, phone, address, website, rating, maps_url}`. Fields are `null` when missing.
+- `results`: `array[object]` of `{name, phone, address, website, website_label, rating, maps_url}`. Fields are `null` when missing.
+  `website` is the full link from the place page (falls back to the visible label); `website_label` is the label as shown.
+  A search Google Maps finds nothing for returns an empty list (logged to stderr) instead of failing.
 - `phones`: `array[string]` of unique phone numbers, digits only with an optional leading `+`.
 - `count`: integer.
 
@@ -68,7 +70,7 @@ host, so they stop themselves after 290 s with `cancelled`.
 | Kind | When |
 |------|------|
 | `invalid_input` | Bad config |
-| `blocked` | Google served a CAPTCHA / unusual-traffic page (retryable after ~10 min) |
+| `blocked` | Google served its `/sorry/` page or a CAPTCHA form (retryable after ~10 min) |
 | `setup_required` | Chromium is not installed: run `npx playwright install chromium` |
 | `browser_error` | Browser failed to start for another reason |
 | `cancelled` | The run was cancelled |
