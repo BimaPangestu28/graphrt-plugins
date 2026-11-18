@@ -53,7 +53,12 @@ export function mapScriptFailure(scriptFailure) {
     case "invalid_input":
       return new PluginError(message, { kind: "invalid_input" });
     case "action_failed":
-      return new PluginError(message, { kind: "plugin_error" });
+      return new PluginError(message, { kind: "action_failed" });
+    case "screen_locked":
+      return new PluginError(`${message}. Unlock the Mac (and keep it awake) before running computer-control operations.`, {
+        kind: "screen_locked",
+        retryable: false,
+      });
     default:
       return mapOsascriptFailure(`${message}${scriptFailure?.number !== undefined ? ` (${scriptFailure.number})` : ""}`);
   }

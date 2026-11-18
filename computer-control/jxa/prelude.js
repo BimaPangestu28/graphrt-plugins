@@ -117,6 +117,18 @@ function findRunningApp(appName) {
   return matches[0];
 }
 
+function frontmostBundleIdentifier() {
+  var frontmostApp = $.NSWorkspace.sharedWorkspace.frontmostApplication;
+  return isMissing(frontmostApp) || isMissing(frontmostApp.bundleIdentifier) ? "" : frontmostApp.bundleIdentifier.js;
+}
+
+// While the screen is locked the login window is frontmost and macOS blocks synthetic input.
+function assertScreenUnlocked() {
+  if (frontmostBundleIdentifier() === "com.apple.loginwindow") {
+    fail("screen_locked", "The screen is locked (the login window is frontmost); macOS blocks input to apps until it is unlocked");
+  }
+}
+
 function frontmostProcessIdentifier() {
   var frontmostApp = $.NSWorkspace.sharedWorkspace.frontmostApplication;
   return isMissing(frontmostApp) ? -1 : Number(frontmostApp.processIdentifier);
@@ -141,6 +153,7 @@ function systemEvents() {
 
 // System Events is more reliable than NSRunningApplication.activate for background callers.
 function activateApp(runningApp) {
+  assertScreenUnlocked();
   var processes = systemEvents().processes.whose({ unixId: runningApp.processIdentifier });
   if (processes.length === 0) fail("not_found", "App \"" + appNameOf(runningApp) + "\" has no process");
   processes[0].frontmost = true;
