@@ -1,0 +1,1571 @@
+{
+  "name": "tiktok-api",
+  "version": "0.1.0",
+  "description": "TikTok profile, videos and Content Posting (Open API), plus comments and DMs (Business API), via the official TikTok APIs",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TIKTOK_ACCESS_TOKEN",
+      "TIKTOK_BUSINESS_ACCESS_TOKEN",
+      "TIKTOK_BUSINESS_ID",
+      "TIKTOK_CLIENT_KEY",
+      "TIKTOK_CLIENT_SECRET",
+      "TIKTOK_REFRESH_TOKEN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 420000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "tiktok-api.get_user_info",
+      "title": "Get TikTok user info",
+      "description": "Read the authorized TikTok user's profile (display name, username, follower and video counts). Fields need the matching user.info.* scopes.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "open_id,union_id,avatar_url,display_name,bio_description,profile_deep_link,is_verified,username,follower_count,following_count,likes_count,video_count",
+            "description": "Comma-separated user fields"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.list_videos",
+      "title": "List TikTok videos",
+      "description": "List the authorized user's public videos, newest first (scope video.list).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,title,video_description,create_time,cover_image_url,share_url,duration,height,width,embed_link,like_count,comment_count,share_count,view_count",
+            "description": "Comma-separated video fields"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20,
+            "description": "Page size (max 20)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.query_videos",
+      "title": "Query TikTok videos",
+      "description": "Read specific videos of the authorized user by id (up to 20), e.g. to refresh their counts.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "1-20 video ids"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,title,video_description,create_time,cover_image_url,share_url,duration,height,width,embed_link,like_count,comment_count,share_count,view_count",
+            "description": "Comma-separated video fields"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.get_creator_info",
+      "title": "Get TikTok creator info",
+      "description": "Read the creator's posting settings: allowed privacy levels, whether comments/duet/stitch are disabled, and max video duration.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.refresh_access_token",
+      "title": "Refresh TikTok access token",
+      "description": "Exchange a refresh token for a new access token. TikTok rotates refresh tokens: store the returned refresh_token. The client secret is read from TIKTOK_CLIENT_SECRET only.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token (default: TIKTOK_REFRESH_TOKEN)"
+          },
+          "client_key": {
+            "type": "string",
+            "description": "App client key (default: TIKTOK_CLIENT_KEY)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.publish_video",
+      "title": "Publish TikTok video",
+      "description": "Post a video from a public URL on a verified domain. mode=direct posts it (needs privacy_level); mode=inbox sends it to the creator's TikTok inbox as a draft to finish in the app.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video_url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Public video URL on a domain verified for the app"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "inbox"
+            ],
+            "default": "direct"
+          },
+          "title": {
+            "type": "string",
+            "description": "Caption with #hashtags and @mentions (direct only)"
+          },
+          "privacy_level": {
+            "type": "string",
+            "enum": [
+              "PUBLIC_TO_EVERYONE",
+              "MUTUAL_FOLLOW_FRIENDS",
+              "FOLLOWER_OF_CREATOR",
+              "SELF_ONLY"
+            ],
+            "description": "Required for direct posts; must be one of creator_info.privacy_level_options. Unaudited apps can only use SELF_ONLY."
+          },
+          "disable_comment": {
+            "type": "boolean"
+          },
+          "disable_duet": {
+            "type": "boolean"
+          },
+          "disable_stitch": {
+            "type": "boolean"
+          },
+          "video_cover_timestamp_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Frame used as the cover"
+          },
+          "brand_content_toggle": {
+            "type": "boolean",
+            "description": "Paid partnership promoting a third party"
+          },
+          "brand_organic_toggle": {
+            "type": "boolean",
+            "description": "Promotes the creator's own business"
+          },
+          "is_aigc": {
+            "type": "boolean",
+            "description": "Label the video as AI-generated"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Poll the status every 5 s (up to 5 min) until TikTok finishes"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.publish_photos",
+      "title": "Publish TikTok photos",
+      "description": "Post 1-35 photos from public URLs on a verified domain. mode=direct posts them (needs privacy_level); mode=upload sends them to the creator's inbox to finish in the app.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "photo_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 35,
+            "description": "1-35 public image URLs"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "upload"
+            ],
+            "default": "direct"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "description": "Post text with #hashtags and @mentions"
+          },
+          "privacy_level": {
+            "type": "string",
+            "enum": [
+              "PUBLIC_TO_EVERYONE",
+              "MUTUAL_FOLLOW_FRIENDS",
+              "FOLLOWER_OF_CREATOR",
+              "SELF_ONLY"
+            ],
+            "description": "Required for direct posts; must be one of creator_info.privacy_level_options. Unaudited apps can only use SELF_ONLY."
+          },
+          "photo_cover_index": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Index of the cover photo in photo_urls"
+          },
+          "disable_comment": {
+            "type": "boolean"
+          },
+          "auto_add_music": {
+            "type": "boolean"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Poll the status every 5 s (up to 5 min) until TikTok finishes"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "photo_urls"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.get_publish_status",
+      "title": "Get TikTok publish status",
+      "description": "Read the status of a publish_id (PROCESSING_UPLOAD, PROCESSING_DOWNLOAD, SEND_TO_USER_INBOX, PUBLISH_COMPLETE or FAILED).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "publish_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "publish_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.list_comments",
+      "title": "List TikTok comments",
+      "description": "List comments on one of the business account's videos (Business API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "HIDDEN",
+              "ALL"
+            ],
+            "default": "PUBLIC"
+          },
+          "include_replies": {
+            "type": "boolean"
+          },
+          "sort_field": {
+            "type": "string",
+            "description": "e.g. create_time or likes"
+          },
+          "sort_type": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.list_comment_replies",
+      "title": "List TikTok comment replies",
+      "description": "List replies to a comment on the business account's video (Business API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_id",
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.create_comment",
+      "title": "Comment on TikTok video",
+      "description": "Post a comment on one of the business account's videos (Business API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.reply_to_comment",
+      "title": "Reply to TikTok comment",
+      "description": "Reply to a comment on one of the business account's videos (Business API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_id",
+          "comment_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.set_comment_hidden",
+      "title": "Hide/unhide TikTok comment",
+      "description": "Hide or unhide a comment on the business account's video (Business API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Video id, if the API asks for it"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id",
+          "hidden"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.set_comment_liked",
+      "title": "Like/unlike TikTok comment",
+      "description": "Like or unlike a comment as the business account (Business API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "liked": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id",
+          "liked"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.delete_comment",
+      "title": "Delete TikTok comment",
+      "description": "Delete a comment the business account owns or that is on its video (Business API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.list_conversations",
+      "title": "List TikTok conversations",
+      "description": "List direct-message conversations of the business account (Business API; restricted access).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "conversation_type": {
+            "type": "string",
+            "enum": [
+              "SINGLE",
+              "STRANGER"
+            ],
+            "default": "SINGLE",
+            "description": "Conversation folder"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.list_messages",
+      "title": "List TikTok messages",
+      "description": "List messages in one direct-message conversation (Business API; restricted access).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conversation_type": {
+            "type": "string",
+            "enum": [
+              "SINGLE",
+              "STRANGER"
+            ],
+            "default": "SINGLE",
+            "description": "Conversation folder"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.send_message",
+      "title": "Send TikTok message",
+      "description": "Send a text direct message as the business account (Business API; restricted access, only within 48 hours of the user's last message).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "recipient": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id (recipient_type CONVERSATION)"
+          },
+          "recipient_type": {
+            "type": "string",
+            "enum": [
+              "CONVERSATION"
+            ],
+            "default": "CONVERSATION"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "recipient",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-api.api_request",
+      "title": "TikTok API request",
+      "description": "Call any TikTok API endpoint that has no dedicated operation, e.g. path \"/v2/user/info/\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/user/info/\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "api": {
+            "type": "string",
+            "enum": [
+              "open",
+              "business"
+            ],
+            "default": "open",
+            "description": "open = open.tiktokapis.com (TIKTOK_ACCESS_TOKEN); business = business-api.tiktok.com/open_api/v1.3 (TIKTOK_BUSINESS_ACCESS_TOKEN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_user_info",
+      "description": "Read the authorized TikTok user's profile (display name, username, follower and video counts). Fields need the matching user.info.* scopes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "open_id,union_id,avatar_url,display_name,bio_description,profile_deep_link,is_verified,username,follower_count,following_count,likes_count,video_count",
+            "description": "Comma-separated user fields"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_videos",
+      "description": "List the authorized user's public videos, newest first (scope video.list).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,title,video_description,create_time,cover_image_url,share_url,duration,height,width,embed_link,like_count,comment_count,share_count,view_count",
+            "description": "Comma-separated video fields"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20,
+            "description": "Page size (max 20)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "query_videos",
+      "description": "Read specific videos of the authorized user by id (up to 20), e.g. to refresh their counts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "1-20 video ids"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,title,video_description,create_time,cover_image_url,share_url,duration,height,width,embed_link,like_count,comment_count,share_count,view_count",
+            "description": "Comma-separated video fields"
+          }
+        },
+        "required": [
+          "video_ids"
+        ]
+      }
+    },
+    {
+      "name": "get_creator_info",
+      "description": "Read the creator's posting settings: allowed privacy levels, whether comments/duet/stitch are disabled, and max video duration.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "publish_video",
+      "description": "Post a video from a public URL on a verified domain. mode=direct posts it (needs privacy_level); mode=inbox sends it to the creator's TikTok inbox as a draft to finish in the app.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Public video URL on a domain verified for the app"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "inbox"
+            ],
+            "default": "direct"
+          },
+          "title": {
+            "type": "string",
+            "description": "Caption with #hashtags and @mentions (direct only)"
+          },
+          "privacy_level": {
+            "type": "string",
+            "enum": [
+              "PUBLIC_TO_EVERYONE",
+              "MUTUAL_FOLLOW_FRIENDS",
+              "FOLLOWER_OF_CREATOR",
+              "SELF_ONLY"
+            ],
+            "description": "Required for direct posts; must be one of creator_info.privacy_level_options. Unaudited apps can only use SELF_ONLY."
+          },
+          "disable_comment": {
+            "type": "boolean"
+          },
+          "disable_duet": {
+            "type": "boolean"
+          },
+          "disable_stitch": {
+            "type": "boolean"
+          },
+          "video_cover_timestamp_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Frame used as the cover"
+          },
+          "brand_content_toggle": {
+            "type": "boolean",
+            "description": "Paid partnership promoting a third party"
+          },
+          "brand_organic_toggle": {
+            "type": "boolean",
+            "description": "Promotes the creator's own business"
+          },
+          "is_aigc": {
+            "type": "boolean",
+            "description": "Label the video as AI-generated"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Poll the status every 5 s (up to 5 min) until TikTok finishes"
+          }
+        },
+        "required": [
+          "video_url"
+        ]
+      }
+    },
+    {
+      "name": "publish_photos",
+      "description": "Post 1-35 photos from public URLs on a verified domain. mode=direct posts them (needs privacy_level); mode=upload sends them to the creator's inbox to finish in the app.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "photo_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 35,
+            "description": "1-35 public image URLs"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "upload"
+            ],
+            "default": "direct"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "description": "Post text with #hashtags and @mentions"
+          },
+          "privacy_level": {
+            "type": "string",
+            "enum": [
+              "PUBLIC_TO_EVERYONE",
+              "MUTUAL_FOLLOW_FRIENDS",
+              "FOLLOWER_OF_CREATOR",
+              "SELF_ONLY"
+            ],
+            "description": "Required for direct posts; must be one of creator_info.privacy_level_options. Unaudited apps can only use SELF_ONLY."
+          },
+          "photo_cover_index": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Index of the cover photo in photo_urls"
+          },
+          "disable_comment": {
+            "type": "boolean"
+          },
+          "auto_add_music": {
+            "type": "boolean"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Poll the status every 5 s (up to 5 min) until TikTok finishes"
+          }
+        },
+        "required": [
+          "photo_urls"
+        ]
+      }
+    },
+    {
+      "name": "get_publish_status",
+      "description": "Read the status of a publish_id (PROCESSING_UPLOAD, PROCESSING_DOWNLOAD, SEND_TO_USER_INBOX, PUBLISH_COMPLETE or FAILED).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "publish_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "publish_id"
+        ]
+      }
+    },
+    {
+      "name": "list_comments",
+      "description": "List comments on one of the business account's videos (Business API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "HIDDEN",
+              "ALL"
+            ],
+            "default": "PUBLIC"
+          },
+          "include_replies": {
+            "type": "boolean"
+          },
+          "sort_field": {
+            "type": "string",
+            "description": "e.g. create_time or likes"
+          },
+          "sort_type": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "video_id"
+        ]
+      }
+    },
+    {
+      "name": "list_comment_replies",
+      "description": "List replies to a comment on the business account's video (Business API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "video_id",
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "create_comment",
+      "description": "Post a comment on one of the business account's videos (Business API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "video_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "reply_to_comment",
+      "description": "Reply to a comment on one of the business account's videos (Business API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok video id"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "video_id",
+          "comment_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "set_comment_hidden",
+      "description": "Hide or unhide a comment on the business account's video (Business API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "video_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Video id, if the API asks for it"
+          }
+        },
+        "required": [
+          "comment_id",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "name": "set_comment_liked",
+      "description": "Like or unlike a comment as the business account (Business API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          },
+          "liked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "comment_id",
+          "liked"
+        ]
+      }
+    },
+    {
+      "name": "delete_comment",
+      "description": "Delete a comment the business account owns or that is on its video (Business API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "comment_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment id"
+          }
+        },
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "list_conversations",
+      "description": "List direct-message conversations of the business account (Business API; restricted access).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "conversation_type": {
+            "type": "string",
+            "enum": [
+              "SINGLE",
+              "STRANGER"
+            ],
+            "default": "SINGLE",
+            "description": "Conversation folder"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_messages",
+      "description": "List messages in one direct-message conversation (Business API; restricted access).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conversation_type": {
+            "type": "string",
+            "enum": [
+              "SINGLE",
+              "STRANGER"
+            ],
+            "default": "SINGLE",
+            "description": "Conversation folder"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a text direct message as the business account (Business API; restricted access, only within 48 hours of the user's last message).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
+          },
+          "recipient": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id (recipient_type CONVERSATION)"
+          },
+          "recipient_type": {
+            "type": "string",
+            "enum": [
+              "CONVERSATION"
+            ],
+            "default": "CONVERSATION"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "recipient",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any TikTok API endpoint that has no dedicated operation, e.g. path \"/v2/user/info/\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/user/info/\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "api": {
+            "type": "string",
+            "enum": [
+              "open",
+              "business"
+            ],
+            "default": "open",
+            "description": "open = open.tiktokapis.com (TIKTOK_ACCESS_TOKEN); business = business-api.tiktok.com/open_api/v1.3 (TIKTOK_BUSINESS_ACCESS_TOKEN)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
