@@ -9,6 +9,9 @@ import {
   collectPhones,
   isBlockedPage,
   classifyLaunchError,
+  classifySearchOutcome,
+  isNoResultsText,
+  isSinglePlaceUrl,
 } from "../lib/parse.mjs";
 
 test("validateSearchConfig applies defaults", () => {
@@ -64,17 +67,14 @@ test("extractPlaceDetails reads phone, address and website items", () => {
       { itemId: "address", label: "Alamat: Jl. Braga 1" },
       { itemId: "authority", label: "braga.id" },
     ]),
-    { phone: "+62221234567", address: "Jl. Braga 1", website: "braga.id" },
+    { phone: "+62221234567", address: "Jl. Braga 1", website: "braga.id", website_label: "braga.id" },
   );
 });
 
 test("extractPlaceDetails returns nulls for a place without details", () => {
-  assert.deepEqual(extractPlaceDetails([]), { phone: null, address: null, website: null });
-  assert.deepEqual(extractPlaceDetails([{ itemId: "oh", label: "Jam buka" }]), {
-    phone: null,
-    address: null,
-    website: null,
-  });
+  const emptyDetails = { phone: null, address: null, website: null, website_label: null };
+  assert.deepEqual(extractPlaceDetails([]), emptyDetails);
+  assert.deepEqual(extractPlaceDetails([{ itemId: "oh", label: "Jam buka" }]), emptyDetails);
 });
 
 test("extractPlaceDetails strips English address and website prefixes", () => {
@@ -83,7 +83,7 @@ test("extractPlaceDetails strips English address and website prefixes", () => {
       { itemId: "address", label: "Address: 1 Main St" },
       { itemId: "authority", label: "Website: example.com" },
     ]),
-    { phone: null, address: "1 Main St", website: "example.com" },
+    { phone: null, address: "1 Main St", website: "example.com", website_label: "example.com" },
   );
 });
 
@@ -98,13 +98,63 @@ test("collectPhones keeps unique non-null phones in order", () => {
   assert.deepEqual(collectPhones([{ phone: "1" }, { phone: null }, { phone: "1" }, { phone: "2" }]), ["1", "2"]);
 });
 
-test("isBlockedPage detects the Google sorry page and unusual traffic notice", () => {
-  assert.equal(isBlockedPage("https://www.google.com/sorry/index?continue=x", ""), true);
-  assert.equal(
-    isBlockedPage("https://www.google.com/maps/search/x", "Our systems have detected unusual traffic from your network"),
-    true,
+test("isBlockedPage detects the Google sorry page", () => {
+  assert.equal(isBlockedPage("https://www.google.com/sorry/index?continue=x", false), true);
+});
+
+test("isBlockedPage detects a CAPTCHA element on any page", () => {
+  assert.equal(isBlockedPage("https://www.google.com/maps/search/x", true), true);
+});
+
+test("isBlockedPage ignores 'unusual traffic' text without a CAPTCHA element", () => {
+  // A place review or name can contain the phrase; only the URL / element count.
+  assert.equal(isBlockedPage("https://www.google.com/maps/place/x", "Our systems have detected unusual traffic"), false);
+  assert.equal(isBlockedPage("https://www.google.com/maps/search/x", false), false);
+});
+
+test("extractPlaceDetails returns the authority href as website and keeps the label", () => {
+  assert.deepEqual(
+    extractPlaceDetails([{ itemId: "authority", label: "Situs Web: braga.id", href: "https://www.braga.id/menu?ref=maps" }]),
+    { phone: null, address: null, website: "https://www.braga.id/menu?ref=maps", website_label: "braga.id" },
   );
-  assert.equal(isBlockedPage("https://www.google.com/maps/search/x", "Hasil pencarian"), false);
+});
+
+test("extractPlaceDetails unwraps a Google redirect href", () => {
+  const placeDetails = extractPlaceDetails([
+    { itemId: "authority", label: "braga.id", href: "https://www.google.com/url?q=https://braga.id/&sa=U" },
+  ]);
+  assert.equal(placeDetails.website, "https://braga.id/");
+});
+
+test("extractPlaceDetails falls back to the label when the href is missing or not http(s)", () => {
+  assert.equal(extractPlaceDetails([{ itemId: "authority", label: "braga.id", href: null }]).website, "braga.id");
+  assert.equal(extractPlaceDetails([{ itemId: "authority", label: "braga.id", href: "javascript:void(0)" }]).website, "braga.id");
+});
+
+test("isSinglePlaceUrl matches only /maps/place/ URLs", () => {
+  assert.equal(isSinglePlaceUrl("https://www.google.com/maps/place/Braga/@-6.9,107.6,17z"), true);
+  assert.equal(isSinglePlaceUrl("https://www.google.com/maps/search/cafe?hl=id"), false);
+  assert.equal(isSinglePlaceUrl("not a url"), false);
+});
+
+test("isNoResultsText recognises the English and Indonesian no-results notices", () => {
+  assert.equal(isNoResultsText("Google Maps can't find zzqqxx"), true);
+  assert.equal(isNoResultsText("Google Maps tidak dapat menemukan zzqqxx"), true);
+  assert.equal(isNoResultsText("Kopi Braga 4,5 Kafe"), false);
+});
+
+test("classifySearchOutcome decides from the probe", () => {
+  const searchUrl = "https://www.google.com/maps/search/x";
+  const placeUrl = "https://www.google.com/maps/place/x";
+  const emptyProbe = { pageUrl: searchUrl, hasFeed: false, hasPlaceMarker: false, hasCaptcha: false, bodyText: "" };
+  assert.equal(classifySearchOutcome({ ...emptyProbe, pageUrl: "https://www.google.com/sorry/x" }), "blocked");
+  assert.equal(classifySearchOutcome({ ...emptyProbe, hasCaptcha: true, hasFeed: true }), "blocked");
+  assert.equal(classifySearchOutcome({ ...emptyProbe, hasFeed: true }), "results");
+  assert.equal(classifySearchOutcome({ ...emptyProbe, pageUrl: placeUrl }), "single_place");
+  assert.equal(classifySearchOutcome({ ...emptyProbe, hasPlaceMarker: true }), "single_place");
+  assert.equal(classifySearchOutcome({ ...emptyProbe, bodyText: "Google Maps can't find x" }), "no_results");
+  // A bare h1 (e.g. the "Results" heading) is not enough to decide.
+  assert.equal(classifySearchOutcome({ ...emptyProbe, bodyText: "Results" }), null);
 });
 
 test("classifyLaunchError maps a missing browser to setup_required", () => {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runWithResponses, rejectsWithKind, TEST_ENVIRONMENT } from "./helpers.mjs";
+import { runExpectingFailure, runWithResponses, rejectsWithKind, TEST_ENVIRONMENT } from "./helpers.mjs";
 
 // Each case: operation + args → expected single request (method, path, and a subset of query / exact json).
 const REQUEST_CASES = [
@@ -149,4 +149,24 @@ test("create_group_dm needs at least two participants", async () => {
 
 test("operations fail with auth_error when X_ACCESS_TOKEN is missing", async () => {
   await rejectsWithKind(assert, runWithResponses("get_me", {}, [], {}), "auth_error", /X_ACCESS_TOKEN/);
+});
+
+test("create_post rejects poll options that are empty or over 25 characters", async () => {
+  const pollArgs = (pollOptions) => ({ text: "p", poll_options: pollOptions, poll_duration_minutes: 60 });
+  await rejectsWithKind(assert, runWithResponses("create_post", pollArgs(["a", "x".repeat(26)])), "invalid_input", /1-25 characters/);
+  await rejectsWithKind(assert, runWithResponses("create_post", pollArgs(["a", "  "])), "invalid_input", /1-25 characters/);
+  const { calls } = await runWithResponses("create_post", pollArgs(["a", "x".repeat(25)]));
+  assert.deepEqual(calls[0].json.poll.options, ["a", "x".repeat(25)]);
+});
+
+test("a non-numeric user id from /2/users/me is never put in a path", async () => {
+  const { error, calls } = await runExpectingFailure("like_post", { post_id: "100" }, [{ body: { data: { id: "../tweets/1" } } }, { body: {} }], { X_ACCESS_TOKEN: "t" });
+  assert.equal(error.kind, "api_error");
+  assert.match(error.message, /user id/);
+  assert.equal(calls.length, 1);
+});
+
+test("create_group_dm accepts numeric participant ids", async () => {
+  const { calls } = await runWithResponses("create_group_dm", { participant_ids: [123, 456], text: "t" });
+  assert.deepEqual(calls[0].json.participant_ids, ["123", "456"]);
 });

@@ -50,3 +50,23 @@ test("update_video_metadata requires at least one field to change", async () => 
 test("update_video_metadata fails with not_found when the video does not exist", async () => {
   await assert.rejects(runWithResponses("update_video_metadata", { video_id: "missing", title: "T" }, [{ body: { items: [] } }]), (error) => error.kind === "not_found");
 });
+
+test("update_video_metadata clears the description with clear_description: true", async () => {
+  const { calls } = await runWithResponses("update_video_metadata", { video_id: "v1", clear_description: true }, [
+    { body: { items: [{ id: "v1", snippet: EXISTING_SNIPPET }] } },
+    { body: {} },
+  ]);
+  assert.equal(calls[1].json.snippet.description, "");
+  assert.equal(calls[1].json.snippet.title, "Old title");
+});
+
+test("update_video_metadata refuses clear_description together with a description", async () => {
+  await assert.rejects(
+    runWithResponses("update_video_metadata", { video_id: "v1", description: "D", clear_description: true }, []),
+    (error) => error.kind === "invalid_input" && /clear_description/.test(error.message),
+  );
+});
+
+test("update_video_metadata with clear_description: false alone is not a change", async () => {
+  await assert.rejects(runWithResponses("update_video_metadata", { video_id: "v1", clear_description: false }, []), (error) => error.kind === "invalid_input");
+});

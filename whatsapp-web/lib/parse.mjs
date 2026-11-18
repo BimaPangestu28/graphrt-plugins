@@ -196,6 +196,49 @@ export function parseChatRows(rawRows) {
     .filter((chat) => chat.name);
 }
 
+// Section headers in the search results ("CHATS", "CONTACTS", "MESSAGES"; Indonesian UI too).
+const SEARCH_SECTION_KINDS = [
+  { kind: "message", pattern: /^(messages?|pesan)$/i },
+  { kind: "contact", pattern: /^(contacts?|kontak)$/i },
+  { kind: "chat", pattern: /^(chats?|obrolan|groups?|grup)$/i },
+];
+
+/**
+ * Parses WhatsApp search results into chat rows only.
+ *
+ * The results list mixes section headers (a single text line, no title span),
+ * chat and contact rows, and message hits (rows under the "Messages" header that
+ * point at one message, not a chat). Headers and message hits are dropped; each
+ * kept row gets `kind` "chat" or "contact" from the section it sits in (rows
+ * before any header, or under an unrecognised header, count as the section above).
+ *
+ * @param rawRows - Rows `{top, title, text, unreadLabel}` from probeChatRows (Array<object>)
+ * @returns Rows `{name, time, last_message, unread_count, kind}` in list order (Array<object>)
+ */
+export function parseSearchRows(rawRows) {
+  let sectionKind = "chat";
+  const searchRows = [];
+  for (const rawRow of [...rawRows].sort((firstRow, secondRow) => firstRow.top - secondRow.top)) {
+    if (isSearchSectionHeader(rawRow)) {
+      sectionKind = classifySearchSection(rawRow.text) ?? sectionKind;
+      continue;
+    }
+    const chat = parseChatRow(rawRow);
+    if (sectionKind !== "message" && chat.name) searchRows.push({ ...chat, kind: sectionKind });
+  }
+  return searchRows;
+}
+
+function isSearchSectionHeader(rawRow) {
+  const lines = String(rawRow.text ?? "").split("\n").filter((line) => line.trim());
+  return !rawRow.title && lines.length === 1;
+}
+
+function classifySearchSection(headerText) {
+  const headerLabel = String(headerText).trim();
+  return SEARCH_SECTION_KINDS.find((section) => section.pattern.test(headerLabel))?.kind ?? null;
+}
+
 function parseChatRow(rawRow) {
   const lines = String(rawRow.text ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
   const name = (rawRow.title || lines[0] || "").trim();

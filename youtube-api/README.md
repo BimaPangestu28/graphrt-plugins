@@ -46,7 +46,10 @@ Set **either** an access token **or** the refresh trio.
 
 - With the trio, the plugin fetches an access token from `https://oauth2.googleapis.com/token` on the first call,
   caches it until a minute before it expires, and refreshes once when YouTube answers 401.
-- With both set, `YOUTUBE_ACCESS_TOKEN` is used first and the trio takes over after a 401.
+- With both set, `YOUTUBE_ACCESS_TOKEN` is used first and the trio takes over after a 401. The plugin remembers that
+  token was rejected, so later runs go straight to the trio until `YOUTUBE_ACCESS_TOKEN` changes. If only part of the
+  trio is set, the 401 error names the missing variables.
+- `update_video_metadata` ignores an empty `description`; pass `clear_description: true` to remove it.
 - A node can take `access_token` to use another account. That token is used as-is and is never refreshed. Pass it
   from a secret and trust the plugin (`--trust-plugin youtube-api`).
 

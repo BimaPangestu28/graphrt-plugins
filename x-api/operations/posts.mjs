@@ -7,6 +7,7 @@ import { mergeQueryParams, numericIdProperty, paginationProperties, QUERY_PARAMS
 const POST_ID_PROPERTY = numericIdProperty("Post id");
 const MIN_POLL_MINUTES = 5;
 const MAX_POLL_MINUTES = 10080;
+const MAX_POLL_OPTION_CHARACTERS = 25;
 const REPLY_SETTINGS = ["following", "mentionedUsers", "subscribers", "verified"];
 
 function buildPostBody(args) {
@@ -27,10 +28,16 @@ function checkPoll(args) {
   if (args.media_ids?.length) rejectInput("A post cannot have both a poll and media");
   const optionCount = args.poll_options?.length ?? 0;
   if (optionCount < 2 || optionCount > 4) rejectInput("`poll_options` needs 2 to 4 options");
+  if (!args.poll_options.every(isValidPollOption)) rejectInput(`Each of \`poll_options\` must be 1-${MAX_POLL_OPTION_CHARACTERS} characters`);
   const duration = args.poll_duration_minutes;
   if (duration === undefined || duration < MIN_POLL_MINUTES || duration > MAX_POLL_MINUTES) {
     rejectInput(`\`poll_duration_minutes\` is required with a poll and must be ${MIN_POLL_MINUTES}-${MAX_POLL_MINUTES}`);
   }
+}
+
+// Counted in code points, so an emoji is one character as X counts it.
+function isValidPollOption(pollOption) {
+  return pollOption.trim() !== "" && [...pollOption].length <= MAX_POLL_OPTION_CHARACTERS;
 }
 
 async function listUserTimeline({ client, args, signal }, timelineName) {

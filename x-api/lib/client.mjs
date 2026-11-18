@@ -79,8 +79,7 @@ export function parseXError(status, body, headers) {
   if (!message && !problemName && status !== 429) return {};
   const kind = kindForProblem(problemName) ?? LEGACY_CODE_KINDS[firstError?.code] ?? kindForStatus(status);
   const retryAfterMs = kind === "rate_limited" ? readRateLimitResetMs(headers) : undefined;
-  // The monthly usage cap cannot clear within a retry window; retrying would only add billed calls.
-  const retryable = problemName === "usage-capped" ? false : undefined;
+  const retryable = isRetryableRateLimit(kind, problemName, retryAfterMs, headers) ? undefined : false;
   return { message: message ?? problemName ?? "Too Many Requests", kind, retryAfterMs, retryable };
 }
 
@@ -128,6 +127,14 @@ function kindForStatus(status) {
   return undefined;
 }
 
+// Each retry is a billed call: the monthly usage cap never clears in time, and a 429 with no
+// known reset would only be retried blindly. The shared client still refuses waits over 60 s.
+function isRetryableRateLimit(kind, problemName, retryAfterMs, headers) {
+  if (kind !== "rate_limited") return true;
+  if (problemName === "usage-capped") return false;
+  return retryAfterMs !== undefined || headers?.get?.("retry-after") != null;
+}
+
 function readRateLimitResetMs(headers) {
   const resetSeconds = Number(headers?.get?.("x-rate-limit-reset"));
   if (!Number.isFinite(resetSeconds) || resetSeconds <= 0) return undefined;
@@ -168,6 +175,8 @@ async function fetchAuthenticatedUserId(client, signal) {
   const meResponse = await client.request({ path: "/2/users/me", signal });
   const userId = meResponse?.data?.id;
   if (!userId) throw new PluginError("Could not resolve the authenticated user id from /2/users/me", { kind: "api_error" });
+  // The id goes into request paths, so anything but a numeric id is refused rather than trusted.
+  if (!NUMERIC_ID_PATTERN.test(String(userId))) throw new PluginError("/2/users/me returned a user id that is not numeric", { kind: "api_error" });
   return String(userId);
 }
 

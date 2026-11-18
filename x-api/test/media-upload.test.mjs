@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runWithResponses, rejectsWithKind } from "./helpers.mjs";
+import { createFakeResolver, runExpectingFailure, runWithResponses, rejectsWithKind, TEST_ENVIRONMENT } from "./helpers.mjs";
 
 const IMAGE_RESPONSE = { body: "PNGBYTES", headers: { "content-type": "image/png" } };
 const UPLOAD_RESPONSE = { body: { data: { id: "1880", media_key: "3_1880", size: 8 } } };
@@ -58,4 +58,50 @@ test("upload_media reports a failed download", async () => {
 
 test("upload_media fails when X returns no media id", async () => {
   await rejectsWithKind(assert, runWithResponses("upload_media", { image_url: "https://img.test/a.png" }, [IMAGE_RESPONSE, { body: {} }]), "api_error", /media id/);
+});
+
+test("upload_media follows redirects hop by hop and checks every hop", async () => {
+  const redirect = (location) => ({ status: 302, body: "", headers: { location } });
+  const { calls } = await runWithResponses("upload_media", { image_url: "https://img.test/a.png" }, [redirect("https://cdn.test/a.png"), IMAGE_RESPONSE, UPLOAD_RESPONSE]);
+  assert.deepEqual(
+    calls.map((call) => call.url),
+    ["https://img.test/a.png", "https://cdn.test/a.png", "https://api.x.com/2/media/upload"],
+  );
+});
+
+test("upload_media refuses a redirect to http or to an internal host", async () => {
+  const toHttp = [{ status: 301, body: "", headers: { location: "http://img.test/a.png" } }];
+  const { error: httpError, calls: httpCalls } = await runExpectingFailure("upload_media", { image_url: "https://img.test/a.png" }, toHttp);
+  assert.equal(httpError.kind, "invalid_input");
+  assert.match(httpError.message, /https/);
+  assert.equal(httpCalls.length, 1);
+  const toInternal = [{ status: 302, body: "", headers: { location: "https://internal.test/a.png" } }];
+  const resolver = createFakeResolver({ "internal.test": ["10.0.0.5"] });
+  const { error: internalError, calls: internalCalls } = await runExpectingFailure("upload_media", { image_url: "https://img.test/a.png" }, toInternal, TEST_ENVIRONMENT, resolver);
+  assert.equal(internalError.kind, "invalid_input");
+  assert.match(internalError.message, /public hosts/);
+  assert.equal(internalCalls.length, 1);
+});
+
+for (const [label, imageUrl, addressesByHost] of [
+  ["localhost", "https://localhost/a.png", {}],
+  ["a loopback IP", "https://127.0.0.1/a.png", {}],
+  ["a link-local IP", "https://169.254.169.254/latest", {}],
+  ["an IPv6 loopback", "https://[::1]/a.png", {}],
+  ["a host resolving to a private address", "https://lan.test/a.png", { "lan.test": ["93.184.216.34", "192.168.1.10"] }],
+]) {
+  test(`upload_media refuses ${label} without requesting it`, async () => {
+    const { error, calls } = await runExpectingFailure("upload_media", { image_url: imageUrl }, [IMAGE_RESPONSE], TEST_ENVIRONMENT, createFakeResolver(addressesByHost));
+    assert.equal(error.kind, "invalid_input");
+    assert.match(error.message, /public hosts/);
+    assert.equal(calls.length, 0);
+  });
+}
+
+test("upload_media stops after too many redirects", async () => {
+  const loop = Array.from({ length: 10 }, () => ({ status: 302, body: "", headers: { location: "https://img.test/again.png" } }));
+  const { error, calls } = await runExpectingFailure("upload_media", { image_url: "https://img.test/a.png" }, loop);
+  assert.equal(error.kind, "invalid_input");
+  assert.match(error.message, /redirected more than/);
+  assert.equal(calls.length, 6);
 });

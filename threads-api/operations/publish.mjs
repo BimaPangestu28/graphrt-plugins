@@ -15,6 +15,7 @@ const MIN_CAROUSEL_ITEMS = 2;
 const MAX_CAROUSEL_ITEMS = 20;
 const MIN_POLL_OPTIONS = 2;
 const MAX_POLL_OPTIONS = 4;
+const MAX_POLL_OPTION_CHARACTERS = 25;
 const POLL_OPTION_KEYS = ["option_a", "option_b", "option_c", "option_d"];
 const DONE_STATUSES = new Set(["FINISHED", "PUBLISHED"]);
 const FAILED_STATUSES = new Set(["ERROR", "EXPIRED"]);
@@ -50,7 +51,7 @@ export const publishOperations = [
           type: "array",
           maxItems: MAX_POLL_OPTIONS,
           items: { type: "string" },
-          description: "2-4 poll options (TEXT posts)",
+          description: "2-4 poll options of 1-25 characters each (TEXT posts)",
         },
         link_attachment: { type: "string", description: "URL shown as a link preview (TEXT posts)" },
         topic_tag: { type: "string", description: "Topic tag, without #" },
@@ -94,6 +95,9 @@ function validatePublishArguments(args) {
   if (args.poll_options !== undefined && args.poll_options.length < MIN_POLL_OPTIONS) {
     rejectInput(`\`poll_options\` needs ${MIN_POLL_OPTIONS}-${MAX_POLL_OPTIONS} options`);
   }
+  if (args.poll_options !== undefined && !args.poll_options.every(isValidPollOption)) {
+    rejectInput(`Each of \`poll_options\` must be 1-${MAX_POLL_OPTION_CHARACTERS} characters`);
+  }
   if (args.media_type !== "TEXT" && (args.poll_options || args.link_attachment)) {
     rejectInput("`poll_options` and `link_attachment` are only allowed on TEXT posts");
   }
@@ -101,6 +105,10 @@ function validatePublishArguments(args) {
   const requiredMedia = { TEXT: "text", IMAGE: "image_url", VIDEO: "video_url" }[args.media_type];
   if (requiredMedia && !args[requiredMedia]) rejectInput(`${args.media_type} needs \`${requiredMedia}\``);
   if (args.media_type === "CAROUSEL") validateCarouselItems(args.carousel_items);
+}
+
+function isValidPollOption(pollOption) {
+  return pollOption.trim() !== "" && [...pollOption].length <= MAX_POLL_OPTION_CHARACTERS;
 }
 
 function validateCarouselItems(carouselItems) {

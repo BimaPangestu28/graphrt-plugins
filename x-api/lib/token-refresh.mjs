@@ -24,21 +24,19 @@ import { X_API_ORIGIN } from "./client.mjs";
  * @throws PluginError kinds `auth_error` (rejected grant), `api_error` (no access_token in the response)
  */
 export async function refreshAccessToken({ fetchImpl, environment, refreshToken, clientId, signal }) {
-  const tokenClient = createApiClient({ baseUrl: X_API_ORIGIN, authorize: createBasicAuthorizer(clientId, environment?.X_CLIENT_SECRET), parseError: parseTokenError, fetchImpl });
+  const authorizeTokenRequest = createTokenRequestAuthorizer({ clientId, clientSecret: environment?.X_CLIENT_SECRET, refreshToken });
+  const tokenClient = createApiClient({ baseUrl: X_API_ORIGIN, authorize: authorizeTokenRequest, parseError: parseTokenError, fetchImpl });
   const form = { grant_type: "refresh_token", refresh_token: refreshToken, client_id: clientId };
-  let tokenResponse;
-  try {
-    tokenResponse = await tokenClient.request({ method: "POST", path: "/2/oauth2/token", form, signal });
-  } catch (requestError) {
-    throw redactRefreshToken(requestError, refreshToken);
-  }
+  const tokenResponse = await tokenClient.request({ method: "POST", path: "/2/oauth2/token", form, signal });
   if (!tokenResponse?.access_token) throw new PluginError("X's token endpoint returned no access_token", { kind: "api_error" });
   return tokenResponse;
 }
 
-function createBasicAuthorizer(clientId, clientSecret) {
+// The refresh token travels in the form body, so it is returned as a secret for the shared client to redact.
+function createTokenRequestAuthorizer({ clientId, clientSecret, refreshToken }) {
   return ({ headers }) => {
     if (clientSecret) headers.authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`;
+    return [refreshToken, clientSecret];
   };
 }
 
@@ -54,13 +52,4 @@ export function parseTokenError(status, body) {
   if (typeof body?.error !== "string") return {};
   const message = body.error_description ? `${body.error}: ${body.error_description}` : body.error;
   return { message, kind: status === 400 || status === 401 ? "auth_error" : undefined };
-}
-
-function redactRefreshToken(requestError, refreshToken) {
-  if (!(requestError instanceof PluginError) || !requestError.message.includes(refreshToken)) return requestError;
-  return new PluginError(requestError.message.split(refreshToken).join("[redacted]"), {
-    kind: requestError.kind,
-    retryable: requestError.retryable,
-    retryAfterMs: requestError.retryAfterMs,
-  });
 }

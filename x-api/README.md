@@ -17,7 +17,7 @@ images, all as the user who owns the OAuth 2.0 access token. Every operation is 
   list mentions, recent search (last 7 days)
 - **Replies and engagement:** list a conversation's replies, hide/unhide replies, like/unlike, repost/undo
 - **Direct messages:** list DM events, read one conversation, send a DM (text and/or image), start a group DM
-- **Media:** `upload_media` downloads an image from an https URL (up to 5 MB) and uploads it
+- **Media:** `upload_media` downloads an image from an https URL on a public host (up to 5 MB; every redirect hop must stay https and public) and uploads it
 - **Tokens:** `refresh_access_token`, which is node only and never offered to agents (X rotates refresh tokens, so the new one is returned)
 - **`api_request`:** any other X API v2 endpoint, restricted to `api.x.com`
 - Retries rate limits using `x-rate-limit-reset`, and gives clear error kinds. Tokens never appear in errors.
@@ -104,7 +104,7 @@ graphrt run x-api/example.yaml --plugins .
 | `invalid_input` | Bad arguments (ids, polls, limits, image URL/type/size), or X `invalid-request` |
 | `auth_error` | Missing, invalid or expired token (HTTP 401, `unsupported-authentication`), or a rejected refresh token |
 | `permission_denied` | Missing scope or access level (`client-forbidden`, `not-authorized-for-resource`), or a DM recipient that can't be messaged |
-| `rate_limited` | HTTP 429, `usage-capped` or `dm-rate-limited`. It's retried automatically when `x-rate-limit-reset` is within 60 s, and `retryAfterMs` tells you when to try again. `usage-capped` (the monthly cap) is never retried |
+| `rate_limited` | HTTP 429, `usage-capped` or `dm-rate-limited`. It's retried automatically only when `x-rate-limit-reset` (or `Retry-After`) is known and within 60 s, since each retry is billed; and `retryAfterMs` tells you when to try again. `usage-capped` (the monthly cap) is never retried |
 | `not_found` | `resource-not-found` (also when X reports it in a 200 response) |
 | `api_error`, `network_error`, `timeout`, `cancelled` | As named |
 

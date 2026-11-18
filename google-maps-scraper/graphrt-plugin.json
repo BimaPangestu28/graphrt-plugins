@@ -55,7 +55,7 @@
         {
           "name": "results",
           "type": "array[object]",
-          "description": "Places: {name, phone, address, website, rating, maps_url}"
+          "description": "Places: {name, phone, address, website, website_label, rating, maps_url}"
         },
         {
           "name": "phones",

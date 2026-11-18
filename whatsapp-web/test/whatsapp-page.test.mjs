@@ -12,7 +12,7 @@ import {
   probeScrollMessagesUp,
 } from "../lib/dom-probes.mjs";
 import { SELECTORS, WHATSAPP_WEB_URL } from "../lib/selectors.mjs";
-import { assertLoggedIn, listChats, openChat, readLoginStatus, readMessages, sendFile, sendText, waitForLogin } from "../lib/whatsapp-page.mjs";
+import { assertLoggedIn, listChats, openChat, readLoginStatus, readMessages, searchChats, sendFile, sendText, waitForLogin } from "../lib/whatsapp-page.mjs";
 import { createFakePage } from "./helpers.mjs";
 
 const LOGGED_IN = { hasChatList: true, hasQrCode: false };
@@ -390,4 +390,21 @@ test("waitForLogin counts the page load against timeout_seconds", async () => {
   const page = pageWith([[probeLoginSignals, () => QR_SHOWN]]);
   await assert.rejects(waitForLogin(page, { timeoutMs: 60000, now }), { kind: "auth_error" });
   assert.equal(page.probeCalls.get(probeLoginSignals), 1 + 20);
+});
+
+test("searchChats returns only chat and contact rows, not headers or message hits", async () => {
+  const page = pageWith([
+    [probeLoginSignals, () => LOGGED_IN],
+    [
+      probeChatRows,
+      () => [
+        { top: 0, title: "", text: "CHATS", unreadLabel: null },
+        { top: 40, title: "Budi", text: "Budi\n10:00\nhalo", unreadLabel: null },
+        { top: 112, title: "", text: "MESSAGES", unreadLabel: null },
+        { top: 152, title: "Kantor Group", text: "Kantor Group\n09:00\nbudi datang", unreadLabel: null },
+      ],
+    ],
+  ]);
+  const rows = await searchChats(page, { query: "budi", limit: 10 });
+  assert.deepEqual(rows.map((row) => [row.kind, row.name]), [["chat", "Budi"]]);
 });

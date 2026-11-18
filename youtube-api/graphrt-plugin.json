@@ -162,7 +162,12 @@
           },
           "description": {
             "type": "string",
-            "description": "New description"
+            "description": "New description (an empty string is ignored; use clear_description to empty it)"
+          },
+          "clear_description": {
+            "type": "boolean",
+            "default": false,
+            "description": "Set true to remove the description"
           },
           "tags": {
             "type": "array",
@@ -803,7 +808,12 @@
           },
           "description": {
             "type": "string",
-            "description": "New description"
+            "description": "New description (an empty string is ignored; use clear_description to empty it)"
+          },
+          "clear_description": {
+            "type": "boolean",
+            "default": false,
+            "description": "Set true to remove the description"
           },
           "tags": {
             "type": "array",

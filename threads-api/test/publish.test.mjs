@@ -114,3 +114,17 @@ for (const [label, invalidArgs] of [
     await assert.rejects(runWithResponses("publish_thread", invalidArgs, []), (error) => error.kind === "invalid_input");
   });
 }
+
+test("publish_thread accepts poll options of exactly 25 characters", async () => {
+  const { calls } = await runWithResponses("publish_thread", { text: "x", poll_options: ["A", "B".repeat(25)] }, FINISHED_FLOW);
+  assert.deepEqual(JSON.parse(calls[0].form.poll_attachment), { option_a: "A", option_b: "B".repeat(25) });
+});
+
+test("publish_thread rejects poll options that are empty or over 25 characters before any request", async () => {
+  for (const pollOptions of [["A", "B".repeat(26)], ["A", " "]]) {
+    await assert.rejects(
+      runWithResponses("publish_thread", { text: "x", poll_options: pollOptions }, FINISHED_FLOW),
+      (error) => error.kind === "invalid_input" && /1-25 characters/.test(error.message),
+    );
+  }
+});

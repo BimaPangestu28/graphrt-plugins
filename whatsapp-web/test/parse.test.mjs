@@ -12,6 +12,7 @@ import {
   mergeRawChatRows,
   normalizePhoneNumber,
   parseChatRows,
+  parseSearchRows,
   parseDeliveryStatus,
   parseMessageDataId,
   parseMessageRows,
@@ -213,4 +214,35 @@ test("classifyLaunchError keeps other failures as browser_error", () => {
   const error = classifyLaunchError(new Error("boom"));
   assert.equal(error.kind, "browser_error");
   assert.match(error.message, /boom/);
+});
+
+const SEARCH_RESULT_ROWS = [
+  { top: 0, title: "", text: "CHATS", unreadLabel: null },
+  { top: 40, title: "Budi", text: "Budi\n10:00\nhalo", unreadLabel: null },
+  { top: 112, title: "", text: "CONTACTS", unreadLabel: null },
+  { top: 152, title: "Budi Santoso", text: "Budi Santoso\nHey there! I am using WhatsApp.", unreadLabel: null },
+  { top: 224, title: "", text: "MESSAGES", unreadLabel: null },
+  { top: 264, title: "Kantor Group", text: "Kantor Group\n09:00\nbudi sudah datang", unreadLabel: null },
+];
+
+test("parseSearchRows drops section headers and message hits and tags each row's kind", () => {
+  assert.deepEqual(
+    parseSearchRows(SEARCH_RESULT_ROWS).map((row) => [row.kind, row.name]),
+    [["chat", "Budi"], ["contact", "Budi Santoso"]],
+  );
+});
+
+test("parseSearchRows reads Indonesian section headers", () => {
+  const rawRows = [
+    { top: 0, title: "", text: "Obrolan", unreadLabel: null },
+    { top: 40, title: "Ibu", text: "Ibu\n10:00\nmakan", unreadLabel: null },
+    { top: 112, title: "", text: "Pesan", unreadLabel: null },
+    { top: 152, title: "Ibu", text: "Ibu\n08:00\nmakan siang", unreadLabel: null },
+  ];
+  assert.deepEqual(parseSearchRows(rawRows).map((row) => [row.kind, row.last_message]), [["chat", "makan"]]);
+});
+
+test("parseSearchRows treats rows without any header as chats", () => {
+  const [chat] = parseSearchRows([{ top: 0, title: "Budi", text: "Budi\n10:00\nhalo", unreadLabel: null }]);
+  assert.deepEqual(chat, { name: "Budi", time: "10:00", last_message: "halo", unread_count: 0, kind: "chat" });
 });

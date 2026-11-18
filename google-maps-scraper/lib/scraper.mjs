@@ -12,12 +12,12 @@ import { chromium } from "playwright";
 import { PluginError } from "../graphrt-plugin.mjs";
 import { bindAbortToBrowser, toCancelledIfAborted } from "./cancellation.mjs";
 import { buildSearchUrl, classifyLaunchError, extractPlaceDetails, isBlockedPage, parseRating } from "./parse.mjs";
+import { FEED_SELECTOR, probeSearchPage, waitForSearchOutcome } from "./search-outcome.mjs";
 
 const NAVIGATION_TIMEOUT_MS = 30000;
 const PLACE_READY_TIMEOUT_MS = 10000;
 const SCROLL_PAUSE_MS = 1200;
 const MAX_IDLE_SCROLLS = 3;
-const FEED_SELECTOR = 'div[role="feed"]';
 const PLACE_LINK_SELECTOR = 'a[href*="/maps/place/"]';
 const CONSENT_BUTTON_SELECTOR = [
   'button:has-text("Accept all")',
@@ -36,7 +36,8 @@ const CONSENT_BUTTON_SELECTOR = [
  * @param hooks - Optional runtime hooks
  * @param hooks.signal - Cancels the search when aborted (AbortSignal)
  * @param hooks.onProgress - Called after each place with `{index, total, name}`
- * @returns Places as `{name, phone, address, website, rating, maps_url}` (Promise<Array<object>>)
+ * @returns Places as `{name, phone, address, website, website_label, rating, maps_url}`; empty when
+ *   Maps finds nothing (Promise<Array<object>>)
  * @throws PluginError kinds `blocked`, `setup_required`, `browser_error`, `cancelled`
  */
 export async function searchPlaces(options, hooks = {}) {
@@ -58,8 +59,13 @@ async function runSearchInBrowser(browser, options, hooks) {
   const page = await context.newPage();
   page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
   await openSearch(page, options);
-  if (!(await page.$(FEED_SELECTOR))) {
-    return readSinglePlace(page, hooks);
+  const outcome = await waitForSearchOutcome(page, { timeoutMs: NAVIGATION_TIMEOUT_MS, signal: hooks.signal });
+  if (outcome === "blocked") throw blockedError();
+  if (outcome === "single_place") return readSinglePlace(page, hooks);
+  if (outcome !== "results") {
+    const reason = outcome === "no_results" ? "Google Maps found no results" : "neither results nor a place appeared";
+    console.error(`[google-maps-scraper] ${reason} for "${options.query}" (${page.url()}); returning no places`);
+    return [];
   }
   const placeUrls = await collectPlaceUrls(page, options.maxResults, hooks.signal);
   return readPlaces(page, placeUrls, hooks);
@@ -76,10 +82,6 @@ async function launchBrowser(headless) {
 async function openSearch(page, options) {
   await page.goto(buildSearchUrl(options.query, options.language), { waitUntil: "domcontentloaded" });
   await acceptConsentIfShown(page);
-  await assertNotBlocked(page);
-  // Either the result feed or a single place header appears once Maps has rendered.
-  await page.waitForSelector(`${FEED_SELECTOR}, h1`, { timeout: NAVIGATION_TIMEOUT_MS }).catch(() => {});
-  await assertNotBlocked(page);
 }
 
 async function acceptConsentIfShown(page) {
@@ -90,14 +92,16 @@ async function acceptConsentIfShown(page) {
 }
 
 async function assertNotBlocked(page) {
-  const bodyText = await page.locator("body").innerText().catch(() => "");
-  if (isBlockedPage(page.url(), bodyText)) {
-    throw new PluginError("Google Maps is showing a CAPTCHA / unusual traffic page. Try again later or with fewer results.", {
-      kind: "blocked",
-      retryable: true,
-      retryAfterMs: 600000,
-    });
-  }
+  const searchProbe = await probeSearchPage(page);
+  if (isBlockedPage(page.url(), searchProbe?.hasCaptcha === true)) throw blockedError();
+}
+
+function blockedError() {
+  return new PluginError("Google Maps is showing a CAPTCHA / unusual traffic page. Try again later or with fewer results.", {
+    kind: "blocked",
+    retryable: true,
+    retryAfterMs: 600000,
+  });
 }
 
 async function collectPlaceUrls(page, maxResults, signal) {
@@ -174,6 +178,8 @@ async function readPlaceDetails(page) {
     elements.map((element) => ({
       itemId: element.getAttribute("data-item-id") ?? "",
       label: element.getAttribute("aria-label") ?? element.innerText ?? "",
+      // The authority item is an anchor; its resolved href is the full website URL.
+      href: typeof element.href === "string" ? element.href : null,
     })),
   );
   return { name, ...extractPlaceDetails(placeItems), rating: parseRating(ratingText), maps_url: page.url() };

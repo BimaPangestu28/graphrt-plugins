@@ -17,6 +17,8 @@ const LANGUAGE_PATTERN = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/;
 const ADDRESS_PREFIX = /^(alamat|address)\s*:\s*/i;
 const WEBSITE_PREFIX = /^(situs web|website)\s*:\s*/i;
 const PHONE_ITEM_PREFIX = "phone:tel:";
+// Notices Maps shows in the side panel when a search matches nothing.
+const NO_RESULTS_PATTERN = /Google Maps (can't|cannot|can’t) find|Google Maps tidak dapat menemukan/i;
 
 /**
  * Validates node/tool config and applies defaults.
@@ -76,20 +78,25 @@ export function normalizePhone(rawPhone) {
 }
 
 /**
- * Extracts phone, address and website from a place page's `[data-item-id]` buttons.
+ * Extracts phone, address and website from a place page's `[data-item-id]` items.
  *
- * @param placeItems - Items as `{itemId, label}` (Array<object>)
- * @returns `{phone, address, website}`, each null when absent
+ * The website is the authority anchor's full `href` when it is http(s) (a Google
+ * `/url?q=` redirect is unwrapped); otherwise the visible label. The label is
+ * always kept as `website_label`.
+ *
+ * @param placeItems - Items as `{itemId, label, href?}` (Array<object>)
+ * @returns `{phone, address, website, website_label}`, each null when absent
  */
 export function extractPlaceDetails(placeItems) {
-  const placeDetails = { phone: null, address: null, website: null };
-  for (const { itemId = "", label = "" } of placeItems ?? []) {
+  const placeDetails = { phone: null, address: null, website: null, website_label: null };
+  for (const { itemId = "", label = "", href = null } of placeItems ?? []) {
     if (itemId.startsWith(PHONE_ITEM_PREFIX) && placeDetails.phone === null) {
       placeDetails.phone = normalizePhone(itemId.slice(PHONE_ITEM_PREFIX.length)) ?? normalizePhone(label);
     } else if (itemId === "address" && placeDetails.address === null) {
       placeDetails.address = cleanLabel(label, ADDRESS_PREFIX);
     } else if (itemId === "authority" && placeDetails.website === null) {
-      placeDetails.website = cleanLabel(label, WEBSITE_PREFIX);
+      placeDetails.website_label = cleanLabel(label, WEBSITE_PREFIX);
+      placeDetails.website = normalizeWebsiteHref(href) ?? placeDetails.website_label;
     }
   }
   return placeDetails;
@@ -121,12 +128,54 @@ export function collectPhones(placeResults) {
 /**
  * Detects Google's anti-bot interstitial.
  *
+ * Only the `/sorry/` URL or a real CAPTCHA element count: the phrase "unusual
+ * traffic" can appear in ordinary page text (reviews, place names).
+ *
  * @param pageUrl - Current page URL (string)
- * @param bodyText - Visible page text (string)
+ * @param hasCaptchaElement - Whether a CAPTCHA form / reCAPTCHA iframe is on the page (boolean)
  * @returns True when Google is asking for a CAPTCHA (boolean)
  */
-export function isBlockedPage(pageUrl, bodyText) {
-  return pageUrl.includes("/sorry/") || /unusual traffic/i.test(bodyText ?? "");
+export function isBlockedPage(pageUrl, hasCaptchaElement) {
+  return String(pageUrl).includes("/sorry/") || hasCaptchaElement === true;
+}
+
+/**
+ * Tells whether a URL is a single-place page (Maps jumped straight to one place).
+ *
+ * @param pageUrl - Current page URL (string)
+ * @returns True for `/maps/place/` URLs (boolean)
+ */
+export function isSinglePlaceUrl(pageUrl) {
+  try {
+    return new URL(pageUrl).pathname.includes("/maps/place/");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Tells whether page text contains Maps' "no results" notice.
+ *
+ * @param bodyText - Visible page text (string)
+ * @returns True when the search matched nothing (boolean)
+ */
+export function isNoResultsText(bodyText) {
+  return NO_RESULTS_PATTERN.test(bodyText ?? "");
+}
+
+/**
+ * Decides what a freshly loaded search page shows.
+ *
+ * @param searchProbe - `{pageUrl, hasFeed, hasPlaceMarker, hasCaptcha, bodyText}` (object)
+ * @returns `"blocked" | "results" | "single_place" | "no_results"`, or null when not decided yet
+ */
+export function classifySearchOutcome(searchProbe) {
+  const { pageUrl, hasFeed, hasPlaceMarker, hasCaptcha, bodyText } = searchProbe;
+  if (isBlockedPage(pageUrl, hasCaptcha)) return "blocked";
+  if (hasFeed) return "results";
+  if (isSinglePlaceUrl(pageUrl) || hasPlaceMarker) return "single_place";
+  if (isNoResultsText(bodyText)) return "no_results";
+  return null;
 }
 
 /**
@@ -150,6 +199,20 @@ export function classifyLaunchError(launchError) {
 function parseWholeNumber(rawValue) {
   if (typeof rawValue === "string" && /^\s*\d+\s*$/.test(rawValue)) return Number(rawValue);
   return rawValue;
+}
+
+// Returns an absolute http(s) URL, unwrapping a Google `/url?q=` redirect; null otherwise.
+function normalizeWebsiteHref(href) {
+  let websiteUrl;
+  try {
+    websiteUrl = new URL(href);
+  } catch {
+    return null;
+  }
+  const isGoogleRedirect = websiteUrl.pathname === "/url" && /(^|\.)google\./.test(websiteUrl.hostname);
+  const redirectTarget = isGoogleRedirect ? websiteUrl.searchParams.get("q") : null;
+  if (redirectTarget) return normalizeWebsiteHref(redirectTarget);
+  return websiteUrl.protocol === "https:" || websiteUrl.protocol === "http:" ? websiteUrl.href : null;
 }
 
 function cleanLabel(label, prefixPattern) {

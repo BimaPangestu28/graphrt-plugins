@@ -6,6 +6,7 @@
  * `createClient` returns the cached browser driver for the profile directory.
  */
 import { createClientFactory } from "./lib/client.mjs";
+import { createOperationTracker } from "./lib/operation-tracker.mjs";
 import { chatOperations } from "./operations/chats.mjs";
 import { sendingOperations } from "./operations/sending.mjs";
 import { sessionOperations } from "./operations/session.mjs";
@@ -14,10 +15,13 @@ import { sessionOperations } from "./operations/session.mjs";
  * Builds the plugin definition, optionally with injected side effects (tests).
  *
  * @param dependencies - See createClientFactory (object, optional)
- * @returns Plugin definition plus `closeAllClients()` for shutdown (object)
+ * @returns Plugin definition plus `closeAllClients()` and `waitForRunningOperations(timeoutMs)`
+ *   for shutdown (object)
  */
 export function createPluginDefinition(dependencies = {}) {
   const { createClient, closeAllClients } = createClientFactory(dependencies);
+  const operationTracker = createOperationTracker();
+  const trackOperation = (operation) => ({ ...operation, run: (runContext) => operationTracker.track(() => operation.run(runContext)) });
   return {
     name: "whatsapp-web",
     version: "0.1.0",
@@ -34,7 +38,8 @@ export function createPluginDefinition(dependencies = {}) {
     resolveAccessToken: () => "local",
     createClient,
     closeAllClients,
-    operations: [...sessionOperations, ...chatOperations, ...sendingOperations],
+    waitForRunningOperations: (timeoutMs) => operationTracker.waitForIdle(timeoutMs),
+    operations: [...sessionOperations, ...chatOperations, ...sendingOperations].map(trackOperation),
   };
 }
 

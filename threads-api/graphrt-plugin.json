@@ -504,7 +504,7 @@
             "items": {
               "type": "string"
             },
-            "description": "2-4 poll options (TEXT posts)"
+            "description": "2-4 poll options of 1-25 characters each (TEXT posts)"
           },
           "link_attachment": {
             "type": "string",
@@ -1081,7 +1081,7 @@
             "items": {
               "type": "string"
             },
-            "description": "2-4 poll options (TEXT posts)"
+            "description": "2-4 poll options of 1-25 characters each (TEXT posts)"
           },
           "link_attachment": {
             "type": "string",

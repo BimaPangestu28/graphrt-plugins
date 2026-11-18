@@ -29,6 +29,7 @@ import {
   isUnsupportedBrowserPage,
   mergeRawChatRows,
   parseChatRows,
+  parseSearchRows,
   parseMessageRows,
 } from "./parse.mjs";
 import { INVALID_PHONE_POPUP_PATTERN, SELECTORS, WHATSAPP_WEB_URL, buildSendToPhoneUrl } from "./selectors.mjs";
@@ -225,9 +226,10 @@ export async function listChats(page, { limit, unreadOnly }) {
 }
 
 /**
- * Types `query` into the WhatsApp search box and reads the matching rows.
+ * Types `query` into the WhatsApp search box and reads the matching chat and contact
+ * rows (section headers and message hits are dropped, see parseSearchRows).
  *
- * @returns Rows `{name, time, last_message, unread_count}` (Promise<Array<object>>)
+ * @returns Rows `{name, time, last_message, unread_count, kind}` (Promise<Array<object>>)
  */
 export async function searchChats(page, { query, limit }) {
   await assertLoggedIn(page);
@@ -235,7 +237,7 @@ export async function searchChats(page, { query, limit }) {
   await page.waitForTimeout(SEARCH_ATTEMPTS * POLL_INTERVAL_MS);
   const rawRows = await runStep("read search results", () => page.evaluate(probeChatRows, SELECTORS.chatList));
   await runStep("clear search", () => clearSearch(page));
-  return parseChatRows(rawRows).slice(0, limit);
+  return parseSearchRows(rawRows).slice(0, limit);
 }
 
 /**
