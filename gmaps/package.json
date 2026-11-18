@@ -6,7 +6,7 @@
   "type": "module",
   "engines": { "node": ">=18" },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test test/*.test.mjs",
     "install-browser": "playwright install chromium"
   },
   "dependencies": {
