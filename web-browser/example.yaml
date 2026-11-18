@@ -1,0 +1,12 @@
+# Read a public page (read-only).
+#   graphrt run web-browser/example.yaml --plugins .
+version: "1"
+name: web-browser-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: page, type: web-browser.fetch_page, url: "https://example.com", include_markdown: true, max_chars: 2000 }
+    - { id: answer, type: answer, answer: "{{#page.data.title#}} ({{#page.data.status#}}): {{#page.data.text#}}" }
+  edges:
+    - { source: start, target: page }
+    - { source: page, target: answer }
