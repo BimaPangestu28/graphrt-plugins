@@ -1,0 +1,1262 @@
+{
+  "name": "threads-api",
+  "version": "0.1.0",
+  "description": "Threads profiles, posts, publishing, replies, mentions and search via the official Threads API",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "THREADS_ACCESS_TOKEN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 420000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "threads-api.get_profile",
+      "title": "Get Threads profile",
+      "description": "Read the authenticated Threads profile (id, username, name, bio, picture, verification).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,username,name,threads_profile_picture_url,threads_biography,is_verified"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.lookup_profile",
+      "title": "Look up Threads profile",
+      "description": "Look up a public Threads profile by username (needs threads_profile_discovery).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Threads username without @"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "username"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.get_publishing_limit",
+      "title": "Get Threads publishing limit",
+      "description": "Read the account's 24-hour quota usage for posts, replies and deletes.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.refresh_access_token",
+      "title": "Refresh Threads access token",
+      "description": "Exchange the current long-lived token (at least 24 hours old, not expired) for a new 60-day token. Returns {access_token, token_type, expires_in}; store the new token yourself.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.list_threads",
+      "title": "List Threads posts",
+      "description": "List threads published by the account (or another user id the token can read), newest first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "default": "me",
+            "description": "Threads user id (default: me)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.list_my_replies",
+      "title": "List my Threads replies",
+      "description": "List replies the account has posted, newest first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.list_mentions",
+      "title": "List Threads mentions",
+      "description": "List public posts that mention the account (needs threads_manage_mentions).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.keyword_search",
+      "title": "Search Threads",
+      "description": "Search public Threads posts by keyword or topic tag (needs threads_keyword_search).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Keyword or topic tag to search for"
+          },
+          "search_type": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "RECENT"
+            ],
+            "default": "TOP"
+          },
+          "search_mode": {
+            "type": "string",
+            "enum": [
+              "KEYWORD",
+              "TAG"
+            ],
+            "default": "KEYWORD"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "q"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.repost_thread",
+      "title": "Repost thread",
+      "description": "Repost a Threads post to the account's profile. Returns the repost id.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.delete_thread",
+      "title": "Delete thread",
+      "description": "Delete one of the account's Threads posts or replies (needs threads_delete).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.publish_thread",
+      "title": "Publish thread",
+      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `container_id` instead of re-running, so nothing is posted twice.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "IMAGE",
+              "VIDEO",
+              "CAROUSEL"
+            ],
+            "default": "TEXT"
+          },
+          "text": {
+            "type": "string",
+            "description": "Post text, at most 500 characters (required for TEXT)"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public image URL (IMAGE)"
+          },
+          "video_url": {
+            "type": "string",
+            "description": "Public video URL (VIDEO)"
+          },
+          "alt_text": {
+            "type": "string",
+            "description": "Alt text for IMAGE/VIDEO"
+          },
+          "carousel_items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            },
+            "description": "CAROUSEL: 2-20 items, each {image_url} or {video_url}, optional alt_text"
+          },
+          "reply_to_id": {
+            "type": "string",
+            "description": "Publish as a reply to this media id"
+          },
+          "quote_post_id": {
+            "type": "string",
+            "description": "Quote this media id"
+          },
+          "reply_control": {
+            "type": "string",
+            "enum": [
+              "everyone",
+              "accounts_you_follow",
+              "mentioned_only",
+              "parent_post_author_only",
+              "followers_only"
+            ],
+            "description": "Who can reply"
+          },
+          "poll_options": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            },
+            "description": "2-4 poll options (TEXT posts)"
+          },
+          "link_attachment": {
+            "type": "string",
+            "description": "URL shown as a link preview (TEXT posts)"
+          },
+          "topic_tag": {
+            "type": "string",
+            "description": "Topic tag, without #"
+          },
+          "container_id": {
+            "type": "string",
+            "description": "Publish this existing container (from a failed attempt) instead of creating a new one"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.list_replies",
+      "title": "List Threads replies",
+      "description": "List replies to a Threads post. With conversation=true, list every reply at every depth in the conversation instead of only top-level replies.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,username,permalink,timestamp,media_type,has_replies,is_reply,root_post,replied_to,hide_status"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "true lists oldest first"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "conversation": {
+            "type": "boolean",
+            "default": false,
+            "description": "Use /conversation (all depths)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.hide_reply",
+      "title": "Hide/unhide Threads reply",
+      "description": "Hide or unhide a reply under one of the account's posts (needs threads_manage_replies).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "reply_id": {
+            "type": "string",
+            "description": "Reply id"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "reply_id",
+          "hidden"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.list_pending_replies",
+      "title": "List pending Threads replies",
+      "description": "List replies awaiting approval on a post that uses reply approvals.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,username,permalink,timestamp,media_type,has_replies,is_reply,root_post,replied_to,hide_status"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "true lists oldest first"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "approval_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ignored"
+            ],
+            "default": "pending"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.approve_pending_reply",
+      "title": "Approve/ignore pending Threads reply",
+      "description": "Approve (approve=true) or ignore (approve=false) a pending reply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "reply_id": {
+            "type": "string",
+            "description": "Reply id"
+          },
+          "approve": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "reply_id",
+          "approve"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "threads-api.api_request",
+      "title": "Threads API request",
+      "description": "Call any Threads API endpoint that has no dedicated operation, e.g. path \"/me/threads_insights\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/threads_insights\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_profile",
+      "description": "Read the authenticated Threads profile (id, username, name, bio, picture, verification).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,username,name,threads_profile_picture_url,threads_biography,is_verified"
+          }
+        }
+      }
+    },
+    {
+      "name": "lookup_profile",
+      "description": "Look up a public Threads profile by username (needs threads_profile_discovery).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Threads username without @"
+          }
+        },
+        "required": [
+          "username"
+        ]
+      }
+    },
+    {
+      "name": "get_publishing_limit",
+      "description": "Read the account's 24-hour quota usage for posts, replies and deletes.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "list_threads",
+      "description": "List threads published by the account (or another user id the token can read), newest first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "default": "me",
+            "description": "Threads user id (default: me)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_my_replies",
+      "description": "List replies the account has posted, newest first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_mentions",
+      "description": "List public posts that mention the account (needs threads_manage_mentions).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "keyword_search",
+      "description": "Search public Threads posts by keyword or topic tag (needs threads_keyword_search).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Keyword or topic tag to search for"
+          },
+          "search_type": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "RECENT"
+            ],
+            "default": "TOP"
+          },
+          "search_mode": {
+            "type": "string",
+            "enum": [
+              "KEYWORD",
+              "TAG"
+            ],
+            "default": "KEYWORD"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,is_quote_post,has_replies"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only posts after this time (Unix timestamp or strtotime value)"
+          },
+          "until": {
+            "type": "string",
+            "description": "Only posts before this time (Unix timestamp or strtotime value)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "q"
+        ]
+      }
+    },
+    {
+      "name": "repost_thread",
+      "description": "Repost a Threads post to the account's profile. Returns the repost id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      }
+    },
+    {
+      "name": "delete_thread",
+      "description": "Delete one of the account's Threads posts or replies (needs threads_delete).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      }
+    },
+    {
+      "name": "publish_thread",
+      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `container_id` instead of re-running, so nothing is posted twice.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "IMAGE",
+              "VIDEO",
+              "CAROUSEL"
+            ],
+            "default": "TEXT"
+          },
+          "text": {
+            "type": "string",
+            "description": "Post text, at most 500 characters (required for TEXT)"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public image URL (IMAGE)"
+          },
+          "video_url": {
+            "type": "string",
+            "description": "Public video URL (VIDEO)"
+          },
+          "alt_text": {
+            "type": "string",
+            "description": "Alt text for IMAGE/VIDEO"
+          },
+          "carousel_items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            },
+            "description": "CAROUSEL: 2-20 items, each {image_url} or {video_url}, optional alt_text"
+          },
+          "reply_to_id": {
+            "type": "string",
+            "description": "Publish as a reply to this media id"
+          },
+          "quote_post_id": {
+            "type": "string",
+            "description": "Quote this media id"
+          },
+          "reply_control": {
+            "type": "string",
+            "enum": [
+              "everyone",
+              "accounts_you_follow",
+              "mentioned_only",
+              "parent_post_author_only",
+              "followers_only"
+            ],
+            "description": "Who can reply"
+          },
+          "poll_options": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            },
+            "description": "2-4 poll options (TEXT posts)"
+          },
+          "link_attachment": {
+            "type": "string",
+            "description": "URL shown as a link preview (TEXT posts)"
+          },
+          "topic_tag": {
+            "type": "string",
+            "description": "Topic tag, without #"
+          },
+          "container_id": {
+            "type": "string",
+            "description": "Publish this existing container (from a failed attempt) instead of creating a new one"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_replies",
+      "description": "List replies to a Threads post. With conversation=true, list every reply at every depth in the conversation instead of only top-level replies.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,username,permalink,timestamp,media_type,has_replies,is_reply,root_post,replied_to,hide_status"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "true lists oldest first"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "conversation": {
+            "type": "boolean",
+            "default": false,
+            "description": "Use /conversation (all depths)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      }
+    },
+    {
+      "name": "hide_reply",
+      "description": "Hide or unhide a reply under one of the account's posts (needs threads_manage_replies).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reply_id": {
+            "type": "string",
+            "description": "Reply id"
+          },
+          "hidden": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reply_id",
+          "hidden"
+        ]
+      }
+    },
+    {
+      "name": "list_pending_replies",
+      "description": "List replies awaiting approval on a post that uses reply approvals.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Threads media (post) id"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,text,username,permalink,timestamp,media_type,has_replies,is_reply,root_post,replied_to,hide_status"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "true lists oldest first"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "approval_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ignored"
+            ],
+            "default": "pending"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      }
+    },
+    {
+      "name": "approve_pending_reply",
+      "description": "Approve (approve=true) or ignore (approve=false) a pending reply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reply_id": {
+            "type": "string",
+            "description": "Reply id"
+          },
+          "approve": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reply_id",
+          "approve"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Threads API endpoint that has no dedicated operation, e.g. path \"/me/threads_insights\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/threads_insights\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

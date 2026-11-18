@@ -27,10 +27,48 @@ test("pollUntilDone throws api_error with the failure description", async () => 
   );
 });
 
-test("pollUntilDone times out with a retryable timeout error", async () => {
+test("pollUntilDone times out with a NON-retryable error, because the job may still complete", async () => {
   await assert.rejects(
     pollUntilDone({ readStatus: async () => ({}), isDone: () => false, isFailed: () => false, intervalMs: 5, timeoutMs: 20 }),
-    (error) => error.kind === "timeout" && error.retryable === true,
+    (error) => error.kind === "timeout" && error.retryable === false && /check/i.test(error.message),
+  );
+});
+
+test("pollUntilDone keeps polling through transient status-read errors", async () => {
+  const { PluginError } = await import("../lib/graphrt-plugin.mjs");
+  const readResults = [
+    new PluginError("502", { kind: "api_error" }),
+    new PluginError("net", { kind: "network_error" }),
+    new PluginError("slow down", { kind: "rate_limited" }),
+    { status: "FINISHED" },
+  ];
+  const result = await pollUntilDone({
+    readStatus: async () => {
+      const next = readResults.shift();
+      if (next instanceof Error) throw next;
+      return next;
+    },
+    isDone: (statusResult) => statusResult.status === "FINISHED",
+    isFailed: () => false,
+    intervalMs: 1,
+    timeoutMs: 1000,
+  });
+  assert.deepEqual(result, { status: "FINISHED" });
+});
+
+test("pollUntilDone stops on non-transient status-read errors", async () => {
+  const { PluginError } = await import("../lib/graphrt-plugin.mjs");
+  await assert.rejects(
+    pollUntilDone({
+      readStatus: async () => {
+        throw new PluginError("bad token", { kind: "auth_error" });
+      },
+      isDone: () => false,
+      isFailed: () => false,
+      intervalMs: 1,
+      timeoutMs: 1000,
+    }),
+    (error) => error.kind === "auth_error",
   );
 });
 

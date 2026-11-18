@@ -1,0 +1,14 @@
+# Read the Threads profile and its latest posts.
+#   THREADS_ACCESS_TOKEN=... graphrt run threads-api/example.yaml --plugins .
+version: "1"
+name: threads-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: profile, type: threads-api.get_profile, fields: "id,username,name" }
+    - { id: posts, type: threads-api.list_threads, limit: 3, fields: "id,text,permalink,timestamp" }
+    - { id: answer, type: answer, answer: "@{{#profile.data.username#}} ({{#profile.data.name#}})\nLatest threads: {{#posts.data#}}" }
+  edges:
+    - { source: start, target: profile }
+    - { source: profile, target: posts }
+    - { source: posts, target: answer }

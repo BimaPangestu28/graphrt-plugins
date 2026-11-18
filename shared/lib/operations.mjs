@@ -11,7 +11,8 @@
 
  *     operations: [{ name, title, description, parameters, run }],
  *   }
- * Each operation becomes node kind `<name>.<operation>` and tool `<operation>`.
+ * Each operation becomes node kind `<name>.<operation>` and tool `<operation>`, except operations with
+ * `nodeOnly: true` (e.g. token refresh), which are never offered to an LLM as tools.
  * `run({ client, args, environment, signal })` returns `{ data, next_cursor? }`.
  */
 import { Plugin, PluginError } from "./graphrt-plugin.mjs";
@@ -45,7 +46,9 @@ export function buildDescriptors(pluginDefinition) {
     },
     outputs: NODE_OUTPUTS,
   }));
-  const tools = pluginDefinition.operations.map((operation) => ({
+  const tools = pluginDefinition.operations
+    .filter((operation) => !operation.nodeOnly)
+    .map((operation) => ({
     name: operation.name,
     description: operation.description,
     parameters: operation.parameters,
@@ -90,7 +93,9 @@ export function createOperationRunner(pluginDefinition, environment, runnerOptio
   const operationsByName = new Map(pluginDefinition.operations.map((operation) => [operation.name, operation]));
   return async (operationName, rawArguments, { source, signal } = {}) => {
     const operation = operationsByName.get(operationName);
-    if (!operation) throw new PluginError(`Unknown operation \`${operationName}\``, { kind: "invalid_input" });
+    if (!operation || (operation.nodeOnly && source === "tool")) {
+      throw new PluginError(`Unknown operation \`${operationName}\``, { kind: "invalid_input" });
+    }
     const args = validateArguments(operation.parameters, rawArguments);
     const accessToken = await pickAccessToken(pluginDefinition, environment, rawArguments, source);
     const client = pluginDefinition.createClient({ accessToken, environment, fetchImpl: runnerOptions.fetchImpl });
@@ -113,6 +118,7 @@ export function startPlugin(pluginDefinition, environment = process.env) {
     plugin.node(`${pluginDefinition.name}.${operation.name}`, async (ctx, req) => ({
       outputs: await runOperation(operation.name, req.config, { source: "node", signal: ctx.signal }),
     }));
+    if (operation.nodeOnly) continue;
     plugin.tool({ name: operation.name, description: operation.description, parameters: operation.parameters }, async (toolArguments) => {
       const output = await runOperation(operation.name, toolArguments, { source: "tool" });
       return { text: JSON.stringify(output), data: output };
