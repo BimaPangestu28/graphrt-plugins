@@ -1,0 +1,12 @@
+# Search Google Maps and print the phone numbers found.
+#   graphrt run google-maps-scraper/example.yaml --plugins . --input query="bengkel motor Bandung"
+version: "1"
+name: google-maps-scraper-demo
+graph:
+  nodes:
+    - { id: start, type: start, variables: [{ variable: query, type: text-input, required: true }] }
+    - { id: search, type: google-maps-scraper.search, query: "{{#start.query#}}", max_results: 5 }
+    - { id: answer, type: answer, answer: "Found {{#search.count#}} places. Phones: {{#search.phones#}}" }
+  edges:
+    - { source: start, target: search }
+    - { source: search, target: answer }
