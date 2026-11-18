@@ -1,0 +1,15 @@
+# Read-only: list the business account's phone numbers and the first number's profile.
+#   WHATSAPP_ACCESS_TOKEN=... WHATSAPP_BUSINESS_ACCOUNT_ID=... WHATSAPP_PHONE_NUMBER_ID=... \
+#     graphrt run whatsapp-api/example.yaml --plugins .
+version: "1"
+name: whatsapp-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: numbers, type: whatsapp-api.list_phone_numbers, limit: 5 }
+    - { id: profile, type: whatsapp-api.get_business_profile }
+    - { id: answer, type: answer, answer: "Phone numbers: {{#numbers.data#}}\nProfile: {{#profile.data#}}" }
+  edges:
+    - { source: start, target: numbers }
+    - { source: numbers, target: profile }
+    - { source: profile, target: answer }

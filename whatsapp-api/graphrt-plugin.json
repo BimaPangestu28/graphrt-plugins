@@ -1,0 +1,1743 @@
+{
+  "name": "whatsapp-api",
+  "version": "0.1.0",
+  "description": "WhatsApp Business Cloud API: send messages and templates, manage media, templates and the business profile",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "WHATSAPP_ACCESS_TOKEN",
+      "WHATSAPP_PHONE_NUMBER_ID",
+      "WHATSAPP_BUSINESS_ACCOUNT_ID",
+      "WHATSAPP_GRAPH_VERSION"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "whatsapp-api.send_text",
+      "title": "Send WhatsApp text",
+      "description": "Send a text message. Only allowed within 24 h of the recipient's last message; otherwise use send_template.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 4096 characters)"
+          },
+          "preview_url": {
+            "type": "boolean",
+            "default": false,
+            "description": "Render a link preview for the first URL"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.send_template",
+      "title": "Send WhatsApp template",
+      "description": "Send an approved message template. Required for the first message and outside the 24 h window.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "name": {
+            "type": "string",
+            "description": "Template name"
+          },
+          "language": {
+            "type": "string",
+            "default": "en_US",
+            "description": "Template language code, e.g. en_US, id"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Template parameters, e.g. [{\"type\":\"body\",\"parameters\":[{\"type\":\"text\",\"text\":\"A1\"}]}]"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.send_media",
+      "title": "Send WhatsApp media",
+      "description": "Send an image, video, audio, document or sticker by public https link or uploaded media_id. 24 h window rules apply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "document",
+              "sticker"
+            ]
+          },
+          "link": {
+            "type": "string",
+            "description": "Public https URL of the file (instead of media_id)"
+          },
+          "media_id": {
+            "type": "string",
+            "description": "Id from upload_media (instead of link)"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (image, video, document only)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name shown to the recipient (document only)"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.send_location",
+      "title": "Send WhatsApp location",
+      "description": "Send a location pin. 24 h window rules apply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string",
+            "description": "Place name"
+          },
+          "address": {
+            "type": "string",
+            "description": "Address"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "latitude",
+          "longitude"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.send_interactive_buttons",
+      "title": "Send WhatsApp reply buttons",
+      "description": "Send a message with up to 3 quick-reply buttons (title up to 20 characters). 24 h window rules apply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 1024 characters)"
+          },
+          "buttons": {
+            "type": "array",
+            "maxItems": 3,
+            "description": "Button titles, or objects {\"id\",\"title\"}; the id comes back in the reply webhook"
+          },
+          "header_text": {
+            "type": "string",
+            "description": "Optional header (up to 60 characters)"
+          },
+          "footer": {
+            "type": "string",
+            "description": "Optional footer (up to 60 characters)"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "body",
+          "buttons"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.send_interactive_list",
+      "title": "Send WhatsApp list",
+      "description": "Send a list message: a button that opens up to 10 rows grouped in sections. 24 h window rules apply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 4096 characters)"
+          },
+          "button_text": {
+            "type": "string",
+            "description": "Label of the button that opens the list (up to 20 characters)"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Sections [{\"title\",\"rows\":[{\"id\",\"title\",\"description\"}]}]; 10 rows in total"
+          },
+          "header_text": {
+            "type": "string",
+            "description": "Optional header (up to 60 characters)"
+          },
+          "footer": {
+            "type": "string",
+            "description": "Optional footer (up to 60 characters)"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "body",
+          "button_text",
+          "sections"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.send_reaction",
+      "title": "Send WhatsApp reaction",
+      "description": "React to a message with an emoji, or remove your reaction.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id (wamid...) to react to"
+          },
+          "emoji": {
+            "type": "string",
+            "description": "Emoji, e.g. 👍"
+          },
+          "remove": {
+            "type": "boolean",
+            "default": false,
+            "description": "Remove your reaction instead"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.mark_as_read",
+      "title": "Mark WhatsApp message as read",
+      "description": "Mark a received message (and earlier ones) as read, optionally showing a typing indicator.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Received message id (wamid...)"
+          },
+          "show_typing_indicator": {
+            "type": "boolean",
+            "default": false,
+            "description": "Show a typing indicator until you reply (max 25 s)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.upload_media",
+      "title": "Upload WhatsApp media",
+      "description": "Download a file from a public https URL and upload it to WhatsApp; returns data.id for send_media. Limits: image 5 MB, video/audio 16 MB, document 100 MB, sticker 500 KB.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public https URL of the file"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "document",
+              "sticker"
+            ],
+            "description": "How the file will be sent"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "MIME type to use when the server's Content-Type is wrong or generic"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name for the upload"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "url",
+          "type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.get_media_url",
+      "title": "Get WhatsApp media URL",
+      "description": "Get the download URL, MIME type, size and sha256 of a media id. The URL expires after 5 minutes and needs the access token to download.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Media id"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Optional: only succeed if the media belongs to this phone number id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.delete_media",
+      "title": "Delete WhatsApp media",
+      "description": "Delete uploaded media by id.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Media id"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Optional: only succeed if the media belongs to this phone number id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.list_templates",
+      "title": "List WhatsApp templates",
+      "description": "List the WABA's message templates, optionally filtered by status, name, category or language.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "status": {
+            "type": "string",
+            "description": "e.g. APPROVED, PENDING, REJECTED, PAUSED, DISABLED"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name filter"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "UTILITY",
+              "MARKETING",
+              "AUTHENTICATION"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en_US"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,name,status,category,language,components"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.get_template",
+      "title": "Get WhatsApp template",
+      "description": "Read one message template by id (status, category, components).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,name,status,category,language,components"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.create_template",
+      "title": "Create WhatsApp template",
+      "description": "Submit a new message template for review. Components with parameters need example values.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Lowercase letters, digits and underscores"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "UTILITY",
+              "MARKETING",
+              "AUTHENTICATION"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en_US, id"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "e.g. [{\"type\":\"BODY\",\"text\":\"Your order {{1}} shipped\",\"example\":{\"body_text\":[[\"A1\"]]}}]"
+          },
+          "parameter_format": {
+            "type": "string",
+            "enum": [
+              "positional",
+              "named"
+            ],
+            "description": "Parameter style (API default: positional)"
+          },
+          "allow_category_change": {
+            "type": "boolean",
+            "description": "Let Meta change the category instead of rejecting"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "language",
+          "components"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.delete_template",
+      "title": "Delete WhatsApp template",
+      "description": "Delete a template by name (all languages), or only one language version by name plus template_id.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Template name"
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Template id (hsm_id) to delete just that version"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.list_phone_numbers",
+      "title": "List WhatsApp phone numbers",
+      "description": "List the phone numbers on the WhatsApp Business Account with their display number, verified name and quality rating.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,display_phone_number,verified_name,quality_rating,code_verification_status"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.get_business_profile",
+      "title": "Get WhatsApp business profile",
+      "description": "Read the business profile (about, address, description, email, websites, vertical, picture) of a phone number.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "about,address,description,email,profile_picture_url,websites,vertical"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.update_business_profile",
+      "title": "Update WhatsApp business profile",
+      "description": "Change business profile fields of a phone number. Only the fields you pass are changed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "about": {
+            "type": "string",
+            "description": "Status text, 1-139 characters"
+          },
+          "address": {
+            "type": "string",
+            "description": "Up to 256 characters"
+          },
+          "description": {
+            "type": "string",
+            "description": "Up to 512 characters"
+          },
+          "email": {
+            "type": "string",
+            "description": "Up to 128 characters"
+          },
+          "websites": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Up to 2 URLs starting with http:// or https://"
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "ALCOHOL",
+              "APPAREL",
+              "AUTO",
+              "BEAUTY",
+              "EDU",
+              "ENTERTAIN",
+              "EVENT_PLAN",
+              "FINANCE",
+              "GOVT",
+              "GROCERY",
+              "HEALTH",
+              "HOTEL",
+              "NONPROFIT",
+              "ONLINE_GAMBLING",
+              "OTC_DRUGS",
+              "OTHER",
+              "PHYSICAL_GAMBLING",
+              "PROF_SERVICES",
+              "RESTAURANT",
+              "RETAIL",
+              "TRAVEL"
+            ],
+            "description": "Business category"
+          },
+          "profile_picture_handle": {
+            "type": "string",
+            "description": "Handle from the Resumable Upload API"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-api.api_request",
+      "title": "WhatsApp Cloud API (Graph) request",
+      "description": "Call any WhatsApp Cloud API (Graph) endpoint that has no dedicated operation, e.g. path \"/{phone-number-id}\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/{phone-number-id}\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "send_text",
+      "description": "Send a text message. Only allowed within 24 h of the recipient's last message; otherwise use send_template.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 4096 characters)"
+          },
+          "preview_url": {
+            "type": "boolean",
+            "default": false,
+            "description": "Render a link preview for the first URL"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "to",
+          "body"
+        ]
+      }
+    },
+    {
+      "name": "send_template",
+      "description": "Send an approved message template. Required for the first message and outside the 24 h window.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "name": {
+            "type": "string",
+            "description": "Template name"
+          },
+          "language": {
+            "type": "string",
+            "default": "en_US",
+            "description": "Template language code, e.g. en_US, id"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Template parameters, e.g. [{\"type\":\"body\",\"parameters\":[{\"type\":\"text\",\"text\":\"A1\"}]}]"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "to",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "send_media",
+      "description": "Send an image, video, audio, document or sticker by public https link or uploaded media_id. 24 h window rules apply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "document",
+              "sticker"
+            ]
+          },
+          "link": {
+            "type": "string",
+            "description": "Public https URL of the file (instead of media_id)"
+          },
+          "media_id": {
+            "type": "string",
+            "description": "Id from upload_media (instead of link)"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (image, video, document only)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name shown to the recipient (document only)"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "to",
+          "type"
+        ]
+      }
+    },
+    {
+      "name": "send_location",
+      "description": "Send a location pin. 24 h window rules apply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string",
+            "description": "Place name"
+          },
+          "address": {
+            "type": "string",
+            "description": "Address"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "to",
+          "latitude",
+          "longitude"
+        ]
+      }
+    },
+    {
+      "name": "send_interactive_buttons",
+      "description": "Send a message with up to 3 quick-reply buttons (title up to 20 characters). 24 h window rules apply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 1024 characters)"
+          },
+          "buttons": {
+            "type": "array",
+            "maxItems": 3,
+            "description": "Button titles, or objects {\"id\",\"title\"}; the id comes back in the reply webhook"
+          },
+          "header_text": {
+            "type": "string",
+            "description": "Optional header (up to 60 characters)"
+          },
+          "footer": {
+            "type": "string",
+            "description": "Optional footer (up to 60 characters)"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "to",
+          "body",
+          "buttons"
+        ]
+      }
+    },
+    {
+      "name": "send_interactive_list",
+      "description": "Send a list message: a button that opens up to 10 rows grouped in sections. 24 h window rules apply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 4096 characters)"
+          },
+          "button_text": {
+            "type": "string",
+            "description": "Label of the button that opens the list (up to 20 characters)"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Sections [{\"title\",\"rows\":[{\"id\",\"title\",\"description\"}]}]; 10 rows in total"
+          },
+          "header_text": {
+            "type": "string",
+            "description": "Optional header (up to 60 characters)"
+          },
+          "footer": {
+            "type": "string",
+            "description": "Optional footer (up to 60 characters)"
+          },
+          "reply_to_message_id": {
+            "type": "string",
+            "description": "Quote-reply to this message id (wamid...)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "to",
+          "body",
+          "button_text",
+          "sections"
+        ]
+      }
+    },
+    {
+      "name": "send_reaction",
+      "description": "React to a message with an emoji, or remove your reaction.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id (wamid...) to react to"
+          },
+          "emoji": {
+            "type": "string",
+            "description": "Emoji, e.g. 👍"
+          },
+          "remove": {
+            "type": "boolean",
+            "default": false,
+            "description": "Remove your reaction instead"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "to",
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "mark_as_read",
+      "description": "Mark a received message (and earlier ones) as read, optionally showing a typing indicator.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Received message id (wamid...)"
+          },
+          "show_typing_indicator": {
+            "type": "boolean",
+            "default": false,
+            "description": "Show a typing indicator until you reply (max 25 s)"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "upload_media",
+      "description": "Download a file from a public https URL and upload it to WhatsApp; returns data.id for send_media. Limits: image 5 MB, video/audio 16 MB, document 100 MB, sticker 500 KB.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public https URL of the file"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "document",
+              "sticker"
+            ],
+            "description": "How the file will be sent"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "MIME type to use when the server's Content-Type is wrong or generic"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name for the upload"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          }
+        },
+        "required": [
+          "url",
+          "type"
+        ]
+      }
+    },
+    {
+      "name": "get_media_url",
+      "description": "Get the download URL, MIME type, size and sha256 of a media id. The URL expires after 5 minutes and needs the access token to download.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Media id"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Optional: only succeed if the media belongs to this phone number id"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      }
+    },
+    {
+      "name": "delete_media",
+      "description": "Delete uploaded media by id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "description": "Media id"
+          },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Optional: only succeed if the media belongs to this phone number id"
+          }
+        },
+        "required": [
+          "media_id"
+        ]
+      }
+    },
+    {
+      "name": "list_templates",
+      "description": "List the WABA's message templates, optionally filtered by status, name, category or language.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "status": {
+            "type": "string",
+            "description": "e.g. APPROVED, PENDING, REJECTED, PAUSED, DISABLED"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name filter"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "UTILITY",
+              "MARKETING",
+              "AUTHENTICATION"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en_US"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,name,status,category,language,components"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_template",
+      "description": "Read one message template by id (status, category, components).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,name,status,category,language,components"
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      }
+    },
+    {
+      "name": "create_template",
+      "description": "Submit a new message template for review. Components with parameters need example values.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Lowercase letters, digits and underscores"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "UTILITY",
+              "MARKETING",
+              "AUTHENTICATION"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en_US, id"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "e.g. [{\"type\":\"BODY\",\"text\":\"Your order {{1}} shipped\",\"example\":{\"body_text\":[[\"A1\"]]}}]"
+          },
+          "parameter_format": {
+            "type": "string",
+            "enum": [
+              "positional",
+              "named"
+            ],
+            "description": "Parameter style (API default: positional)"
+          },
+          "allow_category_change": {
+            "type": "boolean",
+            "description": "Let Meta change the category instead of rejecting"
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "language",
+          "components"
+        ]
+      }
+    },
+    {
+      "name": "delete_template",
+      "description": "Delete a template by name (all languages), or only one language version by name plus template_id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Template name"
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Template id (hsm_id) to delete just that version"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "list_phone_numbers",
+      "description": "List the phone numbers on the WhatsApp Business Account with their display number, verified name and quality rating.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "business_account_id": {
+            "type": "string",
+            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "id,display_phone_number,verified_name,quality_rating,code_verification_status"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_business_profile",
+      "description": "Read the business profile (about, address, description, email, websites, vertical, picture) of a phone number.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "fields": {
+            "type": "string",
+            "default": "about,address,description,email,profile_picture_url,websites,vertical"
+          }
+        }
+      }
+    },
+    {
+      "name": "update_business_profile",
+      "description": "Change business profile fields of a phone number. Only the fields you pass are changed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number_id": {
+            "type": "string",
+            "description": "Sending phone number id (default: WHATSAPP_PHONE_NUMBER_ID)"
+          },
+          "about": {
+            "type": "string",
+            "description": "Status text, 1-139 characters"
+          },
+          "address": {
+            "type": "string",
+            "description": "Up to 256 characters"
+          },
+          "description": {
+            "type": "string",
+            "description": "Up to 512 characters"
+          },
+          "email": {
+            "type": "string",
+            "description": "Up to 128 characters"
+          },
+          "websites": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Up to 2 URLs starting with http:// or https://"
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "ALCOHOL",
+              "APPAREL",
+              "AUTO",
+              "BEAUTY",
+              "EDU",
+              "ENTERTAIN",
+              "EVENT_PLAN",
+              "FINANCE",
+              "GOVT",
+              "GROCERY",
+              "HEALTH",
+              "HOTEL",
+              "NONPROFIT",
+              "ONLINE_GAMBLING",
+              "OTC_DRUGS",
+              "OTHER",
+              "PHYSICAL_GAMBLING",
+              "PROF_SERVICES",
+              "RESTAURANT",
+              "RETAIL",
+              "TRAVEL"
+            ],
+            "description": "Business category"
+          },
+          "profile_picture_handle": {
+            "type": "string",
+            "description": "Handle from the Resumable Upload API"
+          }
+        }
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any WhatsApp Cloud API (Graph) endpoint that has no dedicated operation, e.g. path \"/{phone-number-id}\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/{phone-number-id}\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
