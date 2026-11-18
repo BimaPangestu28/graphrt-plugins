@@ -140,6 +140,8 @@ It returns `delivery_confirmed: false`, because it doesn't check that the messag
 ## Errors
 | Kind | When |
 |------|------|
+| `screen_locked` | The Mac's screen is locked (the login window is frontmost). macOS blocks input until it is unlocked; nothing was typed or clicked. |
+| `action_failed` | macOS refused an action, e.g. the app could not be brought to the front. |
 | `permission_denied` | The app is not in `COMPUTER_CONTROL_ALLOWED_APPS`, the variable is unset, or a macOS permission is missing (the message names the System Settings pane). Also: focus left the target app mid-operation, a click point is covered by another app, a system-wide shortcut was refused, or an opt-in variable is not set. |
 | `not_found` | The app is not running or not installed, the window doesn't exist, a ref is stale or now points at another element ("read_ui again"), or a WhatsApp chat, header or message box isn't found |
 | `invalid_input` | Bad arguments, an unknown key name, a ref with the wrong shape or no fingerprint, a point outside the app's windows, an ambiguous app name or WhatsApp chat name, or not macOS |

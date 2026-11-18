@@ -78,7 +78,7 @@ test("parseJxaOutput maps structured script failures", () => {
   assert.equal(capture(() => parseJxaOutput(failureOutput({ kind: "stale_ref", message: "Element w1/3 no longer exists; call read_ui again" }))).kind, "not_found");
   assert.equal(capture(() => parseJxaOutput(failureOutput({ kind: "not_found", message: "App is not running" }))).kind, "not_found");
   assert.equal(capture(() => parseJxaOutput(failureOutput({ kind: "invalid_input", message: "outside" }))).kind, "invalid_input");
-  assert.equal(capture(() => parseJxaOutput(failureOutput({ kind: "action_failed", message: "no" }))).kind, "plugin_error");
+  assert.equal(capture(() => parseJxaOutput(failureOutput({ kind: "action_failed", message: "no" }))).kind, "action_failed");
   const accessibilityError = capture(() => parseJxaOutput(failureOutput({ kind: "accessibility_denied", message: "x" })));
   assert.equal(accessibilityError.kind, "permission_denied");
   assert.match(accessibilityError.message, /System Settings → Privacy & Security → Accessibility/);

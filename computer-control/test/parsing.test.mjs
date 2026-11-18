@@ -149,3 +149,12 @@ test("buildOutlineOutput caps elements plus text to a character budget and says 
   assert.equal(small.output_truncated, false);
   assert.equal(small.elements.length, 2);
 });
+
+test("script failures action_failed and screen_locked map to their own error kinds", async () => {
+  const { mapScriptFailure } = await import("../lib/osascript-errors.mjs");
+  assert.equal(mapScriptFailure({ kind: "action_failed", message: "Could not bring X to the front" }).kind, "action_failed");
+  const locked = mapScriptFailure({ kind: "screen_locked", message: "The screen is locked" });
+  assert.equal(locked.kind, "screen_locked");
+  assert.equal(locked.retryable, false);
+  assert.match(locked.message, /unlock/i);
+});

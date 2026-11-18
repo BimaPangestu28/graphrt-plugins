@@ -344,3 +344,20 @@ test("find_window_id picks the on-screen, normal-layer window of the app pid who
   assert.equal(sandbox.findWindowNumber(TARGET_PID, frame), 4);
   assert.equal(sandbox.findWindowNumber(7, frame), null);
 });
+
+test("activateApp fails with screen_locked while the login window (locked screen) is frontmost", () => {
+  const sandbox = loadJxaSandbox("type_text", {
+    frontmostBundleIdentifier: () => "com.apple.loginwindow",
+    systemEvents: () => {
+      throw new Error("must not try to activate while the screen is locked");
+    },
+  });
+  let failure;
+  try {
+    sandbox.activateApp({ processIdentifier: 42, localizedName: "TextEdit", bundleIdentifier: "com.apple.TextEdit" });
+  } catch (error) {
+    failure = error;
+  }
+  assert.equal(failure?.kind, "screen_locked");
+  assert.match(failure.message, /locked/i);
+});
