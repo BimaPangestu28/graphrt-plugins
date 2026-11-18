@@ -3,6 +3,7 @@
  * finishes, fails, times out or is cancelled.
  */
 import { PluginError } from "./graphrt-plugin.mjs";
+import { sleepUnlessCancelled } from "./sleep.mjs";
 
 /**
  * Polls `readStatus` until `isDone` or `isFailed`.
@@ -28,7 +29,7 @@ export async function pollUntilDone({ readStatus, isDone, isFailed, intervalMs, 
     if (Date.now() + intervalMs > deadline) {
       throw new PluginError(`Still processing after ${Math.round(timeoutMs / 1000)} s`, { kind: "timeout", retryable: true });
     }
-    await sleep(intervalMs, signal);
+    await sleepUnlessCancelled(intervalMs, signal, CANCEL_MESSAGE);
   }
 }
 
@@ -44,20 +45,8 @@ export function resolvePollInterval(environment, defaultIntervalMs) {
   return Number.isFinite(overrideMs) && overrideMs >= 0 ? overrideMs : defaultIntervalMs;
 }
 
-function throwIfCancelled(signal) {
-  if (signal?.aborted) throw new PluginError("Cancelled while waiting for processing", { kind: "cancelled" });
-}
+const CANCEL_MESSAGE = "Cancelled while waiting for processing";
 
-function sleep(delayMs, signal) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, delayMs);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(new PluginError("Cancelled while waiting for processing", { kind: "cancelled" }));
-      },
-      { once: true },
-    );
-  });
+function throwIfCancelled(signal) {
+  if (signal?.aborted) throw new PluginError(CANCEL_MESSAGE, { kind: "cancelled" });
 }

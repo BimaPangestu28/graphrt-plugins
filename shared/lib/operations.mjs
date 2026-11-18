@@ -69,7 +69,8 @@ export function buildManifest(pluginDefinition) {
     runtime: "process",
     command: "node",
     args: ["plugin.mjs"],
-    permissions: { network: true, env: [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? [])] },
+    // secrets: true lets a node's `access_token` (from a secret) arrive unmasked once the plugin is trusted.
+    permissions: { network: true, secrets: true, env: [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? [])] },
     limits: { ...DEFAULT_LIMITS, ...pluginDefinition.limits },
     nodes,
     tools,
@@ -91,7 +92,7 @@ export function createOperationRunner(pluginDefinition, environment, runnerOptio
     const operation = operationsByName.get(operationName);
     if (!operation) throw new PluginError(`Unknown operation \`${operationName}\``, { kind: "invalid_input" });
     const args = validateArguments(operation.parameters, rawArguments);
-    const accessToken = pickAccessToken(pluginDefinition, environment, rawArguments, source);
+    const accessToken = await pickAccessToken(pluginDefinition, environment, rawArguments, source);
     const client = pluginDefinition.createClient({ accessToken, environment, fetchImpl: runnerOptions.fetchImpl });
     const result = await operation.run({ client, args, environment, signal });
     return { data: result?.data ?? null, next_cursor: result?.next_cursor ?? null };
@@ -121,10 +122,16 @@ export function startPlugin(pluginDefinition, environment = process.env) {
 }
 
 // Tools never accept a token from arguments: an LLM must not be able to choose credentials.
-function pickAccessToken(pluginDefinition, environment, rawArguments, source) {
+async function pickAccessToken(pluginDefinition, environment, rawArguments, source) {
   const rawNodeToken = source === "node" ? rawArguments?.access_token : undefined;
   const nodeToken = typeof rawNodeToken === "string" && rawNodeToken.trim() ? rawNodeToken.trim() : undefined;
-  if (pluginDefinition.resolveAccessToken) return pluginDefinition.resolveAccessToken({ environment, nodeToken });
+  if (nodeToken && /^\*+$/.test(nodeToken)) {
+    throw new PluginError(
+      `The node's access_token arrived masked; trust the plugin so secrets are passed through: --trust-plugin ${pluginDefinition.name}`,
+      { kind: "auth_error" },
+    );
+  }
+  if (pluginDefinition.resolveAccessToken) return await pluginDefinition.resolveAccessToken({ environment, nodeToken });
   const accessToken = nodeToken || environment?.[pluginDefinition.tokenEnv];
   if (!accessToken) {
     throw new PluginError(

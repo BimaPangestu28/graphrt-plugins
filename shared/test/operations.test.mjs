@@ -101,3 +101,21 @@ test("buildManifest lists the token and extra env vars and merges limits", async
   assert.equal(manifest.limits.max_concurrency, 8);
   assert.equal(manifest.runtime, "process");
 });
+
+test("buildManifest requests plaintext secrets so the node token override can work", async () => {
+  const { buildManifest } = await import("../lib/operations.mjs");
+  assert.equal(buildManifest({ ...pluginDefinition, version: "0", description: "d" }).permissions.secrets, true);
+});
+
+test("a masked node token fails with a hint about --trust-plugin", async () => {
+  const runOperation = createOperationRunner(pluginDefinition, { DEMO_ACCESS_TOKEN: "env" });
+  await assert.rejects(
+    runOperation("get_profile", { access_token: "******" }, { source: "node" }),
+    (error) => error.kind === "auth_error" && /--trust-plugin/.test(error.message),
+  );
+});
+
+test("an async resolveAccessToken is awaited", async () => {
+  const runOperation = createOperationRunner({ ...pluginDefinition, resolveAccessToken: async () => "async-token" }, {});
+  assert.equal((await runOperation("get_profile", {}, { source: "tool" })).data.token, "async-token");
+});

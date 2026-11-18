@@ -110,3 +110,13 @@ test("META_GRAPH_VERSION overrides the version and is validated", async () => {
     (error) => error.kind === "invalid_input" && /META_GRAPH_VERSION/.test(error.message),
   );
 });
+
+test("ids are encoded as a single path segment", async () => {
+  const { calls } = await runWithResponses("delete_comment", { comment_id: "../me/feed?x=1#" });
+  assert.equal(calls[0].path, "/v26.0/..%2Fme%2Ffeed%3Fx%3D1%23");
+});
+
+test("numeric ids from templates are accepted", async () => {
+  const { calls } = await runWithResponses("get_page", { page_id: 104512345678 });
+  assert.equal(calls[0].path, "/v26.0/104512345678");
+});

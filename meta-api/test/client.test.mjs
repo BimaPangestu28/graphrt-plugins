@@ -45,3 +45,13 @@ test("parseMetaError reads the regain-access estimate from X-Business-Use-Case-U
 test("parseMetaError leaves non-Graph bodies to the default mapping", () => {
   assert.deepEqual(parseMetaError(502, { text: "Bad gateway" }, noHeaders), {});
 });
+
+test("parseMetaError maps code 100 subcode 33 (object does not exist) to not_found", () => {
+  assert.equal(parseMetaError(400, { error: { code: 100, error_subcode: 33, message: "m" } }, noHeaders).kind, "not_found");
+});
+
+test("parseMetaError omits the code when Graph sends none", () => {
+  const parsed = parseMetaError(400, { error: { message: "Something odd" } }, noHeaders);
+  assert.equal(parsed.message.includes("NaN"), false);
+  assert.match(parsed.message, /Something odd/);
+});

@@ -68,3 +68,21 @@ for (const [label, invalidArguments, fieldName] of [
 test("validateArguments maps a case-insensitive enum match to the canonical value", () => {
   assert.equal(validateArguments(schema, { message: "x", visibility: "public" }).visibility, "PUBLIC");
 });
+
+test("validateArguments turns safe integers into strings for string fields", () => {
+  assert.equal(validateArguments(schema, { message: 104512345 }).message, "104512345");
+});
+
+test("validateArguments asks to quote integers too large to be exact", () => {
+  assert.throws(
+    () => validateArguments(schema, { message: 2 ** 60 }),
+    (error) => error.kind === "invalid_input" && /quote/i.test(error.message),
+  );
+});
+
+test("validateArguments accepts True/FALSE/1/0 for booleans", () => {
+  assert.equal(validateArguments(schema, { message: "x", published: "True" }).published, true);
+  assert.equal(validateArguments(schema, { message: "x", published: "FALSE" }).published, false);
+  assert.equal(validateArguments(schema, { message: "x", published: 1 }).published, true);
+  assert.equal(validateArguments(schema, { message: "x", published: "0" }).published, false);
+});

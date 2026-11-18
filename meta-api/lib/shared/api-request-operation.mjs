@@ -35,13 +35,12 @@ export function createApiRequestOperation({ apiName, examplePath, extraPropertie
       if (!args.path.startsWith("/")) {
         throw new PluginError('`path` must start with "/" and be relative to the API base URL', { kind: "invalid_input" });
       }
-      const data = await selectClient(client, args).request({
-        method: args.method.toUpperCase(),
-        path: args.path,
-        query: args.query,
-        json: args.body,
-        signal,
-      });
+      const method = args.method.toUpperCase();
+      if (args.body !== undefined && (method === "GET" || method === "DELETE")) {
+        throw new PluginError(`\`body\` is not allowed with ${method}; use \`query\``, { kind: "invalid_input" });
+      }
+      // redactResponse: raw bodies (e.g. paging URLs) may echo the token back.
+      const data = await selectClient(client, args).request({ method, path: args.path, query: args.query, json: args.body, signal, redactResponse: true });
       return { data };
     },
   };

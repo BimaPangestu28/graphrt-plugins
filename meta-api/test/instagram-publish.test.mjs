@@ -30,22 +30,34 @@ test("publish_instagram_media VIDEO is published as REELS", async () => {
   assert.equal(calls[0].form.video_url, "https://v.test/a.mp4");
 });
 
-test("publish_instagram_media CAROUSEL creates children, then the parent", async () => {
+test("publish_instagram_media CAROUSEL creates all children first, polls them together, then the parent", async () => {
   const { calls } = await runWithResponses(
     "publish_instagram_media",
     { media_type: "CAROUSEL", caption: "set", carousel_items: [{ image_url: "https://i.test/1.jpg" }, { video_url: "https://v.test/2.mp4" }] },
     [
       { body: { id: "child1" } },
-      { body: { status_code: "FINISHED" } },
       { body: { id: "child2" } },
+      { body: { status_code: "FINISHED" } },
       { body: { status_code: "FINISHED" } },
       { body: { id: "parent" } },
       { body: { status_code: "FINISHED" } },
       { body: { id: "media" } },
     ],
   );
+  assert.deepEqual(
+    calls.map((call) => `${call.method} ${call.path}`),
+    [
+      "POST /v26.0/222/media",
+      "POST /v26.0/222/media",
+      "GET /v26.0/child1",
+      "GET /v26.0/child2",
+      "POST /v26.0/222/media",
+      "GET /v26.0/parent",
+      "POST /v26.0/222/media_publish",
+    ],
+  );
   assert.equal(calls[0].form.is_carousel_item, "true");
-  assert.equal(calls[2].form.media_type, "VIDEO");
+  assert.equal(calls[1].form.media_type, "VIDEO");
   assert.equal(calls[4].form.media_type, "CAROUSEL");
   assert.equal(calls[4].form.children, "child1,child2");
   assert.equal(calls[4].form.caption, "set");
@@ -66,6 +78,7 @@ for (const [label, invalidArgs] of [
   ["IMAGE without image_url", { media_type: "IMAGE" }],
   ["REELS without video_url", { media_type: "REELS" }],
   ["STORIES without any media", { media_type: "STORIES" }],
+  ["STORIES with both an image and a video", { media_type: "STORIES", image_url: "https://i.test/1.jpg", video_url: "https://v.test/2.mp4" }],
   ["CAROUSEL with one item", { media_type: "CAROUSEL", carousel_items: [{ image_url: "https://i.test/1.jpg" }] }],
   ["CAROUSEL item without media", { media_type: "CAROUSEL", carousel_items: [{}, {}] }],
 ]) {

@@ -1,6 +1,7 @@
 /**
  * Facebook Page operations: page info and posts.
  */
+import { pathSegment } from "../lib/shared/path.mjs";
 import { paginationProperties, rejectInput, resolveId, toPage } from "../lib/client.mjs";
 
 const PAGE_ID_PROPERTY = { type: "string", description: "Page id (default: META_PAGE_ID)" };
@@ -17,7 +18,7 @@ export const pageOperations = [
     description: "Read Facebook Page details (name, category, followers, linked Instagram account).",
     parameters: { type: "object", properties: { page_id: PAGE_ID_PROPERTY, fields: { type: "string", default: DEFAULT_PAGE_FIELDS } } },
     run: async ({ client, args, environment, signal }) => ({
-      data: await client.request({ path: `/${pageIdOf(args, environment)}`, query: { fields: args.fields }, signal }),
+      data: await client.request({ path: `/${pathSegment(pageIdOf(args, environment))}`, query: { fields: args.fields }, signal }),
     }),
   },
   {
@@ -31,7 +32,7 @@ export const pageOperations = [
     run: async ({ client, args, environment, signal }) =>
       toPage(
         await client.request({
-          path: `/${pageIdOf(args, environment)}/feed`,
+          path: `/${pathSegment(pageIdOf(args, environment))}/feed`,
           query: { fields: args.fields, limit: args.limit, after: args.cursor },
           signal,
         }),
@@ -60,7 +61,7 @@ export const pageOperations = [
         published: isScheduled ? false : args.published,
         scheduled_publish_time: args.scheduled_publish_time,
       };
-      return { data: await client.request({ method: "POST", path: `/${pageIdOf(args, environment)}/feed`, form, signal }) };
+      return { data: await client.request({ method: "POST", path: `/${pathSegment(pageIdOf(args, environment))}/feed`, form, signal }) };
     },
   },
   {
@@ -80,7 +81,7 @@ export const pageOperations = [
     run: async ({ client, args, environment, signal }) => ({
       data: await client.request({
         method: "POST",
-        path: `/${pageIdOf(args, environment)}/photos`,
+        path: `/${pathSegment(pageIdOf(args, environment))}/photos`,
         form: { url: args.image_url, message: args.message, published: args.published },
         signal,
       }),
@@ -92,7 +93,7 @@ export const pageOperations = [
     description: "Edit the text of a Page post this app created.",
     parameters: { type: "object", properties: { post_id: POST_ID_PROPERTY, message: { type: "string" } }, required: ["post_id", "message"] },
     run: async ({ client, args, signal }) => ({
-      data: await client.request({ method: "POST", path: `/${args.post_id}`, form: { message: args.message }, signal }),
+      data: await client.request({ method: "POST", path: `/${pathSegment(args.post_id)}`, form: { message: args.message }, signal }),
     }),
   },
   {
@@ -100,6 +101,6 @@ export const pageOperations = [
     title: "Delete Page post",
     description: "Delete a Page post.",
     parameters: { type: "object", properties: { post_id: POST_ID_PROPERTY }, required: ["post_id"] },
-    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${args.post_id}`, signal }) }),
+    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${pathSegment(args.post_id)}`, signal }) }),
   },
 ];

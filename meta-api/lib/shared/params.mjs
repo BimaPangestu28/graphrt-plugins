@@ -8,6 +8,13 @@
  */
 import { PluginError } from "./graphrt-plugin.mjs";
 
+const BOOLEAN_STRINGS = new Map([
+  ["true", true],
+  ["false", false],
+  ["1", true],
+  ["0", false],
+]);
+
 /**
  * Validates arguments against an object schema, applying defaults and coercion.
  *
@@ -55,12 +62,13 @@ function canonicalizeEnum(enumValues, value) {
 }
 
 function coerceValue(declaredType, rawValue) {
+  if (typeof rawValue === "number") return coerceNumber(declaredType, rawValue);
   if (typeof rawValue !== "string") return rawValue;
   const trimmed = rawValue.trim();
   if ((declaredType === "integer" || declaredType === "number") && trimmed !== "" && Number.isFinite(Number(trimmed))) {
     return Number(trimmed);
   }
-  if (declaredType === "boolean" && (trimmed === "true" || trimmed === "false")) return trimmed === "true";
+  if (declaredType === "boolean" && BOOLEAN_STRINGS.has(trimmed.toLowerCase())) return BOOLEAN_STRINGS.get(trimmed.toLowerCase());
   if ((declaredType === "array" && trimmed.startsWith("[")) || (declaredType === "object" && trimmed.startsWith("{"))) {
     try {
       return JSON.parse(trimmed);
@@ -69,6 +77,16 @@ function coerceValue(declaredType, rawValue) {
     }
   }
   return rawValue;
+}
+
+// IDs often arrive as numbers (unquoted YAML, LLM tool calls); keep them exact.
+function coerceNumber(declaredType, numericValue) {
+  if (declaredType === "boolean" && (numericValue === 0 || numericValue === 1)) return numericValue === 1;
+  if (declaredType !== "string") return numericValue;
+  if (Number.isInteger(numericValue) && !Number.isSafeInteger(numericValue)) {
+    throw new PluginError(`Number ${numericValue} is too large to be exact; quote it as a string`, { kind: "invalid_input" });
+  }
+  return String(numericValue);
 }
 
 function checkType(propertyName, propertySchema, value) {

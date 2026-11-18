@@ -2,6 +2,7 @@
  * Instagram professional account operations (via Facebook Login / Page token):
  * account, media, publishing and comment moderation.
  */
+import { pathSegment } from "../lib/shared/path.mjs";
 import { paginationProperties, rejectInput, resolveId, toPage } from "../lib/client.mjs";
 import { pollUntilDone, resolvePollInterval } from "../lib/shared/polling.mjs";
 
@@ -11,7 +12,8 @@ const DEFAULT_ACCOUNT_FIELDS = "id,username,name,biography,profile_picture_url,f
 const DEFAULT_MEDIA_FIELDS = "id,caption,media_type,media_product_type,media_url,permalink,timestamp,like_count,comments_count";
 const DEFAULT_COMMENT_FIELDS = "id,text,timestamp,username,hidden,like_count,parent_id";
 const CONTAINER_POLL_INTERVAL_MS = 5000;
-const CONTAINER_POLL_TIMEOUT_MS = 5 * 60 * 1000;
+// Whole publish (children + parent) must finish inside the manifest's 420 s timeout.
+const PUBLISH_DEADLINE_MS = 6 * 60 * 1000;
 const MIN_CAROUSEL_ITEMS = 2;
 const MAX_CAROUSEL_ITEMS = 10;
 
@@ -24,7 +26,7 @@ export const instagramOperations = [
     description: "Read the Instagram professional account (username, followers, media count).",
     parameters: { type: "object", properties: { ig_user_id: IG_USER_ID_PROPERTY, fields: { type: "string", default: DEFAULT_ACCOUNT_FIELDS } } },
     run: async ({ client, args, environment, signal }) => ({
-      data: await client.request({ path: `/${igUserIdOf(args, environment)}`, query: { fields: args.fields }, signal }),
+      data: await client.request({ path: `/${pathSegment(igUserIdOf(args, environment))}`, query: { fields: args.fields }, signal }),
     }),
   },
   {
@@ -38,7 +40,7 @@ export const instagramOperations = [
     run: async ({ client, args, environment, signal }) =>
       toPage(
         await client.request({
-          path: `/${igUserIdOf(args, environment)}/media`,
+          path: `/${pathSegment(igUserIdOf(args, environment))}/media`,
           query: { fields: args.fields, limit: args.limit, after: args.cursor },
           signal,
         }),
@@ -51,7 +53,7 @@ export const instagramOperations = [
     parameters: { type: "object", properties: { ig_user_id: IG_USER_ID_PROPERTY } },
     run: async ({ client, args, environment, signal }) => ({
       data: await client.request({
-        path: `/${igUserIdOf(args, environment)}/content_publishing_limit`,
+        path: `/${pathSegment(igUserIdOf(args, environment))}/content_publishing_limit`,
         query: { fields: "config,quota_usage" },
         signal,
       }),
@@ -61,7 +63,7 @@ export const instagramOperations = [
     name: "publish_instagram_media",
     title: "Publish to Instagram",
     description:
-      "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 5 minutes).",
+      "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total).",
     parameters: {
       type: "object",
       properties: {
@@ -92,7 +94,7 @@ export const instagramOperations = [
       required: ["media_id"],
     },
     run: async ({ client, args, signal }) =>
-      toPage(await client.request({ path: `/${args.media_id}/comments`, query: { fields: args.fields, limit: args.limit, after: args.cursor }, signal })),
+      toPage(await client.request({ path: `/${pathSegment(args.media_id)}/comments`, query: { fields: args.fields, limit: args.limit, after: args.cursor }, signal })),
   },
   {
     name: "list_instagram_comment_replies",
@@ -104,7 +106,7 @@ export const instagramOperations = [
       required: ["comment_id"],
     },
     run: async ({ client, args, signal }) =>
-      toPage(await client.request({ path: `/${args.comment_id}/replies`, query: { fields: args.fields, limit: args.limit, after: args.cursor }, signal })),
+      toPage(await client.request({ path: `/${pathSegment(args.comment_id)}/replies`, query: { fields: args.fields, limit: args.limit, after: args.cursor }, signal })),
   },
   {
     name: "reply_to_instagram_comment",
@@ -112,7 +114,7 @@ export const instagramOperations = [
     description: "Reply to a comment on the account's Instagram media.",
     parameters: { type: "object", properties: { comment_id: COMMENT_ID_PROPERTY, message: { type: "string", minLength: 1 } }, required: ["comment_id", "message"] },
     run: async ({ client, args, signal }) => ({
-      data: await client.request({ method: "POST", path: `/${args.comment_id}/replies`, form: { message: args.message }, signal }),
+      data: await client.request({ method: "POST", path: `/${pathSegment(args.comment_id)}/replies`, form: { message: args.message }, signal }),
     }),
   },
   {
@@ -121,7 +123,7 @@ export const instagramOperations = [
     description: "Hide or unhide a comment on the account's Instagram media.",
     parameters: { type: "object", properties: { comment_id: COMMENT_ID_PROPERTY, hidden: { type: "boolean" } }, required: ["comment_id", "hidden"] },
     run: async ({ client, args, signal }) => ({
-      data: await client.request({ method: "POST", path: `/${args.comment_id}`, form: { hide: args.hidden }, signal }),
+      data: await client.request({ method: "POST", path: `/${pathSegment(args.comment_id)}`, form: { hide: args.hidden }, signal }),
     }),
   },
   {
@@ -129,19 +131,24 @@ export const instagramOperations = [
     title: "Delete Instagram comment",
     description: "Delete a comment on the account's Instagram media.",
     parameters: { type: "object", properties: { comment_id: COMMENT_ID_PROPERTY }, required: ["comment_id"] },
-    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${args.comment_id}`, signal }) }),
+    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${pathSegment(args.comment_id)}`, signal }) }),
   },
 ];
 
 async function publishInstagramMedia({ client, args, environment, signal }) {
   const igUserId = igUserIdOf(args, environment);
-  const containerSettings = { client, igUserId, environment, signal };
+  const containerSettings = { client, igUserId, environment, signal, deadline: Date.now() + PUBLISH_DEADLINE_MS };
   const containerForm = buildContainerForm(args);
   if (args.media_type === "CAROUSEL") {
     containerForm.children = (await createCarouselChildren(containerSettings, args.carousel_items)).join(",");
   }
-  const containerId = await createReadyContainer(containerSettings, containerForm);
-  const published = await client.request({ method: "POST", path: `/${igUserId}/media_publish`, form: { creation_id: containerId }, signal });
+  const [containerId] = await createContainers(containerSettings, [containerForm]);
+  const published = await client.request({
+    method: "POST",
+    path: `/${pathSegment(igUserId)}/media_publish`,
+    form: { creation_id: containerId },
+    signal,
+  });
   return { data: { id: published.id, container_id: containerId } };
 }
 
@@ -156,7 +163,7 @@ function buildContainerForm(args) {
       if (!args.video_url) rejectInput(`${args.media_type} needs \`video_url\``);
       return { ...commonFields, media_type: "REELS", video_url: args.video_url, share_to_feed: args.share_to_feed };
     case "STORIES":
-      if (!args.image_url && !args.video_url) rejectInput("STORIES needs `image_url` or `video_url`");
+      if (Boolean(args.image_url) === Boolean(args.video_url)) rejectInput("STORIES needs exactly one of `image_url` or `video_url`");
       return { media_type: "STORIES", image_url: args.image_url, video_url: args.video_url };
     case "CAROUSEL":
       validateCarouselItems(args.carousel_items);
@@ -175,27 +182,36 @@ function validateCarouselItems(carouselItems) {
   });
 }
 
-async function createCarouselChildren(containerSettings, carouselItems) {
-  const childIds = [];
-  for (const carouselItem of carouselItems) {
-    const childForm = carouselItem.video_url
+function createCarouselChildren(containerSettings, carouselItems) {
+  const childForms = carouselItems.map((carouselItem) =>
+    carouselItem.video_url
       ? { is_carousel_item: true, media_type: "VIDEO", video_url: carouselItem.video_url }
-      : { is_carousel_item: true, image_url: carouselItem.image_url, alt_text: carouselItem.alt_text };
-    childIds.push(await createReadyContainer(containerSettings, childForm));
-  }
-  return childIds;
+      : { is_carousel_item: true, image_url: carouselItem.image_url, alt_text: carouselItem.alt_text },
+  );
+  return createContainers(containerSettings, childForms);
 }
 
-async function createReadyContainer({ client, igUserId, environment, signal }, containerForm) {
-  const container = await client.request({ method: "POST", path: `/${igUserId}/media`, form: containerForm, signal });
-  await pollUntilDone({
-    readStatus: () => client.request({ path: `/${container.id}`, query: { fields: "status_code,status" }, signal }),
+// Creates every container first, then waits for all of them together against one
+// deadline, so a carousel of videos fits inside the plugin timeout.
+async function createContainers(containerSettings, containerForms) {
+  const { client, igUserId, signal } = containerSettings;
+  const containerIds = [];
+  for (const containerForm of containerForms) {
+    const container = await client.request({ method: "POST", path: `/${pathSegment(igUserId)}/media`, form: containerForm, signal });
+    containerIds.push(container.id);
+  }
+  await Promise.all(containerIds.map((containerId) => waitForContainer(containerSettings, containerId)));
+  return containerIds;
+}
+
+function waitForContainer({ client, environment, signal, deadline }, containerId) {
+  return pollUntilDone({
+    readStatus: () => client.request({ path: `/${pathSegment(containerId)}`, query: { fields: "status_code,status" }, signal }),
     isDone: (statusResult) => statusResult.status_code === "FINISHED",
     isFailed: (statusResult) =>
       ["ERROR", "EXPIRED"].includes(statusResult.status_code) ? `${statusResult.status_code}: ${statusResult.status ?? "no details"}` : false,
     intervalMs: resolvePollInterval(environment, CONTAINER_POLL_INTERVAL_MS),
-    timeoutMs: CONTAINER_POLL_TIMEOUT_MS,
+    timeoutMs: Math.max(0, deadline - Date.now()),
     signal,
   });
-  return container.id;
 }

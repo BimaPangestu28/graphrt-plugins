@@ -11,6 +11,7 @@ const GRAPH_VERSION_PATTERN = /^v\d+\.\d+$/;
 const RATE_LIMIT_CODES = new Set([4, 17, 32, 341, 613]);
 const AUTH_ERROR_CODES = new Set([102, 190]);
 const INVALID_INPUT_CODES = new Set([100, 506]);
+const OBJECT_DOES_NOT_EXIST_SUBCODE = 33;
 
 /**
  * Creates a Graph API client for the given token.
@@ -45,13 +46,16 @@ export function createMetaClient({ accessToken, environment, fetchImpl }) {
 export function parseMetaError(status, body, headers) {
   const graphError = body?.error;
   if (!graphError || typeof graphError !== "object") return {};
-  const code = Number(graphError.code);
-  const details = [`code ${code}`, graphError.error_subcode && `subcode ${graphError.error_subcode}`, graphError.fbtrace_id && `fbtrace_id ${graphError.fbtrace_id}`];
-  const message = `${graphError.error_user_msg || graphError.message} (${details.filter(Boolean).join(", ")})`;
-  return { message, kind: kindForGraphCode(code), retryAfterMs: readRegainAccessMs(headers) };
+  const code = graphError.code === undefined ? undefined : Number(graphError.code);
+  const subcode = graphError.error_subcode === undefined ? undefined : Number(graphError.error_subcode);
+  const details = [code !== undefined && `code ${code}`, subcode !== undefined && `subcode ${subcode}`, graphError.fbtrace_id && `fbtrace_id ${graphError.fbtrace_id}`];
+  const detailText = details.filter(Boolean).join(", ");
+  const message = `${graphError.error_user_msg || graphError.message}${detailText ? ` (${detailText})` : ""}`;
+  return { message, kind: kindForGraphCode(code, subcode), retryAfterMs: readRegainAccessMs(headers) };
 }
 
-function kindForGraphCode(code) {
+function kindForGraphCode(code, subcode) {
+  if (code === 100 && subcode === OBJECT_DOES_NOT_EXIST_SUBCODE) return "not_found";
   if (RATE_LIMIT_CODES.has(code) || (code >= 80001 && code <= 80014)) return "rate_limited";
   if (AUTH_ERROR_CODES.has(code)) return "auth_error";
   if (code === 10 || code === 368 || (code >= 200 && code <= 299)) return "permission_denied";

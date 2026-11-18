@@ -22,7 +22,7 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | `get_instagram_account` | Read the Instagram professional account (username, followers, media count). | ig_user_id, fields |
 | `list_instagram_media` | List the account's posts, reels and carousels, newest first. | ig_user_id, fields, limit, cursor |
 | `get_instagram_publishing_limit` | Read how many posts the account published in the last 24 hours and its quota. | ig_user_id |
-| `publish_instagram_media` | Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 5 minutes). | ig_user_id, media_type, image_url, video_url, caption, alt_text, share_to_feed, carousel_items |
+| `publish_instagram_media` | Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total). | ig_user_id, media_type, image_url, video_url, caption, alt_text, share_to_feed, carousel_items |
 | `list_instagram_comments` | List comments on an Instagram media item. | **media_id**, fields, limit, cursor |
 | `list_instagram_comment_replies` | List replies to an Instagram comment. | **comment_id**, fields, limit, cursor |
 | `reply_to_instagram_comment` | Reply to a comment on the account's Instagram media. | **comment_id**, **message** |

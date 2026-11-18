@@ -1,6 +1,7 @@
 /**
  * Facebook comment operations (on Page posts, photos and comments).
  */
+import { pathSegment } from "../lib/shared/path.mjs";
 import { paginationProperties, toPage } from "../lib/client.mjs";
 
 const COMMENT_ID_PROPERTY = { type: "string", description: "Comment id" };
@@ -24,7 +25,7 @@ export const commentOperations = [
     },
     run: async ({ client, args, signal }) => {
       const responseBody = await client.request({
-        path: `/${args.object_id}/comments`,
+        path: `/${pathSegment(args.object_id)}/comments`,
         query: { filter: args.filter, order: args.order, fields: args.fields, summary: true, limit: args.limit, after: args.cursor },
         signal,
       });
@@ -48,7 +49,7 @@ export const commentOperations = [
     run: async ({ client, args, signal }) => ({
       data: await client.request({
         method: "POST",
-        path: `/${args.object_id}/comments`,
+        path: `/${pathSegment(args.object_id)}/comments`,
         form: { message: args.message, attachment_url: args.attachment_url },
         signal,
       }),
@@ -60,7 +61,7 @@ export const commentOperations = [
     description: "Hide or unhide a comment on the Page.",
     parameters: { type: "object", properties: { comment_id: COMMENT_ID_PROPERTY, hidden: { type: "boolean" } }, required: ["comment_id", "hidden"] },
     run: async ({ client, args, signal }) => ({
-      data: await client.request({ method: "POST", path: `/${args.comment_id}`, form: { is_hidden: args.hidden }, signal }),
+      data: await client.request({ method: "POST", path: `/${pathSegment(args.comment_id)}`, form: { is_hidden: args.hidden }, signal }),
     }),
   },
   {
@@ -68,20 +69,20 @@ export const commentOperations = [
     title: "Delete Facebook comment",
     description: "Delete a comment on the Page.",
     parameters: { type: "object", properties: { comment_id: COMMENT_ID_PROPERTY }, required: ["comment_id"] },
-    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${args.comment_id}`, signal }) }),
+    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${pathSegment(args.comment_id)}`, signal }) }),
   },
   {
     name: "like_comment",
     title: "Like Facebook comment",
     description: "Like a comment as the Page.",
     parameters: { type: "object", properties: { comment_id: COMMENT_ID_PROPERTY }, required: ["comment_id"] },
-    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "POST", path: `/${args.comment_id}/likes`, signal }) }),
+    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "POST", path: `/${pathSegment(args.comment_id)}/likes`, signal }) }),
   },
   {
     name: "unlike_comment",
     title: "Unlike Facebook comment",
     description: "Remove the Page's like from a comment.",
     parameters: { type: "object", properties: { comment_id: COMMENT_ID_PROPERTY }, required: ["comment_id"] },
-    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${args.comment_id}/likes`, signal }) }),
+    run: async ({ client, args, signal }) => ({ data: await client.request({ method: "DELETE", path: `/${pathSegment(args.comment_id)}/likes`, signal }) }),
   },
 ];

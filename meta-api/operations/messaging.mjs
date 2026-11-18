@@ -5,6 +5,7 @@
  * message; outside it, use messaging_type MESSAGE_TAG with tag HUMAN_AGENT
  * (needs the approved Human Agent permission).
  */
+import { pathSegment } from "../lib/shared/path.mjs";
 import { paginationProperties, rejectInput, resolveId, toPage } from "../lib/client.mjs";
 
 const PAGE_ID_PROPERTY = { type: "string", description: "Page id (default: META_PAGE_ID)" };
@@ -31,7 +32,7 @@ export const messagingOperations = [
     run: async ({ client, args, environment, signal }) =>
       toPage(
         await client.request({
-          path: `/${pageIdOf(args, environment)}/conversations`,
+          path: `/${pathSegment(pageIdOf(args, environment))}/conversations`,
           query: { platform: args.platform, user_id: args.user_id, fields: args.fields, limit: args.limit, after: args.cursor },
           signal,
         }),
@@ -49,7 +50,7 @@ export const messagingOperations = [
     run: async ({ client, args, signal }) =>
       toPage(
         await client.request({
-          path: `/${args.conversation_id}/messages`,
+          path: `/${pathSegment(args.conversation_id)}/messages`,
           query: { fields: args.fields, limit: args.limit, after: args.cursor },
           signal,
         }),
@@ -75,7 +76,7 @@ export const messagingOperations = [
       required: ["recipient_id"],
     },
     run: async ({ client, args, environment, signal }) => ({
-      data: await client.request({ method: "POST", path: `/${pageIdOf(args, environment)}/messages`, json: buildSendBody(args), signal }),
+      data: await client.request({ method: "POST", path: `/${pathSegment(pageIdOf(args, environment))}/messages`, json: buildSendBody(args), signal }),
     }),
   },
 ];

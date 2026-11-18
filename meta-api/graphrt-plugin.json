@@ -10,6 +10,7 @@
   ],
   "permissions": {
     "network": true,
+    "secrets": true,
     "env": [
       "META_ACCESS_TOKEN",
       "META_PAGE_ID",
@@ -632,7 +633,7 @@
     {
       "kind": "meta-api.publish_instagram_media",
       "title": "Publish to Instagram",
-      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 5 minutes).",
+      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total).",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -1482,7 +1483,7 @@
     },
     {
       "name": "publish_instagram_media",
-      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 5 minutes).",
+      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total).",
       "parameters": {
         "type": "object",
         "properties": {

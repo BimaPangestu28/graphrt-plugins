@@ -121,7 +121,7 @@ test("request retries 5xx for GET but not for POST, so posts are never duplicate
   const postFetch = createFakeFetch([{ status: 503 }, { body: { ok: true } }]);
   await assert.rejects(
     createTestClient(postFetch).request({ method: "POST", path: "/x" }),
-    (error) => error.kind === "api_error" && error.retryable === true,
+    (error) => error.kind === "api_error" && error.retryable === false,
   );
   assert.equal(postFetch.calls.length, 1);
 });
@@ -212,4 +212,91 @@ test("an explicitly undefined fetchImpl falls back to the global fetch", async (
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+// --- review fixes ---
+for (const sneakyPath of ["//evil.example.net/a", "/\\evil.example.net/a", "/..//evil.example.net"]) {
+  test(`request refuses ${JSON.stringify(sneakyPath)} on an origin-only base URL`, async () => {
+    const fakeFetch = createFakeFetch([{ body: {} }]);
+    const client = createTestClient(fakeFetch, { baseUrl: "https://api.example.com" });
+    await assert.rejects(client.request({ path: sneakyPath }), (error) => error.kind === "invalid_input");
+    assert.equal(fakeFetch.calls.length, 0);
+  });
+}
+
+test("a POST network failure is not retryable and says the outcome is unknown", async () => {
+  const fakeFetch = createFakeFetch([new TypeError("fetch failed")]);
+  await assert.rejects(
+    createTestClient(fakeFetch).request({ method: "POST", path: "/x" }),
+    (error) => error.kind === "network_error" && error.retryable === false && /outcome unknown/i.test(error.message),
+  );
+});
+
+test("a POST 5xx is not retryable, a GET 5xx is", async () => {
+  await assert.rejects(
+    createTestClient(createFakeFetch([{ status: 500 }])).request({ method: "POST", path: "/x" }),
+    (error) => error.kind === "api_error" && error.retryable === false,
+  );
+  await assert.rejects(
+    createTestClient(createFakeFetch([{ status: 500 }, { status: 500 }, { status: 500 }])).request({ path: "/x" }),
+    (error) => error.kind === "api_error" && error.retryable === true,
+  );
+});
+
+test("parseError can mark a rate limit as not retryable (e.g. daily quota)", async () => {
+  const fakeFetch = createFakeFetch([{ status: 403 }, { body: {} }]);
+  const client = createTestClient(fakeFetch, { parseError: () => ({ kind: "rate_limited", retryable: false, message: "quota" }) });
+  await assert.rejects(client.request({ path: "/x" }), (error) => error.kind === "rate_limited" && error.retryable === false);
+  assert.equal(fakeFetch.calls.length, 1);
+});
+
+test("a GET with a body is rejected before sending", async () => {
+  const fakeFetch = createFakeFetch([]);
+  await assert.rejects(createTestClient(fakeFetch).request({ path: "/x", json: {} }), (error) => error.kind === "invalid_input");
+  assert.equal(fakeFetch.calls.length, 0);
+});
+
+test("object query values are sent as JSON", async () => {
+  const fakeFetch = createFakeFetch([{ body: {} }]);
+  await createTestClient(fakeFetch).request({ path: "/x", query: { filtering: [{ field: "a" }] } });
+  assert.equal(new URL(fakeFetch.calls[0].url).searchParams.get("filtering"), '[{"field":"a"}]');
+});
+
+test("a failure while reading the body is classified, not thrown raw", async () => {
+  const brokenFetch = async () => ({ ok: true, status: 200, headers: new Headers(), text: async () => { throw new TypeError("terminated"); } });
+  await assert.rejects(
+    createApiClient({ baseUrl: "https://api.example.com", fetchImpl: brokenFetch, retryBaseDelayMs: 1, maxRetries: 0 }).request({ path: "/x" }),
+    (error) => error.kind === "network_error",
+  );
+});
+
+test("secrets returned by authorize are redacted too", async () => {
+  const fakeFetch = createFakeFetch([{ status: 400, body: { message: "bad header biz-secret-123" } }]);
+  const client = createTestClient(fakeFetch, {
+    authorize: ({ headers }) => {
+      headers["access-token"] = "biz-secret-123";
+      return ["biz-secret-123"];
+    },
+  });
+  await assert.rejects(client.request({ path: "/x" }), (error) => !error.message.includes("biz-secret-123"));
+});
+
+test("redactResponse scrubs credentials echoed in the response body", async () => {
+  const fakeFetch = createFakeFetch([{ body: { paging: { next: "https://api.example.com/v1/x?access_token=secret-token&after=A" } } }]);
+  const result = await createTestClient(fakeFetch).request({ path: "/x", redactResponse: true });
+  assert.equal(result.paging.next.includes("secret-token"), false);
+});
+
+test("a retry wait ends immediately when the signal is already aborted", async () => {
+  const abortController = new AbortController();
+  const slowFetch = async () => {
+    abortController.abort();
+    return new Response("{}", { status: 429, headers: { "retry-after": "30" } });
+  };
+  const startedAt = Date.now();
+  await assert.rejects(
+    createTestClient(slowFetch).request({ path: "/x", signal: abortController.signal }),
+    (error) => error.kind === "cancelled",
+  );
+  assert.ok(Date.now() - startedAt < 1000);
 });

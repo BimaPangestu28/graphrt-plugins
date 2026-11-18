@@ -10,9 +10,11 @@
  * Credentials never appear in error messages.
  */
 import { PluginError } from "./graphrt-plugin.mjs";
+import { sleepUnlessCancelled } from "./sleep.mjs";
 
 const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "PUT", "DELETE"]);
 const MAX_RETRY_WAIT_MS = 60000;
+const UNKNOWN_OUTCOME_NOTE = " (outcome unknown: the write may have been applied; check before retrying)";
 const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission_denied", 404: "not_found", 422: "invalid_input" };
 
 /**
@@ -20,7 +22,8 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  *
  * @param options - Client configuration (object)
  * @param options.baseUrl - API root, e.g. "https://graph.facebook.com/v24.0" (string)
- * @param options.authorize - Adds credentials: `({headers, query}) => void | Promise<void>` (function)
+ * @param options.authorize - Adds credentials: `({headers, query}) => void | string[]`, may be async; any
+ *   returned strings are extra secrets to redact (function)
  * @param options.parseError - Optional `(status, body, headers) => {message?, kind?, retryAfterMs?}` (function)
  * @param options.detectBodyError - Optional `(body, headers) => {message, kind?, retryAfterMs?} | null`, for APIs
  *   that report errors inside 2xx bodies (function)
@@ -30,7 +33,8 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  * @param options.retryBaseDelayMs - First backoff delay (number, default 1000)
  * @param options.timeoutMs - Per-attempt timeout (number, default 30000)
  * @param options.defaultHeaders - Headers sent on every request (object)
- * @returns `{request, requestWithHeaders}`
+ * @returns `{request, requestWithHeaders}`; request options are
+ *   `{method, path, query, json, form, body, headers, signal, redactResponse}`
  *
  * @example
  * const client = createApiClient({ baseUrl, authorize: ({ headers }) => { headers.authorization = `Bearer ${token}`; } });
@@ -55,18 +59,18 @@ export function createApiClient(options) {
 
 async function sendWithRetries(clientSettings, requestOptions) {
   const method = (requestOptions.method ?? "GET").toUpperCase();
-  let preparedRequest = await prepareRequest(clientSettings, { ...requestOptions, method });
+  const normalizedOptions = { ...requestOptions, method };
+  let preparedRequest = await prepareRequest(clientSettings, normalizedOptions);
   let hasRefreshedCredentials = false;
   for (let attempt = 0; ; attempt += 1) {
     const outcome = await sendOnce(clientSettings, preparedRequest, requestOptions.signal);
-    if (outcome.response) return outcome.response;
+    if (outcome.response) return finalizeResponse(outcome.response, requestOptions, preparedRequest.secrets);
     if (await shouldRetryWithFreshCredentials(clientSettings, outcome.error, hasRefreshedCredentials)) {
       hasRefreshedCredentials = true;
-      preparedRequest = await prepareRequest(clientSettings, { ...requestOptions, method });
+      preparedRequest = await prepareRequest(clientSettings, normalizedOptions);
       continue;
     }
-    const canRetry = attempt < clientSettings.maxRetries && isRetryable(outcome.error, method);
-    if (!canRetry) throw outcome.error;
+    if (attempt >= clientSettings.maxRetries || !outcome.error.retryable) throw outcome.error;
     await waitBeforeRetry(clientSettings, outcome.error, attempt, requestOptions.signal);
   }
 }
@@ -76,32 +80,59 @@ async function shouldRetryWithFreshCredentials(clientSettings, pluginError, hasR
   return Boolean(await clientSettings.refreshCredentials());
 }
 
+function finalizeResponse(response, requestOptions, secrets) {
+  if (!requestOptions.redactResponse) return response;
+  return { ...response, body: redactDeep(response.body, secrets) };
+}
+
 async function prepareRequest(clientSettings, requestOptions) {
+  rejectBodyOnReadMethods(requestOptions);
   const headers = { accept: "application/json", ...clientSettings.defaultHeaders, ...requestOptions.headers };
   const query = { ...requestOptions.query };
-  await clientSettings.authorize?.({ headers, query });
+  const extraSecrets = await clientSettings.authorize?.({ headers, query });
   const url = buildUrl(clientSettings.baseUrl, requestOptions.path, query);
   const body = encodeBody(requestOptions, headers);
-  const secrets = collectSecrets(headers, query);
-  return { url, init: { method: requestOptions.method, headers, body }, secrets };
+  const secrets = collectSecrets(headers, query, extraSecrets);
+  return { url, method: requestOptions.method, init: { method: requestOptions.method, headers, body }, secrets };
+}
+
+function rejectBodyOnReadMethods(requestOptions) {
+  const hasBody = requestOptions.json !== undefined || requestOptions.form !== undefined || requestOptions.body !== undefined;
+  if (hasBody && (requestOptions.method === "GET" || requestOptions.method === "HEAD")) {
+    throw new PluginError(`A ${requestOptions.method} request cannot have a body; use query parameters instead`, { kind: "invalid_input" });
+  }
 }
 
 function buildUrl(baseUrl, path, query) {
   const base = new URL(baseUrl);
-  let url;
-  if (/^https?:\/\//i.test(path)) {
-    url = new URL(path);
-    if (url.origin !== base.origin) {
-      throw new PluginError(`Refusing to call ${url.origin}: only ${base.origin} is allowed`, { kind: "invalid_input" });
-    }
-  } else {
-    url = new URL(base.pathname.replace(/\/$/, "") + path, base.origin);
+  const url = /^https?:\/\//i.test(String(path)) ? new URL(path) : resolveRelativePath(base, path);
+  if (url.origin !== base.origin) {
+    throw new PluginError(`Refusing to call ${url.origin}: only ${base.origin} is allowed`, { kind: "invalid_input" });
   }
   for (const [queryName, queryValue] of Object.entries(query)) {
     if (queryValue === undefined || queryValue === null) continue;
-    url.searchParams.set(queryName, Array.isArray(queryValue) ? queryValue.join(",") : String(queryValue));
+    url.searchParams.set(queryName, encodeQueryValue(queryValue));
   }
   return url.toString();
+}
+
+// Relative paths are joined to the base path; anything that could escape it
+// ("//host", backslashes, dot segments) is refused so the token stays on the API.
+function resolveRelativePath(base, path) {
+  const isSafePath =
+    typeof path === "string" && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") && !/(^|\/)\.\.?(\/|$|\?|#)/.test(path);
+  if (!isSafePath) {
+    throw new PluginError(`Unsafe API path ${JSON.stringify(path)}: use "/segment/..." without "//", "\\" or dot segments`, {
+      kind: "invalid_input",
+    });
+  }
+  return new URL(base.pathname.replace(/\/$/, "") + path, base.origin);
+}
+
+function encodeQueryValue(queryValue) {
+  const isPrimitiveList = Array.isArray(queryValue) && queryValue.every((item) => typeof item !== "object" || item === null);
+  if (isPrimitiveList) return queryValue.join(",");
+  return typeof queryValue === "object" ? JSON.stringify(queryValue) : String(queryValue);
 }
 
 function encodeBody(requestOptions, headers) {
@@ -121,9 +152,10 @@ function encodeFormValue(formValue) {
   return typeof formValue === "object" ? JSON.stringify(formValue) : String(formValue);
 }
 
-function collectSecrets(headers, query) {
-  const secretValues = [headers.authorization, query.access_token, query.key].filter(Boolean).map(String);
-  const bearerTokens = secretValues.map((secretValue) => secretValue.replace(/^Bearer\s+/i, ""));
+function collectSecrets(headers, query, extraSecrets) {
+  const declaredSecrets = Array.isArray(extraSecrets) ? extraSecrets : [];
+  const secretValues = [headers.authorization, query.access_token, query.key, ...declaredSecrets].filter(Boolean).map(String);
+  const bearerTokens = secretValues.map((secretValue) => secretValue.replace(/^(Bearer|Basic)\s+/i, ""));
   return [...new Set([...secretValues, ...bearerTokens])].filter((secretValue) => secretValue.length >= 4);
 }
 
@@ -131,25 +163,28 @@ async function sendOnce(clientSettings, preparedRequest, callerSignal) {
   const timeoutSignal = AbortSignal.timeout(clientSettings.timeoutMs);
   const combinedSignal = callerSignal ? AbortSignal.any([callerSignal, timeoutSignal]) : timeoutSignal;
   let fetchResponse;
+  let responseBody;
   try {
     fetchResponse = await clientSettings.fetchImpl(preparedRequest.url, { ...preparedRequest.init, signal: combinedSignal });
-  } catch (fetchError) {
-    return { error: classifyFetchFailure(fetchError, callerSignal, preparedRequest.secrets) };
+    responseBody = await readBody(fetchResponse);
+  } catch (transportError) {
+    return { error: classifyTransportFailure(transportError, callerSignal, preparedRequest) };
   }
-  const responseBody = await readBody(fetchResponse);
   if (fetchResponse.ok) {
     const bodyError = clientSettings.detectBodyError?.(responseBody, fetchResponse.headers);
     if (bodyError) return { error: buildBodyError(bodyError, preparedRequest.secrets) };
     return { response: { body: responseBody, headers: fetchResponse.headers, status: fetchResponse.status } };
   }
-  return { error: buildHttpError(clientSettings, fetchResponse, responseBody, preparedRequest.secrets) };
+  return { error: buildHttpError(clientSettings, fetchResponse, responseBody, preparedRequest) };
 }
 
-function classifyFetchFailure(fetchError, callerSignal, secrets) {
+function classifyTransportFailure(transportError, callerSignal, preparedRequest) {
   if (callerSignal?.aborted) return new PluginError("Request cancelled", { kind: "cancelled" });
-  const isTimeout = fetchError?.name === "TimeoutError";
-  const reason = isTimeout ? "request timed out" : String(fetchError?.cause?.message ?? fetchError?.message ?? fetchError);
-  return new PluginError(redact(`Network error: ${reason}`, secrets), { kind: "network_error", retryable: true });
+  const isTimeout = transportError?.name === "TimeoutError";
+  const reason = isTimeout ? "request timed out" : String(transportError?.cause?.message ?? transportError?.message ?? transportError);
+  const isIdempotent = IDEMPOTENT_METHODS.has(preparedRequest.method);
+  const message = `Network error: ${reason}${isIdempotent ? "" : UNKNOWN_OUTCOME_NOTE}`;
+  return new PluginError(redact(message, preparedRequest.secrets), { kind: "network_error", retryable: isIdempotent });
 }
 
 async function readBody(fetchResponse) {
@@ -162,16 +197,19 @@ async function readBody(fetchResponse) {
   }
 }
 
-function buildHttpError(clientSettings, fetchResponse, responseBody, secrets) {
+function buildHttpError(clientSettings, fetchResponse, responseBody, preparedRequest) {
   const status = fetchResponse.status;
   const parsedError = clientSettings.parseError(status, responseBody, fetchResponse.headers) ?? {};
   const kind = parsedError.kind ?? defaultKindForStatus(status);
   const apiMessage = parsedError.message ?? extractGenericMessage(responseBody) ?? fetchResponse.statusText;
   const retryAfterMs = parsedError.retryAfterMs ?? parseRetryAfter(fetchResponse.headers.get("retry-after"));
-  const isRetryableKind = kind === "rate_limited" || status >= 500;
-  return new PluginError(redact(`API error ${status}: ${apiMessage}`, secrets), {
+  const isIdempotent = IDEMPOTENT_METHODS.has(preparedRequest.method);
+  const isServerFailure = kind === "api_error" && status >= 500;
+  const retryable = parsedError.retryable ?? (kind === "rate_limited" || (isServerFailure && isIdempotent));
+  const outcomeNote = isServerFailure && !isIdempotent ? UNKNOWN_OUTCOME_NOTE : "";
+  return new PluginError(redact(`API error ${status}: ${apiMessage}${outcomeNote}`, preparedRequest.secrets), {
     kind,
-    retryable: isRetryableKind,
+    retryable,
     retryAfterMs: retryAfterMs ?? undefined,
   });
 }
@@ -180,7 +218,7 @@ function buildBodyError(bodyError, secrets) {
   const kind = bodyError.kind ?? "api_error";
   return new PluginError(redact(`API error: ${bodyError.message}`, secrets), {
     kind,
-    retryable: kind === "rate_limited",
+    retryable: bodyError.retryable ?? kind === "rate_limited",
     retryAfterMs: bodyError.retryAfterMs,
   });
 }
@@ -212,31 +250,22 @@ function parseRetryAfter(retryAfterHeader) {
   return Number.isNaN(retryDate) ? null : Math.max(0, retryDate - Date.now());
 }
 
-function isRetryable(pluginError, method) {
-  if (pluginError.kind === "rate_limited") return true;
-  if (pluginError.kind === "network_error" || pluginError.kind === "api_error") {
-    return pluginError.retryable && IDEMPOTENT_METHODS.has(method);
-  }
-  return false;
-}
-
 async function waitBeforeRetry(clientSettings, pluginError, attempt, callerSignal) {
   const backoffMs = clientSettings.retryBaseDelayMs * 2 ** attempt;
   const waitMs = pluginError.retryAfterMs ?? backoffMs;
   if (waitMs > MAX_RETRY_WAIT_MS) throw pluginError;
-  await new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, waitMs);
-    callerSignal?.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(new PluginError("Request cancelled", { kind: "cancelled" }));
-      },
-      { once: true },
-    );
-  });
+  await sleepUnlessCancelled(waitMs, callerSignal, "Request cancelled");
 }
 
 function redact(text, secrets) {
   return secrets.reduce((redactedText, secretValue) => redactedText.split(secretValue).join("[redacted]"), text);
+}
+
+function redactDeep(value, secrets) {
+  if (typeof value === "string") return redact(value, secrets);
+  if (Array.isArray(value)) return value.map((item) => redactDeep(item, secrets));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([entryName, entryValue]) => [entryName, redactDeep(entryValue, secrets)]));
+  }
+  return value;
 }
