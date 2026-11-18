@@ -27,7 +27,8 @@ export function getUpdatesTimeoutMs(longPollSeconds) {
 
 function resolveOffset(args) {
   const cursorOffset = args.cursor === undefined ? undefined : args.cursor.trim();
-  if (cursorOffset !== undefined && !OFFSET_PATTERN.test(cursorOffset)) rejectInput("`cursor` must be an update offset (an integer) from next_cursor");
+  const isValidCursor = cursorOffset === undefined || (OFFSET_PATTERN.test(cursorOffset) && Number.isSafeInteger(Number(cursorOffset)));
+  if (!isValidCursor) rejectInput("`cursor` must be an update offset (an integer) from next_cursor");
   if (cursorOffset !== undefined && args.offset !== undefined && Number(cursorOffset) !== args.offset) {
     rejectInput("Pass `cursor` or `offset`, not two different values");
   }

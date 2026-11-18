@@ -2,6 +2,10 @@
  * Generic `api_request` operation: lets a workflow call any endpoint of the
  * plugin's API that has no dedicated operation. The shared client only allows
  * the API's own origin, so the token never leaves it.
+ *
+ * Policy: when an agent calls it as a tool, only GET is allowed. Writes through
+ * an unrestricted endpoint (payments, deletes, bans) must go through a dedicated
+ * operation or a workflow node, where a person chose to make that call.
  */
 import { PluginError } from "./graphrt-plugin.mjs";
 
@@ -31,11 +35,17 @@ export function createApiRequestOperation({ apiName, examplePath, extraPropertie
       },
       required: ["path"],
     },
-    run: async ({ client, args, signal }) => {
+    run: async ({ client, args, signal, source }) => {
       if (!args.path.startsWith("/")) {
         throw new PluginError('`path` must start with "/" and be relative to the API base URL', { kind: "invalid_input" });
       }
       const method = args.method.toUpperCase();
+      if (source === "tool" && method !== "GET") {
+        throw new PluginError(
+          `api_request is read-only (GET) when called as an agent tool; use a dedicated operation, or a workflow node for ${method}`,
+          { kind: "permission_denied" },
+        );
+      }
       if (args.body !== undefined && (method === "GET" || method === "DELETE")) {
         throw new PluginError(`\`body\` is not allowed with ${method}; use \`query\``, { kind: "invalid_input" });
       }

@@ -26,14 +26,17 @@ const CONFLICT_HINT =
  * @returns Shared API client `{request, requestWithHeaders}` (object)
  * @throws PluginError kind `auth_error` - When the token does not look like a Bot API token (the token is not echoed)
  */
-export function createTelegramClient({ accessToken, environment, fetchImpl }) {
+export function createTelegramClient({ accessToken: rawAccessToken, environment, fetchImpl }) {
+  // Env tokens often carry a trailing newline (e.g. `$(cat token.txt)`).
+  const accessToken = typeof rawAccessToken === "string" ? rawAccessToken.trim() : rawAccessToken;
   if (typeof accessToken !== "string" || !BOT_TOKEN_PATTERN.test(accessToken)) {
     throw new PluginError('TELEGRAM_BOT_TOKEN is malformed: expected "<bot id>:<secret>" as issued by @BotFather', { kind: "auth_error" });
   }
   const webhookSecret = environment?.TELEGRAM_WEBHOOK_SECRET;
   return createApiClient({
     baseUrl: `${TELEGRAM_ORIGIN}/bot${accessToken}`,
-    authorize: () => [accessToken, webhookSecret].filter(Boolean),
+    // The token is in every URL path; its URL-encoded form can appear in transport errors.
+    authorize: () => [accessToken, encodeURIComponent(accessToken), webhookSecret].filter(Boolean),
     parseError: parseTelegramError,
     detectBodyError: detectTelegramBodyError,
     fetchImpl,
@@ -93,8 +96,8 @@ export function detectTelegramBodyError(body) {
 export async function callBotMethod(client, botMethod, { params = {}, signal, read = false, timeoutMs } = {}) {
   const definedParams = Object.fromEntries(Object.entries(params).filter(([, paramValue]) => paramValue !== undefined));
   const requestOptions = read
-    ? { method: "GET", path: `/${botMethod}`, query: definedParams, signal, timeoutMs }
-    : { method: "POST", path: `/${botMethod}`, json: definedParams, signal, timeoutMs };
+    ? { method: "GET", path: `/${botMethod}`, query: definedParams, signal, timeoutMs, redactResponse: true }
+    : { method: "POST", path: `/${botMethod}`, json: definedParams, signal, timeoutMs, redactResponse: true };
   const responseBody = await client.request(requestOptions);
   return responseBody?.result ?? null;
 }

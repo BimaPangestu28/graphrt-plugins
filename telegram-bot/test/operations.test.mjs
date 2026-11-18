@@ -97,7 +97,9 @@ const NODE_ONLY_OPERATIONS = new Set(["set_webhook", "delete_webhook", "get_webh
 
 for (const [operationName, args, expected] of REQUEST_CASES) {
   test(`${operationName} ${JSON.stringify(args)} sends ${expected.method} ${expected.botMethod}`, async () => {
-    const source = NODE_ONLY_OPERATIONS.has(operationName) ? "node" : "tool";
+    // Writes through api_request are workflow-only (agents may only call get* methods).
+    const isApiWrite = operationName === "api_request" && expected.method !== "GET";
+    const source = NODE_ONLY_OPERATIONS.has(operationName) || isApiWrite ? "node" : "tool";
     const { calls } = await runWithResponses(operationName, args, [okResponse([])], { source });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].method, expected.method);
@@ -229,4 +231,44 @@ test("webhook operations are node-only: not tools, and refused when called as a 
 test("manifest asks for network, secrets and the Telegram env vars only", () => {
   const manifest = buildManifest(pluginDefinition);
   assert.deepEqual(manifest.permissions, { network: true, secrets: true, env: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_WEBHOOK_SECRET"] });
+});
+
+// --- review fixes ---
+test("dedicated operations redact the token from responses (e.g. a webhook URL containing it)", async () => {
+  const { TEST_ENVIRONMENT: environment, okResponse: ok, runWithResponses: run } = await import("./helpers.mjs");
+  const token = environment.TELEGRAM_BOT_TOKEN;
+  const { output } = await run("get_webhook_info", {}, [ok({ url: `https://h/bot${token}`, last_error_message: `bad ${token}` })], { source: "node" });
+  assert.equal(JSON.stringify(output).includes(token), false);
+});
+
+test("api_request refuses getUpdates, which would drop the workflow's unread updates", async () => {
+  const { runWithResponses: run } = await import("./helpers.mjs");
+  await assert.rejects(run("api_request", { path: "/getUpdates", query: { offset: -1 } }, []), (error) => error.kind === "invalid_input" && /get_updates/.test(error.message));
+});
+
+test("api_request as an agent tool may only call get* methods, even with GET", async () => {
+  const { runWithResponses: run, okResponse: ok } = await import("./helpers.mjs");
+  await assert.rejects(run("api_request", { method: "GET", path: "/sendMessage", query: { chat_id: 1, text: "x" } }, []), (error) => error.kind === "permission_denied");
+  await assert.rejects(run("api_request", { method: "POST", path: "/transferBusinessAccountStars", body: { star_count: 1000 } }, []), (error) => error.kind === "permission_denied");
+  const { calls } = await run("api_request", { method: "GET", path: "/getMyCommands" }, [ok([])]);
+  assert.equal(calls.length, 1);
+  const nodeRun = await run("api_request", { method: "POST", path: "/setMyCommands", body: { commands: [] } }, [ok(true)], { source: "node" });
+  assert.equal(nodeRun.calls.length, 1);
+});
+
+test("an env token with surrounding whitespace is trimmed, and its URL-encoded form is redacted", async () => {
+  const { TEST_ENVIRONMENT: environment, runWithResponses: run } = await import("./helpers.mjs");
+  const token = environment.TELEGRAM_BOT_TOKEN;
+  const echoingFetchEnvironment = { ...environment, TELEGRAM_BOT_TOKEN: `  ${token}\n` };
+  await assert.rejects(
+    run("get_me", {}, [{ status: 400, body: { ok: false, error_code: 400, description: `seen ${encodeURIComponent(token)}` } }], { environment: echoingFetchEnvironment }),
+    (error) => !error.message.includes(encodeURIComponent(token)) && !error.message.includes(token) && !/malformed/.test(error.message),
+  );
+});
+
+test("chat ids from templates are trimmed, and absurd cursors are rejected", async () => {
+  const { runWithResponses: run, okResponse: ok } = await import("./helpers.mjs");
+  const { calls } = await run("get_chat", { chat_id: " 12345\n" }, [ok({ id: 12345 })]);
+  assert.equal(calls[0].query.chat_id ?? calls[0].json?.chat_id, "12345");
+  await assert.rejects(run("get_updates", { cursor: "99999999999999999999" }, []), (error) => error.kind === "invalid_input");
 });

@@ -21,6 +21,8 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).
   The exception is token refresh, which is node only, so tokens never reach an LLM.
+- **`api_request` for agents is read-only:** an agent calling `api_request` as a tool may only use GET; writes
+  through it must be a workflow node or a dedicated operation.
 - **Operation lists:** each plugin's full list is in its `OPERATIONS.md`, and its setup (tokens, permissions,
   platform limits) is in its `README.md`.
 

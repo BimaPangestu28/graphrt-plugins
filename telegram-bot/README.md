@@ -13,7 +13,7 @@ are also agent tools.
 - **Messages:** edit text, delete, forward; answer callback queries
 - **Info:** the bot itself, a chat, a chat's member count
 - **Webhook (node only):** set, delete, get info
-- **`api_request`:** any other Bot API method, by method name only
+- **`api_request`:** any other Bot API method, by method name only. Agents (tool calls) may only use `get*` methods; anything that sends, pays or deletes must be a dedicated operation or a workflow node. `getUpdates`, the webhook methods, `logOut` and `close` are refused
 - The bot token never appears in errors or responses (it is redacted everywhere, including `api_request`)
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md).

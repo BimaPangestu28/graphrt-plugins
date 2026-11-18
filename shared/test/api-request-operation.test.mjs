@@ -35,3 +35,16 @@ test("api_request asks the client to redact credentials from the response", asyn
   await operation.run({ client, args: validateArguments(operation.parameters, { path: "/me" }) });
   assert.equal(client.requests[0].redactResponse, true);
 });
+
+test("api_request is read-only (GET) when an agent calls it as a tool", async () => {
+  const operation = createApiRequestOperation({ apiName: "Demo API", examplePath: "/me" });
+  const args = validateArguments(operation.parameters, { method: "POST", path: "/me/feed", body: { a: 1 } });
+  await assert.rejects(operation.run({ client: createRecordingClient(), args, source: "tool" }), (error) => error.kind === "permission_denied");
+  const nodeClient = createRecordingClient();
+  await operation.run({ client: nodeClient, args, source: "node" });
+  assert.equal(nodeClient.requests.length, 1);
+  const readArgs = validateArguments(operation.parameters, { path: "/me" });
+  const toolClient = createRecordingClient();
+  await operation.run({ client: toolClient, args: readArgs, source: "tool" });
+  assert.equal(toolClient.requests.length, 1);
+});

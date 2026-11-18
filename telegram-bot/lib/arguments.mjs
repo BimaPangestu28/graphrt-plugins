@@ -45,7 +45,8 @@ export function rejectInput(message) {
  * @returns The chat id (string)
  * @throws PluginError kind `invalid_input` - When it is neither a numeric id nor an @username
  */
-export function checkChatId(chatId, fieldName = "chat_id") {
+export function checkChatId(rawChatId, fieldName = "chat_id") {
+  const chatId = typeof rawChatId === "string" ? rawChatId.trim() : rawChatId;
   if (!CHAT_ID_PATTERN.test(chatId) && !CHAT_USERNAME_PATTERN.test(chatId)) {
     rejectInput(`\`${fieldName}\` must be a numeric chat id or "@username"`);
   }
