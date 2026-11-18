@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-google-sheets",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Google Sheets via the official Sheets API v4",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
