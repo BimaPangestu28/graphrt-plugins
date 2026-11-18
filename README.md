@@ -22,6 +22,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [google-business-profile-api](google-business-profile-api/) | Google Business Profile: locations, hours, reviews and replies, posts and daily performance metrics (API access needs Google approval) | 13 |
 | [shopee-api](shopee-api/) | Shopee Open Platform v2 (signed): shop info, products, stock and price, orders and shipping, seller chat | 15 |
 | [tiktok-shop-api](tiktok-shop-api/) | TikTok Shop Partner API (signed): shops, products, inventory and price, orders, fulfillment, returns, customer service | 15 |
+| [email](email/) | Send email over SMTP and read, flag and move messages over IMAP (Gmail, Outlook or any provider), with a daily send cap | 8 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).

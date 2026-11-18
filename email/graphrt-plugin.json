@@ -1,0 +1,655 @@
+{
+  "name": "email",
+  "version": "0.1.0",
+  "description": "Send email over SMTP and read, flag and move messages over IMAP (Gmail, Outlook or any provider) with an app password",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "EMAIL_PASSWORD",
+      "EMAIL_SMTP_HOST",
+      "EMAIL_SMTP_PORT",
+      "EMAIL_SMTP_SECURE",
+      "EMAIL_SMTP_USER",
+      "EMAIL_IMAP_HOST",
+      "EMAIL_IMAP_PORT",
+      "EMAIL_IMAP_SECURE",
+      "EMAIL_IMAP_USER",
+      "EMAIL_FROM",
+      "EMAIL_DAILY_SEND_LIMIT",
+      "EMAIL_ALLOWED_FILE_DIRS",
+      "EMAIL_TOOL_ALLOWED_RECIPIENTS",
+      "EMAIL_STATE_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "email.verify_connection",
+      "title": "Verify email connection",
+      "description": "Check that the SMTP and/or IMAP settings and password work: connects, logs in and disconnects. Sends nothing and changes nothing.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "imap",
+              "both"
+            ],
+            "default": "both",
+            "description": "Which server to check; \"both\" checks every server that is configured"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "email.send_email",
+      "title": "Send email",
+      "description": "Send an email over SMTP from EMAIL_FROM. At most 50 recipients per message; every recipient counts toward the daily cap (EMAIL_DAILY_SEND_LIMIT). Never retried automatically. As an agent tool: only recipients in EMAIL_TOOL_ALLOWED_RECIPIENTS (refused when unset) and no attachments.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipients, separated by commas: budi@example.com, \"Sari W\" <sari@example.com>"
+          },
+          "cc": {
+            "type": "string",
+            "description": "Cc recipients, separated by commas"
+          },
+          "bcc": {
+            "type": "string",
+            "description": "Bcc recipients, separated by commas"
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Subject line (no line breaks)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body. Pass text, html or both"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body. Pass text, html or both"
+          },
+          "reply_to": {
+            "type": "string",
+            "description": "Reply-To address(es)"
+          },
+          "in_reply_to": {
+            "type": "string",
+            "description": "Message-ID being answered (from read_message.message_id), for threading"
+          },
+          "references": {
+            "type": "string",
+            "description": "Message-IDs of the thread, separated by spaces (from read_message.references plus its message_id)"
+          },
+          "attachments": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            },
+            "description": "Files to attach (workflow nodes only; refused for agent tool calls): [{\"source\": \"https://... or /absolute/path inside EMAIL_ALLOWED_FILE_DIRS\", \"filename\": \"optional.pdf\", \"content_type\": \"optional/type\"}]. Up to 18 MB in total."
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "subject"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "email.list_messages",
+      "title": "List email messages",
+      "description": "List messages in a mailbox, newest first, with sender, subject, date, flags and a short text snippet. Filters: unseen only, since a date, sender, subject text.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "unseen_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only messages without the \\Seen flag"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only messages received on or after this date (YYYY-MM-DD; IMAP compares whole days)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Only messages whose From contains this text"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Only messages whose subject contains this text"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Messages per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "email.read_message",
+      "title": "Read email message",
+      "description": "Read one message by UID: headers, Message-ID and References for replying, the body as plain text (HTML converted to text, never rendered) and attachment metadata (attachments are not downloaded).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "description": "Message UID from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "max_text_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 200000,
+            "default": 20000,
+            "description": "Longest body text returned"
+          },
+          "mark_seen": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also set the \\Seen flag (otherwise the message stays as it is)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "uid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "email.list_mailboxes",
+      "title": "List mailboxes",
+      "description": "List the account's mailboxes (folders) with their special use (\\Sent, \\Trash, \\Junk, ...), optionally with message and unseen counts.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "include_counts": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return message and unseen counts (one STATUS per mailbox)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "email.mark_seen",
+      "title": "Mark email seen",
+      "description": "Set the \\Seen flag on messages by UID (mark as read). UIDs that do not exist are listed in missing_uids.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "uids": {
+            "type": "string",
+            "description": "Message UID, or several separated by commas (at most 100), from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "uids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "email.mark_unseen",
+      "title": "Mark email unseen",
+      "description": "Clear the \\Seen flag on messages by UID (mark as unread). UIDs that do not exist are listed in missing_uids.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "uids": {
+            "type": "string",
+            "description": "Message UID, or several separated by commas (at most 100), from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "uids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "email.move_message",
+      "title": "Move email",
+      "description": "Move messages by UID to another mailbox (e.g. an archive folder or \"[Gmail]/Trash\"). Returns the new UIDs when the server reports them. Needs a server with the MOVE or UIDPLUS extension.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "uids": {
+            "type": "string",
+            "description": "Message UID, or several separated by commas (at most 100), from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "destination": {
+            "type": "string",
+            "description": "Target mailbox path as shown by list_mailboxes"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "uids",
+          "destination"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "verify_connection",
+      "description": "Check that the SMTP and/or IMAP settings and password work: connects, logs in and disconnects. Sends nothing and changes nothing.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "imap",
+              "both"
+            ],
+            "default": "both",
+            "description": "Which server to check; \"both\" checks every server that is configured"
+          }
+        }
+      }
+    },
+    {
+      "name": "send_email",
+      "description": "Send an email over SMTP from EMAIL_FROM. At most 50 recipients per message; every recipient counts toward the daily cap (EMAIL_DAILY_SEND_LIMIT). Never retried automatically. As an agent tool: only recipients in EMAIL_TOOL_ALLOWED_RECIPIENTS (refused when unset) and no attachments.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipients, separated by commas: budi@example.com, \"Sari W\" <sari@example.com>"
+          },
+          "cc": {
+            "type": "string",
+            "description": "Cc recipients, separated by commas"
+          },
+          "bcc": {
+            "type": "string",
+            "description": "Bcc recipients, separated by commas"
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Subject line (no line breaks)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body. Pass text, html or both"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body. Pass text, html or both"
+          },
+          "reply_to": {
+            "type": "string",
+            "description": "Reply-To address(es)"
+          },
+          "in_reply_to": {
+            "type": "string",
+            "description": "Message-ID being answered (from read_message.message_id), for threading"
+          },
+          "references": {
+            "type": "string",
+            "description": "Message-IDs of the thread, separated by spaces (from read_message.references plus its message_id)"
+          },
+          "attachments": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            },
+            "description": "Files to attach (workflow nodes only; refused for agent tool calls): [{\"source\": \"https://... or /absolute/path inside EMAIL_ALLOWED_FILE_DIRS\", \"filename\": \"optional.pdf\", \"content_type\": \"optional/type\"}]. Up to 18 MB in total."
+          }
+        },
+        "required": [
+          "to",
+          "subject"
+        ]
+      }
+    },
+    {
+      "name": "list_messages",
+      "description": "List messages in a mailbox, newest first, with sender, subject, date, flags and a short text snippet. Filters: unseen only, since a date, sender, subject text.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "unseen_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only messages without the \\Seen flag"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only messages received on or after this date (YYYY-MM-DD; IMAP compares whole days)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Only messages whose From contains this text"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Only messages whose subject contains this text"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Messages per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous page"
+          }
+        }
+      }
+    },
+    {
+      "name": "read_message",
+      "description": "Read one message by UID: headers, Message-ID and References for replying, the body as plain text (HTML converted to text, never rendered) and attachment metadata (attachments are not downloaded).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "description": "Message UID from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "max_text_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 200000,
+            "default": 20000,
+            "description": "Longest body text returned"
+          },
+          "mark_seen": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also set the \\Seen flag (otherwise the message stays as it is)"
+          }
+        },
+        "required": [
+          "uid"
+        ]
+      }
+    },
+    {
+      "name": "list_mailboxes",
+      "description": "List the account's mailboxes (folders) with their special use (\\Sent, \\Trash, \\Junk, ...), optionally with message and unseen counts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "include_counts": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return message and unseen counts (one STATUS per mailbox)"
+          }
+        }
+      }
+    },
+    {
+      "name": "mark_seen",
+      "description": "Set the \\Seen flag on messages by UID (mark as read). UIDs that do not exist are listed in missing_uids.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "uids": {
+            "type": "string",
+            "description": "Message UID, or several separated by commas (at most 100), from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          }
+        },
+        "required": [
+          "uids"
+        ]
+      }
+    },
+    {
+      "name": "mark_unseen",
+      "description": "Clear the \\Seen flag on messages by UID (mark as unread). UIDs that do not exist are listed in missing_uids.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "uids": {
+            "type": "string",
+            "description": "Message UID, or several separated by commas (at most 100), from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          }
+        },
+        "required": [
+          "uids"
+        ]
+      }
+    },
+    {
+      "name": "move_message",
+      "description": "Move messages by UID to another mailbox (e.g. an archive folder or \"[Gmail]/Trash\"). Returns the new UIDs when the server reports them. Needs a server with the MOVE or UIDPLUS extension.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "uids": {
+            "type": "string",
+            "description": "Message UID, or several separated by commas (at most 100), from list_messages"
+          },
+          "mailbox": {
+            "type": "string",
+            "default": "INBOX",
+            "description": "Mailbox (folder) path as shown by list_mailboxes, e.g. INBOX or \"[Gmail]/Sent Mail\""
+          },
+          "destination": {
+            "type": "string",
+            "description": "Target mailbox path as shown by list_mailboxes"
+          }
+        },
+        "required": [
+          "uids",
+          "destination"
+        ]
+      }
+    }
+  ]
+}

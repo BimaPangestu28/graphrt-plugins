@@ -1,0 +1,13 @@
+# Check that the SMTP login works (sends nothing).
+#   EMAIL_SMTP_HOST=smtp.gmail.com EMAIL_SMTP_USER=you@gmail.com EMAIL_PASSWORD=<app password> \
+#     graphrt run email/example.yaml --plugins .
+version: "1"
+name: email-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: check, type: email.verify_connection, protocol: smtp }
+    - { id: answer, type: answer, answer: "SMTP login OK for {{#check.data.smtp.user#}} at {{#check.data.smtp.host#}}" }
+  edges:
+    - { source: start, target: check }
+    - { source: check, target: answer }
