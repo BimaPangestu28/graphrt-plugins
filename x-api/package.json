@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-x-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: X (Twitter) posts, replies, likes, reposts, DMs and media via the official X API v2",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,1564 @@
+{
+  "name": "x-api",
+  "version": "0.1.0",
+  "description": "X (Twitter) posts, replies, likes, reposts, DMs and media via the official X API v2",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "X_ACCESS_TOKEN",
+      "X_USER_ID",
+      "X_CLIENT_SECRET"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "x-api.get_me",
+      "title": "Get my X profile",
+      "description": "Read the authenticated X user (id, name, username). Use query_params for user.fields/expansions.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.get_user_by_username",
+      "title": "Get X user by username",
+      "description": "Look up an X user by username (without @).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_]{1,15}$",
+            "description": "Username without @"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "username"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.create_post",
+      "title": "Create X post",
+      "description": "Publish a post (tweet): text, reply, quote, media (ids from upload_media) or a poll.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Post text"
+          },
+          "reply_to_post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id to reply to"
+          },
+          "quote_post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id to quote"
+          },
+          "media_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{1,19}$"
+            },
+            "maxItems": 4,
+            "description": "Media ids from upload_media (up to 4)"
+          },
+          "poll_options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "description": "2-4 poll choices (1-25 characters each)"
+          },
+          "poll_duration_minutes": {
+            "type": "integer",
+            "description": "Poll length, 5-10080 minutes"
+          },
+          "reply_settings": {
+            "type": "string",
+            "enum": [
+              "following",
+              "mentionedUsers",
+              "subscribers",
+              "verified"
+            ],
+            "description": "Who can reply (default: everyone)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.delete_post",
+      "title": "Delete X post",
+      "description": "Delete one of the authenticated user's posts.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.get_post",
+      "title": "Get X post",
+      "description": "Read a post by id. Use query_params for tweet.fields/expansions.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.list_user_posts",
+      "title": "List X user posts",
+      "description": "List a user's posts, newest first (default: the authenticated user).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id (default: X_USER_ID or the authenticated user)"
+          },
+          "exclude": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "replies",
+                "retweets"
+              ]
+            },
+            "description": "Post types to leave out"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (5-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.list_mentions",
+      "title": "List X mentions",
+      "description": "List posts mentioning a user, newest first (default: the authenticated user).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id (default: X_USER_ID or the authenticated user)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (5-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.search_recent_posts",
+      "title": "Search recent X posts",
+      "description": "Search posts from the last 7 days with X search syntax, e.g. \"from:XDevelopers -is:retweet\".",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "X search query"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "recency",
+              "relevancy"
+            ]
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (10-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.list_replies",
+      "title": "List X replies",
+      "description": "List replies in a post's conversation from the last 7 days (recent search on conversation_id).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Conversation root post id"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "recency",
+              "relevancy"
+            ]
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (10-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.hide_reply",
+      "title": "Hide/unhide X reply",
+      "description": "Hide or unhide a reply to one of the authenticated user's posts.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Reply post id"
+          },
+          "hidden": {
+            "type": "boolean",
+            "default": true
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.like_post",
+      "title": "Like X post",
+      "description": "Like a post as the authenticated user.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.unlike_post",
+      "title": "Unlike X post",
+      "description": "Remove the authenticated user's like from a post.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.repost",
+      "title": "Repost X post",
+      "description": "Repost (retweet) a post as the authenticated user.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.undo_repost",
+      "title": "Undo X repost",
+      "description": "Undo the authenticated user's repost of a post.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.list_dm_events",
+      "title": "List X DM events",
+      "description": "List recent direct message events across all of the authenticated user's conversations.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_types": {
+            "type": "string",
+            "enum": [
+              "MessageCreate",
+              "ParticipantsJoin",
+              "ParticipantsLeave"
+            ],
+            "description": "Only return this event type"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (1-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.list_dm_conversation_events",
+      "title": "List X DM conversation",
+      "description": "List direct message events in one conversation, by conversation_id or by the other participant's user id.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}(-[0-9]{1,19})?$",
+            "description": "DM conversation id"
+          },
+          "participant_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id of the other participant (one-to-one conversation)"
+          },
+          "event_types": {
+            "type": "string",
+            "enum": [
+              "MessageCreate",
+              "ParticipantsJoin",
+              "ParticipantsLeave"
+            ],
+            "description": "Only return this event type"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (1-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.send_dm",
+      "title": "Send X DM",
+      "description": "Send a direct message to a user (participant_id) or into an existing conversation (conversation_id).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id of the other participant (one-to-one conversation)"
+          },
+          "conversation_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}(-[0-9]{1,19})?$",
+            "description": "DM conversation id"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text"
+          },
+          "media_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Media id from upload_media (media_category dm_image)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.create_group_dm",
+      "title": "Create X group DM",
+      "description": "Start a group DM conversation with 2-49 other users and send the first message.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "participant_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{1,19}$"
+            },
+            "maxItems": 49,
+            "description": "User ids of the other members (2-49)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text"
+          },
+          "media_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Media id from upload_media (media_category dm_image)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "participant_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.upload_media",
+      "title": "Upload X image",
+      "description": "Download an image (https, up to 5 MB) and upload it to X. Returns data.data.id for create_post media_ids or send_dm media_id.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "description": "Public https URL of a JPEG, PNG, GIF or WEBP image"
+          },
+          "media_category": {
+            "type": "string",
+            "enum": [
+              "tweet_image",
+              "dm_image"
+            ],
+            "default": "tweet_image",
+            "description": "dm_image for DM attachments"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.refresh_access_token",
+      "title": "Refresh X access token",
+      "description": "Exchange a refresh token (scope offline.access) for a new access token. X rotates refresh tokens: store the returned refresh_token. Uses X_CLIENT_SECRET for confidential clients.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Current refresh token"
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "OAuth 2.0 client id of the X app"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "refresh_token",
+          "client_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "x-api.api_request",
+      "title": "X API request",
+      "description": "Call any X API endpoint that has no dedicated operation, e.g. path \"/2/users/me/followers\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/2/users/me/followers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "Read the authenticated X user (id, name, username). Use query_params for user.fields/expansions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_user_by_username",
+      "description": "Look up an X user by username (without @).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_]{1,15}$",
+            "description": "Username without @"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          }
+        },
+        "required": [
+          "username"
+        ]
+      }
+    },
+    {
+      "name": "create_post",
+      "description": "Publish a post (tweet): text, reply, quote, media (ids from upload_media) or a poll.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Post text"
+          },
+          "reply_to_post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id to reply to"
+          },
+          "quote_post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id to quote"
+          },
+          "media_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{1,19}$"
+            },
+            "maxItems": 4,
+            "description": "Media ids from upload_media (up to 4)"
+          },
+          "poll_options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "description": "2-4 poll choices (1-25 characters each)"
+          },
+          "poll_duration_minutes": {
+            "type": "integer",
+            "description": "Poll length, 5-10080 minutes"
+          },
+          "reply_settings": {
+            "type": "string",
+            "enum": [
+              "following",
+              "mentionedUsers",
+              "subscribers",
+              "verified"
+            ],
+            "description": "Who can reply (default: everyone)"
+          }
+        }
+      }
+    },
+    {
+      "name": "delete_post",
+      "description": "Delete one of the authenticated user's posts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "get_post",
+      "description": "Read a post by id. Use query_params for tweet.fields/expansions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "list_user_posts",
+      "description": "List a user's posts, newest first (default: the authenticated user).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id (default: X_USER_ID or the authenticated user)"
+          },
+          "exclude": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "replies",
+                "retweets"
+              ]
+            },
+            "description": "Post types to leave out"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (5-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_mentions",
+      "description": "List posts mentioning a user, newest first (default: the authenticated user).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id (default: X_USER_ID or the authenticated user)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (5-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "search_recent_posts",
+      "description": "Search posts from the last 7 days with X search syntax, e.g. \"from:XDevelopers -is:retweet\".",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "X search query"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "recency",
+              "relevancy"
+            ]
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (10-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "list_replies",
+      "description": "List replies in a post's conversation from the last 7 days (recent search on conversation_id).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Conversation root post id"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "recency",
+              "relevancy"
+            ]
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (10-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "hide_reply",
+      "description": "Hide or unhide a reply to one of the authenticated user's posts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Reply post id"
+          },
+          "hidden": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "like_post",
+      "description": "Like a post as the authenticated user.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "unlike_post",
+      "description": "Remove the authenticated user's like from a post.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "repost",
+      "description": "Repost (retweet) a post as the authenticated user.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "undo_repost",
+      "description": "Undo the authenticated user's repost of a post.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Post id"
+          }
+        },
+        "required": [
+          "post_id"
+        ]
+      }
+    },
+    {
+      "name": "list_dm_events",
+      "description": "List recent direct message events across all of the authenticated user's conversations.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_types": {
+            "type": "string",
+            "enum": [
+              "MessageCreate",
+              "ParticipantsJoin",
+              "ParticipantsLeave"
+            ],
+            "description": "Only return this event type"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (1-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_dm_conversation_events",
+      "description": "List direct message events in one conversation, by conversation_id or by the other participant's user id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}(-[0-9]{1,19})?$",
+            "description": "DM conversation id"
+          },
+          "participant_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id of the other participant (one-to-one conversation)"
+          },
+          "event_types": {
+            "type": "string",
+            "enum": [
+              "MessageCreate",
+              "ParticipantsJoin",
+              "ParticipantsLeave"
+            ],
+            "description": "Only return this event type"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "Extra query parameters merged into the request, e.g. {\"tweet.fields\": \"created_at,public_metrics\", \"expansions\": \"author_id\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10,
+            "description": "Page size (1-100); X bills per item read"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "send_dm",
+      "description": "Send a direct message to a user (participant_id) or into an existing conversation (conversation_id).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "User id of the other participant (one-to-one conversation)"
+          },
+          "conversation_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}(-[0-9]{1,19})?$",
+            "description": "DM conversation id"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text"
+          },
+          "media_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Media id from upload_media (media_category dm_image)"
+          }
+        }
+      }
+    },
+    {
+      "name": "create_group_dm",
+      "description": "Start a group DM conversation with 2-49 other users and send the first message.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "participant_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{1,19}$"
+            },
+            "maxItems": 49,
+            "description": "User ids of the other members (2-49)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text"
+          },
+          "media_id": {
+            "type": "string",
+            "pattern": "^[0-9]{1,19}$",
+            "description": "Media id from upload_media (media_category dm_image)"
+          }
+        },
+        "required": [
+          "participant_ids"
+        ]
+      }
+    },
+    {
+      "name": "upload_media",
+      "description": "Download an image (https, up to 5 MB) and upload it to X. Returns data.data.id for create_post media_ids or send_dm media_id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "description": "Public https URL of a JPEG, PNG, GIF or WEBP image"
+          },
+          "media_category": {
+            "type": "string",
+            "enum": [
+              "tweet_image",
+              "dm_image"
+            ],
+            "default": "tweet_image",
+            "description": "dm_image for DM attachments"
+          }
+        },
+        "required": [
+          "image_url"
+        ]
+      }
+    },
+    {
+      "name": "refresh_access_token",
+      "description": "Exchange a refresh token (scope offline.access) for a new access token. X rotates refresh tokens: store the returned refresh_token. Uses X_CLIENT_SECRET for confidential clients.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Current refresh token"
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "OAuth 2.0 client id of the X app"
+          }
+        },
+        "required": [
+          "refresh_token",
+          "client_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any X API endpoint that has no dedicated operation, e.g. path \"/2/users/me/followers\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/2/users/me/followers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
