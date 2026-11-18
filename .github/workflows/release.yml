@@ -1,0 +1,86 @@
+# Publishes plugin releases and refreshes the `catalog` release.
+#
+# - Push a tag `<plugin>-v<version>` (matching that plugin's graphrt-plugin.json) to
+#   publish that plugin, or
+# - run it by hand (workflow_dispatch) to publish every plugin whose version has no
+#   release yet; existing releases are never modified.
+# Locally, the same thing is `node scripts/publish-plugins.mjs` with an authenticated gh.
+name: Release plugins
+
+on:
+  push:
+    tags: ["*-v[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      plugins:
+        description: "Space-separated plugin names (empty: all plugins)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Pack, test and verify only"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-plugins
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check generated files
+        run: npm run check
+
+      - name: Test release tooling
+        run: node --test scripts/test/*.test.mjs
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GRAPHRT_PLUGINS_REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_PLUGINS: ${{ inputs.plugins }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          publish_args=()
+          if [ "$EVENT_NAME" = "push" ]; then
+            plugin_name="${REF_NAME%-v*}"
+            tag_version="${REF_NAME##*-v}"
+            manifest_version="$(node -p "require('./${plugin_name}/graphrt-plugin.json').version")"
+            if [ "$manifest_version" != "$tag_version" ]; then
+              echo "::error::tag $REF_NAME does not match ${plugin_name}/graphrt-plugin.json version $manifest_version"
+              exit 1
+            fi
+            publish_args+=("$plugin_name")
+          else
+            # Word splitting is intended; the script rejects unknown names.
+            # shellcheck disable=SC2206
+            publish_args+=($INPUT_PLUGINS)
+            if [ "$INPUT_DRY_RUN" = "true" ]; then publish_args+=(--dry-run); fi
+          fi
+          node scripts/publish-plugins.mjs "${publish_args[@]}"
+
+      - name: Keep the built tarballs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-dist
+          path: |
+            dist/*.tar.gz
+            dist/catalog/
+          if-no-files-found: ignore
