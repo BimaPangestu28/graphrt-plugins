@@ -1,0 +1,98 @@
+# youtube-api
+
+## Overview
+A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **YouTube Data API v3**. It reads
+the authenticated channel and its uploads, edits video metadata, moderates and answers comments, and reads and
+writes live chat. Every operation is a workflow node and an agent tool.
+
+## Features
+- **Channel and videos:** my channel, my uploads, video details, metadata edits (merged, never cleared), delete
+- **Comments:** list threads (per video or per channel, with search and moderation filters), list replies, post,
+  reply, edit, delete, and moderate (publish / hold / reject, optionally ban the author)
+- **Live chat:** read messages (with the server's polling interval) and send messages, by chat id or live video id
+- **`api_request`:** any other YouTube Data API endpoint, restricted to `www.googleapis.com`
+- Works with a plain access token or with a refresh token, which the plugin exchanges and caches itself
+- Clear error kinds; the daily quota error is not retried. Tokens and client secrets never appear in errors.
+
+YouTube has no DM API. Video upload is not included.
+
+Full operation reference: [OPERATIONS.md](OPERATIONS.md).
+
+## Prerequisites
+- Node.js >= 20, graphrt with plugin support
+- A Google Cloud project with the YouTube Data API v3 enabled and an OAuth client
+- An OAuth token for the channel's Google account with these scopes:
+
+| Area | Scope |
+|------|-------|
+| Read only | `https://www.googleapis.com/auth/youtube.readonly` |
+| Comments, moderation, live chat, metadata edits, delete | `https://www.googleapis.com/auth/youtube.force-ssl` |
+
+## Installation
+```bash
+graphrt plugin install ./youtube-api
+```
+No `npm install` needed: the plugin has no dependencies.
+
+## Configuration
+Set **either** an access token **or** the refresh trio.
+
+| Env var | Description |
+|---------|-------------|
+| `YOUTUBE_ACCESS_TOKEN` | OAuth access token (expires after about an hour) |
+| `YOUTUBE_REFRESH_TOKEN` | OAuth refresh token (needs `access_type=offline` when you authorize) |
+| `YOUTUBE_CLIENT_ID` | OAuth client id that issued the refresh token |
+| `YOUTUBE_CLIENT_SECRET` | OAuth client secret |
+
+- With the trio, the plugin fetches an access token from `https://oauth2.googleapis.com/token` on the first call,
+  caches it until a minute before it expires, and refreshes once when YouTube answers 401.
+- With both set, `YOUTUBE_ACCESS_TOKEN` is used first and the trio takes over after a 401.
+- A node can take `access_token` to use another account. That token is used as-is and is never refreshed. Pass it
+  from a secret and trust the plugin (`--trust-plugin youtube-api`).
+
+graphrt starts plugins with a clean environment, and only these variables are passed through.
+
+## Quick Start
+```bash
+export YOUTUBE_ACCESS_TOKEN=...
+graphrt run youtube-api/example.yaml --plugins .
+```
+
+## Usage
+```yaml
+- id: held
+  type: youtube-api.list_comment_threads
+  channel_id: "{{#start.channel_id#}}"
+  moderation_status: heldForReview
+- id: reply
+  type: youtube-api.reply_to_comment
+  parent_id: "{{#start.comment_id#}}"
+  text: "Terima kasih sudah menonton!"
+```
+- **List operations** return `data` and `next_cursor`. Pass `next_cursor` back as `cursor` to get the next page.
+- **`list_my_videos`** returns `{uploads_playlist_id, videos}`. Pass `uploads_playlist_id` on later calls to skip
+  the channel lookup.
+- **Live chat** always returns a `next_cursor`. Pass it back after `polling_interval_ms` to get only new messages.
+- **Polling:** graphrt plugins can't receive webhooks. To react to new comments, run a workflow on a schedule.
+
+## Quota
+The default quota is 10,000 units per day, reset at midnight Pacific Time. Reads cost 1 unit (live chat reads 5);
+writes cost 50 (`update_video_metadata` also does a 1-unit read first, live chat sends 20). `list_my_videos` without
+`uploads_playlist_id` costs 2.
+
+## Errors
+| Kind | When |
+|------|------|
+| `invalid_input` | Bad arguments, or HTTP 400 |
+| `auth_error` | Missing, invalid or expired credentials, a rejected refresh token (`invalid_grant`), `authorizationRequired` |
+| `permission_denied` | `forbidden`, `insufficientPermissions`, `commentsDisabled` |
+| `rate_limited` | `rateLimitExceeded`/`userRateLimitExceeded` (retried) or `quotaExceeded`/`dailyLimitExceeded` (not retried: the quota resets daily) |
+| `not_found` | `videoNotFound`, `commentNotFound` and other `*NotFound` reasons, or no channel / live chat |
+| `api_error`, `network_error`, `timeout`, `cancelled` | As named |
+
+## Development
+From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
+`lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
+
+## License
+Apache-2.0
