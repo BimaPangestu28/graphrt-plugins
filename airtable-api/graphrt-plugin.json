@@ -1,0 +1,883 @@
+{
+  "name": "airtable-api",
+  "version": "0.1.0",
+  "description": "Airtable via the official Web API: bases and schemas, list/find/get records, create, update and upsert records",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "AIRTABLE_TOKEN",
+      "AIRTABLE_BASE_ID",
+      "AIRTABLE_TOOL_ALLOWED_BASES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "airtable-api.list_bases",
+      "title": "List bases",
+      "description": "List the Airtable bases the token can access (id, name, permission level), up to 1000 per page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` (Airtable offset) from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.get_base_schema",
+      "title": "Get base schema",
+      "description": "Get a base's tables with their fields (names, ids, types, select options) and views.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.list_records",
+      "title": "List records",
+      "description": "List records of an Airtable table, optionally filtered by an Airtable formula, sorted, limited to a view or fields; one page at a time.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "view": {
+            "type": "string",
+            "description": "View name or id: only its records, in its order unless `sort` is given"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only return these fields (names or ids)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Records per page (1-100, default 100)"
+          },
+          "max_records": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stop after this many records in total, across pages"
+          },
+          "return_fields_by_field_id": {
+            "type": "boolean",
+            "description": "Key `fields` by field id instead of name"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` (Airtable offset) from the previous page"
+          },
+          "filter_by_formula": {
+            "type": "string",
+            "description": "Airtable formula, e.g. AND({Status} = \"Open\", {Amount} > 100)"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "e.g. [{\"field\": \"Created\", \"direction\": \"desc\"}]"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.find_records",
+      "title": "Find records",
+      "description": "Find records whose fields equal (or contain) given values, e.g. where {\"Email\": \"a@b.co\"}. The formula is built with safe escaping; it is returned as `filter_by_formula`.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "view": {
+            "type": "string",
+            "description": "View name or id: only its records, in its order unless `sort` is given"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only return these fields (names or ids)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Records per page (1-100, default 100)"
+          },
+          "max_records": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stop after this many records in total, across pages"
+          },
+          "return_fields_by_field_id": {
+            "type": "boolean",
+            "description": "Key `fields` by field id instead of name"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` (Airtable offset) from the previous page"
+          },
+          "where": {
+            "type": "object",
+            "description": "Conditions {\"Field name\": value}, all must match; value is text, a JSON number, a JSON boolean (true, not \"true\") or null (field is empty). No backslashes in names or values"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "case_insensitive",
+              "contains"
+            ],
+            "default": "exact",
+            "description": "How text values compare: exact, case_insensitive, or contains (case-insensitive)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "where"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.get_record",
+      "title": "Get record",
+      "description": "Get one Airtable record by id.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "Record id (\"rec...\")"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "record_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.create_records",
+      "title": "Create records",
+      "description": "Create up to 10 records: [{\"fields\": {...}}]. Never retried after an unknown outcome.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10,
+            "description": "[{\"fields\": {\"Name\": \"Acme\"}}]"
+          },
+          "typecast": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let Airtable convert strings to the field type (e.g. create missing select options). Workflow nodes only: agent tool calls always send false"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "records"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.update_records",
+      "title": "Update records",
+      "description": "Update fields of up to 10 records by id (PATCH: other fields are kept): [{\"id\": \"rec...\", \"fields\": {...}}].",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10,
+            "description": "[{\"id\": \"rec...\", \"fields\": {\"Status\": \"Done\"}}]"
+          },
+          "typecast": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let Airtable convert strings to the field type (e.g. create missing select options). Workflow nodes only: agent tool calls always send false"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "records"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.upsert_records",
+      "title": "Upsert records",
+      "description": "Update or create up to 10 records, matched on 1-3 fields (e.g. Email): no match creates, one match updates, several fail. Every record needs a non-empty value for each merge field.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10,
+            "description": "[{\"fields\": {\"Email\": \"a@b.co\", \"Name\": \"Ana\"}}]"
+          },
+          "fields_to_merge_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "description": "1-3 fields (text, number, select or date) that identify a record"
+          },
+          "typecast": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let Airtable convert strings to the field type (e.g. create missing select options). Workflow nodes only: agent tool calls always send false"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "records",
+          "fields_to_merge_on"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.delete_records",
+      "title": "Delete records",
+      "description": "Delete up to 10 records by id. Workflow node only (agents cannot delete).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "record_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "description": "Record ids (\"rec...\")"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "record_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "airtable-api.api_request",
+      "title": "Airtable API request",
+      "description": "Call any Airtable API endpoint that has no dedicated operation, e.g. path \"/meta/whoami\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/meta/whoami\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_bases",
+      "description": "List the Airtable bases the token can access (id, name, permission level), up to 1000 per page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` (Airtable offset) from the previous page"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_base_schema",
+      "description": "Get a base's tables with their fields (names, ids, types, select options) and views.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_records",
+      "description": "List records of an Airtable table, optionally filtered by an Airtable formula, sorted, limited to a view or fields; one page at a time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "view": {
+            "type": "string",
+            "description": "View name or id: only its records, in its order unless `sort` is given"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only return these fields (names or ids)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Records per page (1-100, default 100)"
+          },
+          "max_records": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stop after this many records in total, across pages"
+          },
+          "return_fields_by_field_id": {
+            "type": "boolean",
+            "description": "Key `fields` by field id instead of name"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` (Airtable offset) from the previous page"
+          },
+          "filter_by_formula": {
+            "type": "string",
+            "description": "Airtable formula, e.g. AND({Status} = \"Open\", {Amount} > 100)"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "e.g. [{\"field\": \"Created\", \"direction\": \"desc\"}]"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      }
+    },
+    {
+      "name": "find_records",
+      "description": "Find records whose fields equal (or contain) given values, e.g. where {\"Email\": \"a@b.co\"}. The formula is built with safe escaping; it is returned as `filter_by_formula`.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "view": {
+            "type": "string",
+            "description": "View name or id: only its records, in its order unless `sort` is given"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only return these fields (names or ids)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Records per page (1-100, default 100)"
+          },
+          "max_records": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stop after this many records in total, across pages"
+          },
+          "return_fields_by_field_id": {
+            "type": "boolean",
+            "description": "Key `fields` by field id instead of name"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` (Airtable offset) from the previous page"
+          },
+          "where": {
+            "type": "object",
+            "description": "Conditions {\"Field name\": value}, all must match; value is text, a JSON number, a JSON boolean (true, not \"true\") or null (field is empty). No backslashes in names or values"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "case_insensitive",
+              "contains"
+            ],
+            "default": "exact",
+            "description": "How text values compare: exact, case_insensitive, or contains (case-insensitive)"
+          }
+        },
+        "required": [
+          "table",
+          "where"
+        ]
+      }
+    },
+    {
+      "name": "get_record",
+      "description": "Get one Airtable record by id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "Record id (\"rec...\")"
+          }
+        },
+        "required": [
+          "table",
+          "record_id"
+        ]
+      }
+    },
+    {
+      "name": "create_records",
+      "description": "Create up to 10 records: [{\"fields\": {...}}]. Never retried after an unknown outcome.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10,
+            "description": "[{\"fields\": {\"Name\": \"Acme\"}}]"
+          },
+          "typecast": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let Airtable convert strings to the field type (e.g. create missing select options). Workflow nodes only: agent tool calls always send false"
+          }
+        },
+        "required": [
+          "table",
+          "records"
+        ]
+      }
+    },
+    {
+      "name": "update_records",
+      "description": "Update fields of up to 10 records by id (PATCH: other fields are kept): [{\"id\": \"rec...\", \"fields\": {...}}].",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10,
+            "description": "[{\"id\": \"rec...\", \"fields\": {\"Status\": \"Done\"}}]"
+          },
+          "typecast": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let Airtable convert strings to the field type (e.g. create missing select options). Workflow nodes only: agent tool calls always send false"
+          }
+        },
+        "required": [
+          "table",
+          "records"
+        ]
+      }
+    },
+    {
+      "name": "upsert_records",
+      "description": "Update or create up to 10 records, matched on 1-3 fields (e.g. Email): no match creates, one match updates, several fail. Every record needs a non-empty value for each merge field.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base_id": {
+            "type": "string",
+            "description": "Base id (\"app...\"); defaults to AIRTABLE_BASE_ID"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name or id (\"tbl...\"; ids survive renames)"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10,
+            "description": "[{\"fields\": {\"Email\": \"a@b.co\", \"Name\": \"Ana\"}}]"
+          },
+          "fields_to_merge_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "description": "1-3 fields (text, number, select or date) that identify a record"
+          },
+          "typecast": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let Airtable convert strings to the field type (e.g. create missing select options). Workflow nodes only: agent tool calls always send false"
+          }
+        },
+        "required": [
+          "table",
+          "records",
+          "fields_to_merge_on"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Airtable API endpoint that has no dedicated operation, e.g. path \"/meta/whoami\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/meta/whoami\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+# List the Airtable bases your token can see. Read-only.
+#   AIRTABLE_TOKEN=pat... graphrt run airtable-api/example.yaml --plugins .
+version: "1"
+name: airtable-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: bases, type: airtable-api.list_bases }
+    - { id: answer, type: answer, answer: "{{#bases.data.bases#}}" }
+  edges:
+    - { source: start, target: bases }
+    - { source: bases, target: answer }

@@ -1,0 +1,12 @@
+# Search the pages and data sources shared with your Notion integration. Read-only.
+#   NOTION_TOKEN=ntn_... graphrt run notion-api/example.yaml --plugins .
+version: "1"
+name: notion-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: found, type: notion-api.search, limit: 5 }
+    - { id: answer, type: answer, answer: "{{#found.data.results#}}" }
+  edges:
+    - { source: start, target: found }
+    - { source: found, target: answer }

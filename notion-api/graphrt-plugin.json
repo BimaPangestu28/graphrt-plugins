@@ -1,0 +1,1033 @@
+{
+  "name": "notion-api",
+  "version": "0.1.0",
+  "description": "Notion via the official API: search, pages and properties, database (data source) queries, page content and comments",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "NOTION_TOKEN",
+      "NOTION_TOOL_ALLOW_PEOPLE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "notion-api.search",
+      "title": "Search",
+      "description": "Search the pages and data sources shared with the integration by title, newest edits first by default.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Text to find in titles; omit to list everything shared with the integration"
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "page",
+              "data_source"
+            ],
+            "description": "Only pages or only data sources (database tables)"
+          },
+          "sort_direction": {
+            "type": "string",
+            "enum": [
+              "descending",
+              "ascending"
+            ],
+            "default": "descending",
+            "description": "Order by last edited time"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.get_page",
+      "title": "Get page",
+      "description": "Get a Notion page's properties, parent, URL and trash status (not its content; use get_block_children for that).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.get_page_property",
+      "title": "Get page property",
+      "description": "Get one property of a page in full, paginated for long titles/rich text, relations and people (get_page truncates them at 25 items).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          },
+          "property_id": {
+            "type": "string",
+            "description": "Property id from get_page (`properties.<name>.id`)"
+          },
+          "property_name": {
+            "type": "string",
+            "description": "Property name, instead of property_id (costs one extra request)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.create_page",
+      "title": "Create page",
+      "description": "Create a page in a database (data source) or under a page, with properties as a simple {name: value} map and/or Notion JSON, and optional plain-text paragraphs. Never retried after an unknown outcome.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "data_source_id": {
+            "type": "string",
+            "description": "Data source id (a database's table; from get_database `data_sources` or search with object_type data_source)"
+          },
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL; used when the database has exactly one data source (otherwise pass data_source_id)"
+          },
+          "parent_page_id": {
+            "type": "string",
+            "description": "Parent page id or URL; such a page only has a title: values {\"title\": \"...\"}"
+          },
+          "values": {
+            "type": "object",
+            "description": "Simple {\"Property name\": value} map for title, rich_text, number (number or plain decimal string), select, multi_select (array or comma-separated string), status, date (ISO string or {start, end, time_zone}), checkbox, url, email, phone_number; null clears (a checkbox becomes false) and \"\" clears select, multi_select, url, email and phone_number"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values as Notion JSON (any type); wins over `values` for the same name. Agents may set people properties only when NOTION_TOOL_ALLOW_PEOPLE=1"
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Plain-text paragraphs for the page body (at most 100)"
+          },
+          "icon_emoji": {
+            "type": "string",
+            "description": "Emoji icon, e.g. 📞"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.update_page_properties",
+      "title": "Update page properties",
+      "description": "Update some properties of a page; others are left unchanged. Takes a simple {name: value} map and/or Notion JSON.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          },
+          "values": {
+            "type": "object",
+            "description": "Simple {\"Property name\": value} map for title, rich_text, number (number or plain decimal string), select, multi_select (array or comma-separated string), status, date (ISO string or {start, end, time_zone}), checkbox, url, email, phone_number; null clears (a checkbox becomes false) and \"\" clears select, multi_select, url, email and phone_number"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values as Notion JSON (any type); wins over `values` for the same name. Agents may set people properties only when NOTION_TOOL_ALLOW_PEOPLE=1"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.archive_page",
+      "title": "Archive page",
+      "description": "Move a page to the Notion trash (in_trash). Reversible with restore_page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.restore_page",
+      "title": "Restore page",
+      "description": "Restore a page from the Notion trash.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.get_database",
+      "title": "Get database",
+      "description": "Get a Notion database: title, parent and its `data_sources` (id and name of each table).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "database_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.get_data_source",
+      "title": "Get data source",
+      "description": "Get a Notion data source (a database table) with its property schema: names, types and select options.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "data_source_id": {
+            "type": "string",
+            "description": "Data source id (a database's table; from get_database `data_sources` or search with object_type data_source)"
+          },
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL; used when the database has exactly one data source (otherwise pass data_source_id)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.query_database",
+      "title": "Query database",
+      "description": "Query the pages of a Notion database (its data source) with an optional Notion filter and sorts, one page of results at a time.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "data_source_id": {
+            "type": "string",
+            "description": "Data source id (a database's table; from get_database `data_sources` or search with object_type data_source)"
+          },
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL; used when the database has exactly one data source (otherwise pass data_source_id)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Notion filter, e.g. {\"property\": \"Stage\", \"select\": {\"equals\": \"Won\"}}"
+          },
+          "sorts": {
+            "type": "array",
+            "description": "Notion sorts, e.g. [{\"property\": \"Due\", \"direction\": \"ascending\"}]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.get_block_children",
+      "title": "Get block children",
+      "description": "Read the content of a page or block: its child blocks (paragraphs, headings, lists, ...), one page at a time.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Block id, or a page id/URL (a page is a block)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "block_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.append_paragraphs",
+      "title": "Append paragraphs",
+      "description": "Append plain-text paragraphs (at most 100 per call, 400000 characters in total) to a page or block, at the end by default. Never retried after an unknown outcome.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Block id, or a page id/URL (a page is a block)"
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "One string per paragraph; long text is split into 2000-character pieces"
+          },
+          "after_block_id": {
+            "type": "string",
+            "description": "Insert after this child block instead of at the end"
+          },
+          "at_start": {
+            "type": "boolean",
+            "description": "Insert at the start instead of at the end"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "block_id",
+          "paragraphs"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.add_comment",
+      "title": "Add comment",
+      "description": "Add a plain-text comment to a page, a block or an existing discussion thread. Never retried after an unknown outcome.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Comment on this page (id or URL)"
+          },
+          "block_id": {
+            "type": "string",
+            "description": "Comment on this block"
+          },
+          "discussion_id": {
+            "type": "string",
+            "description": "Reply in this discussion thread"
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment text"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "notion-api.api_request",
+      "title": "Notion API request",
+      "description": "Call any Notion API endpoint that has no dedicated operation, e.g. path \"/users/me\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/users/me\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search the pages and data sources shared with the integration by title, newest edits first by default.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Text to find in titles; omit to list everything shared with the integration"
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "page",
+              "data_source"
+            ],
+            "description": "Only pages or only data sources (database tables)"
+          },
+          "sort_direction": {
+            "type": "string",
+            "enum": [
+              "descending",
+              "ascending"
+            ],
+            "default": "descending",
+            "description": "Order by last edited time"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_page",
+      "description": "Get a Notion page's properties, parent, URL and trash status (not its content; use get_block_children for that).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "name": "get_page_property",
+      "description": "Get one property of a page in full, paginated for long titles/rich text, relations and people (get_page truncates them at 25 items).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          },
+          "property_id": {
+            "type": "string",
+            "description": "Property id from get_page (`properties.<name>.id`)"
+          },
+          "property_name": {
+            "type": "string",
+            "description": "Property name, instead of property_id (costs one extra request)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "name": "create_page",
+      "description": "Create a page in a database (data source) or under a page, with properties as a simple {name: value} map and/or Notion JSON, and optional plain-text paragraphs. Never retried after an unknown outcome.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "data_source_id": {
+            "type": "string",
+            "description": "Data source id (a database's table; from get_database `data_sources` or search with object_type data_source)"
+          },
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL; used when the database has exactly one data source (otherwise pass data_source_id)"
+          },
+          "parent_page_id": {
+            "type": "string",
+            "description": "Parent page id or URL; such a page only has a title: values {\"title\": \"...\"}"
+          },
+          "values": {
+            "type": "object",
+            "description": "Simple {\"Property name\": value} map for title, rich_text, number (number or plain decimal string), select, multi_select (array or comma-separated string), status, date (ISO string or {start, end, time_zone}), checkbox, url, email, phone_number; null clears (a checkbox becomes false) and \"\" clears select, multi_select, url, email and phone_number"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values as Notion JSON (any type); wins over `values` for the same name. Agents may set people properties only when NOTION_TOOL_ALLOW_PEOPLE=1"
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Plain-text paragraphs for the page body (at most 100)"
+          },
+          "icon_emoji": {
+            "type": "string",
+            "description": "Emoji icon, e.g. 📞"
+          }
+        }
+      }
+    },
+    {
+      "name": "update_page_properties",
+      "description": "Update some properties of a page; others are left unchanged. Takes a simple {name: value} map and/or Notion JSON.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          },
+          "values": {
+            "type": "object",
+            "description": "Simple {\"Property name\": value} map for title, rich_text, number (number or plain decimal string), select, multi_select (array or comma-separated string), status, date (ISO string or {start, end, time_zone}), checkbox, url, email, phone_number; null clears (a checkbox becomes false) and \"\" clears select, multi_select, url, email and phone_number"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values as Notion JSON (any type); wins over `values` for the same name. Agents may set people properties only when NOTION_TOOL_ALLOW_PEOPLE=1"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "name": "archive_page",
+      "description": "Move a page to the Notion trash (in_trash). Reversible with restore_page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "name": "restore_page",
+      "description": "Restore a page from the Notion trash.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Page id (with or without dashes) or the page's Notion URL"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "name": "get_database",
+      "description": "Get a Notion database: title, parent and its `data_sources` (id and name of each table).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL"
+          }
+        },
+        "required": [
+          "database_id"
+        ]
+      }
+    },
+    {
+      "name": "get_data_source",
+      "description": "Get a Notion data source (a database table) with its property schema: names, types and select options.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "data_source_id": {
+            "type": "string",
+            "description": "Data source id (a database's table; from get_database `data_sources` or search with object_type data_source)"
+          },
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL; used when the database has exactly one data source (otherwise pass data_source_id)"
+          }
+        }
+      }
+    },
+    {
+      "name": "query_database",
+      "description": "Query the pages of a Notion database (its data source) with an optional Notion filter and sorts, one page of results at a time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "data_source_id": {
+            "type": "string",
+            "description": "Data source id (a database's table; from get_database `data_sources` or search with object_type data_source)"
+          },
+          "database_id": {
+            "type": "string",
+            "description": "Database id or URL; used when the database has exactly one data source (otherwise pass data_source_id)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Notion filter, e.g. {\"property\": \"Stage\", \"select\": {\"equals\": \"Won\"}}"
+          },
+          "sorts": {
+            "type": "array",
+            "description": "Notion sorts, e.g. [{\"property\": \"Due\", \"direction\": \"ascending\"}]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_block_children",
+      "description": "Read the content of a page or block: its child blocks (paragraphs, headings, lists, ...), one page at a time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Block id, or a page id/URL (a page is a block)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Results per page (1-100, Notion's default is 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        },
+        "required": [
+          "block_id"
+        ]
+      }
+    },
+    {
+      "name": "append_paragraphs",
+      "description": "Append plain-text paragraphs (at most 100 per call, 400000 characters in total) to a page or block, at the end by default. Never retried after an unknown outcome.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Block id, or a page id/URL (a page is a block)"
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "One string per paragraph; long text is split into 2000-character pieces"
+          },
+          "after_block_id": {
+            "type": "string",
+            "description": "Insert after this child block instead of at the end"
+          },
+          "at_start": {
+            "type": "boolean",
+            "description": "Insert at the start instead of at the end"
+          }
+        },
+        "required": [
+          "block_id",
+          "paragraphs"
+        ]
+      }
+    },
+    {
+      "name": "add_comment",
+      "description": "Add a plain-text comment to a page, a block or an existing discussion thread. Never retried after an unknown outcome.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Comment on this page (id or URL)"
+          },
+          "block_id": {
+            "type": "string",
+            "description": "Comment on this block"
+          },
+          "discussion_id": {
+            "type": "string",
+            "description": "Reply in this discussion thread"
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment text"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Notion API endpoint that has no dedicated operation, e.g. path \"/users/me\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/users/me\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
