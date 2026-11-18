@@ -51,7 +51,7 @@ const BUSINESS_KINDS = { 40001: "permission_denied", 40002: "invalid_input", 401
 export function createTiktokClients({ accessToken, environment, fetchImpl }) {
   return {
     open: createOpenApiClient(accessToken, fetchImpl),
-    business: createBusinessApiClient(environment?.TIKTOK_BUSINESS_ACCESS_TOKEN, fetchImpl),
+    business: createBusinessApiClient(environment?.TIKTOK_BUSINESS_ACCESS_TOKEN, hasNodeTokenOverride(accessToken, environment), fetchImpl),
     oauth: createOAuthClient(environment, fetchImpl),
   };
 }
@@ -81,13 +81,26 @@ function createOpenApiClient(accessToken, fetchImpl) {
   });
 }
 
-function createBusinessApiClient(businessToken, fetchImpl) {
+// A node's access_token only replaces the Open API token; it must not silently fall back to the env Business token.
+function hasNodeTokenOverride(accessToken, environment) {
+  return Boolean(accessToken) && accessToken !== environment?.TIKTOK_ACCESS_TOKEN;
+}
+
+function createBusinessApiClient(businessToken, hasNodeOverride, fetchImpl) {
   const secrets = [businessToken];
   return createApiClient({
     baseUrl: BUSINESS_API_BASE_URL,
     authorize: ({ headers }) => {
+      if (hasNodeOverride) {
+        throw new PluginError(
+          "A node's `access_token` only applies to Open API operations; Business operations always use TIKTOK_BUSINESS_ACCESS_TOKEN. Remove `access_token` from this node.",
+          { kind: "invalid_input" },
+        );
+      }
       if (!businessToken) throw missingCredential("TIKTOK_BUSINESS_ACCESS_TOKEN", "Business API operations (comments, messages)");
       headers["access-token"] = businessToken;
+      // Returned so the shared client redacts the Access-Token header value everywhere.
+      return [businessToken];
     },
     parseError: (status, body) => redactParsed(detectBusinessError(body) ?? {}, secrets),
     detectBodyError: (body) => redactParsed(detectBusinessError(body), secrets),
@@ -101,6 +114,7 @@ function createOAuthClient(environment, fetchImpl) {
   const secrets = [environment?.TIKTOK_CLIENT_SECRET, environment?.TIKTOK_REFRESH_TOKEN];
   return createApiClient({
     baseUrl: OPEN_API_BASE_URL,
+    authorize: () => secrets.filter(Boolean),
     parseError: (status, body) => redactParsed(detectOAuthError(body) ?? detectOpenApiError(body) ?? {}, secrets),
     detectBodyError: (body) => redactParsed(detectOAuthError(body) ?? detectOpenApiError(body), secrets),
     fetchImpl,

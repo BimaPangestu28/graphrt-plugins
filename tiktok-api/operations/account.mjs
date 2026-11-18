@@ -74,6 +74,8 @@ export const accountOperations = [
   },
   {
     name: "refresh_access_token",
+    // Node only: refresh tokens and new access tokens must never pass through an LLM.
+    nodeOnly: true,
     title: "Refresh TikTok access token",
     description:
       "Exchange a refresh token for a new access token. TikTok rotates refresh tokens: store the returned refresh_token. The client secret is read from TIKTOK_CLIENT_SECRET only.",

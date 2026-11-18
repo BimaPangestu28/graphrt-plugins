@@ -133,3 +133,29 @@ test("query_videos rejects an empty or too long video_ids list", async () => {
 test("api_request rejects an unknown api selector", async () => {
   await assert.rejects(runWithResponses("api_request", { api: "ads", path: "/x" }), (error) => error.kind === "invalid_input");
 });
+
+test("a node access_token on a Business operation is rejected instead of silently ignored", async () => {
+  const { businessOk: ok, runWithResponses: run, TEST_ENVIRONMENT: environment } = await import("./helpers.mjs");
+  await assert.rejects(
+    run("list_comments", { video_id: "v1", access_token: "account-b-token" }, [ok({ comments: [] })], environment, "node"),
+    (error) => error.kind === "invalid_input" && /TIKTOK_BUSINESS_ACCESS_TOKEN/.test(error.message),
+  );
+});
+
+test("the Business token is redacted from api_request responses and error messages", async () => {
+  const { businessOk: ok, runWithResponses: run } = await import("./helpers.mjs");
+  const { output } = await run("api_request", { api: "business", path: "/business/get/", query: { business_id: "biz-1" } }, [ok({ echo: "token=business-token" })]);
+  assert.equal(JSON.stringify(output).includes("business-token"), false);
+  await assert.rejects(
+    run("api_request", { api: "business", path: "/business/get/" }, [{ status: 502, body: { text: "upstream saw business-token" } }, { status: 502, body: {} }, { status: 502, body: {} }]),
+    (error) => !error.message.includes("business-token"),
+  );
+});
+
+test("refresh_access_token is a node but not an LLM tool", async () => {
+  const { buildDescriptors } = await import("../lib/shared/operations.mjs");
+  const { pluginDefinition } = await import("../definition.mjs");
+  const { nodes, tools } = buildDescriptors(pluginDefinition);
+  assert.ok(nodes.some((node) => node.kind === "tiktok-api.refresh_access_token"));
+  assert.equal(tools.some((tool) => tool.name === "refresh_access_token"), false);
+});

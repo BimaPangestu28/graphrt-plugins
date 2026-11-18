@@ -1050,23 +1050,6 @@
       }
     },
     {
-      "name": "refresh_access_token",
-      "description": "Exchange a refresh token for a new access token. TikTok rotates refresh tokens: store the returned refresh_token. The client secret is read from TIKTOK_CLIENT_SECRET only.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "refresh_token": {
-            "type": "string",
-            "description": "Refresh token (default: TIKTOK_REFRESH_TOKEN)"
-          },
-          "client_key": {
-            "type": "string",
-            "description": "App client key (default: TIKTOK_CLIENT_KEY)"
-          }
-        }
-      }
-    },
-    {
       "name": "publish_video",
       "description": "Post a video from a public URL on a verified domain. mode=direct posts it (needs privacy_level); mode=inbox sends it to the creator's TikTok inbox as a draft to finish in the app.",
       "parameters": {

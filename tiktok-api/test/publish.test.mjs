@@ -139,3 +139,23 @@ test("refresh_access_token maps an OAuth error body and redacts the refresh toke
     (error) => error.kind === "auth_error" && !error.message.includes("rft.old"),
   );
 });
+
+test("publish errors after init are never retryable and name the publish_id", async () => {
+  const { withPublishId } = await import("../operations/publishing.mjs");
+  const { PluginError } = await import("../lib/shared/graphrt-plugin.mjs");
+  const wrapped = withPublishId(new PluginError("Still processing", { kind: "timeout", retryable: true }), "pub9");
+  assert.equal(wrapped.retryable, false);
+  assert.equal(wrapped.kind, "timeout");
+  assert.match(wrapped.message, /publish_id pub9/);
+  assert.match(wrapped.message, /get_publish_status/);
+});
+
+test("a transient 502 while polling does not abort a publish that succeeds", async () => {
+  const { output } = await runWithResponses("publish_video", { video_url: "https://cdn.example.com/a.mp4", privacy_level: "SELF_ONLY" }, [
+    CREATOR_INFO,
+    openOk({ publish_id: "pub2" }),
+    { status: 502, body: { text: "Bad gateway" } },
+    openOk({ status: "PUBLISH_COMPLETE" }),
+  ]);
+  assert.equal(output.data.status, "PUBLISH_COMPLETE");
+});

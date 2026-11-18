@@ -14,7 +14,7 @@ Every operation is a workflow node and an agent tool.
   - Post a video from a URL, directly or as an inbox draft.
   - Post 1–35 photos, directly or as an inbox upload.
   - Each publish checks the privacy level against `creator_info` first, then waits for TikTok to finish (polls every 5 s, up to 5 min).
-- **Token refresh:** `refresh_access_token` returns the rotated access and refresh tokens
+- **Token refresh (node only):** `refresh_access_token` returns the rotated access and refresh tokens. It isn't offered to agents as a tool, so tokens never reach an LLM
 - **Comments (Business API):** list, list replies, comment, reply, hide/unhide, like/unlike, delete
 - **Messages (Business API):** list conversations, list messages, send a text message
 - **`api_request`:** any other endpoint, with `api: open` or `api: business`, restricted to that API's host
@@ -73,7 +73,9 @@ applies the other way round.
 
 graphrt starts plugins with a clean environment, and only these variables are passed through. A node can also take
 `access_token`, which overrides the **Open API** token. Pass it from a secret and trust the plugin
-(`--trust-plugin tiktok-api`).
+(`--trust-plugin tiktok-api`). Business operations (comments, messages) always use
+`TIKTOK_BUSINESS_ACCESS_TOKEN` and reject a node `access_token` with `invalid_input`, so a comment is never posted
+from the wrong account.
 
 ## Quick Start
 ```bash
@@ -100,6 +102,9 @@ graphrt run tiktok-api/example.yaml --plugins .
   - `publish_video`: `mode: direct` (the default) needs `privacy_level`. `mode: inbox` sends a draft that the creator finishes in the app.
   - `publish_photos`: `mode: direct` or `mode: upload`.
   - With `wait: false` the operation returns the `publish_id` right away. Check it later with `get_publish_status`.
+  - Any failure after init (timeout, `FAILED`, an error while polling) is **not retryable** and names the
+    `publish_id`. The post may still go live, so check `get_publish_status` before publishing again. Brief API
+    errors while polling are retried automatically.
 - **Polling:** graphrt plugins can't receive webhooks. To react to new comments, run a workflow on a schedule that lists them.
 
 ## Errors

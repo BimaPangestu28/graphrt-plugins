@@ -157,10 +157,18 @@ async function finishPublish({ client, environment, signal, wait }, publishId) {
   }
 }
 
-// Keep the publish_id in failures so a workflow can check get_publish_status later.
-function withPublishId(error, publishId) {
+/**
+ * Rewrites a failure that happened after init: the post may still go live, so the
+ * error is never retryable and names the publish_id to check with get_publish_status.
+ *
+ * @param error - Failure while waiting for the publish (Error)
+ * @param publishId - TikTok publish id (string)
+ * @returns PluginError with retryable false, or the original non-plugin error (Error)
+ */
+export function withPublishId(error, publishId) {
   if (!(error instanceof PluginError)) return error;
-  return new PluginError(`${error.message} (publish_id ${publishId})`, { kind: error.kind, retryable: error.retryable, retryAfterMs: error.retryAfterMs });
+  const message = `${error.message} (publish_id ${publishId}; check get_publish_status before publishing again)`;
+  return new PluginError(message, { kind: error.kind, retryable: false });
 }
 
 async function fetchPublishStatus(client, publishId, signal) {
