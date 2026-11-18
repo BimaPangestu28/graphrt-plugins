@@ -1,0 +1,1293 @@
+{
+  "name": "tiktok-shop-api",
+  "version": "0.1.0",
+  "description": "TikTok Shop seller API (Partner API 202309+): products, inventory and prices, orders, shipping, returns and buyer messages",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TIKTOK_SHOP_ACCESS_TOKEN",
+      "TIKTOK_SHOP_APP_KEY",
+      "TIKTOK_SHOP_APP_SECRET",
+      "TIKTOK_SHOP_REFRESH_TOKEN",
+      "TIKTOK_SHOP_CIPHER"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "tiktok-shop-api.get_authorized_shops",
+      "title": "Get TikTok Shop authorized shops",
+      "description": "List the shops that authorized this app, with each shop's cipher (set TIKTOK_SHOP_CIPHER to it), region and seller type.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.search_products",
+      "title": "Search TikTok Shop products",
+      "description": "List the shop's products (id, title, status, SKUs) filtered by status, seller SKU or create/update time (Unix seconds).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ALL",
+              "DRAFT",
+              "PENDING",
+              "FAILED",
+              "ACTIVATE",
+              "SELLER_DEACTIVATED",
+              "PLATFORM_DEACTIVATED",
+              "FREEZE",
+              "DELETED"
+            ],
+            "default": "ALL"
+          },
+          "seller_skus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only products with these seller SKUs"
+          },
+          "create_time_ge": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "create_time_le": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "update_time_ge": {
+            "type": "integer",
+            "description": "Updated at or after (Unix seconds)"
+          },
+          "update_time_le": {
+            "type": "integer",
+            "description": "Updated at or before (Unix seconds)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.get_product",
+      "title": "Get a TikTok Shop product",
+      "description": "Read one product with its SKUs, prices, inventory per warehouse, images and audit status.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok Shop product id"
+          },
+          "locale": {
+            "type": "string",
+            "description": "e.g. id-ID or en-US"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.update_inventory",
+      "title": "Update TikTok Shop inventory",
+      "description": "Set the in-stock quantity of SKUs of one product, per warehouse (warehouse_id is optional when the shop has one warehouse). If this fails with a network error the update may still have been applied: check with get_product before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok Shop product id"
+          },
+          "skus": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 100,
+            "description": "Entries {sku_id, quantity, warehouse_id?}, e.g. [{\"sku_id\": \"1729592969712207013\", \"quantity\": 25}]"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product_id",
+          "skus"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.update_price",
+      "title": "Update TikTok Shop price",
+      "description": "Set the price of SKUs of one ACTIVATE product that is not in a promotion. If this fails with a network error the update may still have been applied: check with get_product before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok Shop product id"
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "ISO 4217 currency code of the shop's market in capitals, e.g. IDR"
+          },
+          "skus": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 100,
+            "description": "Entries {sku_id, amount}, e.g. [{\"sku_id\": \"1729592969712207013\", \"amount\": \"150000\"}]"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product_id",
+          "currency",
+          "skus"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.search_orders",
+      "title": "Search TikTok Shop orders",
+      "description": "List orders by status, buyer or create/update time window (Unix seconds), newest first by default.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "UNPAID",
+              "ON_HOLD",
+              "AWAITING_SHIPMENT",
+              "PARTIALLY_SHIPPING",
+              "AWAITING_COLLECTION",
+              "IN_TRANSIT",
+              "DELIVERED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "buyer_user_id": {
+            "type": "string",
+            "description": "Only this buyer's orders"
+          },
+          "create_time_ge": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "create_time_lt": {
+            "type": "integer",
+            "description": "Created before (Unix seconds)"
+          },
+          "update_time_ge": {
+            "type": "integer",
+            "description": "Updated at or after (Unix seconds)"
+          },
+          "update_time_lt": {
+            "type": "integer",
+            "description": "Updated before (Unix seconds)"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "update_time"
+            ],
+            "description": "Sort field (default create_time)"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ],
+            "description": "Sort order"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.get_order_detail",
+      "title": "Get TikTok Shop order details",
+      "description": "Read up to 50 orders: status, line items, payment, recipient address and packages (package ids for shipping).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "1-50 order ids"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.get_package_shipping_document",
+      "title": "Get TikTok Shop shipping document",
+      "description": "Get the URL (valid 24 hours) of a TikTok Shipping package's label or packing slip, plus its tracking number. Call ship_package first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "package_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Package id (from get_order_detail packages)"
+          },
+          "document_type": {
+            "type": "string",
+            "enum": [
+              "SHIPPING_LABEL",
+              "PACKING_SLIP",
+              "SHIPPING_LABEL_AND_PACKING_SLIP",
+              "SHIPPING_LABEL_PICTURE",
+              "HAZMAT_LABEL",
+              "INVOICE_LABEL"
+            ],
+            "default": "SHIPPING_LABEL"
+          },
+          "document_size": {
+            "type": "string",
+            "enum": [
+              "A6",
+              "A5"
+            ],
+            "description": "PDF size (default A6)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "package_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.ship_package",
+      "title": "Ship a TikTok Shop package",
+      "description": "Ship a package: TikTok Shipping (optional handover_method and pickup slot) or seller shipping (self_shipment with tracking_number and shipping_provider_id). If this fails with a network error the package may already be shipped: check get_order_detail before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "package_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Package id (from get_order_detail packages)"
+          },
+          "handover_method": {
+            "type": "string",
+            "enum": [
+              "PICKUP",
+              "DROP_OFF"
+            ]
+          },
+          "pickup_slot": {
+            "type": "object",
+            "description": "{start_time, end_time} in Unix seconds"
+          },
+          "self_shipment": {
+            "type": "object",
+            "description": "{tracking_number, shipping_provider_id} for SEND_BY_SELLER packages"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "package_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.search_returns",
+      "title": "Search TikTok Shop returns",
+      "description": "List return, refund, replacement and exchange requests by order, return status or time window (Unix seconds).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only returns of these orders"
+          },
+          "return_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only these returns"
+          },
+          "return_status": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "e.g. RETURN_OR_REFUND_REQUEST_PENDING, AWAITING_BUYER_SHIP"
+          },
+          "return_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "REFUND",
+                "RETURN_AND_REFUND",
+                "REPLACEMENT",
+                "EXCHANGE"
+              ]
+            }
+          },
+          "create_time_ge": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "create_time_lt": {
+            "type": "integer",
+            "description": "Created before (Unix seconds)"
+          },
+          "update_time_ge": {
+            "type": "integer",
+            "description": "Updated at or after (Unix seconds)"
+          },
+          "update_time_lt": {
+            "type": "integer",
+            "description": "Updated before (Unix seconds)"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "update_time"
+            ],
+            "description": "Sort field (default create_time)"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ],
+            "description": "Sort order"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size (10-50)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.get_conversations",
+      "title": "List TikTok Shop buyer conversations",
+      "description": "List the shop's conversations with buyers: participants, unread count, latest message and whether the shop can reply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20,
+            "description": "Page size (max 20)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "locale": {
+            "type": "string",
+            "description": "Language for system messages, e.g. id-ID or en"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.get_conversation_messages",
+      "title": "Get TikTok Shop conversation messages",
+      "description": "Read messages of one buyer conversation, newest first by default. Does not mark them as read.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id from get_conversations"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "DESC",
+              "ASC"
+            ],
+            "default": "DESC"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 10,
+            "description": "Page size (max 10)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "locale": {
+            "type": "string",
+            "description": "Language for system messages, e.g. id-ID or en"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.send_message",
+      "title": "Send a TikTok Shop buyer message",
+      "description": "Send one message to the buyer in a conversation: `text` for TEXT, or `content` (e.g. {product_id} for PRODUCT_CARD, {order_id} for ORDER_CARD). If this fails with a network error the message may have been sent: check get_conversation_messages before retrying.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id from get_conversations"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "IMAGE",
+              "PRODUCT_CARD",
+              "ORDER_CARD",
+              "LOGISTICS_CARD",
+              "RETURN_REFUND_CARD",
+              "COUPON_CARD",
+              "VIDEO"
+            ],
+            "default": "TEXT"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text for TEXT (max 2000 characters)"
+          },
+          "content": {
+            "type": "object",
+            "description": "Message content for other types, e.g. {\"order_id\": \"580874485811283206\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.refresh_access_token",
+      "title": "Refresh TikTok Shop access token",
+      "description": "Exchange the refresh token for a new access token (auth.tiktok-shops.com) and store the returned access_token and refresh_token. The app secret is read from TIKTOK_SHOP_APP_SECRET only.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token (default: TIKTOK_SHOP_REFRESH_TOKEN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-shop-api.api_request",
+      "title": "TikTok Shop API request",
+      "description": "Call any TikTok Shop API endpoint that has no dedicated operation, e.g. path \"/logistics/202309/warehouses\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/logistics/202309/warehouses\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "include_shop_cipher": {
+            "type": "boolean",
+            "default": true,
+            "description": "Add shop_cipher (TIKTOK_SHOP_CIPHER) to the query; set false for app-level endpoints such as /authorization/202309/shops"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_authorized_shops",
+      "description": "List the shops that authorized this app, with each shop's cipher (set TIKTOK_SHOP_CIPHER to it), region and seller type.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "search_products",
+      "description": "List the shop's products (id, title, status, SKUs) filtered by status, seller SKU or create/update time (Unix seconds).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ALL",
+              "DRAFT",
+              "PENDING",
+              "FAILED",
+              "ACTIVATE",
+              "SELLER_DEACTIVATED",
+              "PLATFORM_DEACTIVATED",
+              "FREEZE",
+              "DELETED"
+            ],
+            "default": "ALL"
+          },
+          "seller_skus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only products with these seller SKUs"
+          },
+          "create_time_ge": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "create_time_le": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "update_time_ge": {
+            "type": "integer",
+            "description": "Updated at or after (Unix seconds)"
+          },
+          "update_time_le": {
+            "type": "integer",
+            "description": "Updated at or before (Unix seconds)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_product",
+      "description": "Read one product with its SKUs, prices, inventory per warehouse, images and audit status.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "TikTok Shop product id"
+          },
+          "locale": {
+            "type": "string",
+            "description": "e.g. id-ID or en-US"
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      }
+    },
+    {
+      "name": "search_orders",
+      "description": "List orders by status, buyer or create/update time window (Unix seconds), newest first by default.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "UNPAID",
+              "ON_HOLD",
+              "AWAITING_SHIPMENT",
+              "PARTIALLY_SHIPPING",
+              "AWAITING_COLLECTION",
+              "IN_TRANSIT",
+              "DELIVERED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "buyer_user_id": {
+            "type": "string",
+            "description": "Only this buyer's orders"
+          },
+          "create_time_ge": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "create_time_lt": {
+            "type": "integer",
+            "description": "Created before (Unix seconds)"
+          },
+          "update_time_ge": {
+            "type": "integer",
+            "description": "Updated at or after (Unix seconds)"
+          },
+          "update_time_lt": {
+            "type": "integer",
+            "description": "Updated before (Unix seconds)"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "update_time"
+            ],
+            "description": "Sort field (default create_time)"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ],
+            "description": "Sort order"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_order_detail",
+      "description": "Read up to 50 orders: status, line items, payment, recipient address and packages (package ids for shipping).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "1-50 order ids"
+          }
+        },
+        "required": [
+          "order_ids"
+        ]
+      }
+    },
+    {
+      "name": "get_package_shipping_document",
+      "description": "Get the URL (valid 24 hours) of a TikTok Shipping package's label or packing slip, plus its tracking number. Call ship_package first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "package_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Package id (from get_order_detail packages)"
+          },
+          "document_type": {
+            "type": "string",
+            "enum": [
+              "SHIPPING_LABEL",
+              "PACKING_SLIP",
+              "SHIPPING_LABEL_AND_PACKING_SLIP",
+              "SHIPPING_LABEL_PICTURE",
+              "HAZMAT_LABEL",
+              "INVOICE_LABEL"
+            ],
+            "default": "SHIPPING_LABEL"
+          },
+          "document_size": {
+            "type": "string",
+            "enum": [
+              "A6",
+              "A5"
+            ],
+            "description": "PDF size (default A6)"
+          }
+        },
+        "required": [
+          "package_id"
+        ]
+      }
+    },
+    {
+      "name": "search_returns",
+      "description": "List return, refund, replacement and exchange requests by order, return status or time window (Unix seconds).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only returns of these orders"
+          },
+          "return_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only these returns"
+          },
+          "return_status": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "e.g. RETURN_OR_REFUND_REQUEST_PENDING, AWAITING_BUYER_SHIP"
+          },
+          "return_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "REFUND",
+                "RETURN_AND_REFUND",
+                "REPLACEMENT",
+                "EXCHANGE"
+              ]
+            }
+          },
+          "create_time_ge": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "create_time_lt": {
+            "type": "integer",
+            "description": "Created before (Unix seconds)"
+          },
+          "update_time_ge": {
+            "type": "integer",
+            "description": "Updated at or after (Unix seconds)"
+          },
+          "update_time_lt": {
+            "type": "integer",
+            "description": "Updated before (Unix seconds)"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "update_time"
+            ],
+            "description": "Sort field (default create_time)"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ],
+            "description": "Sort order"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 50,
+            "default": 20,
+            "description": "Page size (10-50)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_conversations",
+      "description": "List the shop's conversations with buyers: participants, unread count, latest message and whether the shop can reply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20,
+            "description": "Page size (max 20)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "locale": {
+            "type": "string",
+            "description": "Language for system messages, e.g. id-ID or en"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_conversation_messages",
+      "description": "Read messages of one buyer conversation, newest first by default. Does not mark them as read.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id from get_conversations"
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "DESC",
+              "ASC"
+            ],
+            "default": "DESC"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 10,
+            "description": "Page size (max 10)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "locale": {
+            "type": "string",
+            "description": "Language for system messages, e.g. id-ID or en"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send one message to the buyer in a conversation: `text` for TEXT, or `content` (e.g. {product_id} for PRODUCT_CARD, {order_id} for ORDER_CARD). If this fails with a network error the message may have been sent: check get_conversation_messages before retrying.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conversation id from get_conversations"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "IMAGE",
+              "PRODUCT_CARD",
+              "ORDER_CARD",
+              "LOGISTICS_CARD",
+              "RETURN_REFUND_CARD",
+              "COUPON_CARD",
+              "VIDEO"
+            ],
+            "default": "TEXT"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text for TEXT (max 2000 characters)"
+          },
+          "content": {
+            "type": "object",
+            "description": "Message content for other types, e.g. {\"order_id\": \"580874485811283206\"}"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any TikTok Shop API endpoint that has no dedicated operation, e.g. path \"/logistics/202309/warehouses\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/logistics/202309/warehouses\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "include_shop_cipher": {
+            "type": "boolean",
+            "default": true,
+            "description": "Add shop_cipher (TIKTOK_SHOP_CIPHER) to the query; set false for app-level endpoints such as /authorization/202309/shops"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
