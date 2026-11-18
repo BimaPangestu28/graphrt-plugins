@@ -118,3 +118,10 @@ test("classifyLaunchError maps other failures to browser_error", () => {
   assert.equal(classified.kind, "browser_error");
   assert.match(classified.message, /boom/);
 });
+
+test("validateSearchConfig accepts max_results as a whole-number string from a template", () => {
+  assert.equal(validateSearchConfig({ query: "x", max_results: "5" }).maxResults, 5);
+  assert.equal(validateSearchConfig({ query: "x", max_results: " 12 " }).maxResults, 12);
+  assert.throws(() => validateSearchConfig({ query: "x", max_results: "5.5" }), (error) => error.kind === "invalid_input");
+  assert.throws(() => validateSearchConfig({ query: "x", max_results: "abc" }), (error) => error.kind === "invalid_input");
+});

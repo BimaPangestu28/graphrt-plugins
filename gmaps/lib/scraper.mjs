@@ -10,6 +10,7 @@
  */
 import { chromium } from "playwright";
 import { PluginError } from "../graphrt-plugin.mjs";
+import { bindAbortToBrowser, toCancelledIfAborted } from "./cancellation.mjs";
 import { buildSearchUrl, classifyLaunchError, extractPlaceDetails, isBlockedPage, parseRating } from "./parse.mjs";
 
 const NAVIGATION_TIMEOUT_MS = 30000;
@@ -39,20 +40,29 @@ const CONSENT_BUTTON_SELECTOR = [
  * @throws PluginError kinds `blocked`, `setup_required`, `browser_error`, `cancelled`
  */
 export async function searchPlaces(options, hooks = {}) {
+  throwIfCancelled(hooks.signal);
   const browser = await launchBrowser(options.headless);
+  const unbindAbort = bindAbortToBrowser(hooks.signal, browser);
   try {
-    const context = await browser.newContext({ locale: options.language });
-    const page = await context.newPage();
-    page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
-    await openSearch(page, options);
-    if (!(await page.$(FEED_SELECTOR))) {
-      return await readSinglePlace(page, hooks);
-    }
-    const placeUrls = await collectPlaceUrls(page, options.maxResults, hooks.signal);
-    return await readPlaces(page, placeUrls, hooks);
+    return await runSearchInBrowser(browser, options, hooks);
+  } catch (searchError) {
+    throw toCancelledIfAborted(searchError, hooks.signal);
   } finally {
+    unbindAbort();
     await browser.close().catch((closeError) => console.error(`[gmaps] browser close failed: ${closeError.message}`));
   }
+}
+
+async function runSearchInBrowser(browser, options, hooks) {
+  const context = await browser.newContext({ locale: options.language });
+  const page = await context.newPage();
+  page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
+  await openSearch(page, options);
+  if (!(await page.$(FEED_SELECTOR))) {
+    return readSinglePlace(page, hooks);
+  }
+  const placeUrls = await collectPlaceUrls(page, options.maxResults, hooks.signal);
+  return readPlaces(page, placeUrls, hooks);
 }
 
 async function launchBrowser(headless) {
@@ -119,20 +129,21 @@ async function readPlaces(page, placeUrls, hooks) {
   const placeResults = [];
   for (const [index, placeUrl] of placeUrls.entries()) {
     throwIfCancelled(hooks.signal);
-    const placeResult = await readPlaceAt(page, placeUrl);
+    const placeResult = await readPlaceAt(page, placeUrl, hooks.signal);
     if (placeResult) placeResults.push(placeResult);
     hooks.onProgress?.({ index: index + 1, total: placeUrls.length, name: placeResult?.name ?? null });
   }
   return placeResults;
 }
 
-async function readPlaceAt(page, placeUrl) {
+async function readPlaceAt(page, placeUrl, signal) {
   try {
     await page.goto(placeUrl, { waitUntil: "domcontentloaded" });
     await assertNotBlocked(page);
     return await readPlaceDetails(page);
   } catch (placeError) {
-    if (placeError instanceof PluginError) throw placeError;
+    // A closed browser after cancel must abort the search, not skip one place.
+    if (placeError instanceof PluginError || signal?.aborted) throw placeError;
     console.error(`[gmaps] skipping place ${placeUrl}: ${placeError.message}`);
     return null;
   }
@@ -140,6 +151,7 @@ async function readPlaceAt(page, placeUrl) {
 
 async function readSinglePlace(page, hooks) {
   const placeResult = await readPlaceDetails(page).catch((placeError) => {
+    if (hooks.signal?.aborted) throw placeError;
     console.error(`[gmaps] no place found on ${page.url()}: ${placeError.message}`);
     return null;
   });

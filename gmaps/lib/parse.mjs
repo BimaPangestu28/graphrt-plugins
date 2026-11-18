@@ -30,8 +30,9 @@ const PHONE_ITEM_PREFIX = "phone:tel:";
  * // { query: "cafe", maxResults: 20, language: "id", headless: true }
  */
 export function validateSearchConfig(config) {
-  const { query, max_results: maxResults = DEFAULT_MAX_RESULTS, language = DEFAULT_LANGUAGE, headless = true } =
+  const { query, max_results: rawMaxResults = DEFAULT_MAX_RESULTS, language = DEFAULT_LANGUAGE, headless = true } =
     config ?? {};
+  const maxResults = parseWholeNumber(rawMaxResults);
 
   if (typeof query !== "string" || query.trim() === "") {
     throw invalidInput("`query` must be a non-empty string");
@@ -143,6 +144,12 @@ export function classifyLaunchError(launchError) {
     );
   }
   return new PluginError(`Failed to start the browser: ${message}`, { kind: "browser_error" });
+}
+
+// Template-resolved config (e.g. "{{#start.n#}}") can arrive as a string.
+function parseWholeNumber(rawValue) {
+  if (typeof rawValue === "string" && /^\s*\d+\s*$/.test(rawValue)) return Number(rawValue);
+  return rawValue;
 }
 
 function cleanLabel(label, prefixPattern) {

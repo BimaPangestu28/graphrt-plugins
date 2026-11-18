@@ -3,8 +3,12 @@
 // Run it in a workflow with:  graphrt run example.yaml --plugins <parent dir>
 // Never console.log (stdout carries the plugin protocol); use console.error.
 import { Plugin } from "./graphrt-plugin.mjs";
+import { createDeadlineSignal } from "./lib/cancellation.mjs";
 import { collectPhones, validateSearchConfig } from "./lib/parse.mjs";
 import { searchPlaces } from "./lib/scraper.mjs";
+
+// Slightly under the manifest's `timeout_ms` (300000) so the browser closes first.
+const TOOL_DEADLINE_MS = 290000;
 
 const SEARCH_PARAMETERS = {
   type: "object",
@@ -46,7 +50,8 @@ new Plugin("gmaps")
       parameters: SEARCH_PARAMETERS,
     },
     async (toolArguments) => {
-      const searchOutput = await runSearch(toolArguments, {});
+      // The SDK gives tools no cancel signal, so stop before the host's 300 s timeout.
+      const searchOutput = await runSearch(toolArguments, { signal: createDeadlineSignal(TOOL_DEADLINE_MS) });
       return { text: JSON.stringify(searchOutput.results), data: searchOutput };
     },
   )

@@ -60,6 +60,9 @@ Outputs:
 - `count`: integer.
 
 Timing: about 1–1.5 s per place. Node timeout is 5 minutes and at most 2 searches run at once.
+Cancelling a run closes the browser immediately. Tool calls (`gmaps/gmaps_search`) cannot be cancelled by the
+host, so they stop themselves after 290 s with `cancelled`.
+`max_results` may be a number or a whole-number string (e.g. from `{{#start.n#}}`).
 
 ## Errors
 | Kind | When |
