@@ -1,0 +1,1281 @@
+{
+  "name": "telegram-bot",
+  "version": "0.1.0",
+  "description": "Telegram Bot API: read updates, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_WEBHOOK_SECRET"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "telegram-bot.get_updates",
+      "title": "Get Telegram updates",
+      "description": "Fetch new messages, button presses and other updates by long polling. Pass next_cursor back as cursor (or store it with state-store); it also confirms the updates already received. Fails while a webhook is set.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (last update_id + 1)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Raw getUpdates offset instead of cursor; negative values read from the end of the queue"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100,
+            "description": "Maximum updates to return"
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 25,
+            "default": 0,
+            "description": "Long-poll seconds to wait for updates (0 = return at once)"
+          },
+          "allowed_updates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Update types to receive, e.g. [\"message\",\"callback_query\"]; [] = all except chat_member and reactions; omitted = previous setting"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.send_message",
+      "title": "Send Telegram message",
+      "description": "Send a text message to a chat, optionally formatted, as a reply, silent, or with an inline/reply keyboard. Never resent automatically.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (1-4096 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "disable_link_preview": {
+            "type": "boolean",
+            "description": "Do not show a link preview"
+          },
+          "reply_to_message_id": {
+            "type": "integer",
+            "description": "Reply to this message id in the same chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Yes\",\"callback_data\":\"yes\"}]]}, a reply keyboard, {\"remove_keyboard\":true} or {\"force_reply\":true}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.send_photo",
+      "title": "Send Telegram photo",
+      "description": "Send a photo by http(s) URL (Telegram downloads it, max 5 MB) or by file_id. Local files are not supported.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "photo": {
+            "type": "string",
+            "description": "Photo URL (http/https) or file_id of a photo already on Telegram"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (up to 1024 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "reply_to_message_id": {
+            "type": "integer",
+            "description": "Reply to this message id in the same chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Yes\",\"callback_data\":\"yes\"}]]}, a reply keyboard, {\"remove_keyboard\":true} or {\"force_reply\":true}"
+          },
+          "has_spoiler": {
+            "type": "boolean",
+            "description": "Cover the photo with a spoiler animation"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id",
+          "photo"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.send_document",
+      "title": "Send Telegram document",
+      "description": "Send a file by http(s) URL (Telegram downloads it, max 20 MB, PDF or ZIP only) or by file_id. Local files are not supported.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "document": {
+            "type": "string",
+            "description": "File URL (http/https, PDF or ZIP) or file_id of a file already on Telegram"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (up to 1024 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "reply_to_message_id": {
+            "type": "integer",
+            "description": "Reply to this message id in the same chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Yes\",\"callback_data\":\"yes\"}]]}, a reply keyboard, {\"remove_keyboard\":true} or {\"force_reply\":true}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id",
+          "document"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.send_chat_action",
+      "title": "Send Telegram chat action",
+      "description": "Show a status such as \"typing…\" in the chat for up to 5 seconds (until the bot's next message).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "typing",
+              "upload_photo",
+              "record_video",
+              "upload_video",
+              "record_voice",
+              "upload_voice",
+              "upload_document",
+              "choose_sticker",
+              "find_location",
+              "record_video_note",
+              "upload_video_note"
+            ],
+            "default": "typing"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.edit_message_text",
+      "title": "Edit Telegram message text",
+      "description": "Replace the text (and inline keyboard) of a message the bot sent, by chat_id + message_id or inline_message_id.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "message_id": {
+            "type": "integer",
+            "description": "Message id in the chat"
+          },
+          "inline_message_id": {
+            "type": "string",
+            "description": "Inline message id (instead of chat_id + message_id)"
+          },
+          "text": {
+            "type": "string",
+            "description": "New text (1-4096 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "disable_link_preview": {
+            "type": "boolean",
+            "description": "Do not show a link preview"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Inline keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Done\",\"callback_data\":\"done\"}]]}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.delete_message",
+      "title": "Delete Telegram message",
+      "description": "Delete a message sent less than 48 h ago: the bot's own messages, incoming messages in private chats, or any message where the bot is an admin with delete rights.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "message_id": {
+            "type": "integer",
+            "description": "Message id in the chat"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id",
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.forward_message",
+      "title": "Forward Telegram message",
+      "description": "Forward a message from one chat to another. Messages with protected content cannot be forwarded.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Target chat id or @channelusername"
+          },
+          "from_chat_id": {
+            "type": "string",
+            "description": "Chat the message is in"
+          },
+          "message_id": {
+            "type": "integer",
+            "description": "Message id in the chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id",
+          "from_chat_id",
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.answer_callback_query",
+      "title": "Answer Telegram button press",
+      "description": "Answer an inline-keyboard button press (callback_query id from get_updates): show a short notification or alert, or stop the loading spinner.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "callback_query_id": {
+            "type": "string",
+            "description": "callback_query.id from the update"
+          },
+          "text": {
+            "type": "string",
+            "description": "Notification text (up to 200 characters)"
+          },
+          "show_alert": {
+            "type": "boolean",
+            "description": "Show an alert dialog instead of a notification"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to open (games, or t.me/<bot>?start=... links)"
+          },
+          "cache_time": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Seconds the client may cache this answer"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "callback_query_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.get_me",
+      "title": "Get Telegram bot info",
+      "description": "Return the bot's own user (id, username, name, capabilities). A quick way to check that the token works.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.get_chat",
+      "title": "Get Telegram chat",
+      "description": "Return up-to-date information about a chat (type, title, username, description, permissions) the bot can access.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.get_chat_member_count",
+      "title": "Count Telegram chat members",
+      "description": "Return the number of members in a group, supergroup or channel.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.set_webhook",
+      "title": "Set Telegram webhook",
+      "description": "Send the bot's updates to an https URL instead of get_updates. Sends TELEGRAM_WEBHOOK_SECRET (if set) as the X-Telegram-Bot-Api-Secret-Token header value. Node only.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "https URL that receives updates (ports 443, 80, 88 or 8443)"
+          },
+          "max_connections": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum simultaneous connections (default 40)"
+          },
+          "allowed_updates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Update types to receive, e.g. [\"message\",\"callback_query\"]; [] = all except chat_member and reactions; omitted = previous setting"
+          },
+          "drop_pending_updates": {
+            "type": "boolean",
+            "description": "Drop updates that are waiting"
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "Fixed IP address to send to instead of resolving the host"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.delete_webhook",
+      "title": "Delete Telegram webhook",
+      "description": "Remove the webhook so get_updates works again. Node only.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "drop_pending_updates": {
+            "type": "boolean",
+            "description": "Drop updates that are waiting"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.get_webhook_info",
+      "title": "Get Telegram webhook info",
+      "description": "Return the webhook URL (empty when using get_updates), pending update count and the last delivery error. Node only.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "telegram-bot.api_request",
+      "title": "Telegram Bot API request",
+      "description": "Call any Telegram Bot API method that has no dedicated operation, e.g. path \"/getMyCommands\" (GET with query) or \"/setMyCommands\" (POST with JSON body). Returns the method's result.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/getMyCommands\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_updates",
+      "description": "Fetch new messages, button presses and other updates by long polling. Pass next_cursor back as cursor (or store it with state-store); it also confirms the updates already received. Fails while a webhook is set.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (last update_id + 1)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Raw getUpdates offset instead of cursor; negative values read from the end of the queue"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100,
+            "description": "Maximum updates to return"
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 25,
+            "default": 0,
+            "description": "Long-poll seconds to wait for updates (0 = return at once)"
+          },
+          "allowed_updates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Update types to receive, e.g. [\"message\",\"callback_query\"]; [] = all except chat_member and reactions; omitted = previous setting"
+          }
+        }
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a text message to a chat, optionally formatted, as a reply, silent, or with an inline/reply keyboard. Never resent automatically.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (1-4096 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "disable_link_preview": {
+            "type": "boolean",
+            "description": "Do not show a link preview"
+          },
+          "reply_to_message_id": {
+            "type": "integer",
+            "description": "Reply to this message id in the same chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Yes\",\"callback_data\":\"yes\"}]]}, a reply keyboard, {\"remove_keyboard\":true} or {\"force_reply\":true}"
+          }
+        },
+        "required": [
+          "chat_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "send_photo",
+      "description": "Send a photo by http(s) URL (Telegram downloads it, max 5 MB) or by file_id. Local files are not supported.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "photo": {
+            "type": "string",
+            "description": "Photo URL (http/https) or file_id of a photo already on Telegram"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (up to 1024 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "reply_to_message_id": {
+            "type": "integer",
+            "description": "Reply to this message id in the same chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Yes\",\"callback_data\":\"yes\"}]]}, a reply keyboard, {\"remove_keyboard\":true} or {\"force_reply\":true}"
+          },
+          "has_spoiler": {
+            "type": "boolean",
+            "description": "Cover the photo with a spoiler animation"
+          }
+        },
+        "required": [
+          "chat_id",
+          "photo"
+        ]
+      }
+    },
+    {
+      "name": "send_document",
+      "description": "Send a file by http(s) URL (Telegram downloads it, max 20 MB, PDF or ZIP only) or by file_id. Local files are not supported.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "document": {
+            "type": "string",
+            "description": "File URL (http/https, PDF or ZIP) or file_id of a file already on Telegram"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (up to 1024 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "reply_to_message_id": {
+            "type": "integer",
+            "description": "Reply to this message id in the same chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Yes\",\"callback_data\":\"yes\"}]]}, a reply keyboard, {\"remove_keyboard\":true} or {\"force_reply\":true}"
+          }
+        },
+        "required": [
+          "chat_id",
+          "document"
+        ]
+      }
+    },
+    {
+      "name": "send_chat_action",
+      "description": "Show a status such as \"typing…\" in the chat for up to 5 seconds (until the bot's next message).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "typing",
+              "upload_photo",
+              "record_video",
+              "upload_video",
+              "record_voice",
+              "upload_voice",
+              "upload_document",
+              "choose_sticker",
+              "find_location",
+              "record_video_note",
+              "upload_video_note"
+            ],
+            "default": "typing"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      }
+    },
+    {
+      "name": "edit_message_text",
+      "description": "Replace the text (and inline keyboard) of a message the bot sent, by chat_id + message_id or inline_message_id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "message_id": {
+            "type": "integer",
+            "description": "Message id in the chat"
+          },
+          "inline_message_id": {
+            "type": "string",
+            "description": "Inline message id (instead of chat_id + message_id)"
+          },
+          "text": {
+            "type": "string",
+            "description": "New text (1-4096 characters after formatting)"
+          },
+          "parse_mode": {
+            "type": "string",
+            "enum": [
+              "MarkdownV2",
+              "HTML",
+              "Markdown"
+            ],
+            "description": "Formatting: MarkdownV2, HTML or legacy Markdown"
+          },
+          "disable_link_preview": {
+            "type": "boolean",
+            "description": "Do not show a link preview"
+          },
+          "reply_markup": {
+            "type": "object",
+            "description": "Inline keyboard, e.g. {\"inline_keyboard\":[[{\"text\":\"Done\",\"callback_data\":\"done\"}]]}"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "delete_message",
+      "description": "Delete a message sent less than 48 h ago: the bot's own messages, incoming messages in private chats, or any message where the bot is an admin with delete rights.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          },
+          "message_id": {
+            "type": "integer",
+            "description": "Message id in the chat"
+          }
+        },
+        "required": [
+          "chat_id",
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "forward_message",
+      "description": "Forward a message from one chat to another. Messages with protected content cannot be forwarded.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Target chat id or @channelusername"
+          },
+          "from_chat_id": {
+            "type": "string",
+            "description": "Chat the message is in"
+          },
+          "message_id": {
+            "type": "integer",
+            "description": "Message id in the chat"
+          },
+          "disable_notification": {
+            "type": "boolean",
+            "description": "Send silently (no notification sound)"
+          },
+          "protect_content": {
+            "type": "boolean",
+            "description": "Prevent forwarding and saving of the sent message"
+          },
+          "message_thread_id": {
+            "type": "integer",
+            "description": "Forum topic id (forum supergroups only)"
+          }
+        },
+        "required": [
+          "chat_id",
+          "from_chat_id",
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "answer_callback_query",
+      "description": "Answer an inline-keyboard button press (callback_query id from get_updates): show a short notification or alert, or stop the loading spinner.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "callback_query_id": {
+            "type": "string",
+            "description": "callback_query.id from the update"
+          },
+          "text": {
+            "type": "string",
+            "description": "Notification text (up to 200 characters)"
+          },
+          "show_alert": {
+            "type": "boolean",
+            "description": "Show an alert dialog instead of a notification"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to open (games, or t.me/<bot>?start=... links)"
+          },
+          "cache_time": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Seconds the client may cache this answer"
+          }
+        },
+        "required": [
+          "callback_query_id"
+        ]
+      }
+    },
+    {
+      "name": "get_me",
+      "description": "Return the bot's own user (id, username, name, capabilities). A quick way to check that the token works.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_chat",
+      "description": "Return up-to-date information about a chat (type, title, username, description, permissions) the bot can access.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      }
+    },
+    {
+      "name": "get_chat_member_count",
+      "description": "Return the number of members in a group, supergroup or channel.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id (e.g. \"123456789\" or \"-1001234567890\") or \"@channelusername\""
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Telegram Bot API method that has no dedicated operation, e.g. path \"/getMyCommands\" (GET with query) or \"/setMyCommands\" (POST with JSON body). Returns the method's result.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/getMyCommands\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

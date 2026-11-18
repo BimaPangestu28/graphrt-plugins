@@ -170,3 +170,15 @@ test("tool handlers pass a deadline signal that aborts the operation", async () 
   assert.deepEqual(result.data, { data: { aborted: true, reason: "TimeoutError" }, next_cursor: null });
   assert.equal(result.text, JSON.stringify(result.data));
 });
+
+test("operations receive the call source (node or tool)", async () => {
+  const sources = [];
+  const definitionWithSource = {
+    ...pluginDefinition,
+    operations: [{ name: "probe", title: "Probe", description: "d", parameters: { type: "object", properties: {} }, run: async ({ source }) => (sources.push(source), { data: null }) }],
+  };
+  const runOperation = createOperationRunner(definitionWithSource, { DEMO_ACCESS_TOKEN: "t" });
+  await runOperation("probe", {}, { source: "tool" });
+  await runOperation("probe", {}, { source: "node" });
+  assert.deepEqual(sources, ["tool", "node"]);
+});

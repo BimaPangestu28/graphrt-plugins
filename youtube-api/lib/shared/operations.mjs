@@ -14,7 +14,7 @@
  *   }
  * Each operation becomes node kind `<name>.<operation>` and tool `<operation>`, except operations with
  * `nodeOnly: true` (e.g. token refresh), which are never offered to an LLM as tools.
- * `run({ client, args, environment, signal })` returns `{ data, next_cursor? }`. Tool calls get a deadline
+ * `run({ client, args, environment, signal, source })` returns `{ data, next_cursor? }`; `source` is "node" or "tool". Tool calls get a deadline
  * `signal` (see resolveToolDeadlineMs) because the host cannot cancel a tool call.
  */
 import { Plugin, PluginError } from "./graphrt-plugin.mjs";
@@ -111,7 +111,7 @@ export function createOperationRunner(pluginDefinition, environment, runnerOptio
     const args = validateArguments(operation.parameters, rawArguments);
     const accessToken = await pickAccessToken(pluginDefinition, environment, rawArguments, source);
     const client = pluginDefinition.createClient({ accessToken, environment, fetchImpl: runnerOptions.fetchImpl });
-    const result = await operation.run({ client, args, environment, signal });
+    const result = await operation.run({ client, args, environment, signal, source });
     return { data: result?.data ?? null, next_cursor: result?.next_cursor ?? null };
   };
 }
