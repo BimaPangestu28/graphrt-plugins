@@ -23,7 +23,9 @@ export async function runWithResponses(operationName, args, responses = [{ body:
     return recordingFetch(url, init);
   };
   const runOperation = createOperationRunner(pluginDefinition, environment, { fetchImpl: capturingFetch });
-  const output = await runOperation(operationName, args, { source: "tool" });
+  // Node-only operations (token refresh) are run the way graphrt runs them: as nodes.
+  const isNodeOnly = pluginDefinition.operations.find((operation) => operation.name === operationName)?.nodeOnly;
+  const output = await runOperation(operationName, args, { source: isNodeOnly ? "node" : "tool" });
   return { output, calls: recordingFetch.calls, rawBodies };
 }
 

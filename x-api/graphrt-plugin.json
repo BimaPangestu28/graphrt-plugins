@@ -14,7 +14,9 @@
     "env": [
       "X_ACCESS_TOKEN",
       "X_USER_ID",
-      "X_CLIENT_SECRET"
+      "X_CLIENT_SECRET",
+      "X_REFRESH_TOKEN",
+      "X_CLIENT_ID"
     ]
   },
   "limits": {
@@ -888,7 +890,7 @@
     {
       "kind": "x-api.refresh_access_token",
       "title": "Refresh X access token",
-      "description": "Exchange a refresh token (scope offline.access) for a new access token. X rotates refresh tokens: store the returned refresh_token. Uses X_CLIENT_SECRET for confidential clients.",
+      "description": "Exchange a refresh token (scope offline.access) for a new access token. X rotates refresh tokens: store the returned refresh_token. Defaults to X_REFRESH_TOKEN / X_CLIENT_ID; uses X_CLIENT_SECRET for confidential clients.",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -896,22 +898,18 @@
           "refresh_token": {
             "type": "string",
             "minLength": 1,
-            "description": "Current refresh token"
+            "description": "Current refresh token (default: X_REFRESH_TOKEN)"
           },
           "client_id": {
             "type": "string",
             "minLength": 1,
-            "description": "OAuth 2.0 client id of the X app"
+            "description": "OAuth 2.0 client id of the X app (default: X_CLIENT_ID)"
           },
           "access_token": {
             "type": "string",
             "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
           }
-        },
-        "required": [
-          "refresh_token",
-          "client_id"
-        ]
+        }
       },
       "outputs": [
         {
@@ -1499,29 +1497,6 @@
         },
         "required": [
           "image_url"
-        ]
-      }
-    },
-    {
-      "name": "refresh_access_token",
-      "description": "Exchange a refresh token (scope offline.access) for a new access token. X rotates refresh tokens: store the returned refresh_token. Uses X_CLIENT_SECRET for confidential clients.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "refresh_token": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Current refresh token"
-          },
-          "client_id": {
-            "type": "string",
-            "minLength": 1,
-            "description": "OAuth 2.0 client id of the X app"
-          }
-        },
-        "required": [
-          "refresh_token",
-          "client_id"
         ]
       }
     },

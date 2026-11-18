@@ -18,7 +18,7 @@ images, all as the user who owns the OAuth 2.0 access token. Every operation is 
 - **Replies and engagement:** list a conversation's replies, hide/unhide replies, like/unlike, repost/undo
 - **Direct messages:** list DM events, read one conversation, send a DM (text and/or image), start a group DM
 - **Media:** `upload_media` downloads an image from an https URL (up to 5 MB) and uploads it
-- **Tokens:** `refresh_access_token` (X rotates refresh tokens, so the new one is returned)
+- **Tokens:** `refresh_access_token`, which is node only and never offered to agents (X rotates refresh tokens, so the new one is returned)
 - **`api_request`:** any other X API v2 endpoint, restricted to `api.x.com`
 - Retries rate limits using `x-rate-limit-reset`, and gives clear error kinds. Tokens never appear in errors.
 
@@ -53,6 +53,8 @@ No `npm install` needed: the plugin has no dependencies.
 |---------|----------|-------------|
 | `X_ACCESS_TOKEN` | yes, except for `refresh_access_token` | OAuth 2.0 user access token (expires after 2 hours) |
 | `X_USER_ID` | no | Your numeric user id. If it's unset, operations that need it (likes, reposts, your posts and mentions) call `GET /2/users/me` once per run, which is one extra billed user read. |
+| `X_REFRESH_TOKEN` | no | Default refresh token for `refresh_access_token` |
+| `X_CLIENT_ID` | no | Default OAuth 2.0 client id for `refresh_access_token` |
 | `X_CLIENT_SECRET` | no | Client secret for confidential apps, used by `refresh_access_token` (Basic auth). Public PKCE apps leave it unset. |
 
 graphrt starts plugins with a clean environment, and only these variables are passed through. A node can also
@@ -91,8 +93,10 @@ graphrt run x-api/example.yaml --plugins .
   to use it, the API rejects the request.
 - **Polling:** graphrt plugins can't receive webhooks. To react to new mentions or DMs, run a workflow on a schedule,
   and remember that every poll is billed.
-- **Token refresh:** `refresh_access_token` takes `refresh_token` and `client_id` and returns `access_token`,
-  `refresh_token` and `expires_in`. Store the new refresh token, because the old one stops working.
+- **Token refresh (node only):** `refresh_access_token` takes `refresh_token` and `client_id`, or reads
+  `X_REFRESH_TOKEN` and `X_CLIENT_ID`. It returns `access_token`, `refresh_token` and `expires_in`. Store the new
+  refresh token, because the old one stops working. It isn't exposed as an agent tool, so tokens never reach an
+  LLM.
 
 ## Errors
 | Kind | When |
@@ -100,7 +104,7 @@ graphrt run x-api/example.yaml --plugins .
 | `invalid_input` | Bad arguments (ids, polls, limits, image URL/type/size), or X `invalid-request` |
 | `auth_error` | Missing, invalid or expired token (HTTP 401, `unsupported-authentication`), or a rejected refresh token |
 | `permission_denied` | Missing scope or access level (`client-forbidden`, `not-authorized-for-resource`), or a DM recipient that can't be messaged |
-| `rate_limited` | HTTP 429, `usage-capped` or `dm-rate-limited`. It's retried automatically when `x-rate-limit-reset` is within 60 s, and `retryAfterMs` tells you when to try again |
+| `rate_limited` | HTTP 429, `usage-capped` or `dm-rate-limited`. It's retried automatically when `x-rate-limit-reset` is within 60 s, and `retryAfterMs` tells you when to try again. `usage-capped` (the monthly cap) is never retried |
 | `not_found` | `resource-not-found` (also when X reports it in a 200 response) |
 | `api_error`, `network_error`, `timeout`, `cancelled` | As named |
 

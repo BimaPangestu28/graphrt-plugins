@@ -38,3 +38,22 @@ test("refresh_access_token maps OAuth errors to auth_error without leaking the r
 test("refresh_access_token fails when the response has no access token", async () => {
   await rejectsWithKind(assert, runWithResponses("refresh_access_token", REFRESH_ARGS, [{ body: {} }]), "api_error", /access_token/);
 });
+
+test("refresh_access_token falls back to X_REFRESH_TOKEN and X_CLIENT_ID from env", async () => {
+  const environment = { X_REFRESH_TOKEN: "env-refresh", X_CLIENT_ID: "env-client" };
+  const { calls } = await runWithResponses("refresh_access_token", {}, [TOKEN_RESPONSE], environment);
+  assert.equal(calls[0].form.refresh_token, "env-refresh");
+  assert.equal(calls[0].form.client_id, "env-client");
+});
+
+test("refresh_access_token without any refresh token fails with invalid_input", async () => {
+  await assert.rejects(runWithResponses("refresh_access_token", {}, [], {}), (error) => error.kind === "invalid_input");
+});
+
+test("refresh_access_token is a node but not an LLM tool", async () => {
+  const { buildDescriptors } = await import("../lib/shared/operations.mjs");
+  const { pluginDefinition } = await import("../definition.mjs");
+  const { nodes, tools } = buildDescriptors(pluginDefinition);
+  assert.ok(nodes.some((node) => node.kind === "x-api.refresh_access_token"));
+  assert.equal(tools.some((tool) => tool.name === "refresh_access_token"), false);
+});

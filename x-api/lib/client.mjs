@@ -79,7 +79,9 @@ export function parseXError(status, body, headers) {
   if (!message && !problemName && status !== 429) return {};
   const kind = kindForProblem(problemName) ?? LEGACY_CODE_KINDS[firstError?.code] ?? kindForStatus(status);
   const retryAfterMs = kind === "rate_limited" ? readRateLimitResetMs(headers) : undefined;
-  return { message: message ?? problemName ?? "Too Many Requests", kind, retryAfterMs };
+  // The monthly usage cap cannot clear within a retry window; retrying would only add billed calls.
+  const retryable = problemName === "usage-capped" ? false : undefined;
+  return { message: message ?? problemName ?? "Too Many Requests", kind, retryAfterMs, retryable };
 }
 
 /**

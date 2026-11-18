@@ -26,5 +26,5 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | `send_dm` | Send a direct message to a user (participant_id) or into an existing conversation (conversation_id). | participant_id, conversation_id, text, media_id |
 | `create_group_dm` | Start a group DM conversation with 2-49 other users and send the first message. | **participant_ids**, text, media_id |
 | `upload_media` | Download an image (https, up to 5 MB) and upload it to X. Returns data.data.id for create_post media_ids or send_dm media_id. | **image_url**, media_category |
-| `refresh_access_token` | Exchange a refresh token (scope offline.access) for a new access token. X rotates refresh tokens: store the returned refresh_token. Uses X_CLIENT_SECRET for confidential clients. | **refresh_token**, **client_id** |
+| `refresh_access_token` | Exchange a refresh token (scope offline.access) for a new access token. X rotates refresh tokens: store the returned refresh_token. Defaults to X_REFRESH_TOKEN / X_CLIENT_ID; uses X_CLIENT_SECRET for confidential clients. | refresh_token, client_id |
 | `api_request` | Call any X API endpoint that has no dedicated operation, e.g. path "/2/users/me/followers". Only the API's own host is allowed. | method, **path**, query, body |

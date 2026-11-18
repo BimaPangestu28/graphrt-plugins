@@ -87,3 +87,10 @@ test("toPage maps meta.next_token to next_cursor", () => {
   assert.deepEqual(toPage({ data: [{ id: "1" }], meta: { next_token: "N" } }).next_cursor, "N");
   assert.equal(toPage({ data: [], meta: { result_count: 0 } }).next_cursor, null);
 });
+
+test("usage-capped (monthly cap) is rate_limited but never retried", async () => {
+  const { parseXError } = await import("../lib/client.mjs");
+  const parsed = parseXError(429, { type: "https://api.twitter.com/2/problems/usage-capped", title: "Usage capped", detail: "cap" }, new Headers());
+  assert.equal(parsed.kind, "rate_limited");
+  assert.equal(parsed.retryable, false);
+});
