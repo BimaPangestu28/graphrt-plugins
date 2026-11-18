@@ -1,0 +1,1032 @@
+{
+  "name": "computer-control",
+  "version": "0.1.0",
+  "description": "Control macOS desktop apps through the Accessibility tree: read UI as text, click, type, press keys, clipboard, screenshots",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "COMPUTER_CONTROL_ALLOWED_APPS",
+      "COMPUTER_CONTROL_SCREENSHOT_DIR",
+      "COMPUTER_CONTROL_ALLOW_CLIPBOARD_READ",
+      "COMPUTER_CONTROL_ALLOW_FULL_SCREENSHOT"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 1
+  },
+  "nodes": [
+    {
+      "kind": "computer-control.list_apps",
+      "title": "List running apps",
+      "description": "List running apps that have a Dock icon, with which one is frontmost and whether COMPUTER_CONTROL_ALLOWED_APPS allows it. data.text is a readable summary.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.open_app",
+      "title": "Open app",
+      "description": "Launch an app (or bring it to the front if it is already running), like `open -a` (or `open -b` for a bundle id such as net.whatsapp.WhatsApp).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.focus_app",
+      "title": "Focus app",
+      "description": "Bring a running app to the front so it receives keyboard input.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.quit_app",
+      "title": "Quit app",
+      "description": "Ask a running app to quit, like Cmd+Q (it may still ask to save documents). Workflow node only, never an agent tool.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.list_windows",
+      "title": "List windows",
+      "description": "List an app's windows (ref w1 = frontmost) with title, position and size. data.text is a readable summary.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.read_ui",
+      "title": "Read app UI",
+      "description": "Read a window's Accessibility tree as elements {ref, role, title, value, description, enabled, focused, position, size}. data.text is a compact indented outline; pass the refs exactly as shown (e.g. w1/3/2#0a1b2c3) to click_element, set_value and focus_element. A ref fails with not_found once that element changed: read_ui again. Long output is cut (data.output_truncated).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "window": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 1,
+            "description": "1-based window index from list_windows (1 = frontmost)"
+          },
+          "root_ref": {
+            "type": "string",
+            "description": "Read only the sub-tree under this ref (e.g. \"w1/3#0a1b2c3\") instead of the whole window"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40,
+            "default": 8,
+            "description": "Levels below the root to read"
+          },
+          "max_elements": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 300,
+            "description": "Stop after this many elements"
+          },
+          "text_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only return elements that have a title, value, description or placeholder"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.find_elements",
+      "title": "Find UI elements",
+      "description": "Find elements in a window by role (e.g. \"button\", \"AXTextField\") and/or text contained in their title, value, description or placeholder (case-insensitive).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "window": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 1,
+            "description": "1-based window index from list_windows (1 = frontmost)"
+          },
+          "root_ref": {
+            "type": "string",
+            "description": "Read only the sub-tree under this ref (e.g. \"w1/3#0a1b2c3\") instead of the whole window"
+          },
+          "role": {
+            "type": "string",
+            "description": "Accessibility role, with or without the AX prefix, e.g. \"button\""
+          },
+          "text": {
+            "type": "string",
+            "description": "Text to look for (contains-match, case-insensitive)"
+          },
+          "exact": {
+            "type": "boolean",
+            "default": false,
+            "description": "Require the whole text to match instead of contains"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 25
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.click_element",
+      "title": "Click element",
+      "description": "Press an element by ref (AXPress). If it has no press action, click its centre with the mouse (brings the app to the front); the click is refused when the centre is outside the element's window or another app's window covers it.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element ref exactly as read_ui or find_elements returned it, e.g. \"w1/3/2#0a1b2c3\" (the #fingerprint makes a changed UI fail instead of acting on another element)"
+          },
+          "fallback_click": {
+            "type": "boolean",
+            "default": true,
+            "description": "Click the element's centre when AXPress is not supported"
+          }
+        },
+        "required": [
+          "app",
+          "ref"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.set_value",
+      "title": "Set element value",
+      "description": "Set the text of a text field or text area by ref (AXValue), without typing. Some apps ignore values set this way; then use focus_element + type_text.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element ref exactly as read_ui or find_elements returned it, e.g. \"w1/3/2#0a1b2c3\" (the #fingerprint makes a changed UI fail instead of acting on another element)"
+          },
+          "value": {
+            "type": "string",
+            "description": "New text"
+          }
+        },
+        "required": [
+          "app",
+          "ref",
+          "value"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.focus_element",
+      "title": "Focus element",
+      "description": "Bring the app to the front and move keyboard focus to an element by ref, e.g. before type_text.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element ref exactly as read_ui or find_elements returned it, e.g. \"w1/3/2#0a1b2c3\" (the #fingerprint makes a changed UI fail instead of acting on another element)"
+          }
+        },
+        "required": [
+          "app",
+          "ref"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.type_text",
+      "title": "Type text",
+      "description": "Bring an app to the front and type text into its focused element. method keystroke (default, at most 1000 characters) types key by key in chunks, and \"\\n\" presses Return; insert puts the text into the focused text field through Accessibility (no keys, no clipboard; \"\\n\" is a line break) and checks it arrived; paste uses the clipboard, checks the text arrived, then restores the clipboard. Typing stops if another app takes focus.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text to type"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "keystroke",
+              "insert",
+              "paste"
+            ],
+            "default": "keystroke",
+            "description": "keystroke, insert (Accessibility) or paste (clipboard)"
+          }
+        },
+        "required": [
+          "app",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.press_keys",
+      "title": "Press keys",
+      "description": "Bring an app to the front and press key combos, e.g. \"cmd+f\", \"enter\", \"cmd+shift+n\" or a space-separated sequence \"cmd+a delete\". Modifiers: cmd, shift, ctrl, opt. Keys: letters, digits, punctuation, enter, tab, space, delete, escape, arrows (up/down/left/right), home, end, pageup, pagedown, f1-f12. System-wide shortcuts (cmd+tab, cmd+space, ctrl+arrows, cmd+q, cmd+h, cmd+m, screenshots, lock screen, force quit) are refused.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "keys": {
+            "type": "string",
+            "description": "Key combos separated by spaces, e.g. \"cmd+f\""
+          }
+        },
+        "required": [
+          "app",
+          "keys"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.click_at",
+      "title": "Click at point",
+      "description": "Bring an app to the front and click at screen coordinates (points, as in read_ui positions). The point must be inside one of that app's windows and not covered by another app's window.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "x": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "button": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ],
+            "default": "left"
+          },
+          "double": {
+            "type": "boolean",
+            "default": false,
+            "description": "Double-click"
+          }
+        },
+        "required": [
+          "app",
+          "x",
+          "y"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.get_clipboard",
+      "title": "Get clipboard",
+      "description": "Read the clipboard as plain text (null when it holds no text). Needs COMPUTER_CONTROL_ALLOW_CLIPBOARD_READ=1, because the clipboard may hold anything copied in any app.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.set_clipboard",
+      "title": "Set clipboard",
+      "description": "Replace the clipboard with plain text.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to put on the clipboard"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.take_screenshot",
+      "title": "Take screenshot",
+      "description": "Save a PNG screenshot of one app window (when `app` is given; only that window, by window id) or of the main display (needs COMPUTER_CONTROL_ALLOW_FULL_SCREENSHOT=1) to COMPUTER_CONTROL_SCREENSHOT_DIR (default: a temp folder). Returns the file path; agents cannot see the image, use read_ui to read the UI.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "Capture only this app's window (optional)"
+          },
+          "window": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 1,
+            "description": "1-based window index from list_windows (1 = frontmost)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "computer-control.whatsapp_desktop_send",
+      "title": "Send WhatsApp Desktop message",
+      "description": "Workflow node only: send a message in the WhatsApp for Mac app to an existing chat, by its exact name. Opens search, requires exactly one chat-list match, checks the conversation header and the empty message box, inserts the message and presses Return. Takes keyboard focus for a few seconds. Needs WhatsApp (or net.whatsapp.WhatsApp) in COMPUTER_CONTROL_ALLOWED_APPS. Never retried automatically.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat": {
+            "type": "string",
+            "description": "Exact chat or contact name as shown in WhatsApp"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text; \"\\n\" becomes a line break"
+          }
+        },
+        "required": [
+          "chat",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_apps",
+      "description": "List running apps that have a Dock icon, with which one is frontmost and whether COMPUTER_CONTROL_ALLOWED_APPS allows it. data.text is a readable summary.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "open_app",
+      "description": "Launch an app (or bring it to the front if it is already running), like `open -a` (or `open -b` for a bundle id such as net.whatsapp.WhatsApp).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      }
+    },
+    {
+      "name": "focus_app",
+      "description": "Bring a running app to the front so it receives keyboard input.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      }
+    },
+    {
+      "name": "list_windows",
+      "description": "List an app's windows (ref w1 = frontmost) with title, position and size. data.text is a readable summary.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      }
+    },
+    {
+      "name": "read_ui",
+      "description": "Read a window's Accessibility tree as elements {ref, role, title, value, description, enabled, focused, position, size}. data.text is a compact indented outline; pass the refs exactly as shown (e.g. w1/3/2#0a1b2c3) to click_element, set_value and focus_element. A ref fails with not_found once that element changed: read_ui again. Long output is cut (data.output_truncated).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "window": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 1,
+            "description": "1-based window index from list_windows (1 = frontmost)"
+          },
+          "root_ref": {
+            "type": "string",
+            "description": "Read only the sub-tree under this ref (e.g. \"w1/3#0a1b2c3\") instead of the whole window"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40,
+            "default": 8,
+            "description": "Levels below the root to read"
+          },
+          "max_elements": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 300,
+            "description": "Stop after this many elements"
+          },
+          "text_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only return elements that have a title, value, description or placeholder"
+          }
+        },
+        "required": [
+          "app"
+        ]
+      }
+    },
+    {
+      "name": "find_elements",
+      "description": "Find elements in a window by role (e.g. \"button\", \"AXTextField\") and/or text contained in their title, value, description or placeholder (case-insensitive).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "window": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 1,
+            "description": "1-based window index from list_windows (1 = frontmost)"
+          },
+          "root_ref": {
+            "type": "string",
+            "description": "Read only the sub-tree under this ref (e.g. \"w1/3#0a1b2c3\") instead of the whole window"
+          },
+          "role": {
+            "type": "string",
+            "description": "Accessibility role, with or without the AX prefix, e.g. \"button\""
+          },
+          "text": {
+            "type": "string",
+            "description": "Text to look for (contains-match, case-insensitive)"
+          },
+          "exact": {
+            "type": "boolean",
+            "default": false,
+            "description": "Require the whole text to match instead of contains"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 25
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          }
+        },
+        "required": [
+          "app"
+        ]
+      }
+    },
+    {
+      "name": "click_element",
+      "description": "Press an element by ref (AXPress). If it has no press action, click its centre with the mouse (brings the app to the front); the click is refused when the centre is outside the element's window or another app's window covers it.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element ref exactly as read_ui or find_elements returned it, e.g. \"w1/3/2#0a1b2c3\" (the #fingerprint makes a changed UI fail instead of acting on another element)"
+          },
+          "fallback_click": {
+            "type": "boolean",
+            "default": true,
+            "description": "Click the element's centre when AXPress is not supported"
+          }
+        },
+        "required": [
+          "app",
+          "ref"
+        ]
+      }
+    },
+    {
+      "name": "set_value",
+      "description": "Set the text of a text field or text area by ref (AXValue), without typing. Some apps ignore values set this way; then use focus_element + type_text.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element ref exactly as read_ui or find_elements returned it, e.g. \"w1/3/2#0a1b2c3\" (the #fingerprint makes a changed UI fail instead of acting on another element)"
+          },
+          "value": {
+            "type": "string",
+            "description": "New text"
+          }
+        },
+        "required": [
+          "app",
+          "ref",
+          "value"
+        ]
+      }
+    },
+    {
+      "name": "focus_element",
+      "description": "Bring the app to the front and move keyboard focus to an element by ref, e.g. before type_text.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Element ref exactly as read_ui or find_elements returned it, e.g. \"w1/3/2#0a1b2c3\" (the #fingerprint makes a changed UI fail instead of acting on another element)"
+          }
+        },
+        "required": [
+          "app",
+          "ref"
+        ]
+      }
+    },
+    {
+      "name": "type_text",
+      "description": "Bring an app to the front and type text into its focused element. method keystroke (default, at most 1000 characters) types key by key in chunks, and \"\\n\" presses Return; insert puts the text into the focused text field through Accessibility (no keys, no clipboard; \"\\n\" is a line break) and checks it arrived; paste uses the clipboard, checks the text arrived, then restores the clipboard. Typing stops if another app takes focus.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text to type"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "keystroke",
+              "insert",
+              "paste"
+            ],
+            "default": "keystroke",
+            "description": "keystroke, insert (Accessibility) or paste (clipboard)"
+          }
+        },
+        "required": [
+          "app",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "press_keys",
+      "description": "Bring an app to the front and press key combos, e.g. \"cmd+f\", \"enter\", \"cmd+shift+n\" or a space-separated sequence \"cmd+a delete\". Modifiers: cmd, shift, ctrl, opt. Keys: letters, digits, punctuation, enter, tab, space, delete, escape, arrows (up/down/left/right), home, end, pageup, pagedown, f1-f12. System-wide shortcuts (cmd+tab, cmd+space, ctrl+arrows, cmd+q, cmd+h, cmd+m, screenshots, lock screen, force quit) are refused.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "keys": {
+            "type": "string",
+            "description": "Key combos separated by spaces, e.g. \"cmd+f\""
+          }
+        },
+        "required": [
+          "app",
+          "keys"
+        ]
+      }
+    },
+    {
+      "name": "click_at",
+      "description": "Bring an app to the front and click at screen coordinates (points, as in read_ui positions). The point must be inside one of that app's windows and not covered by another app's window.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "App name or bundle id as shown by list_apps, e.g. \"Finder\" or \"net.whatsapp.WhatsApp\" (must be in COMPUTER_CONTROL_ALLOWED_APPS)"
+          },
+          "x": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "button": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ],
+            "default": "left"
+          },
+          "double": {
+            "type": "boolean",
+            "default": false,
+            "description": "Double-click"
+          }
+        },
+        "required": [
+          "app",
+          "x",
+          "y"
+        ]
+      }
+    },
+    {
+      "name": "get_clipboard",
+      "description": "Read the clipboard as plain text (null when it holds no text). Needs COMPUTER_CONTROL_ALLOW_CLIPBOARD_READ=1, because the clipboard may hold anything copied in any app.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "set_clipboard",
+      "description": "Replace the clipboard with plain text.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to put on the clipboard"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "take_screenshot",
+      "description": "Save a PNG screenshot of one app window (when `app` is given; only that window, by window id) or of the main display (needs COMPUTER_CONTROL_ALLOW_FULL_SCREENSHOT=1) to COMPUTER_CONTROL_SCREENSHOT_DIR (default: a temp folder). Returns the file path; agents cannot see the image, use read_ui to read the UI.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "Capture only this app's window (optional)"
+          },
+          "window": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 1,
+            "description": "1-based window index from list_windows (1 = frontmost)"
+          }
+        }
+      }
+    }
+  ]
+}

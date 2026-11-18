@@ -1,0 +1,16 @@
+# Read-only demo: list running apps and read the frontmost Finder window as text.
+#   COMPUTER_CONTROL_ALLOWED_APPS=Finder graphrt run computer-control/example.yaml --plugins .
+# Needs Accessibility permission for the app that runs graphrt
+# (System Settings → Privacy & Security → Accessibility) and an open Finder window.
+version: "1"
+name: computer-control-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: apps, type: computer-control.list_apps }
+    - { id: finder, type: computer-control.read_ui, app: Finder, max_elements: 25, max_depth: 6 }
+    - { id: answer, type: answer, answer: "Running apps:\n{{#apps.data.text#}}\n\nFinder UI:\n{{#finder.data.text#}}" }
+  edges:
+    - { source: start, target: apps }
+    - { source: apps, target: finder }
+    - { source: finder, target: answer }

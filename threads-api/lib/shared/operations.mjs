@@ -8,12 +8,14 @@
  *     extraEnv: ["META_PAGE_ID"],             // other env vars the plugin may read
  *     createClient: ({ accessToken, environment, fetchImpl }) => client,
  *     resolveAccessToken?: ({ environment, nodeToken }) => token | null,  // replaces the env lookup
-
+ *     localOnly?: true,                       // no network, no secrets, no node `access_token` (e.g. desktop control)
+ *     limits?: { timeout_ms, max_concurrency },
  *     operations: [{ name, title, description, parameters, run }],
  *   }
  * Each operation becomes node kind `<name>.<operation>` and tool `<operation>`, except operations with
  * `nodeOnly: true` (e.g. token refresh), which are never offered to an LLM as tools.
- * `run({ client, args, environment, signal })` returns `{ data, next_cursor? }`.
+ * `run({ client, args, environment, signal })` returns `{ data, next_cursor? }`. Tool calls get a deadline
+ * `signal` (see resolveToolDeadlineMs) because the host cannot cancel a tool call.
  */
 import { Plugin, PluginError } from "./graphrt-plugin.mjs";
 import { validateArguments } from "./params.mjs";
@@ -27,6 +29,9 @@ const ACCESS_TOKEN_PROPERTY = {
   description: "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)",
 };
 const DEFAULT_LIMITS = { timeout_ms: 120000, max_concurrency: 8 };
+// A tool call must give up before the host's timeout, so its error still reaches the agent.
+const TOOL_DEADLINE_MARGIN_MS = 10000;
+const MIN_TOOL_DEADLINE_MS = 5000;
 
 /**
  * Builds node and tool descriptors for every operation.
@@ -42,7 +47,9 @@ export function buildDescriptors(pluginDefinition) {
     category: "integration",
     config_schema: {
       ...operation.parameters,
-      properties: { ...operation.parameters.properties, access_token: ACCESS_TOKEN_PROPERTY },
+      properties: pluginDefinition.localOnly
+        ? operation.parameters.properties
+        : { ...operation.parameters.properties, access_token: ACCESS_TOKEN_PROPERTY },
     },
     outputs: NODE_OUTPUTS,
   }));
@@ -73,7 +80,12 @@ export function buildManifest(pluginDefinition) {
     command: "node",
     args: ["plugin.mjs"],
     // secrets: true lets a node's `access_token` (from a secret) arrive unmasked once the plugin is trusted.
-    permissions: { network: true, secrets: true, env: [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? [])] },
+    // A localOnly plugin talks to no API, so it asks for neither the network nor secrets.
+    permissions: {
+      network: !pluginDefinition.localOnly,
+      secrets: !pluginDefinition.localOnly,
+      env: [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? [])],
+    },
     limits: { ...DEFAULT_LIMITS, ...pluginDefinition.limits },
     nodes,
     tools,
@@ -113,18 +125,47 @@ export function createOperationRunner(pluginDefinition, environment, runnerOptio
  */
 export function startPlugin(pluginDefinition, environment = process.env) {
   const runOperation = createOperationRunner(pluginDefinition, environment);
+  const toolDeadlineMs = resolveToolDeadlineMs(pluginDefinition);
   const plugin = new Plugin(pluginDefinition.name);
   for (const operation of pluginDefinition.operations) {
     plugin.node(`${pluginDefinition.name}.${operation.name}`, async (ctx, req) => ({
       outputs: await runOperation(operation.name, req.config, { source: "node", signal: ctx.signal }),
     }));
     if (operation.nodeOnly) continue;
-    plugin.tool({ name: operation.name, description: operation.description, parameters: operation.parameters }, async (toolArguments) => {
-      const output = await runOperation(operation.name, toolArguments, { source: "tool" });
-      return { text: JSON.stringify(output), data: output };
-    });
+    const toolSpec = { name: operation.name, description: operation.description, parameters: operation.parameters };
+    plugin.tool(toolSpec, createToolHandler(runOperation, operation.name, toolDeadlineMs));
   }
   return plugin.run();
+}
+
+/**
+ * How long a tool call may run: the definition's `limits.timeout_ms` (default 120000) minus 10 s, at least 5 s.
+ * The protocol has no tool cancel message, so this deadline is the only way to stop a tool call's work.
+ *
+ * @param pluginDefinition - Plugin definition (object)
+ * @returns Deadline in milliseconds (number)
+ *
+ * @example
+ * resolveToolDeadlineMs({ limits: { timeout_ms: 60000 } }); // 50000
+ */
+export function resolveToolDeadlineMs(pluginDefinition) {
+  const { timeout_ms: timeoutMs } = { ...DEFAULT_LIMITS, ...pluginDefinition.limits };
+  return Math.max(MIN_TOOL_DEADLINE_MS, timeoutMs - TOOL_DEADLINE_MARGIN_MS);
+}
+
+/**
+ * Builds the tool handler for one operation: runs it with an `AbortSignal.timeout(deadlineMs)` signal.
+ *
+ * @param runOperation - Function from createOperationRunner (function)
+ * @param operationName - Operation to run (string)
+ * @param deadlineMs - Deadline for each call, from resolveToolDeadlineMs (number)
+ * @returns `async (toolArguments) => {text, data}` (function)
+ */
+export function createToolHandler(runOperation, operationName, deadlineMs) {
+  return async (toolArguments) => {
+    const output = await runOperation(operationName, toolArguments, { source: "tool", signal: AbortSignal.timeout(deadlineMs) });
+    return { text: JSON.stringify(output), data: output };
+  };
 }
 
 // Tools never accept a token from arguments: an LLM must not be able to choose credentials.

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-computer-control",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: control macOS desktop apps through the Accessibility tree (JXA via osascript)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
