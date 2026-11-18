@@ -4,7 +4,7 @@
  * instead of a generic (#131009) from WhatsApp.
  *
  * Limits (developers.facebook.com/docs/whatsapp/cloud-api/messages/...):
- * - reply buttons: 1-3 buttons, title <= 20 chars and unique, id <= 256, body <= 1024
+ * - reply buttons: 1-3 buttons, title <= 20 chars and unique, id <= 256 and unique, body <= 1024
  * - list: <= 10 sections, 1-10 rows in total, row title <= 24, description <= 72,
  *   row id <= 200, button text <= 20, section title <= 24 (required with >1 section), body <= 4096
  * - header text and footer <= 60
@@ -27,6 +27,8 @@ export function buildButtonsInteractive(args) {
   const buttons = args.buttons.map(normalizeButton);
   if (buttons.length < 1 || buttons.length > MAX_BUTTONS) rejectInput(`\`buttons\` must have 1 to ${MAX_BUTTONS} buttons; WhatsApp allows at most 3`);
   if (new Set(buttons.map((button) => button.title)).size !== buttons.length) rejectInput("Button titles must be unique");
+  // A reply carries only the button id, so two buttons with one id could not be told apart.
+  if (new Set(buttons.map((button) => button.id)).size !== buttons.length) rejectInput("Button ids must be unique (a plain-string button uses its text as id)");
   return withHeaderAndFooter({ type: "button" }, args, {
     action: { buttons: buttons.map((button) => ({ type: "reply", reply: button })) },
   });

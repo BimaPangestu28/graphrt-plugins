@@ -11,7 +11,7 @@ const ACTOR_PROPERTY = { type: "string", description: "urn:li:person:... or urn:
 const COMMENT_ID_PROPERTY = { type: "string", description: 'Comment id, or its full URN "urn:li:comment:(urn:li:activity:1,2)"' };
 const COMMENT_TEXT_PROPERTY = { type: "string", minLength: 1, description: "Comment text" };
 const REACTION_TYPES = ["LIKE", "PRAISE", "EMPATHY", "INTEREST", "APPRECIATION", "ENTERTAINMENT"];
-const COMMENT_URN_PATTERN = /^urn:li:comment:\(.+,([^,()]+)\)$/;
+const COMMENT_URN_PATTERN = /^urn:li:comment:\((.+),([^,()]+)\)$/;
 const COMMENT_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 /**
@@ -23,13 +23,35 @@ const COMMENT_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
  */
 export function toCommentId(commentIdOrUrn) {
   const urnMatch = COMMENT_URN_PATTERN.exec(commentIdOrUrn);
-  const commentId = urnMatch ? urnMatch[1] : commentIdOrUrn;
+  const commentId = urnMatch ? urnMatch[2] : commentIdOrUrn;
   if (!COMMENT_ID_PATTERN.test(commentId)) rejectInput(`\`comment_id\` must be a comment id or comment URN, got "${commentIdOrUrn}"`);
   return commentId;
 }
 
+// The post/activity URN a comment lives in, or the URN itself when it is not a comment.
+const threadUrnOf = (urn) => COMMENT_URN_PATTERN.exec(urn)?.[1] ?? urn;
+const entityTypeOf = (urn) => /^urn:li:([A-Za-z]+):/.exec(urn)?.[1];
+
+/**
+ * Checks that a full comment URN in `comment_id` belongs to `target_urn`'s thread. Only URNs of the same type can be
+ * compared locally: a share and the activity that carries it have different ids, so those pass through to LinkedIn.
+ *
+ * @param args - `{target_urn, comment_id}` (object)
+ * @throws PluginError kind `invalid_input` - When both are the same type but name different posts/activities
+ */
+export function assertCommentBelongsToTarget(args) {
+  if (!COMMENT_URN_PATTERN.test(args.comment_id)) return;
+  const commentThreadUrn = threadUrnOf(args.comment_id);
+  const targetThreadUrn = threadUrnOf(args.target_urn);
+  if (entityTypeOf(commentThreadUrn) !== entityTypeOf(targetThreadUrn) || commentThreadUrn === targetThreadUrn) return;
+  rejectInput(`\`comment_id\` ${args.comment_id} does not belong to \`target_urn\` ${args.target_urn} (its thread is ${commentThreadUrn})`);
+}
+
 const commentsPath = (targetUrn) => `/socialActions/${encodeRestliValue(requireUrn(targetUrn, "target_urn"))}/comments`;
-const commentPath = (args) => `${commentsPath(args.target_urn)}/${encodeRestliValue(toCommentId(args.comment_id))}`;
+const commentPath = (args) => {
+  assertCommentBelongsToTarget(args);
+  return `${commentsPath(args.target_urn)}/${encodeRestliValue(toCommentId(args.comment_id))}`;
+};
 
 function withRestliId(responseBody, headers) {
   const restliId = headers.get("x-restli-id");
@@ -134,9 +156,8 @@ export const engagementOperations = [
     },
     run: async ({ client, args, environment, signal }) => {
       const actorUrn = resolveActorUrn(args.actor, environment, "actor");
-      const path = commentPath(args);
-      await client.request({ method: "DELETE", path, query: { actor: actorUrn }, headers: { "x-restli-method": "DELETE" }, signal });
-      return { data: { comment_id: toCommentId(args.comment_id), deleted: true } };
+      const { alreadyAbsent } = await client.deleteResource({ path: commentPath(args), query: { actor: actorUrn }, signal });
+      return { data: { comment_id: toCommentId(args.comment_id), deleted: true, ...(alreadyAbsent ? { already_absent: true } : {}) } };
     },
   },
   {
@@ -158,8 +179,8 @@ export const engagementOperations = [
     run: async ({ client, args, environment, signal }) => {
       const actorKey = encodeRestliValue(resolveActorUrn(args.actor, environment, "actor"));
       const entityKey = encodeRestliValue(requireUrn(args.target_urn, "target_urn"));
-      await client.request({ method: "DELETE", path: `/reactions/(actor:${actorKey},entity:${entityKey})`, headers: { "x-restli-method": "DELETE" }, signal });
-      return { data: { target_urn: args.target_urn, removed: true } };
+      const { alreadyAbsent } = await client.deleteResource({ path: `/reactions/(actor:${actorKey},entity:${entityKey})`, signal });
+      return { data: { target_urn: args.target_urn, removed: true, ...(alreadyAbsent ? { already_absent: true } : {}) } };
     },
   },
   {

@@ -170,6 +170,8 @@ const VALIDATION_CASES = [
   ["send_reaction without emoji or remove", "send_reaction", { to: TO, message_id: "wamid.A" }, /emoji/],
   ["send_interactive_buttons with 4 buttons", "send_interactive_buttons", { to: TO, body: "x", buttons: ["a", "b", "c", "d"] }, /at most 3/],
   ["send_interactive_buttons with a long title", "send_interactive_buttons", { to: TO, body: "x", buttons: ["x".repeat(21)] }, /20 characters/],
+  ["send_interactive_buttons with duplicate ids", "send_interactive_buttons", { to: TO, body: "x", buttons: [{ id: "a", title: "Yes" }, { id: "a", title: "No" }] }, /ids must be unique/],
+  ["send_interactive_buttons with a string id equal to another id", "send_interactive_buttons", { to: TO, body: "x", buttons: ["Yes", { id: "Yes", title: "Sure" }] }, /ids must be unique/],
   ["send_interactive_buttons with duplicate titles", "send_interactive_buttons", { to: TO, body: "x", buttons: ["Yes", { id: "y2", title: "Yes" }] }, /unique/],
   ["send_interactive_buttons body over 1024", "send_interactive_buttons", { to: TO, body: "x".repeat(1025), buttons: ["a"] }, /1024/],
   ["send_interactive_list with 11 rows", "send_interactive_list", { to: TO, body: "x", button_text: "Go", sections: [{ title: "s", rows: Array.from({ length: 11 }, (_, index) => ({ id: `r${index}`, title: "t" })) }] }, /10 rows/],

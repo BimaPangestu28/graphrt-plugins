@@ -25,28 +25,62 @@ const MAX_PAGE_SIZE = 100;
  * OpenID userinfo endpoint lives under /v2 on the same origin and is reached
  * through `requestUserinfo` with an absolute URL.
  *
- * @param options - `{accessToken, environment, fetchImpl}` (object)
- * @returns `{request, requestWithHeaders, requestUserinfo, downloadImage, uploadImageBytes}` (object)
+ * @param options - `{accessToken, environment, fetchImpl, resolveHostAddresses?}` (object)
+ * @returns `{request, requestWithHeaders, deleteResource, requestUserinfo, downloadImage, uploadImageBytes}` (object)
  * @throws PluginError kind `invalid_input` - When LINKEDIN_VERSION is malformed
  */
-export function createLinkedInClient({ accessToken, environment, fetchImpl }) {
+export function createLinkedInClient({ accessToken, environment, fetchImpl, resolveHostAddresses }) {
   const linkedInVersion = readLinkedInVersion(environment);
-  const restClient = createApiClient({
-    baseUrl: `${LINKEDIN_ORIGIN}/rest`,
-    authorize: ({ headers }) => {
-      headers.authorization = `Bearer ${accessToken}`;
-    },
-    parseError: parseLinkedInError,
-    defaultHeaders: { "linkedin-version": linkedInVersion, "x-restli-protocol-version": "2.0.0" },
-    fetchImpl,
-  });
+  const buildRestClient = (clientFetch) =>
+    createApiClient({
+      baseUrl: `${LINKEDIN_ORIGIN}/rest`,
+      authorize: ({ headers }) => {
+        headers.authorization = `Bearer ${accessToken}`;
+      },
+      parseError: parseLinkedInError,
+      defaultHeaders: { "linkedin-version": linkedInVersion, "x-restli-protocol-version": "2.0.0" },
+      fetchImpl: clientFetch,
+    });
+  const restClient = buildRestClient(fetchImpl);
   const resolvedFetch = fetchImpl ?? ((...fetchArguments) => globalThis.fetch(...fetchArguments));
   return {
     ...restClient,
+    deleteResource: (requestOptions) => deleteToleratingRetriedNotFound({ buildRestClient, fetchImpl: resolvedFetch }, requestOptions),
     requestUserinfo: (signal) => restClient.request({ path: USERINFO_URL, signal }),
-    downloadImage: (imageUrl, signal) => downloadImage({ fetchImpl: resolvedFetch, imageUrl, signal }),
+    downloadImage: (imageUrl, signal) => downloadImage({ fetchImpl: resolvedFetch, imageUrl, signal, resolveHostAddresses }),
     uploadImageBytes: (uploadUrl, imageBytes, signal) => uploadImageBytes({ fetchImpl: resolvedFetch, uploadUrl, accessToken, imageBytes, signal }),
   };
+}
+
+/**
+ * Sends a Rest.li DELETE that the shared client may retry after a 5xx or network failure. If an earlier attempt may
+ * have applied the delete and a retry then gets 404, the resource is gone: report success instead of not_found.
+ *
+ * @param clientParts - `{buildRestClient, fetchImpl}` (object)
+ * @param requestOptions - `{path, query?, signal}` (object)
+ * @returns `{alreadyAbsent}` (Promise<object>)
+ * @throws PluginError - Any other failure, or a 404 on the first attempt
+ */
+async function deleteToleratingRetriedNotFound({ buildRestClient, fetchImpl }, requestOptions) {
+  let hadUncertainAttempt = false;
+  const observingFetch = async (...fetchArguments) => {
+    try {
+      const fetchResponse = await fetchImpl(...fetchArguments);
+      if (fetchResponse.status >= 500) hadUncertainAttempt = true;
+      return fetchResponse;
+    } catch (transportError) {
+      hadUncertainAttempt = true;
+      throw transportError;
+    }
+  };
+  const headers = { ...requestOptions.headers, "x-restli-method": "DELETE" };
+  try {
+    await buildRestClient(observingFetch).request({ ...requestOptions, method: "DELETE", headers });
+    return { alreadyAbsent: false };
+  } catch (deleteError) {
+    if (deleteError instanceof PluginError && deleteError.kind === "not_found" && hadUncertainAttempt) return { alreadyAbsent: true };
+    throw deleteError;
+  }
 }
 
 function readLinkedInVersion(environment) {

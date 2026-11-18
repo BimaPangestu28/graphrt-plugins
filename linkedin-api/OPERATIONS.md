@@ -12,8 +12,8 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | `get_post` | Read one post by URN (as its author). | **post_urn** |
 | `list_organization_posts` | List posts by an organization (needs r_organization_social, Community Management API). | author_urn, sort_by, limit, cursor |
 | `update_post` | Edit the text of a post. | **post_urn**, **text**, little_text_format |
-| `delete_post` | Delete a post. | **post_urn** |
-| `upload_image` | Upload an image from a public https URL (image/*, max 10 MB). Returns image_urn for create_post. | **image_url**, owner_urn |
+| `delete_post` | Delete a post. A retry after a server error that finds it gone reports already_absent. | **post_urn** |
+| `upload_image` | Upload a JPEG, PNG or GIF image (max 10 MB) from a public https URL. Returns image_urn for create_post. | **image_url**, owner_urn |
 | `list_comments` | List comments on a post, or replies to a comment (pass the comment URN as target_urn). | **target_urn**, limit, cursor |
 | `create_comment` | Comment on a post, or reply to a comment with parent_comment_urn. | **target_urn**, **text**, actor, parent_comment_urn |
 | `update_comment` | Edit the text of a comment made by the actor. | **target_urn**, **comment_id**, **text**, actor |

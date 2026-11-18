@@ -109,12 +109,19 @@
         "type": "object",
         "properties": {
           "video_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 20,
-            "description": "1-20 video ids"
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "1-20 video ids (one id may be passed as a plain string)"
           },
           "fields": {
             "type": "string",
@@ -228,7 +235,7 @@
           },
           "title": {
             "type": "string",
-            "description": "Caption with #hashtags and @mentions (direct only)"
+            "description": "Caption with #hashtags and @mentions (direct only; inbox drafts are captioned in the TikTok app)"
           },
           "privacy_level": {
             "type": "string",
@@ -302,12 +309,19 @@
         "type": "object",
         "properties": {
           "photo_urls": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 35,
-            "description": "1-35 public image URLs"
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 35
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "1-35 public image URLs (one URL may be passed as a plain string)"
           },
           "mode": {
             "type": "string",
@@ -1023,12 +1037,19 @@
         "type": "object",
         "properties": {
           "video_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 20,
-            "description": "1-20 video ids"
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "1-20 video ids (one id may be passed as a plain string)"
           },
           "fields": {
             "type": "string",
@@ -1070,7 +1091,7 @@
           },
           "title": {
             "type": "string",
-            "description": "Caption with #hashtags and @mentions (direct only)"
+            "description": "Caption with #hashtags and @mentions (direct only; inbox drafts are captioned in the TikTok app)"
           },
           "privacy_level": {
             "type": "string",
@@ -1126,12 +1147,19 @@
         "type": "object",
         "properties": {
           "photo_urls": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 35,
-            "description": "1-35 public image URLs"
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 35
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "1-35 public image URLs (one URL may be passed as a plain string)"
           },
           "mode": {
             "type": "string",

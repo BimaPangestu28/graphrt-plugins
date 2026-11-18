@@ -2,33 +2,40 @@
  * Binary transfers for `upload_image`: download an image from a public https
  * URL (no credentials) and PUT its bytes to the LinkedIn upload URL.
  *
- * The upload URL is on a different LinkedIn host than the REST API, so the
- * shared client (which only allows its own origin) cannot be used. The Bearer
- * token is sent only when that host is https and ends with `.linkedin.com`.
+ * The download follows redirects by hand and refuses http and internal hosts
+ * on every hop (see public-https-fetch.mjs). The upload URL is on a different
+ * LinkedIn host than the REST API, so the shared client (which only allows its
+ * own origin) cannot be used. The Bearer token is sent only when that host is
+ * https and ends with `.linkedin.com`.
  */
 import { PluginError } from "./shared/graphrt-plugin.mjs";
+import { fetchPublicHttps } from "./public-https-fetch.mjs";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const TRANSFER_TIMEOUT_MS = 60000;
+/** Each transfer (the whole download including redirects, or the PUT) gets this long. */
+export const TRANSFER_TIMEOUT_MS = 60000;
+// The Images API accepts JPG, PNG and GIF only.
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif"]);
 const UPLOAD_STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission_denied", 404: "not_found", 429: "rate_limited" };
 
 /**
- * Downloads an image, enforcing https, an image/* content type and a 10 MB limit.
+ * Downloads an image, enforcing https on public hosts (every redirect hop), JPEG/PNG/GIF and a 10 MB limit.
  *
- * @param options - `{fetchImpl, imageUrl, signal}` (object)
+ * @param options - `{fetchImpl, imageUrl, signal, resolveHostAddresses?}` (object)
  * @returns `{imageBytes, contentType}` (Promise<object>)
- * @throws PluginError kind `invalid_input` - Bad URL, failed download, non-image or too large; `network_error`, `cancelled`
+ * @throws PluginError kind `invalid_input` - Bad URL, internal host, failed download, unsupported type or too large; `network_error`, `cancelled`
  */
-export async function downloadImage({ fetchImpl, imageUrl, signal }) {
-  requireHttpsUrl(imageUrl, "image_url");
-  const imageResponse = await fetchWithTimeout(fetchImpl, imageUrl, { method: "GET", redirect: "follow" }, signal);
+export async function downloadImage({ fetchImpl, imageUrl, signal, resolveHostAddresses }) {
+  const imageResponse = await withTransferTimeout(signal, (transferSignal) =>
+    fetchPublicHttps(imageUrl, { fetchImpl, resolveHostAddresses, signal: transferSignal, label: "image_url" }),
+  );
   if (!imageResponse.ok) throw invalidImage(`could not download image_url: HTTP ${imageResponse.status}`);
-  if (imageResponse.url && !imageResponse.url.startsWith("https://")) throw invalidImage("image_url redirected to a non-https URL");
   const contentType = imageResponse.headers.get("content-type") ?? "";
-  if (!contentType.toLowerCase().startsWith("image/")) throw invalidImage(`image_url is not an image (content-type "${contentType}")`);
+  const mediaType = contentType.split(";")[0].trim().toLowerCase();
+  if (!SUPPORTED_IMAGE_TYPES.has(mediaType)) throw invalidImage(`image_url must be a JPEG, PNG or GIF image (content-type "${contentType}")`);
   if (Number(imageResponse.headers.get("content-length")) > MAX_IMAGE_BYTES) throw invalidImage("image is larger than 10 MB");
-  const imageBytes = await readBodyWithLimit(imageResponse, MAX_IMAGE_BYTES);
-  return { imageBytes, contentType };
+  const imageBytes = await readBodyWithLimit(imageResponse, MAX_IMAGE_BYTES, signal);
+  return { imageBytes, contentType: mediaType };
 }
 
 /**
@@ -41,7 +48,9 @@ export async function downloadImage({ fetchImpl, imageUrl, signal }) {
 export async function uploadImageBytes({ fetchImpl, uploadUrl, accessToken, imageBytes, signal }) {
   assertLinkedInUploadHost(uploadUrl);
   const headers = { authorization: `Bearer ${accessToken}`, "content-type": "application/octet-stream" };
-  const uploadResponse = await fetchWithTimeout(fetchImpl, uploadUrl, { method: "PUT", headers, body: imageBytes }, signal);
+  const uploadResponse = await withTransferTimeout(signal, (transferSignal) =>
+    fetchImpl(uploadUrl, { method: "PUT", headers, body: imageBytes, signal: transferSignal }),
+  );
   if (uploadResponse.ok) return;
   const responseText = (await uploadResponse.text()).slice(0, 300).split(accessToken).join("[redacted]");
   const kind = UPLOAD_STATUS_KINDS[uploadResponse.status] ?? "api_error";
@@ -61,36 +70,36 @@ function assertLinkedInUploadHost(uploadUrl) {
   }
 }
 
-function requireHttpsUrl(candidateUrl, argumentName) {
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(candidateUrl);
-  } catch {
-    throw invalidImage(`\`${argumentName}\` is not a valid URL`);
-  }
-  if (parsedUrl.protocol !== "https:") throw invalidImage(`\`${argumentName}\` must be an https URL`);
-}
-
-async function fetchWithTimeout(fetchImpl, url, init, callerSignal) {
+// Runs one transfer with its own timeout; policy errors pass through, transport errors are classified.
+async function withTransferTimeout(callerSignal, runTransfer) {
   const timeoutSignal = AbortSignal.timeout(TRANSFER_TIMEOUT_MS);
   const signal = callerSignal ? AbortSignal.any([callerSignal, timeoutSignal]) : timeoutSignal;
   try {
-    return await fetchImpl(url, { ...init, signal });
-  } catch (fetchError) {
-    if (callerSignal?.aborted) throw new PluginError("Request cancelled", { kind: "cancelled" });
-    const reason = fetchError?.name === "TimeoutError" ? "request timed out" : String(fetchError?.cause?.message ?? fetchError?.message ?? fetchError);
-    throw new PluginError(`Network error: ${reason}`, { kind: "network_error", retryable: true });
+    return await runTransfer(signal);
+  } catch (transferError) {
+    throw classifyTransferError(transferError, callerSignal);
   }
 }
 
-async function readBodyWithLimit(response, maxBytes) {
-  if (!response.body) return new Uint8Array(await response.arrayBuffer());
+function classifyTransferError(transferError, callerSignal) {
+  if (transferError instanceof PluginError) return transferError;
+  if (callerSignal?.aborted) return new PluginError("Request cancelled", { kind: "cancelled" });
+  const reason = transferError?.name === "TimeoutError" ? "request timed out" : String(transferError?.cause?.message ?? transferError?.message ?? transferError);
+  return new PluginError(`Network error: ${reason}`, { kind: "network_error", retryable: true });
+}
+
+// Stops reading (cancelling the download) as soon as the body passes `maxBytes`.
+async function readBodyWithLimit(response, maxBytes, callerSignal) {
   const chunks = [];
   let totalBytes = 0;
-  for await (const chunk of response.body) {
-    totalBytes += chunk.byteLength;
-    if (totalBytes > maxBytes) throw invalidImage("image is larger than 10 MB");
-    chunks.push(chunk);
+  try {
+    for await (const chunk of response.body ?? []) {
+      totalBytes += chunk.byteLength;
+      if (totalBytes > maxBytes) throw invalidImage("image is larger than 10 MB");
+      chunks.push(chunk);
+    }
+  } catch (readError) {
+    throw classifyTransferError(readError, callerSignal);
   }
   return Buffer.concat(chunks);
 }

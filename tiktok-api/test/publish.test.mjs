@@ -159,3 +159,23 @@ test("a transient 502 while polling does not abort a publish that succeeds", asy
   ]);
   assert.equal(output.data.status, "PUBLISH_COMPLETE");
 });
+
+for (const [label, extraArgs] of [
+  ["title", { title: "caption" }],
+  ["privacy_level", { privacy_level: "SELF_ONLY" }],
+  ["disable_comment", { disable_comment: true }],
+]) {
+  test(`publish_video mode inbox rejects ${label} instead of dropping it`, async () => {
+    const { calls, error } = await runWithResponses("publish_video", { video_url: "https://cdn.example.com/a.mp4", mode: "inbox", ...extraArgs }, [])
+      .then((result) => ({ ...result, error: null }), (caught) => ({ calls: [], error: caught }));
+    assert.equal(error?.kind, "invalid_input");
+    assert.match(error.message, new RegExp(label));
+    assert.match(error.message, /TikTok app/);
+    assert.equal(calls.length, 0);
+  });
+}
+
+test("publish_photos accepts a single plain photo URL string", async () => {
+  const { calls } = await runWithResponses("publish_photos", { photo_urls: "https://cdn.example.com/1.jpg", mode: "upload", wait: false }, [openOk({ publish_id: "p1" })]);
+  assert.deepEqual(calls[0].json.source_info.photo_images, ["https://cdn.example.com/1.jpg"]);
+});

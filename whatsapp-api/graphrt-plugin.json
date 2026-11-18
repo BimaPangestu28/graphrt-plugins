@@ -506,11 +506,11 @@
           },
           "mime_type": {
             "type": "string",
-            "description": "MIME type to use when the server's Content-Type is wrong or generic"
+            "description": "MIME type to use when the server reports no Content-Type or application/octet-stream (ignored otherwise)"
           },
           "filename": {
             "type": "string",
-            "description": "File name for the upload"
+            "description": "File name for the upload (default: upload.<extension from the MIME type>)"
           },
           "phone_number_id": {
             "type": "string",
@@ -1390,11 +1390,11 @@
           },
           "mime_type": {
             "type": "string",
-            "description": "MIME type to use when the server's Content-Type is wrong or generic"
+            "description": "MIME type to use when the server reports no Content-Type or application/octet-stream (ignored otherwise)"
           },
           "filename": {
             "type": "string",
-            "description": "File name for the upload"
+            "description": "File name for the upload (default: upload.<extension from the MIME type>)"
           },
           "phone_number_id": {
             "type": "string",

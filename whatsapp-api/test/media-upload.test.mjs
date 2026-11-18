@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runWithResponses, rejectsWithKind } from "./helpers.mjs";
+import { createFakeResolver, runWithResponses, rejectsWithKind } from "./helpers.mjs";
 
 const IMAGE_RESPONSE = { body: "JPEGBYTES", headers: { "content-type": "image/jpeg" } };
 const UPLOAD_RESPONSE = { body: { id: "media-1" } };
@@ -75,6 +75,7 @@ test("upload_media gives the upload POST a longer timeout than the 30 s default"
   const fakeClient = {
     fetchImpl: async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/png" } }),
     request: async (requestOptions) => (requests.push(requestOptions), { id: "media-1" }),
+    resolveHostAddresses: createFakeResolver(),
   };
   await uploadOperation.run({ client: fakeClient, args: { url: "https://cdn.example.com/a.png", type: "image" }, environment: { WHATSAPP_PHONE_NUMBER_ID: "123" } });
   assert.ok(UPLOAD_TIMEOUT_MS > 30000);
@@ -93,9 +94,78 @@ test("a download that stalls mid-body becomes network_error, and a cancel mid-bo
       }),
       { headers: { "content-type": "image/png" } },
     );
-  await assert.rejects(downloadMedia(stallingFetch, { url: "https://cdn.example.com/a.png", mediaType: "image" }), (error) => error.kind === "network_error");
+  await assert.rejects(downloadMedia(stallingFetch, { url: "https://cdn.example.com/a.png", mediaType: "image", resolveHostAddresses: createFakeResolver() }), (error) => error.kind === "network_error");
   await assert.rejects(
-    downloadMedia(stallingFetch, { url: "https://cdn.example.com/a.png", mediaType: "image", signal: AbortSignal.abort() }),
+    downloadMedia(stallingFetch, { url: "https://cdn.example.com/a.png", mediaType: "image", signal: AbortSignal.abort(), resolveHostAddresses: createFakeResolver() }),
     (error) => error.kind === "cancelled",
   );
 });
+
+test("upload_media ignores mime_type when the server reports a specific type", async () => {
+  const { rawBodies, output } = await runWithResponses("upload_media", { url: "https://img.test/a", type: "image", mime_type: "image/jpeg" }, [
+    { body: "PNG", headers: { "content-type": "image/png" } },
+    UPLOAD_RESPONSE,
+  ]);
+  assert.equal(rawBodies[1].get("type"), "image/png");
+  assert.equal(output.data.mime_type, "image/png");
+  await rejectsWithKind(
+    assert,
+    runWithResponses("upload_media", { url: "https://img.test/page", type: "image", mime_type: "image/jpeg" }, [{ body: "<html>", headers: { "content-type": "text/html" } }]),
+    "invalid_input",
+    /text\/html/,
+  );
+});
+
+test("upload_media uses mime_type when the server reports no content type", async () => {
+  const noTypeFetch = async () => new Response(new Uint8Array([1, 2]), { headers: {} });
+  const { downloadMedia } = await import("../lib/media-download.mjs");
+  const fileBlob = await downloadMedia(noTypeFetch, { url: "https://img.test/a", mediaType: "image", mimeTypeOverride: "image/png", resolveHostAddresses: createFakeResolver() });
+  assert.equal(fileBlob.type, "image/png");
+});
+
+test("upload_media accepts the image types the Cloud API lists: JPEG, PNG and static WebP", async () => {
+  for (const mimeType of ["image/jpeg", "image/png", "image/webp"]) {
+    const { rawBodies } = await runWithResponses("upload_media", { url: "https://img.test/a", type: "image" }, [{ body: "x", headers: { "content-type": mimeType } }, UPLOAD_RESPONSE]);
+    assert.equal(rawBodies[1].get("type"), mimeType);
+  }
+  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/a", type: "image" }, [{ body: "x", headers: { "content-type": "image/gif" } }]), "invalid_input", /image\/gif/);
+});
+
+test("upload_media gives the default file name an extension from the MIME type", async () => {
+  for (const [mediaType, mimeType, expectedName] of [
+    ["image", "image/jpeg", "upload.jpg"],
+    ["audio", "audio/mpeg", "upload.mp3"],
+    ["document", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "upload.docx"],
+    ["sticker", "image/webp", "upload.webp"],
+  ]) {
+    const { rawBodies } = await runWithResponses("upload_media", { url: "https://f.test/download", type: mediaType }, [{ body: "x", headers: { "content-type": mimeType } }, UPLOAD_RESPONSE]);
+    assert.equal(rawBodies[1].get("file").name, expectedName, mimeType);
+  }
+});
+
+test("upload_media follows redirects by hand, checking every hop", async () => {
+  const { calls } = await runWithResponses("upload_media", { url: "https://img.test/a.jpg", type: "image" }, [
+    { status: 302, body: "", headers: { location: "https://cdn.test/real.jpg" } },
+    IMAGE_RESPONSE,
+    UPLOAD_RESPONSE,
+  ]);
+  assert.deepEqual(calls.map((call) => call.url).slice(0, 2), ["https://img.test/a.jpg", "https://cdn.test/real.jpg"]);
+});
+
+for (const [label, url, responses, addressesByHost, expectedMessage] of [
+  ["a redirect to http", "https://img.test/a.jpg", [{ status: 301, body: "", headers: { location: "http://img.test/a.jpg" } }], {}, /https/],
+  ["a redirect to a private host", "https://img.test/a.jpg", [{ status: 308, body: "", headers: { location: "https://nas.test/a.jpg" } }], { "nas.test": ["192.168.1.2"] }, /public/],
+  ["a loopback address", "https://127.0.0.1/a.jpg", [IMAGE_RESPONSE], {}, /public/],
+  ["an IPv6 loopback address", "https://[::1]/a.jpg", [IMAGE_RESPONSE], {}, /public/],
+  ["a host resolving to link-local", "https://meta.test/a.jpg", [IMAGE_RESPONSE], { "meta.test": ["169.254.169.254"] }, /public/],
+  ["too many redirects", "https://img.test/a.jpg", Array.from({ length: 7 }, () => ({ status: 302, body: "", headers: { location: "https://img.test/a.jpg" } })), {}, /redirected more than/],
+]) {
+  test(`upload_media refuses ${label} with invalid_input`, async () => {
+    await rejectsWithKind(
+      assert,
+      runWithResponses("upload_media", { url, type: "image" }, responses, undefined, createFakeResolver(addressesByHost)),
+      "invalid_input",
+      expectedMessage,
+    );
+  });
+}

@@ -11,7 +11,7 @@ and reads and writes comments and reactions. Every operation is a workflow node 
 - **Images:** `upload_image` downloads an image from an https URL and uploads it to LinkedIn, returning an `image_urn` for `create_post`
 - **Comments:** list (on a post, or replies on a comment), create, reply, edit, delete
 - **Reactions:** add (LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT), remove, list
-- **`api_request`:** any other REST endpoint, restricted to `api.linkedin.com`
+- **`api_request`:** any other REST endpoint, restricted to `api.linkedin.com` (see the limits under Usage)
 - Clear error kinds; tokens never appear in errors.
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md).
@@ -87,6 +87,14 @@ graphrt run linkedin-api/example.yaml --plugins .
 - **Comments:** `create_comment` with `parent_comment_urn` posts a reply. `update_comment`/`delete_comment` take the
   post (`target_urn`) and the comment id or full comment URN.
 - **List operations** return `data` and `next_cursor` (a start offset). Pass `next_cursor` back as `cursor` for the next page.
+- **`api_request`** takes no custom headers, so it cannot set `X-RestLi-Method`. Rest.li calls that need it
+  (`PARTIAL_UPDATE`, `BATCH_*`, and some finders and deletes) fail through it; use the dedicated operations for those.
+  As an agent tool it is GET-only; other methods only work from workflow nodes.
+- **Deletes** (`delete_post`, `delete_comment`, `remove_reaction`): when a delete is retried after a server error or
+  network failure and the retry gets 404, the first attempt most likely went through, so the operation succeeds with
+  `already_absent: true`. A 404 on the first attempt is still `not_found`.
+- **Images:** `upload_image` accepts JPEG, PNG and GIF only. The URL and every redirect must be https on a public host
+  (loopback, private and link-local addresses are refused).
 - **Polling:** graphrt plugins can't receive webhooks. To react to new comments, run a workflow on a schedule that lists them.
 
 ## Errors
@@ -95,7 +103,7 @@ graphrt run linkedin-api/example.yaml --plugins .
 | `invalid_input` | Bad arguments or URNs, missing author, HTTP 400/422, or an inactive `LINKEDIN_VERSION` (426 `NONEXISTENT_VERSION`) |
 | `auth_error` | Missing, invalid, expired or revoked token (HTTP 401, serviceErrorCode 65600–65604) |
 | `permission_denied` | Missing scope, Community Management approval or organization role (HTTP 403, `ACCESS_DENIED`) |
-| `rate_limited` | HTTP 429 (daily app/member limits). Retried briefly; daily limits reset at midnight UTC |
+| `rate_limited` | HTTP 429. On LinkedIn this usually means a **daily** app or member limit was hit, not a short burst: the brief automatic retries rarely help, and the limit resets at midnight UTC. Check usage in the Developer Portal (Analytics tab) |
 | `not_found`, `api_error`, `network_error`, `cancelled` | As named |
 
 Messages include LinkedIn's `serviceErrorCode` and `code` when present.

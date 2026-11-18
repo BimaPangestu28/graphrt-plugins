@@ -18,7 +18,7 @@
     ]
   },
   "limits": {
-    "timeout_ms": 120000,
+    "timeout_ms": 240000,
     "max_concurrency": 8
   },
   "nodes": [
@@ -261,7 +261,7 @@
     {
       "kind": "linkedin-api.delete_post",
       "title": "Delete LinkedIn post",
-      "description": "Delete a post.",
+      "description": "Delete a post. A retry after a server error that finds it gone reports already_absent.",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -295,7 +295,7 @@
     {
       "kind": "linkedin-api.upload_image",
       "title": "Upload LinkedIn image",
-      "description": "Upload an image from a public https URL (image/*, max 10 MB). Returns image_urn for create_post.",
+      "description": "Upload a JPEG, PNG or GIF image (max 10 MB) from a public https URL. Returns image_urn for create_post.",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -858,7 +858,7 @@
     },
     {
       "name": "delete_post",
-      "description": "Delete a post.",
+      "description": "Delete a post. A retry after a server error that finds it gone reports already_absent.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -874,7 +874,7 @@
     },
     {
       "name": "upload_image",
-      "description": "Upload an image from a public https URL (image/*, max 10 MB). Returns image_urn for create_post.",
+      "description": "Upload a JPEG, PNG or GIF image (max 10 MB) from a public https URL. Returns image_urn for create_post.",
       "parameters": {
         "type": "object",
         "properties": {
