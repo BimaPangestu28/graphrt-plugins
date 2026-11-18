@@ -8,6 +8,9 @@
   "scripts": {
     "sync": "node scripts/sync-shared.mjs",
     "check": "node scripts/sync-shared.mjs --check",
-    "test": "node scripts/run-tests.mjs"
+    "test": "node scripts/run-tests.mjs",
+    "pack:plugins": "node scripts/pack-plugins.mjs",
+    "verify:plugins": "node scripts/verify-plugins.mjs",
+    "publish:plugins": "node scripts/publish-plugins.mjs"
   }
 }
