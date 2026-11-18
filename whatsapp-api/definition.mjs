@@ -1,0 +1,29 @@
+/**
+ * whatsapp-api plugin definition: a business number through the official
+ * WhatsApp Business Cloud API (Graph API). Incoming messages arrive only by
+ * webhook, so they are out of scope (see README).
+ */
+import { createWhatsAppClient } from "./lib/client.mjs";
+import { createApiRequestOperation } from "./lib/shared/api-request-operation.mjs";
+import { accountOperations } from "./operations/account.mjs";
+import { mediaOperations } from "./operations/media.mjs";
+import { messagingOperations } from "./operations/messaging.mjs";
+import { templateOperations } from "./operations/templates.mjs";
+
+export const pluginDefinition = {
+  name: "whatsapp-api",
+  version: "0.1.0",
+  description: "WhatsApp Business Cloud API: send messages and templates, manage media, templates and the business profile",
+  tokenEnv: "WHATSAPP_ACCESS_TOKEN",
+  extraEnv: ["WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_GRAPH_VERSION"],
+  // upload_media may download and upload up to 100 MB.
+  limits: { timeout_ms: 300000 },
+  createClient: createWhatsAppClient,
+  operations: [
+    ...messagingOperations,
+    ...mediaOperations,
+    ...templateOperations,
+    ...accountOperations,
+    createApiRequestOperation({ apiName: "WhatsApp Cloud API (Graph)", examplePath: "/{phone-number-id}" }),
+  ],
+};
