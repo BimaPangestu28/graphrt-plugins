@@ -1,0 +1,12 @@
+# Read the signed-in LinkedIn member.
+#   LINKEDIN_ACCESS_TOKEN=... graphrt run linkedin-api/example.yaml --plugins .
+version: "1"
+name: linkedin-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: linkedin-api.get_userinfo }
+    - { id: answer, type: answer, answer: "Signed in as {{#me.data.name#}} ({{#me.data.person_urn#}})" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: answer }

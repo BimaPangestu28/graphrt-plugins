@@ -1,0 +1,1131 @@
+{
+  "name": "linkedin-api",
+  "version": "0.1.0",
+  "description": "LinkedIn member and organization posts, images, comments and reactions via the official LinkedIn REST API",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "LINKEDIN_ACCESS_TOKEN",
+      "LINKEDIN_AUTHOR_URN",
+      "LINKEDIN_VERSION"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "linkedin-api.get_userinfo",
+      "title": "Get LinkedIn member",
+      "description": "Read the signed-in member (OpenID userinfo: sub, name, email, picture) and their person_urn.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.create_post",
+      "title": "Create LinkedIn post",
+      "description": "Publish a text post as a member or organization, optionally with an uploaded image or an article link. Returns the post URN.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Post text"
+          },
+          "little_text_format": {
+            "type": "boolean",
+            "default": false,
+            "description": "true sends `text` as raw LinkedIn Little Text Format (mentions, {hashtag|\\#|tag}); false escapes reserved characters"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "CONNECTIONS",
+              "LOGGED_IN"
+            ],
+            "default": "PUBLIC"
+          },
+          "image_urn": {
+            "type": "string",
+            "description": "urn:li:image:... from upload_image"
+          },
+          "image_alt_text": {
+            "type": "string",
+            "description": "Alt text for the image"
+          },
+          "article_url": {
+            "type": "string",
+            "description": "https link to share as an article"
+          },
+          "article_title": {
+            "type": "string"
+          },
+          "article_description": {
+            "type": "string"
+          },
+          "article_thumbnail_urn": {
+            "type": "string",
+            "description": "urn:li:image:... thumbnail for the article"
+          },
+          "disable_reshare": {
+            "type": "boolean",
+            "default": false,
+            "description": "Stop others from resharing"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.get_post",
+      "title": "Get LinkedIn post",
+      "description": "Read one post by URN (as its author).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_urn": {
+            "type": "string",
+            "description": "Post URN, e.g. \"urn:li:share:123\" or \"urn:li:ugcPost:123\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_urn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.list_organization_posts",
+      "title": "List organization posts",
+      "description": "List posts by an organization (needs r_organization_social, Community Management API).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "author_urn": {
+            "type": "string",
+            "description": "urn:li:organization:... (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "LAST_MODIFIED",
+              "CREATED"
+            ],
+            "default": "LAST_MODIFIED"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (count)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (a start offset)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.update_post",
+      "title": "Update LinkedIn post",
+      "description": "Edit the text of a post.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_urn": {
+            "type": "string",
+            "description": "Post URN, e.g. \"urn:li:share:123\" or \"urn:li:ugcPost:123\""
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Post text"
+          },
+          "little_text_format": {
+            "type": "boolean",
+            "default": false,
+            "description": "true sends `text` as raw LinkedIn Little Text Format (mentions, {hashtag|\\#|tag}); false escapes reserved characters"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_urn",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.delete_post",
+      "title": "Delete LinkedIn post",
+      "description": "Delete a post.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "post_urn": {
+            "type": "string",
+            "description": "Post URN, e.g. \"urn:li:share:123\" or \"urn:li:ugcPost:123\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "post_urn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.upload_image",
+      "title": "Upload LinkedIn image",
+      "description": "Upload an image from a public https URL (image/*, max 10 MB). Returns image_urn for create_post.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "description": "Public https image URL"
+          },
+          "owner_urn": {
+            "type": "string",
+            "description": "Owner of the image, the future post author (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.list_comments",
+      "title": "List LinkedIn comments",
+      "description": "List comments on a post, or replies to a comment (pass the comment URN as target_urn).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (count)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (a start offset)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.create_comment",
+      "title": "Comment on LinkedIn",
+      "description": "Comment on a post, or reply to a comment with parent_comment_urn.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post URN the comment belongs to"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "parent_comment_urn": {
+            "type": "string",
+            "description": "Comment URN to reply to (nested comment)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target_urn",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.update_comment",
+      "title": "Edit LinkedIn comment",
+      "description": "Edit the text of a comment made by the actor.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id, or its full URN \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target_urn",
+          "comment_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.delete_comment",
+      "title": "Delete LinkedIn comment",
+      "description": "Delete a comment (the actor's own, or one on the actor's organization post).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id, or its full URN \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target_urn",
+          "comment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.add_reaction",
+      "title": "React on LinkedIn",
+      "description": "React to a post or comment (LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "reaction_type": {
+            "type": "string",
+            "enum": [
+              "LIKE",
+              "PRAISE",
+              "EMPATHY",
+              "INTEREST",
+              "APPRECIATION",
+              "ENTERTAINMENT"
+            ],
+            "default": "LIKE"
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.remove_reaction",
+      "title": "Remove LinkedIn reaction",
+      "description": "Remove the actor's reaction from a post or comment.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.list_reactions",
+      "title": "List LinkedIn reactions",
+      "description": "List reactions on a post or comment.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "CHRONOLOGICAL",
+              "REVERSE_CHRONOLOGICAL",
+              "RELEVANCE"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (count)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (a start offset)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linkedin-api.api_request",
+      "title": "LinkedIn REST API request",
+      "description": "Call any LinkedIn REST API endpoint that has no dedicated operation, e.g. path \"/organizations/12345\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/organizations/12345\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_userinfo",
+      "description": "Read the signed-in member (OpenID userinfo: sub, name, email, picture) and their person_urn.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "create_post",
+      "description": "Publish a text post as a member or organization, optionally with an uploaded image or an article link. Returns the post URN.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Post text"
+          },
+          "little_text_format": {
+            "type": "boolean",
+            "default": false,
+            "description": "true sends `text` as raw LinkedIn Little Text Format (mentions, {hashtag|\\#|tag}); false escapes reserved characters"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "CONNECTIONS",
+              "LOGGED_IN"
+            ],
+            "default": "PUBLIC"
+          },
+          "image_urn": {
+            "type": "string",
+            "description": "urn:li:image:... from upload_image"
+          },
+          "image_alt_text": {
+            "type": "string",
+            "description": "Alt text for the image"
+          },
+          "article_url": {
+            "type": "string",
+            "description": "https link to share as an article"
+          },
+          "article_title": {
+            "type": "string"
+          },
+          "article_description": {
+            "type": "string"
+          },
+          "article_thumbnail_urn": {
+            "type": "string",
+            "description": "urn:li:image:... thumbnail for the article"
+          },
+          "disable_reshare": {
+            "type": "boolean",
+            "default": false,
+            "description": "Stop others from resharing"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "get_post",
+      "description": "Read one post by URN (as its author).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_urn": {
+            "type": "string",
+            "description": "Post URN, e.g. \"urn:li:share:123\" or \"urn:li:ugcPost:123\""
+          }
+        },
+        "required": [
+          "post_urn"
+        ]
+      }
+    },
+    {
+      "name": "list_organization_posts",
+      "description": "List posts by an organization (needs r_organization_social, Community Management API).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "author_urn": {
+            "type": "string",
+            "description": "urn:li:organization:... (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "LAST_MODIFIED",
+              "CREATED"
+            ],
+            "default": "LAST_MODIFIED"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (count)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (a start offset)"
+          }
+        }
+      }
+    },
+    {
+      "name": "update_post",
+      "description": "Edit the text of a post.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_urn": {
+            "type": "string",
+            "description": "Post URN, e.g. \"urn:li:share:123\" or \"urn:li:ugcPost:123\""
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Post text"
+          },
+          "little_text_format": {
+            "type": "boolean",
+            "default": false,
+            "description": "true sends `text` as raw LinkedIn Little Text Format (mentions, {hashtag|\\#|tag}); false escapes reserved characters"
+          }
+        },
+        "required": [
+          "post_urn",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "delete_post",
+      "description": "Delete a post.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_urn": {
+            "type": "string",
+            "description": "Post URN, e.g. \"urn:li:share:123\" or \"urn:li:ugcPost:123\""
+          }
+        },
+        "required": [
+          "post_urn"
+        ]
+      }
+    },
+    {
+      "name": "upload_image",
+      "description": "Upload an image from a public https URL (image/*, max 10 MB). Returns image_urn for create_post.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "description": "Public https image URL"
+          },
+          "owner_urn": {
+            "type": "string",
+            "description": "Owner of the image, the future post author (default: LINKEDIN_AUTHOR_URN)"
+          }
+        },
+        "required": [
+          "image_url"
+        ]
+      }
+    },
+    {
+      "name": "list_comments",
+      "description": "List comments on a post, or replies to a comment (pass the comment URN as target_urn).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (count)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (a start offset)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      }
+    },
+    {
+      "name": "create_comment",
+      "description": "Comment on a post, or reply to a comment with parent_comment_urn.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post URN the comment belongs to"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          },
+          "parent_comment_urn": {
+            "type": "string",
+            "description": "Comment URN to reply to (nested comment)"
+          }
+        },
+        "required": [
+          "target_urn",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "update_comment",
+      "description": "Edit the text of a comment made by the actor.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id, or its full URN \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comment text"
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          }
+        },
+        "required": [
+          "target_urn",
+          "comment_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "delete_comment",
+      "description": "Delete a comment (the actor's own, or one on the actor's organization post).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "comment_id": {
+            "type": "string",
+            "description": "Comment id, or its full URN \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          }
+        },
+        "required": [
+          "target_urn",
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "name": "add_reaction",
+      "description": "React to a post or comment (LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "reaction_type": {
+            "type": "string",
+            "enum": [
+              "LIKE",
+              "PRAISE",
+              "EMPATHY",
+              "INTEREST",
+              "APPRECIATION",
+              "ENTERTAINMENT"
+            ],
+            "default": "LIKE"
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      }
+    },
+    {
+      "name": "remove_reaction",
+      "description": "Remove the actor's reaction from a post or comment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "actor": {
+            "type": "string",
+            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      }
+    },
+    {
+      "name": "list_reactions",
+      "description": "List reactions on a post or comment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_urn": {
+            "type": "string",
+            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "CHRONOLOGICAL",
+              "REVERSE_CHRONOLOGICAL",
+              "RELEVANCE"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Page size (count)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call (a start offset)"
+          }
+        },
+        "required": [
+          "target_urn"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any LinkedIn REST API endpoint that has no dedicated operation, e.g. path \"/organizations/12345\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/organizations/12345\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
