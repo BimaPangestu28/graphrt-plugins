@@ -19,6 +19,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [whatsapp-web](whatsapp-web/) | Your personal WhatsApp in the background via a headless WhatsApp Web session: read chats, send messages and files (rate limited) | 7 |
 | [whatsapp-api](whatsapp-api/) | WhatsApp Business Cloud API: send text, templates, media and interactive messages, manage templates and the profile | 19 |
 | [google-sheets](google-sheets/) | Google Sheets: read ranges, append rows, update and clear cells, find and upsert rows by header (OAuth or service account) | 11 |
+| [google-business-profile-api](google-business-profile-api/) | Google Business Profile: locations, hours, reviews and replies, posts and daily performance metrics (API access needs Google approval) | 13 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).

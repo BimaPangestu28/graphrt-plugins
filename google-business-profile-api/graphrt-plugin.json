@@ -1,0 +1,1322 @@
+{
+  "name": "google-business-profile-api",
+  "version": "0.1.0",
+  "description": "Google Business Profile accounts, locations, reviews, posts and performance metrics via the official Business Profile APIs",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-business-profile-api.list_accounts",
+      "title": "List Business Profile accounts",
+      "description": "List the Business Profile accounts (personal, location groups, organizations) the credentials can access.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "parent_account": {
+            "type": "string",
+            "description": "Organization or user group account id, to list the accounts under it"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PERSONAL",
+              "LOCATION_GROUP",
+              "USER_GROUP",
+              "ORGANIZATION"
+            ],
+            "description": "Only accounts of this type"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20,
+            "description": "Page size (max 20)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.list_locations",
+      "title": "List Business Profile locations",
+      "description": "List an account's locations (businesses) with title, address, phone, website and Maps ids. Location `name` is locations/{id}.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "read_mask": {
+            "type": "string",
+            "description": "Comma-separated Location fields to return (readMask)",
+            "default": "name,title,storeCode,phoneNumbers,storefrontAddress,websiteUri,metadata"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filter expression, e.g. title=\"Kopi Kenangan\""
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "title",
+              "title desc",
+              "storeCode",
+              "storeCode desc"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.get_location",
+      "title": "Get Business Profile location",
+      "description": "Get one location's details: profile description, phones, categories, address, regular and special hours.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "read_mask": {
+            "type": "string",
+            "description": "Comma-separated Location fields to return (readMask)",
+            "default": "name,title,storeCode,languageCode,phoneNumbers,categories,storefrontAddress,websiteUri,regularHours,specialHours,serviceArea,openInfo,profile,metadata"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "location_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.update_location",
+      "title": "Update Business Profile location",
+      "description": "Update only the given fields of a location: description, primary/additional phones, regular hours (replaces all periods) and special hours (replaces all). Times are HH:MM, dates YYYY-MM-DD. Safe to resend after a failure.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "description": {
+            "type": "string",
+            "description": "Business description (max 750 characters)"
+          },
+          "primary_phone": {
+            "type": "string",
+            "description": "Primary phone, e.g. +62 21 555 0100"
+          },
+          "additional_phones": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "description": "Up to 2 extra phones; [] removes them"
+          },
+          "regular_hours": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 50,
+            "description": "Opening periods, e.g. [{\"open_day\": \"MONDAY\", \"open_time\": \"09:00\", \"close_time\": \"17:00\"}]; close_day defaults to open_day, or the next day when close_time is before open_time (overnight)"
+          },
+          "special_hours": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 200,
+            "description": "Holiday hours, e.g. [{\"date\": \"2026-12-25\", \"closed\": true}, {\"date\": \"2026-12-31\", \"open_time\": \"10:00\", \"close_time\": \"15:00\"}]"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only validate, do not change the location"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "location_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.list_reviews",
+      "title": "List Google Business Profile reviews",
+      "description": "List a verified location's reviews, newest first by default, with the average rating and total count.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "updateTime desc",
+              "rating",
+              "rating desc"
+            ],
+            "default": "updateTime desc"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 50,
+            "description": "Page size (max 50)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.get_review",
+      "title": "Get Google Business Profile review",
+      "description": "Get one review with its star rating, comment and the owner's reply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "review_id": {
+            "type": "string",
+            "description": "Review id (reviewId from list_reviews)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "review_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.reply_to_review",
+      "title": "Reply to Google Business Profile review",
+      "description": "Post the owner's public reply to a review, or replace the existing reply.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "review_id": {
+            "type": "string",
+            "description": "Review id (reviewId from list_reviews)"
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Reply text (max 4096 bytes)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "review_id",
+          "comment"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.delete_review_reply",
+      "title": "Delete Google Business Profile review reply",
+      "description": "Delete the owner's reply to a review.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "review_id": {
+            "type": "string",
+            "description": "Review id (reviewId from list_reviews)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "review_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.list_local_posts",
+      "title": "List Google Business Profile posts",
+      "description": "List a location's posts (updates, events, offers), newest first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.create_local_post",
+      "title": "Create Google Business Profile post",
+      "description": "Publish a post on a location's Business Profile: STANDARD (update), EVENT or OFFER, with an optional button and photo URL. Never retried after an unknown outcome: check list_local_posts first.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "topic_type": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "EVENT",
+              "OFFER"
+            ],
+            "default": "STANDARD"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Post text (max 1500 characters); required for STANDARD"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the post, e.g. id or en"
+          },
+          "call_to_action_type": {
+            "type": "string",
+            "enum": [
+              "BOOK",
+              "ORDER",
+              "SHOP",
+              "LEARN_MORE",
+              "SIGN_UP",
+              "CALL"
+            ],
+            "description": "Button; CALL uses the location's phone"
+          },
+          "call_to_action_url": {
+            "type": "string",
+            "description": "Button link (not for CALL)"
+          },
+          "media_url": {
+            "type": "string",
+            "description": "Public http(s) URL of a photo (or video) Google fetches"
+          },
+          "media_format": {
+            "type": "string",
+            "enum": [
+              "PHOTO",
+              "VIDEO"
+            ],
+            "default": "PHOTO"
+          },
+          "event_title": {
+            "type": "string",
+            "description": "EVENT/OFFER: title"
+          },
+          "event_start": {
+            "type": "string",
+            "description": "EVENT/OFFER: start, YYYY-MM-DD or YYYY-MM-DDTHH:MM (location's time)"
+          },
+          "event_end": {
+            "type": "string",
+            "description": "EVENT/OFFER: end, YYYY-MM-DD or YYYY-MM-DDTHH:MM"
+          },
+          "offer_coupon_code": {
+            "type": "string",
+            "description": "OFFER: coupon code"
+          },
+          "offer_redeem_url": {
+            "type": "string",
+            "description": "OFFER: link to redeem online"
+          },
+          "offer_terms": {
+            "type": "string",
+            "description": "OFFER: terms and conditions"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.delete_local_post",
+      "title": "Delete Google Business Profile post",
+      "description": "Delete a post from a location's Business Profile.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "local_post_id": {
+            "type": "string",
+            "description": "Post id: the last part of the post's name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "local_post_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.get_daily_metrics",
+      "title": "Get Google Business Profile daily metrics",
+      "description": "Daily performance of a location between two dates: impressions (Maps/Search, desktop/mobile), calls, website clicks, directions, messages, bookings.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day, YYYY-MM-DD (inclusive)"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+                "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+                "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+                "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+                "BUSINESS_DIRECTION_REQUESTS",
+                "CALL_CLICKS",
+                "WEBSITE_CLICKS",
+                "MESSAGING_CLICKS",
+                "BUSINESS_BOOKINGS",
+                "BUSINESS_FOOD_MENU_CLICKS"
+              ]
+            },
+            "default": [
+              "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+              "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+              "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+              "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+              "BUSINESS_DIRECTION_REQUESTS",
+              "CALL_CLICKS",
+              "WEBSITE_CLICKS",
+              "MESSAGING_CLICKS",
+              "BUSINESS_BOOKINGS",
+              "BUSINESS_FOOD_MENU_CLICKS"
+            ],
+            "description": "Metrics to fetch; default all"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "location_id",
+          "start_date",
+          "end_date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-business-profile-api.api_request",
+      "title": "Google Business Profile API request",
+      "description": "Call any Google Business Profile API endpoint that has no dedicated operation, e.g. path \"/accounts/{account_id}/locations/{location_id}/media\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/accounts/{account_id}/locations/{location_id}/media\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "host": {
+            "type": "string",
+            "enum": [
+              "account_management",
+              "business_information",
+              "my_business_v4",
+              "performance"
+            ],
+            "default": "my_business_v4",
+            "description": "account_management = mybusinessaccountmanagement.googleapis.com/v1; business_information = mybusinessbusinessinformation.googleapis.com/v1; my_business_v4 = mybusiness.googleapis.com/v4; performance = businessprofileperformance.googleapis.com/v1"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_accounts",
+      "description": "List the Business Profile accounts (personal, location groups, organizations) the credentials can access.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "parent_account": {
+            "type": "string",
+            "description": "Organization or user group account id, to list the accounts under it"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PERSONAL",
+              "LOCATION_GROUP",
+              "USER_GROUP",
+              "ORGANIZATION"
+            ],
+            "description": "Only accounts of this type"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20,
+            "description": "Page size (max 20)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_locations",
+      "description": "List an account's locations (businesses) with title, address, phone, website and Maps ids. Location `name` is locations/{id}.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "read_mask": {
+            "type": "string",
+            "description": "Comma-separated Location fields to return (readMask)",
+            "default": "name,title,storeCode,phoneNumbers,storefrontAddress,websiteUri,metadata"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filter expression, e.g. title=\"Kopi Kenangan\""
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "title",
+              "title desc",
+              "storeCode",
+              "storeCode desc"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      }
+    },
+    {
+      "name": "get_location",
+      "description": "Get one location's details: profile description, phones, categories, address, regular and special hours.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "read_mask": {
+            "type": "string",
+            "description": "Comma-separated Location fields to return (readMask)",
+            "default": "name,title,storeCode,languageCode,phoneNumbers,categories,storefrontAddress,websiteUri,regularHours,specialHours,serviceArea,openInfo,profile,metadata"
+          }
+        },
+        "required": [
+          "location_id"
+        ]
+      }
+    },
+    {
+      "name": "update_location",
+      "description": "Update only the given fields of a location: description, primary/additional phones, regular hours (replaces all periods) and special hours (replaces all). Times are HH:MM, dates YYYY-MM-DD. Safe to resend after a failure.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "description": {
+            "type": "string",
+            "description": "Business description (max 750 characters)"
+          },
+          "primary_phone": {
+            "type": "string",
+            "description": "Primary phone, e.g. +62 21 555 0100"
+          },
+          "additional_phones": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "description": "Up to 2 extra phones; [] removes them"
+          },
+          "regular_hours": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 50,
+            "description": "Opening periods, e.g. [{\"open_day\": \"MONDAY\", \"open_time\": \"09:00\", \"close_time\": \"17:00\"}]; close_day defaults to open_day, or the next day when close_time is before open_time (overnight)"
+          },
+          "special_hours": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 200,
+            "description": "Holiday hours, e.g. [{\"date\": \"2026-12-25\", \"closed\": true}, {\"date\": \"2026-12-31\", \"open_time\": \"10:00\", \"close_time\": \"15:00\"}]"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only validate, do not change the location"
+          }
+        },
+        "required": [
+          "location_id"
+        ]
+      }
+    },
+    {
+      "name": "list_reviews",
+      "description": "List a verified location's reviews, newest first by default, with the average rating and total count.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "updateTime desc",
+              "rating",
+              "rating desc"
+            ],
+            "default": "updateTime desc"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 50,
+            "description": "Page size (max 50)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id"
+        ]
+      }
+    },
+    {
+      "name": "get_review",
+      "description": "Get one review with its star rating, comment and the owner's reply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "review_id": {
+            "type": "string",
+            "description": "Review id (reviewId from list_reviews)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "review_id"
+        ]
+      }
+    },
+    {
+      "name": "reply_to_review",
+      "description": "Post the owner's public reply to a review, or replace the existing reply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "review_id": {
+            "type": "string",
+            "description": "Review id (reviewId from list_reviews)"
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Reply text (max 4096 bytes)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "review_id",
+          "comment"
+        ]
+      }
+    },
+    {
+      "name": "delete_review_reply",
+      "description": "Delete the owner's reply to a review.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "review_id": {
+            "type": "string",
+            "description": "Review id (reviewId from list_reviews)"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "review_id"
+        ]
+      }
+    },
+    {
+      "name": "list_local_posts",
+      "description": "List a location's posts (updates, events, offers), newest first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size (max 100)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from a previous call"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id"
+        ]
+      }
+    },
+    {
+      "name": "create_local_post",
+      "description": "Publish a post on a location's Business Profile: STANDARD (update), EVENT or OFFER, with an optional button and photo URL. Never retried after an unknown outcome: check list_local_posts first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "topic_type": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "EVENT",
+              "OFFER"
+            ],
+            "default": "STANDARD"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Post text (max 1500 characters); required for STANDARD"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the post, e.g. id or en"
+          },
+          "call_to_action_type": {
+            "type": "string",
+            "enum": [
+              "BOOK",
+              "ORDER",
+              "SHOP",
+              "LEARN_MORE",
+              "SIGN_UP",
+              "CALL"
+            ],
+            "description": "Button; CALL uses the location's phone"
+          },
+          "call_to_action_url": {
+            "type": "string",
+            "description": "Button link (not for CALL)"
+          },
+          "media_url": {
+            "type": "string",
+            "description": "Public http(s) URL of a photo (or video) Google fetches"
+          },
+          "media_format": {
+            "type": "string",
+            "enum": [
+              "PHOTO",
+              "VIDEO"
+            ],
+            "default": "PHOTO"
+          },
+          "event_title": {
+            "type": "string",
+            "description": "EVENT/OFFER: title"
+          },
+          "event_start": {
+            "type": "string",
+            "description": "EVENT/OFFER: start, YYYY-MM-DD or YYYY-MM-DDTHH:MM (location's time)"
+          },
+          "event_end": {
+            "type": "string",
+            "description": "EVENT/OFFER: end, YYYY-MM-DD or YYYY-MM-DDTHH:MM"
+          },
+          "offer_coupon_code": {
+            "type": "string",
+            "description": "OFFER: coupon code"
+          },
+          "offer_redeem_url": {
+            "type": "string",
+            "description": "OFFER: link to redeem online"
+          },
+          "offer_terms": {
+            "type": "string",
+            "description": "OFFER: terms and conditions"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id"
+        ]
+      }
+    },
+    {
+      "name": "delete_local_post",
+      "description": "Delete a post from a location's Business Profile.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id from list_accounts, e.g. \"123\", \"accounts/123\" or a full resource name"
+          },
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "local_post_id": {
+            "type": "string",
+            "description": "Post id: the last part of the post's name"
+          }
+        },
+        "required": [
+          "account_id",
+          "location_id",
+          "local_post_id"
+        ]
+      }
+    },
+    {
+      "name": "get_daily_metrics",
+      "description": "Daily performance of a location between two dates: impressions (Maps/Search, desktop/mobile), calls, website clicks, directions, messages, bookings.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "description": "Location id from list_locations, e.g. \"456\", \"locations/456\" or \"accounts/1/locations/456\""
+          },
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day, YYYY-MM-DD (inclusive)"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+                "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+                "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+                "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+                "BUSINESS_DIRECTION_REQUESTS",
+                "CALL_CLICKS",
+                "WEBSITE_CLICKS",
+                "MESSAGING_CLICKS",
+                "BUSINESS_BOOKINGS",
+                "BUSINESS_FOOD_MENU_CLICKS"
+              ]
+            },
+            "default": [
+              "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+              "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+              "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+              "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+              "BUSINESS_DIRECTION_REQUESTS",
+              "CALL_CLICKS",
+              "WEBSITE_CLICKS",
+              "MESSAGING_CLICKS",
+              "BUSINESS_BOOKINGS",
+              "BUSINESS_FOOD_MENU_CLICKS"
+            ],
+            "description": "Metrics to fetch; default all"
+          }
+        },
+        "required": [
+          "location_id",
+          "start_date",
+          "end_date"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Business Profile API endpoint that has no dedicated operation, e.g. path \"/accounts/{account_id}/locations/{location_id}/media\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/accounts/{account_id}/locations/{location_id}/media\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "host": {
+            "type": "string",
+            "enum": [
+              "account_management",
+              "business_information",
+              "my_business_v4",
+              "performance"
+            ],
+            "default": "my_business_v4",
+            "description": "account_management = mybusinessaccountmanagement.googleapis.com/v1; business_information = mybusinessbusinessinformation.googleapis.com/v1; my_business_v4 = mybusiness.googleapis.com/v4; performance = businessprofileperformance.googleapis.com/v1"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
