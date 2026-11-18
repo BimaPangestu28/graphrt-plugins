@@ -26,6 +26,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [notion-api](notion-api/) | Notion: search, create pages with simple property values, update properties, query databases (data sources), append paragraphs, comments | 15 |
 | [airtable-api](airtable-api/) | Airtable: list bases and schemas, list/find/get records (safely escaped formulas), create, update and upsert records (deletes are node only) | 10 |
 | [google-calendar](google-calendar/) | Google Calendar: events with Meet links, free/busy and DST-aware free-slot search, idempotent booking; agent tools limited to allowed calendars (OAuth or service account) | 10 |
+| [web-browser](web-browser/) | Read public web pages in a headless browser: readable text or markdown, links, CSS-selector extraction and screenshots; public hosts only (no loopback, private or metadata addresses), robots.txt respected, no clicking or typing | 4 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).

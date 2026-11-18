@@ -1,0 +1,565 @@
+{
+  "name": "web-browser",
+  "version": "0.1.0",
+  "description": "Read public web pages in a headless browser: readable text or markdown, links, CSS-selector extraction and screenshots. Public hosts only, robots.txt respected, no clicking or typing.",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "WEB_BROWSER_SCREENSHOT_DIR",
+      "WEB_BROWSER_RESPECT_ROBOTS",
+      "WEB_BROWSER_IDLE_MINUTES",
+      "WEB_BROWSER_MAX_PAGES",
+      "WEB_BROWSER_MAX_DOWNLOAD_MB",
+      "WEB_BROWSER_USER_AGENT"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 100000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "web-browser.fetch_page",
+      "title": "Fetch web page",
+      "description": "Open a public web page in a headless browser and return its title, meta description, readable main text (optionally markdown) and links. Read-only: no clicking, typing or logins.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "main_content_only": {
+            "type": "boolean",
+            "default": true,
+            "description": "Keep only the main content (article/main), without navigation, footers and sidebars"
+          },
+          "include_markdown": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return the content as markdown (headings, lists, links, tables)"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 100000,
+            "default": 20000,
+            "description": "Cut the text (and markdown) after this many characters"
+          },
+          "max_links": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500,
+            "default": 50,
+            "description": "Links to return from the content (0 for none)"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "web-browser.get_links",
+      "title": "Get page links",
+      "description": "Open a public web page and list its unique http(s) links (url and text), optionally only the same host/domain or matching a wildcard pattern such as \"*/blog/*\".",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "same_host",
+              "same_domain"
+            ],
+            "default": "all",
+            "description": "`same_host` (ignores www.), `same_domain` (host and its subdomains) or `all`"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Wildcard (*) matched against the full link URL, case-insensitive; without * it matches anywhere in the URL (max 300 chars)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100,
+            "description": "Maximum links to return"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "web-browser.extract",
+      "title": "Extract from page",
+      "description": "Open a public web page and read values with CSS selectors: `fields` maps names to a selector string (text of the first match) or {selector, attribute?, all?}. CSS only; no scripts.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "fields": {
+            "type": "object",
+            "description": "e.g. {\"title\": \"h1\", \"prices\": {\"selector\": \".price\", \"all\": true}, \"next\": {\"selector\": \"a.next\", \"attribute\": \"href\"}}"
+          },
+          "max_matches": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Values per `all: true` field"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "url",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "web-browser.screenshot",
+      "title": "Screenshot web page",
+      "description": "Open a public web page and save a PNG screenshot (viewport, or full page up to max_height pixels) in WEB_BROWSER_SCREENSHOT_DIR; returns the file path.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "full_page": {
+            "type": "boolean",
+            "default": false,
+            "description": "Capture the whole page height (up to max_height) instead of the viewport"
+          },
+          "viewport_width": {
+            "type": "integer",
+            "minimum": 320,
+            "maximum": 1920,
+            "default": 1280,
+            "description": "Viewport width in CSS pixels"
+          },
+          "viewport_height": {
+            "type": "integer",
+            "minimum": 240,
+            "maximum": 2000,
+            "default": 800,
+            "description": "Viewport height in CSS pixels"
+          },
+          "max_height": {
+            "type": "integer",
+            "minimum": 240,
+            "maximum": 16000,
+            "default": 8000,
+            "description": "Full-page screenshots are cut at this height"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "fetch_page",
+      "description": "Open a public web page in a headless browser and return its title, meta description, readable main text (optionally markdown) and links. Read-only: no clicking, typing or logins.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "main_content_only": {
+            "type": "boolean",
+            "default": true,
+            "description": "Keep only the main content (article/main), without navigation, footers and sidebars"
+          },
+          "include_markdown": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return the content as markdown (headings, lists, links, tables)"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 100000,
+            "default": 20000,
+            "description": "Cut the text (and markdown) after this many characters"
+          },
+          "max_links": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500,
+            "default": 50,
+            "description": "Links to return from the content (0 for none)"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "name": "get_links",
+      "description": "Open a public web page and list its unique http(s) links (url and text), optionally only the same host/domain or matching a wildcard pattern such as \"*/blog/*\".",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "same_host",
+              "same_domain"
+            ],
+            "default": "all",
+            "description": "`same_host` (ignores www.), `same_domain` (host and its subdomains) or `all`"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Wildcard (*) matched against the full link URL, case-insensitive; without * it matches anywhere in the URL (max 300 chars)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100,
+            "description": "Maximum links to return"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "name": "extract",
+      "description": "Open a public web page and read values with CSS selectors: `fields` maps names to a selector string (text of the first match) or {selector, attribute?, all?}. CSS only; no scripts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "fields": {
+            "type": "object",
+            "description": "e.g. {\"title\": \"h1\", \"prices\": {\"selector\": \".price\", \"all\": true}, \"next\": {\"selector\": \"a.next\", \"attribute\": \"href\"}}"
+          },
+          "max_matches": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Values per `all: true` field"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          }
+        },
+        "required": [
+          "url",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "screenshot",
+      "description": "Open a public web page and save a PNG screenshot (viewport, or full page up to max_height pixels) in WEB_BROWSER_SCREENSHOT_DIR; returns the file path.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Page to open: an http:// or https:// URL on a public host (loopback, private and cloud-metadata addresses are refused)"
+          },
+          "full_page": {
+            "type": "boolean",
+            "default": false,
+            "description": "Capture the whole page height (up to max_height) instead of the viewport"
+          },
+          "viewport_width": {
+            "type": "integer",
+            "minimum": 320,
+            "maximum": 1920,
+            "default": 1280,
+            "description": "Viewport width in CSS pixels"
+          },
+          "viewport_height": {
+            "type": "integer",
+            "minimum": 240,
+            "maximum": 2000,
+            "default": 800,
+            "description": "Viewport height in CSS pixels"
+          },
+          "max_height": {
+            "type": "integer",
+            "minimum": 240,
+            "maximum": 16000,
+            "default": 8000,
+            "description": "Full-page screenshots are cut at this height"
+          },
+          "wait_until": {
+            "type": "string",
+            "enum": [
+              "load",
+              "domcontentloaded",
+              "networkidle"
+            ],
+            "default": "load",
+            "description": "When the page counts as loaded: `load` (default), `domcontentloaded` (faster), or `networkidle` (no requests for 500 ms; for pages that render with JavaScript)"
+          },
+          "wait_for_selector": {
+            "type": "string",
+            "description": "Optional CSS selector to wait for after loading, e.g. \"article h1\" (for content rendered later by JavaScript)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60,
+            "default": 30,
+            "description": "Time allowed for loading and waiting, in seconds"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    }
+  ]
+}
