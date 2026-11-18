@@ -1,0 +1,720 @@
+{
+  "name": "state-store",
+  "version": "0.1.0",
+  "description": "Local state for workflows: seen-id sets with TTL for polling (filter_unseen), JSON key/values and atomic counters, in JSON files",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "STATE_STORE_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 60000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "state-store.filter_unseen",
+      "title": "Filter unseen ids",
+      "description": "Return the ids not seen before in this namespace (`new_ids`, in input order). With mark=true (default) every given id is marked seen in the same atomic step, so a later or overlapping run never gets them again. For at-least-once processing use mark=false, then mark_seen after the items were handled.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "ids": {
+            "type": "array",
+            "description": "Item ids (strings, or integers; at most 10000, each 1-256 bytes as UTF-8). Duplicates are ignored.",
+            "maxItems": 10000
+          },
+          "mark": {
+            "type": "boolean",
+            "description": "Mark the given ids seen in the same step (default true)",
+            "default": true
+          },
+          "ttl_days": {
+            "type": "integer",
+            "description": "Days an id stays seen after it was last marked (default 90)",
+            "minimum": 1,
+            "maximum": 3650,
+            "default": 90
+          }
+        },
+        "required": [
+          "namespace",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.mark_seen",
+      "title": "Mark ids seen",
+      "description": "Mark ids seen in this namespace. Ids already seen get a fresh expiry. When the namespace holds over 100000 ids the least recently seen are dropped (`dropped_count`).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "ids": {
+            "type": "array",
+            "description": "Item ids (strings, or integers; at most 10000, each 1-256 bytes as UTF-8). Duplicates are ignored.",
+            "maxItems": 10000
+          },
+          "ttl_days": {
+            "type": "integer",
+            "description": "Days an id stays seen after it was last marked (default 90)",
+            "minimum": 1,
+            "maximum": 3650,
+            "default": 90
+          }
+        },
+        "required": [
+          "namespace",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.is_seen",
+      "title": "Is id seen",
+      "description": "Check whether one id is seen (and not expired) in this namespace, with when it was first seen and when it expires.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "Item id (named item_id because `id` is the node id in workflows)"
+          }
+        },
+        "required": [
+          "namespace",
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.forget_seen",
+      "title": "Forget seen ids",
+      "description": "Remove ids from the seen set, so filter_unseen reports them as new again.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "ids": {
+            "type": "array",
+            "description": "Item ids (strings, or integers; at most 10000, each 1-256 bytes as UTF-8). Duplicates are ignored.",
+            "maxItems": 10000
+          }
+        },
+        "required": [
+          "namespace",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.get",
+      "title": "Get value",
+      "description": "Read a key's JSON value. Returns found=false (value null) when the key is missing or expired.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          }
+        },
+        "required": [
+          "namespace",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.set",
+      "title": "Set value",
+      "description": "Store a JSON value (object, array, string, number, boolean or null; at most 1 MB) under a key, replacing any old value. Optional ttl_seconds.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          },
+          "value": {
+            "description": "Any JSON value"
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "description": "Optional: the key expires this many seconds after it is written",
+            "minimum": 1,
+            "maximum": 315360000
+          }
+        },
+        "required": [
+          "namespace",
+          "key",
+          "value"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.delete",
+      "title": "Delete key",
+      "description": "Delete a key. Returns deleted=false when it did not exist (or had expired).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          }
+        },
+        "required": [
+          "namespace",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.list_keys",
+      "title": "List keys",
+      "description": "List keys (sorted, optionally only those starting with `prefix`) with their update and expiry times. Values are not included; use get.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only keys starting with this"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Page size (default 100, max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.increment",
+      "title": "Increment counter",
+      "description": "Atomically add `by` (default 1, may be negative) to an integer value and return the new value. A missing or expired key starts at 0; ttl_seconds applies only when the counter is created, so a counter with a TTL counts within a fixed window.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          },
+          "by": {
+            "type": "integer",
+            "description": "Amount to add (default 1)",
+            "default": 1
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "description": "Optional: the key expires this many seconds after it is written",
+            "minimum": 1,
+            "maximum": 315360000
+          }
+        },
+        "required": [
+          "namespace",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.list_namespaces",
+      "title": "List namespaces",
+      "description": "List the namespaces in the store (sorted) with their file size and last modification time.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Page size (default 100, max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "state-store.clear_namespace",
+      "title": "Clear namespace",
+      "description": "Delete a namespace's file: all its seen ids and keys. Workflow node only (never an agent tool).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "filter_unseen",
+      "description": "Return the ids not seen before in this namespace (`new_ids`, in input order). With mark=true (default) every given id is marked seen in the same atomic step, so a later or overlapping run never gets them again. For at-least-once processing use mark=false, then mark_seen after the items were handled.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "ids": {
+            "type": "array",
+            "description": "Item ids (strings, or integers; at most 10000, each 1-256 bytes as UTF-8). Duplicates are ignored.",
+            "maxItems": 10000
+          },
+          "mark": {
+            "type": "boolean",
+            "description": "Mark the given ids seen in the same step (default true)",
+            "default": true
+          },
+          "ttl_days": {
+            "type": "integer",
+            "description": "Days an id stays seen after it was last marked (default 90)",
+            "minimum": 1,
+            "maximum": 3650,
+            "default": 90
+          }
+        },
+        "required": [
+          "namespace",
+          "ids"
+        ]
+      }
+    },
+    {
+      "name": "mark_seen",
+      "description": "Mark ids seen in this namespace. Ids already seen get a fresh expiry. When the namespace holds over 100000 ids the least recently seen are dropped (`dropped_count`).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "ids": {
+            "type": "array",
+            "description": "Item ids (strings, or integers; at most 10000, each 1-256 bytes as UTF-8). Duplicates are ignored.",
+            "maxItems": 10000
+          },
+          "ttl_days": {
+            "type": "integer",
+            "description": "Days an id stays seen after it was last marked (default 90)",
+            "minimum": 1,
+            "maximum": 3650,
+            "default": 90
+          }
+        },
+        "required": [
+          "namespace",
+          "ids"
+        ]
+      }
+    },
+    {
+      "name": "is_seen",
+      "description": "Check whether one id is seen (and not expired) in this namespace, with when it was first seen and when it expires.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "Item id (named item_id because `id` is the node id in workflows)"
+          }
+        },
+        "required": [
+          "namespace",
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "forget_seen",
+      "description": "Remove ids from the seen set, so filter_unseen reports them as new again.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "ids": {
+            "type": "array",
+            "description": "Item ids (strings, or integers; at most 10000, each 1-256 bytes as UTF-8). Duplicates are ignored.",
+            "maxItems": 10000
+          }
+        },
+        "required": [
+          "namespace",
+          "ids"
+        ]
+      }
+    },
+    {
+      "name": "get",
+      "description": "Read a key's JSON value. Returns found=false (value null) when the key is missing or expired.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          }
+        },
+        "required": [
+          "namespace",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "set",
+      "description": "Store a JSON value (object, array, string, number, boolean or null; at most 1 MB) under a key, replacing any old value. Optional ttl_seconds.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          },
+          "value": {
+            "description": "Any JSON value"
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "description": "Optional: the key expires this many seconds after it is written",
+            "minimum": 1,
+            "maximum": 315360000
+          }
+        },
+        "required": [
+          "namespace",
+          "key",
+          "value"
+        ]
+      }
+    },
+    {
+      "name": "delete",
+      "description": "Delete a key. Returns deleted=false when it did not exist (or had expired).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          }
+        },
+        "required": [
+          "namespace",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "list_keys",
+      "description": "List keys (sorted, optionally only those starting with `prefix`) with their update and expiry times. Values are not included; use get.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only keys starting with this"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Page size (default 100, max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      }
+    },
+    {
+      "name": "increment",
+      "description": "Atomically add `by` (default 1, may be negative) to an integer value and return the new value. A missing or expired key starts at 0; ttl_seconds applies only when the counter is created, so a counter with a TTL counts within a fixed window.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (1-64 chars: a-z, 0-9, _ . -; e.g. `instagram-comments`). Each namespace is one file."
+          },
+          "key": {
+            "type": "string",
+            "description": "Key (1-512 chars)"
+          },
+          "by": {
+            "type": "integer",
+            "description": "Amount to add (default 1)",
+            "default": 1
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "description": "Optional: the key expires this many seconds after it is written",
+            "minimum": 1,
+            "maximum": 315360000
+          }
+        },
+        "required": [
+          "namespace",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "list_namespaces",
+      "description": "List the namespaces in the store (sorted) with their file size and last modification time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Page size (default 100, max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page"
+          }
+        }
+      }
+    }
+  ]
+}
