@@ -75,7 +75,7 @@ Plugins without a token use `resolveAccessToken: () => "local"`, so the runner d
   - `send_message`: to a phone number (via `https://web.whatsapp.com/send?phone=<digits>`) or to an existing chat by exact name; verifies the message appears as sent.
   - `send_file`: local path or https URL, with caption.
 - **Safety:**
-  - Minimum interval between sends `WHATSAPP_WEB_MIN_SEND_INTERVAL_SECONDS` (default 5).
+  - Minimum interval between sends `WHATSAPP_WEB_MIN_SEND_INTERVAL_SECONDS` (default 30; raised from 5 after review because of the ban risk on a personal account).
   - Daily send cap `WHATSAPP_WEB_DAILY_SEND_LIMIT` (default 50), persisted in the profile dir.
   - Sends are never retried automatically.
   - Every send is logged to stderr.

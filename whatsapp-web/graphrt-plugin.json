@@ -1,0 +1,445 @@
+{
+  "name": "whatsapp-web",
+  "version": "0.1.0",
+  "description": "Your personal WhatsApp through WhatsApp Web in a headless browser: read chats and messages, send text and files (low volume, rate limited)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "WHATSAPP_WEB_PROFILE_DIR",
+      "WHATSAPP_WEB_IDLE_MINUTES",
+      "WHATSAPP_WEB_MIN_SEND_INTERVAL_SECONDS",
+      "WHATSAPP_WEB_DAILY_SEND_LIMIT",
+      "WHATSAPP_WEB_ALLOWED_FILE_DIRS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 1
+  },
+  "nodes": [
+    {
+      "kind": "whatsapp-web.login",
+      "title": "Log in to WhatsApp Web",
+      "description": "Open a visible browser window with the WhatsApp Web QR code and wait until it is scanned (WhatsApp > Linked devices > Link a device). Later runs reuse the saved session headlessly.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 240,
+            "default": 180,
+            "description": "How long to wait for WhatsApp Web to load and the QR code to be scanned, in total"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-web.get_status",
+      "title": "WhatsApp Web status",
+      "description": "Report whether WhatsApp Web is logged_in, needs_login (QR code shown) or loading, plus today's send count.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-web.list_chats",
+      "title": "List WhatsApp chats",
+      "description": "List chats from the top of the WhatsApp chat list: name, last message preview, time and unread count.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20,
+            "description": "Maximum chats to return"
+          },
+          "unread_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only chats with unread messages"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-web.search_chats",
+      "title": "Search WhatsApp chats",
+      "description": "Search chats and contacts by name or number with the WhatsApp search box; returns the matching rows.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text to search for"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Maximum rows to return"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-web.read_messages",
+      "title": "Read WhatsApp messages",
+      "description": "Read the last messages of a chat (by phone number or exact chat name): id, from_me, sender, time, text and delivery status. Opening a chat marks it as read on your phone.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
+          },
+          "chat_name": {
+            "type": "string",
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20,
+            "description": "Number of most recent messages"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-web.send_message",
+      "title": "Send WhatsApp message",
+      "description": "Send a text message from your personal WhatsApp to a phone number or an existing chat (exact name). Rate limited; confirms the message appears as sent.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
+          },
+          "chat_name": {
+            "type": "string",
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Message text; line breaks are kept"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "whatsapp-web.send_file",
+      "title": "Send WhatsApp file",
+      "description": "Send a photo, video or document (local path inside WHATSAPP_WEB_ALLOWED_FILE_DIRS, or an https URL) with an optional caption to a phone number or an existing chat.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
+          },
+          "chat_name": {
+            "type": "string",
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Absolute local path or https URL"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption text"
+          },
+          "as_document": {
+            "type": "boolean",
+            "default": false,
+            "description": "Send images/videos as a document (no compression)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_status",
+      "description": "Report whether WhatsApp Web is logged_in, needs_login (QR code shown) or loading, plus today's send count.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "list_chats",
+      "description": "List chats from the top of the WhatsApp chat list: name, last message preview, time and unread count.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20,
+            "description": "Maximum chats to return"
+          },
+          "unread_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only chats with unread messages"
+          }
+        }
+      }
+    },
+    {
+      "name": "search_chats",
+      "description": "Search chats and contacts by name or number with the WhatsApp search box; returns the matching rows.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text to search for"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20,
+            "description": "Maximum rows to return"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "read_messages",
+      "description": "Read the last messages of a chat (by phone number or exact chat name): id, from_me, sender, time, text and delivery status. Opening a chat marks it as read on your phone.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
+          },
+          "chat_name": {
+            "type": "string",
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20,
+            "description": "Number of most recent messages"
+          }
+        }
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a text message from your personal WhatsApp to a phone number or an existing chat (exact name). Rate limited; confirms the message appears as sent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
+          },
+          "chat_name": {
+            "type": "string",
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Message text; line breaks are kept"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "send_file",
+      "description": "Send a photo, video or document (local path inside WHATSAPP_WEB_ALLOWED_FILE_DIRS, or an https URL) with an optional caption to a phone number or an existing chat.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number starting with + or 00 and the country code, e.g. \"+62 812 3456 789\" (a national number such as \"0812...\" is refused). Works for numbers not in the chat list. Pass this or chat_name."
+          },
+          "chat_name": {
+            "type": "string",
+            "description": "Exact chat name as shown in WhatsApp (saved contact name or group name); refused when two chats share the name. Pass this or phone."
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Absolute local path or https URL"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption text"
+          },
+          "as_document": {
+            "type": "boolean",
+            "default": false,
+            "description": "Send images/videos as a document (no compression)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    }
+  ]
+}

@@ -14,6 +14,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [youtube-api](youtube-api/) | YouTube channel, videos, comments, moderation and live chat | 15 |
 | [linkedin-api](linkedin-api/) | LinkedIn posts, images, comments and reactions for members and organizations | 15 |
 | [tiktok-api](tiktok-api/) | TikTok profile, videos and publishing, plus comments and DMs via the Business API | 19 |
+| [whatsapp-web](whatsapp-web/) | Your personal WhatsApp in the background via a headless WhatsApp Web session: read chats, send messages and files (rate limited) | 7 |
 | [whatsapp-api](whatsapp-api/) | WhatsApp Business Cloud API: send text, templates, media and interactive messages, manage templates and the profile | 19 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).
