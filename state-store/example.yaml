@@ -1,0 +1,26 @@
+# Polling pattern: only handle items not seen in an earlier run.
+#   STATE_STORE_DIR=/tmp/state-demo graphrt run state-store/example.yaml --plugins .
+# Run it twice: the first run reports c-101, c-102, c-103 as new; the second run reports none.
+#
+# In a real workflow `ids` comes from an upstream node, e.g. ids: "{{#comments.data.ids#}}".
+#   - `poll` (filter_unseen, mark=true): check and mark in one atomic step. Simplest; at-most-once.
+#   - For at-least-once, use mark=false, process the items, then mark_seen with the new ids
+#     (as `confirm` does below), so a run that crashes mid-way sees the same items again.
+version: "1"
+name: state-store-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: poll, type: state-store.filter_unseen, namespace: demo-comments, ids: ["c-101", "c-102"] }
+    - { id: check, type: state-store.filter_unseen, namespace: demo-comments, ids: ["c-102", "c-103"], mark: false }
+    - { id: confirm, type: state-store.mark_seen, namespace: demo-comments, ids: "{{#check.data.new_ids#}}" }
+    - { id: runs, type: state-store.increment, namespace: demo-comments, key: runs }
+    - id: answer
+      type: answer
+      answer: "Run {{#runs.data.value#}}. New from poll: {{#poll.data.new_ids#}}. New from check: {{#check.data.new_ids#}} (then marked: {{#confirm.data.new_count#}})"
+  edges:
+    - { source: start, target: poll }
+    - { source: poll, target: check }
+    - { source: check, target: confirm }
+    - { source: confirm, target: runs }
+    - { source: runs, target: answer }

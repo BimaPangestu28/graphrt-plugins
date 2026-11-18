@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-state-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: local seen-id sets, key/values and counters for polling workflows",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
