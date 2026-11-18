@@ -214,31 +214,104 @@ export function redactPluginError(error, secrets) {
   return new PluginError(redactText(error.message, secrets), { kind: error.kind, retryable: error.retryable, retryAfterMs: error.retryAfterMs });
 }
 
+// Fields a list payload may carry besides the list itself.
+const PAGING_KEYS = new Set(["cursor", "has_more", "total", "page_info"]);
+
 /**
- * Converts a TikTok `{<list>, cursor, has_more}` payload into the operation output shape.
+ * Converts a TikTok `{<list>, cursor, has_more}` payload into the operation output shape. `data` is always an array.
+ *
+ * When `listKey` is missing: a payload that is empty or only has paging fields is an empty page. A payload with
+ * other fields means TikTok named the list differently (the Business field names are not live-verified), so this
+ * fails with api_error naming the keys it got, instead of returning [] (which would look like "no results") or the
+ * raw object (which would break callers that iterate `data`). The runner only passes `data` and `next_cursor` on,
+ * so the raw payload cannot ride along; api_request shows it.
  *
  * @param payload - The `data` object of a list response (object)
  * @param listKey - Property holding the items, e.g. "videos" (string)
- * @returns `{data, next_cursor}`; data is the whole payload when listKey is absent (object)
+ * @returns `{data, next_cursor}` (object)
+ * @throws PluginError kind `api_error` - When the payload has unexpected fields but no `listKey` array
  */
 export function toCursorPage(payload, listKey) {
-  const items = Array.isArray(payload?.[listKey]) ? payload[listKey] : (payload ?? []);
   const hasCursor = payload?.cursor !== undefined && payload?.cursor !== null;
-  return { data: items, next_cursor: payload?.has_more && hasCursor ? String(payload.cursor) : null };
+  const nextCursor = payload?.has_more && hasCursor ? String(payload.cursor) : null;
+  if (Array.isArray(payload?.[listKey])) return { data: payload[listKey], next_cursor: nextCursor };
+  const unexpectedKeys = Object.keys(payload ?? {}).filter((key) => !PAGING_KEYS.has(key));
+  if (unexpectedKeys.length === 0) return { data: [], next_cursor: null };
+  throw new PluginError(
+    `TikTok's response has no \`${listKey}\` list (got fields: ${unexpectedKeys.join(", ")}); the field name may have changed. Use api_request to see the raw response`,
+    { kind: "api_error" },
+  );
 }
 
 /**
- * Reads the Business API business_id from the arguments or TIKTOK_BUSINESS_ID.
+ * Reads the Business API business_id from the arguments or TIKTOK_BUSINESS_ID, trimmed.
  *
  * @param providedId - Id from the arguments (string | undefined)
  * @param environment - Environment variables (object)
  * @returns The business id (string)
- * @throws PluginError kind `invalid_input` - When neither is set
+ * @throws PluginError kind `invalid_input` - When neither is set, or the one used is only whitespace
  */
 export function resolveBusinessId(providedId, environment) {
-  const businessId = providedId || environment?.TIKTOK_BUSINESS_ID;
-  if (!businessId) rejectInput("Pass `business_id` or set the TIKTOK_BUSINESS_ID environment variable");
-  return businessId;
+  if (providedId !== undefined && providedId !== null) {
+    const trimmedId = String(providedId).trim();
+    if (!trimmedId) rejectInput("`business_id` must not be blank");
+    return trimmedId;
+  }
+  const environmentId = environment?.TIKTOK_BUSINESS_ID;
+  if (environmentId === undefined || environmentId === null || environmentId === "") {
+    rejectInput("Pass `business_id` or set the TIKTOK_BUSINESS_ID environment variable");
+  }
+  const trimmedEnvironmentId = String(environmentId).trim();
+  if (!trimmedEnvironmentId) rejectInput("TIKTOK_BUSINESS_ID is blank: set it to the business account id, or pass `business_id`");
+  return trimmedEnvironmentId;
+}
+
+/**
+ * JSON-schema property for a list of strings that also accepts one plain string (e.g. from a template).
+ *
+ * The shared validator only parses strings that look like JSON arrays, so the property is declared as
+ * `anyOf: [array, string]` (which the validator leaves alone) and normalized in the operation with toStringList.
+ *
+ * @param description - Property description (string)
+ * @param maxItems - Maximum number of items (number)
+ * @returns JSON-schema property (object)
+ */
+export function stringListProperty(description, maxItems) {
+  return { anyOf: [{ type: "array", items: { type: "string" }, maxItems }, { type: "string" }], description };
+}
+
+/**
+ * Normalizes a stringListProperty value: an array of strings, a JSON array string, or one plain string.
+ *
+ * @param fieldName - Argument name for messages (string)
+ * @param rawValue - Validated argument value (string | string[])
+ * @param maxItems - Maximum number of items (number)
+ * @returns Trimmed, non-empty strings (string[])
+ * @throws PluginError kind `invalid_input` - When an item is not a string or there are too many
+ *
+ * @example
+ * toStringList("video_ids", "v1", 20); // ["v1"]
+ */
+export function toStringList(fieldName, rawValue, maxItems) {
+  const items = Array.isArray(rawValue) ? rawValue : parseStringListText(fieldName, String(rawValue ?? ""));
+  items.forEach((item, index) => {
+    if (typeof item !== "string") rejectInput(`\`${fieldName}[${index}]\` must be of type string`);
+  });
+  const trimmedItems = items.map((item) => item.trim()).filter(Boolean);
+  if (trimmedItems.length > maxItems) rejectInput(`\`${fieldName}\` must have at most ${maxItems} items`);
+  return trimmedItems;
+}
+
+function parseStringListText(fieldName, text) {
+  const trimmedText = text.trim();
+  if (!trimmedText.startsWith("[")) return trimmedText ? [trimmedText] : [];
+  try {
+    const parsedList = JSON.parse(trimmedText);
+    if (Array.isArray(parsedList)) return parsedList;
+  } catch {
+    // Falls through to the error below.
+  }
+  return rejectInput(`\`${fieldName}\` must be a string or a JSON array of strings`);
 }
 
 /**

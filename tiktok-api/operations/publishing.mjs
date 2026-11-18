@@ -5,7 +5,7 @@
  * Direct posts first read creator_info (TikTok requires the privacy level to
  * be one the creator can use), then init the post, then poll the status.
  */
-import { rejectInput } from "../lib/client.mjs";
+import { rejectInput, stringListProperty, toStringList } from "../lib/client.mjs";
 import { pollUntilDone, resolvePollInterval } from "../lib/shared/polling.mjs";
 import { PluginError } from "../lib/shared/graphrt-plugin.mjs";
 import { queryCreatorInfo } from "./account.mjs";
@@ -34,7 +34,7 @@ export const publishingOperations = [
       properties: {
         video_url: { type: "string", minLength: 1, description: "Public video URL on a domain verified for the app" },
         mode: { type: "string", enum: ["direct", "inbox"], default: "direct" },
-        title: { type: "string", description: "Caption with #hashtags and @mentions (direct only)" },
+        title: { type: "string", description: "Caption with #hashtags and @mentions (direct only; inbox drafts are captioned in the TikTok app)" },
         privacy_level: PRIVACY_LEVEL_PROPERTY,
         disable_comment: { type: "boolean" },
         disable_duet: { type: "boolean" },
@@ -57,7 +57,7 @@ export const publishingOperations = [
     parameters: {
       type: "object",
       properties: {
-        photo_urls: { type: "array", items: { type: "string" }, maxItems: MAX_PHOTOS, description: "1-35 public image URLs" },
+        photo_urls: stringListProperty("1-35 public image URLs (one URL may be passed as a plain string)", MAX_PHOTOS),
         mode: { type: "string", enum: ["direct", "upload"], default: "direct" },
         title: { type: "string" },
         description: { type: "string", description: "Post text with #hashtags and @mentions" },
@@ -80,29 +80,42 @@ export const publishingOperations = [
   },
 ];
 
+const DIRECT_VIDEO_FIELDS = [
+  "title",
+  "privacy_level",
+  "disable_comment",
+  "disable_duet",
+  "disable_stitch",
+  "video_cover_timestamp_ms",
+  "brand_content_toggle",
+  "brand_organic_toggle",
+  "is_aigc",
+];
+
+// The inbox endpoint takes only source_info: post settings would be silently dropped, so refuse them.
+function assertNoDirectFieldsForInbox(args) {
+  const directFields = DIRECT_VIDEO_FIELDS.filter((fieldName) => args[fieldName] !== undefined);
+  if (directFields.length === 0) return;
+  rejectInput(
+    `mode=inbox does not take ${directFields.map((fieldName) => `\`${fieldName}\``).join(", ")}: inbox drafts are finished (caption, privacy, settings) in the TikTok app. Remove them, or use mode=direct`,
+  );
+}
+
 async function publishVideo({ client, args, environment, signal }) {
   const sourceInfo = { source: "PULL_FROM_URL", video_url: args.video_url };
   if (args.mode === "inbox") {
+    assertNoDirectFieldsForInbox(args);
     const initResult = await initPublish(client, "/v2/post/publish/inbox/video/init/", { source_info: sourceInfo }, signal);
     return finishPublish({ client, environment, signal, wait: args.wait }, initResult.publish_id);
   }
   await assertPrivacyLevelAllowed(client, args.privacy_level, signal);
-  const postInfo = pickDefined(args, [
-    "title",
-    "privacy_level",
-    "disable_comment",
-    "disable_duet",
-    "disable_stitch",
-    "video_cover_timestamp_ms",
-    "brand_content_toggle",
-    "brand_organic_toggle",
-    "is_aigc",
-  ]);
+  const postInfo = pickDefined(args, DIRECT_VIDEO_FIELDS);
   const initResult = await initPublish(client, "/v2/post/publish/video/init/", { post_info: postInfo, source_info: sourceInfo }, signal);
   return finishPublish({ client, environment, signal, wait: args.wait }, initResult.publish_id);
 }
 
-async function publishPhotos({ client, args, environment, signal }) {
+async function publishPhotos({ client, args: rawArgs, environment, signal }) {
+  const args = { ...rawArgs, photo_urls: toStringList("photo_urls", rawArgs.photo_urls, MAX_PHOTOS) };
   validatePhotoArguments(args);
   const isDirect = args.mode === "direct";
   if (isDirect) await assertPrivacyLevelAllowed(client, args.privacy_level, signal);
@@ -172,7 +185,13 @@ export function withPublishId(error, publishId) {
 }
 
 async function fetchPublishStatus(client, publishId, signal) {
-  const responseBody = await client.open.request({ method: "POST", path: "/v2/post/publish/status/fetch/", json: { publish_id: publishId }, signal });
+  const responseBody = await client.open.request({
+    method: "POST",
+    path: "/v2/post/publish/status/fetch/",
+    json: { publish_id: publishId },
+    idempotent: true,
+    signal,
+  });
   return responseBody?.data ?? {};
 }
 

@@ -1,6 +1,18 @@
 import { createOperationRunner } from "../lib/shared/operations.mjs";
 import { createRecordingFetch } from "../lib/shared/testing.mjs";
-import { pluginDefinition } from "../definition.mjs";
+import { createPluginDefinition } from "../definition.mjs";
+
+/**
+ * Fake DNS: names listed in `addressesByHost` resolve to those addresses, every other name to a public address.
+ *
+ * @param addressesByHost - `{hostname: string[]}` (object)
+ * @returns `async (hostname) => string[]` (function)
+ */
+export function createFakeResolver(addressesByHost = {}) {
+  return async (hostname) => addressesByHost[hostname] ?? ["93.184.216.34"];
+}
+
+const testDefinition = (resolveHostAddresses = createFakeResolver()) => createPluginDefinition({ resolveHostAddresses });
 
 export const TEST_ENVIRONMENT = {
   WHATSAPP_ACCESS_TOKEN: "wa-token",
@@ -17,14 +29,14 @@ export const TEST_ENVIRONMENT = {
  *
  * @returns `{output, calls, rawBodies}`
  */
-export async function runWithResponses(operationName, args, responses = [{ body: {} }], environment = TEST_ENVIRONMENT) {
+export async function runWithResponses(operationName, args, responses = [{ body: {} }], environment = TEST_ENVIRONMENT, resolveHostAddresses) {
   const recordingFetch = createRecordingFetch(responses);
   const rawBodies = [];
   const capturingFetch = async (url, init = {}) => {
     rawBodies.push(init.body);
     return recordingFetch(url, init);
   };
-  const runOperation = createOperationRunner(pluginDefinition, environment, { fetchImpl: capturingFetch });
+  const runOperation = createOperationRunner(testDefinition(resolveHostAddresses), environment, { fetchImpl: capturingFetch });
   const output = await runOperation(operationName, args, { source: "tool" });
   return { output, calls: recordingFetch.calls, rawBodies };
 }
@@ -37,7 +49,7 @@ export async function runWithResponses(operationName, args, responses = [{ body:
  */
 export async function runExpectingFailure(operationName, args, responses, environment = TEST_ENVIRONMENT) {
   const recordingFetch = createRecordingFetch(responses);
-  const runOperation = createOperationRunner(pluginDefinition, environment, { fetchImpl: recordingFetch });
+  const runOperation = createOperationRunner(testDefinition(), environment, { fetchImpl: recordingFetch });
   try {
     await runOperation(operationName, args, { source: "tool" });
   } catch (error) {

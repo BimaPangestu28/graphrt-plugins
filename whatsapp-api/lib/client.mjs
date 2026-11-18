@@ -29,11 +29,11 @@ const INVALID_INPUT_CODES = new Set([
 /**
  * Creates a Graph API client for the WhatsApp Cloud API.
  *
- * @param options - `{accessToken, environment, fetchImpl}` (object)
- * @returns Shared API client plus `fetchImpl` for credential-free downloads (object)
+ * @param options - `{accessToken, environment, fetchImpl, resolveHostAddresses?}` (object)
+ * @returns Shared API client plus `fetchImpl` and `resolveHostAddresses` (DNS when omitted) for credential-free downloads (object)
  * @throws PluginError kind `invalid_input` - When WHATSAPP_GRAPH_VERSION is malformed
  */
-export function createWhatsAppClient({ accessToken, environment, fetchImpl }) {
+export function createWhatsAppClient({ accessToken, environment, fetchImpl, resolveHostAddresses }) {
   const graphVersion = environment?.WHATSAPP_GRAPH_VERSION || DEFAULT_GRAPH_VERSION;
   if (!GRAPH_VERSION_PATTERN.test(graphVersion)) {
     throw new PluginError(`WHATSAPP_GRAPH_VERSION must look like "v26.0", got "${graphVersion}"`, { kind: "invalid_input" });
@@ -46,7 +46,7 @@ export function createWhatsAppClient({ accessToken, environment, fetchImpl }) {
     parseError: parseWhatsAppError,
     fetchImpl,
   });
-  return { ...apiClient, fetchImpl: fetchImpl ?? ((...fetchArguments) => globalThis.fetch(...fetchArguments)) };
+  return { ...apiClient, fetchImpl: fetchImpl ?? ((...fetchArguments) => globalThis.fetch(...fetchArguments)), resolveHostAddresses };
 }
 
 /**

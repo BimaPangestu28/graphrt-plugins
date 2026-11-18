@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createOperationRunner } from "../lib/shared/operations.mjs";
 import { createRecordingFetch } from "../lib/shared/testing.mjs";
 import { pluginDefinition } from "../definition.mjs";
-import { runWithResponses, TEST_ENVIRONMENT } from "./helpers.mjs";
+import { createFakeResolver, createTestDefinition, runWithResponses, TEST_ENVIRONMENT } from "./helpers.mjs";
 
 const IMAGE_URL = "https://cdn.test/cat.png";
 const UPLOAD_URL = "https://www.linkedin.com/dms-uploads/abc?ca=vector_feedshare";
@@ -40,7 +40,7 @@ test("upload_image uses owner_urn when given", async () => {
 test("upload_image refuses an upload URL outside linkedin.com and never sends the token there", async () => {
   for (const foreignUploadUrl of ["https://evil.test/upload", "https://notlinkedin.com/upload", "http://www.linkedin.com/upload"]) {
     const recordingFetch = createRecordingFetch([imageResponse, initializeResponse(foreignUploadUrl), { status: 201 }]);
-    const runOperation = createOperationRunner(pluginDefinition, TEST_ENVIRONMENT, { fetchImpl: recordingFetch });
+    const runOperation = createOperationRunner(createTestDefinition(), TEST_ENVIRONMENT, { fetchImpl: recordingFetch });
     await assert.rejects(
       runOperation("upload_image", { image_url: IMAGE_URL }, { source: "tool" }),
       (error) => error.kind === "api_error" && /linkedin\.com/.test(error.message),
@@ -51,7 +51,9 @@ test("upload_image refuses an upload URL outside linkedin.com and never sends th
 
 for (const [label, args, responses, expectedMessage] of [
   ["a non-https image_url", { image_url: "http://cdn.test/cat.png" }, [], /https/],
-  ["a non-image download", { image_url: IMAGE_URL }, [{ body: "<html>", headers: { "content-type": "text/html" } }], /not an image/],
+  ["a non-image download", { image_url: IMAGE_URL }, [{ body: "<html>", headers: { "content-type": "text/html" } }], /JPEG, PNG or GIF/],
+  ["a WebP image", { image_url: IMAGE_URL }, [{ body: "RIFF", headers: { "content-type": "image/webp" } }], /JPEG, PNG or GIF/],
+  ["an SVG image", { image_url: IMAGE_URL }, [{ body: "<svg/>", headers: { "content-type": "image/svg+xml" } }], /JPEG, PNG or GIF/],
   [
     "a Content-Length above 10 MB",
     { image_url: IMAGE_URL },
@@ -78,4 +80,46 @@ test("upload_image fails clearly when initializeUpload returns no upload URL", a
     runWithResponses("upload_image", { image_url: IMAGE_URL }, [imageResponse, { body: { value: {} } }]),
     (error) => error.kind === "api_error",
   );
+});
+
+test("upload_image accepts image/jpeg and image/gif with parameters in the content type", async () => {
+  for (const contentType of ["image/jpeg", "IMAGE/GIF; charset=binary"]) {
+    const { calls } = await runWithResponses("upload_image", { image_url: IMAGE_URL }, [
+      { body: "BYTES", headers: { "content-type": contentType } },
+      initializeResponse(),
+      { status: 201, body: "" },
+    ]);
+    assert.equal(calls.length, 3, contentType);
+  }
+});
+
+test("upload_image follows redirects by hand, checking every hop", async () => {
+  const { calls } = await runWithResponses("upload_image", { image_url: IMAGE_URL }, [
+    { status: 302, body: "", headers: { location: "https://img.test/real.png" } },
+    imageResponse,
+    initializeResponse(),
+    { status: 201, body: "" },
+  ]);
+  assert.deepEqual(calls.slice(0, 2).map((call) => call.url), [IMAGE_URL, "https://img.test/real.png"]);
+});
+
+for (const [label, args, responses, addressesByHost, expectedMessage] of [
+  ["a redirect to http", { image_url: IMAGE_URL }, [{ status: 301, body: "", headers: { location: "http://img.test/a.png" } }], {}, /https/],
+  ["a redirect to a private host", { image_url: IMAGE_URL }, [{ status: 307, body: "", headers: { location: "https://intranet.test/a.png" } }], { "intranet.test": ["10.0.0.5"] }, /public/],
+  ["a loopback host", { image_url: "https://127.0.0.1/a.png" }, [imageResponse], {}, /public/],
+  ["a localhost name", { image_url: "https://localhost/a.png" }, [imageResponse], {}, /public/],
+  ["a host resolving to link-local", { image_url: "https://meta.test/a.png" }, [imageResponse], { "meta.test": ["169.254.169.254"] }, /public/],
+  ["a redirect without Location", { image_url: IMAGE_URL }, [{ status: 302, body: "" }], {}, /Location/],
+  ["too many redirects", { image_url: IMAGE_URL }, Array.from({ length: 7 }, () => ({ status: 302, body: "", headers: { location: IMAGE_URL } })), {}, /redirected more than/],
+]) {
+  test(`upload_image refuses ${label} with invalid_input`, async () => {
+    await assert.rejects(
+      runWithResponses("upload_image", args, responses, TEST_ENVIRONMENT, createFakeResolver(addressesByHost)),
+      (error) => error.kind === "invalid_input" && expectedMessage.test(error.message),
+    );
+  });
+}
+
+test("upload_image fits in the tool deadline: download 60 s + initializeUpload + PUT 60 s", () => {
+  assert.ok(pluginDefinition.limits?.timeout_ms - 10000 >= 60000 + 60000 + 30000 + 10000, `timeout_ms ${pluginDefinition.limits?.timeout_ms}`);
 });

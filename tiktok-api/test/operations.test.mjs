@@ -106,9 +106,18 @@ test("list_comments maps cursor/has_more to next_cursor and returns the comments
   assert.deepEqual(lastPage.output, { data: [], next_cursor: null });
 });
 
-test("list_conversations returns the whole data object when the list key is unknown", async () => {
-  const { output } = await runWithResponses("list_conversations", {}, [businessOk({ items: [1], has_more: false })]);
-  assert.deepEqual(output, { data: { items: [1], has_more: false }, next_cursor: null });
+test("a Business list whose data has no list key and only paging fields returns an empty array", async () => {
+  for (const payload of [{}, { has_more: false, cursor: 0 }, { total: 0 }, null]) {
+    const { output } = await runWithResponses("list_conversations", {}, [businessOk(payload)]);
+    assert.deepEqual(output, { data: [], next_cursor: null }, JSON.stringify(payload));
+  }
+});
+
+test("a Business list whose data holds other fields but not the list key fails with api_error naming the keys", async () => {
+  await assert.rejects(
+    runWithResponses("list_conversations", {}, [businessOk({ items: [1], has_more: false })]),
+    (error) => error.kind === "api_error" && /`conversations`/.test(error.message) && /items/.test(error.message) && /api_request/.test(error.message),
+  );
 });
 
 test("get_user_info returns data.user", async () => {
@@ -158,4 +167,46 @@ test("refresh_access_token is a node but not an LLM tool", async () => {
   const { nodes, tools } = buildDescriptors(pluginDefinition);
   assert.ok(nodes.some((node) => node.kind === "tiktok-api.refresh_access_token"));
   assert.equal(tools.some((tool) => tool.name === "refresh_access_token"), false);
+});
+
+const OPEN_SERVER_ERROR = { status: 503, body: { error: { code: "internal_error", message: "try again", log_id: "L9" } } };
+
+for (const [operationName, args] of [
+  ["list_videos", {}],
+  ["query_videos", { video_ids: ["v1"] }],
+  ["get_creator_info", {}],
+  ["get_publish_status", { publish_id: "p1" }],
+]) {
+  test(`${operationName} is a POST read: a 5xx is retried, not reported as a write with unknown outcome`, async () => {
+    const { calls } = await runWithResponses(operationName, args, [OPEN_SERVER_ERROR, openOk({ videos: [] })]);
+    assert.equal(calls.length, 2);
+  });
+}
+
+test("business_id is trimmed, from the arguments and from TIKTOK_BUSINESS_ID", async () => {
+  const fromArgs = await runWithResponses("list_comments", { video_id: "v1", business_id: "  biz-9 " }, [businessOk({ comments: [] })]);
+  assert.equal(fromArgs.calls[0].query.business_id, "biz-9");
+  const { TEST_ENVIRONMENT } = await import("./helpers.mjs");
+  const fromEnvironment = await runWithResponses("delete_comment", { comment_id: "c1" }, [businessOk()], { ...TEST_ENVIRONMENT, TIKTOK_BUSINESS_ID: " biz-7\n" });
+  assert.equal(fromEnvironment.calls[0].json.business_id, "biz-7");
+});
+
+test("a whitespace-only business_id is rejected with invalid_input", async () => {
+  const { TEST_ENVIRONMENT } = await import("./helpers.mjs");
+  await assert.rejects(runWithResponses("list_comments", { video_id: "v1", business_id: "   " }, []), (error) => error.kind === "invalid_input" && /business_id/.test(error.message));
+  await assert.rejects(
+    runWithResponses("delete_comment", { comment_id: "c1" }, [], { ...TEST_ENVIRONMENT, TIKTOK_BUSINESS_ID: "  " }),
+    (error) => error.kind === "invalid_input" && /TIKTOK_BUSINESS_ID/.test(error.message),
+  );
+});
+
+test("query_videos accepts a single plain video id string", async () => {
+  const { calls } = await runWithResponses("query_videos", { video_ids: " v1 " }, [openOk({ videos: [] })]);
+  assert.deepEqual(calls[0].json, { filters: { video_ids: ["v1"] } });
+  const fromJson = await runWithResponses("query_videos", { video_ids: '["v1","v2"]' }, [openOk({ videos: [] })]);
+  assert.deepEqual(fromJson.calls[0].json.filters.video_ids, ["v1", "v2"]);
+});
+
+test("query_videos rejects non-string ids", async () => {
+  await assert.rejects(runWithResponses("query_videos", { video_ids: [1, {}] }), (error) => error.kind === "invalid_input" && /video_ids/.test(error.message));
 });

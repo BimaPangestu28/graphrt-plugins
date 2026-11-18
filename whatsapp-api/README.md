@@ -88,10 +88,14 @@ receive webhooks, so this plugin can't read your inbox. To react to messages, ru
 `list_templates` and `list_phone_numbers` return `data` and `next_cursor`. Pass `next_cursor` back as `cursor` to get the next page.
 
 ### Media
-- `upload_media` downloads the file (https only, without credentials) and uploads it to WhatsApp. It returns
-  `data.id`, which you pass to `send_media` as `media_id`.
-- Size limits: image 5 MB (JPEG, PNG, WebP), video 16 MB (MP4, 3GP), audio 16 MB, document 100 MB, sticker 500 KB (WebP).
-- If the server reports a generic content type, pass `mime_type`.
+- `upload_media` downloads the file (without credentials) and uploads it to WhatsApp. It returns
+  `data.id`, which you pass to `send_media` as `media_id`. The URL and every redirect must be https on a public host
+  (loopback, private and link-local addresses are refused).
+- Size limits: image 5 MB (JPEG, PNG, static WebP; WhatsApp transcodes WebP to JPEG and rejects animated WebP),
+  video 16 MB (MP4, 3GP), audio 16 MB, document 100 MB, sticker 500 KB (WebP).
+- `mime_type` is used only when the server reports no content type or `application/octet-stream`; a specific type from
+  the server always wins.
+- Without `filename`, the upload is named `upload.<extension>` from the MIME type (e.g. `upload.pdf`).
 - You can also skip uploading and pass a public https `link` to `send_media`.
 
 ## Errors

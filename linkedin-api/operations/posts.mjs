@@ -163,17 +163,17 @@ export const postOperations = [
   {
     name: "delete_post",
     title: "Delete LinkedIn post",
-    description: "Delete a post.",
+    description: "Delete a post. A retry after a server error that finds it gone reports already_absent.",
     parameters: { type: "object", properties: { post_urn: POST_URN_PROPERTY }, required: ["post_urn"] },
     run: async ({ client, args, signal }) => {
-      await client.request({ method: "DELETE", path: postPath(args), headers: { "x-restli-method": "DELETE" }, signal });
-      return { data: { id: args.post_urn, deleted: true } };
+      const { alreadyAbsent } = await client.deleteResource({ path: postPath(args), signal });
+      return { data: { id: args.post_urn, deleted: true, ...(alreadyAbsent ? { already_absent: true } : {}) } };
     },
   },
   {
     name: "upload_image",
     title: "Upload LinkedIn image",
-    description: "Upload an image from a public https URL (image/*, max 10 MB). Returns image_urn for create_post.",
+    description: "Upload a JPEG, PNG or GIF image (max 10 MB) from a public https URL. Returns image_urn for create_post.",
     parameters: {
       type: "object",
       properties: {

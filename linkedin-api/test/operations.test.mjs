@@ -264,3 +264,39 @@ test("LINKEDIN_VERSION overrides the version header and is validated", async () 
     (error) => error.kind === "invalid_input" && /LINKEDIN_VERSION/.test(error.message),
   );
 });
+
+const SERVER_ERROR = { status: 503, body: { status: 503, message: "Service unavailable" } };
+const NOT_FOUND = { status: 404, body: { status: 404, message: "Not found" } };
+
+for (const [operationName, args, expectedData] of [
+  ["delete_post", { post_urn: SHARE_URN }, { id: SHARE_URN, deleted: true, already_absent: true }],
+  ["delete_comment", { target_urn: SHARE_URN, comment_id: "2" }, { comment_id: "2", deleted: true, already_absent: true }],
+  ["remove_reaction", { target_urn: SHARE_URN }, { target_urn: SHARE_URN, removed: true, already_absent: true }],
+]) {
+  test(`${operationName} retried after a server error that then gets 404 counts as deleted (already_absent)`, async () => {
+    const { output, calls } = await runWithResponses(operationName, args, [SERVER_ERROR, NOT_FOUND]);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(output.data, expectedData);
+  });
+
+  test(`${operationName} that gets 404 on its first attempt is still not_found`, async () => {
+    await assert.rejects(runWithResponses(operationName, args, [NOT_FOUND]), (error) => error.kind === "not_found");
+  });
+}
+
+for (const [label, operationName, args] of [
+  ["a comment URN from another ugcPost", "update_comment", { target_urn: "urn:li:ugcPost:1", comment_id: "urn:li:comment:(urn:li:ugcPost:2,5)", text: "x" }],
+  ["a comment URN from another activity", "delete_comment", { target_urn: "urn:li:activity:1", comment_id: "urn:li:comment:(urn:li:activity:9,5)" }],
+  ["a comment URN from another thread than the target comment", "delete_comment", { target_urn: "urn:li:comment:(urn:li:activity:1,4)", comment_id: "urn:li:comment:(urn:li:activity:9,5)" }],
+]) {
+  test(`rejects ${label} with invalid_input`, async () => {
+    await assert.rejects(runWithResponses(operationName, args, []), (error) => error.kind === "invalid_input" && /does not belong to/.test(error.message));
+  });
+}
+
+test("a comment URN on the same thread as target_urn is accepted", async () => {
+  const sameActivity = await runWithResponses("delete_comment", { target_urn: "urn:li:activity:1", comment_id: "urn:li:comment:(urn:li:activity:1,5)" }, [{ status: 204 }]);
+  assert.equal(sameActivity.calls[0].path, "/rest/socialActions/urn%3Ali%3Aactivity%3A1/comments/5");
+  const replyThread = await runWithResponses("update_comment", { target_urn: "urn:li:comment:(urn:li:activity:1,4)", comment_id: "urn:li:comment:(urn:li:activity:1,5)", text: "x" });
+  assert.equal(replyThread.calls.length, 1);
+});

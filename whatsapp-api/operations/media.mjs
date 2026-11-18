@@ -4,7 +4,7 @@
  */
 import { PluginError } from "../lib/shared/graphrt-plugin.mjs";
 import { pathSegment } from "../lib/shared/path.mjs";
-import { downloadMedia, MEDIA_RULES } from "../lib/media-download.mjs";
+import { defaultFileName, downloadMedia, MEDIA_RULES } from "../lib/media-download.mjs";
 import { PHONE_NUMBER_ID_PROPERTY, phoneNumberIdOf } from "./messaging.mjs";
 
 // Large documents (up to 100 MB) need far more than the client's 30 s default; together with the
@@ -17,13 +17,14 @@ function buildUploadForm(fileBlob, filename) {
   const uploadForm = new FormData();
   uploadForm.append("messaging_product", "whatsapp");
   uploadForm.append("type", fileBlob.type);
-  uploadForm.append("file", fileBlob, filename || "upload");
+  uploadForm.append("file", fileBlob, filename || defaultFileName(fileBlob.type));
   return uploadForm;
 }
 
 async function uploadMediaFromUrl({ client, args, environment, signal }) {
   const path = `/${pathSegment(phoneNumberIdOf(args, environment))}/media`;
-  const fileBlob = await downloadMedia(client.fetchImpl, { url: args.url, mediaType: args.type, mimeTypeOverride: args.mime_type, signal });
+  const downloadOptions = { url: args.url, mediaType: args.type, mimeTypeOverride: args.mime_type, signal, resolveHostAddresses: client.resolveHostAddresses };
+  const fileBlob = await downloadMedia(client.fetchImpl, downloadOptions);
   // No json/form option: the client passes the FormData through and fetch sets the multipart boundary.
   const uploadResponse = await client.request({
     method: "POST",
@@ -47,8 +48,8 @@ export const mediaOperations = [
       properties: {
         url: { type: "string", description: "Public https URL of the file" },
         type: { type: "string", enum: Object.keys(MEDIA_RULES), description: "How the file will be sent" },
-        mime_type: { type: "string", description: "MIME type to use when the server's Content-Type is wrong or generic" },
-        filename: { type: "string", description: "File name for the upload" },
+        mime_type: { type: "string", description: "MIME type to use when the server reports no Content-Type or application/octet-stream (ignored otherwise)" },
+        filename: { type: "string", description: "File name for the upload (default: upload.<extension from the MIME type>)" },
         phone_number_id: PHONE_NUMBER_ID_PROPERTY,
       },
       required: ["url", "type"],

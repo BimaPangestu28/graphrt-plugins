@@ -97,9 +97,18 @@ graphrt run tiktok-api/example.yaml --plugins .
   text: "Thank you!"
 ```
 - **List operations** return `data` and `next_cursor`. Pass `next_cursor` back as `cursor` to get the next page.
-  `list_videos` returns at most 20 videos per page.
+  `list_videos` returns at most 20 videos per page. `data` is always an array. If a response has no list under the
+  expected key (`videos`, `comments`, `conversations`, `messages`), an empty or paging-only response is an empty page;
+  one that carries other fields fails with `api_error` naming the fields it got (the key was probably renamed), so a
+  changed response never looks like "no results". Use `api_request` to see the raw response.
+- **List arguments:** `photo_urls` and `video_ids` take an array, a JSON array string, or a single plain string (one item).
+- **`business_id`** (and `TIKTOK_BUSINESS_ID`) is trimmed; a blank value fails with `invalid_input`.
+- **Reads sent as POST** (`list_videos`, `query_videos`, `get_creator_info`, `get_publish_status`) are retried after a
+  5xx or network error like any read; they are never reported as a write with an unknown outcome.
 - **Publishing modes:**
-  - `publish_video`: `mode: direct` (the default) needs `privacy_level`. `mode: inbox` sends a draft that the creator finishes in the app.
+  - `publish_video`: `mode: direct` (the default) needs `privacy_level`. `mode: inbox` sends a draft that the creator
+    finishes in the app; it takes only `video_url` (and `wait`). Post settings such as `title` or `privacy_level` fail
+    with `invalid_input` instead of being dropped, because inbox drafts are captioned and configured in the TikTok app.
   - `publish_photos`: `mode: direct` or `mode: upload`.
   - With `wait: false` the operation returns the `publish_id` right away. Check it later with `get_publish_status`.
   - Any failure after init (timeout, `FAILED`, an error while polling) is **not retryable** and names the

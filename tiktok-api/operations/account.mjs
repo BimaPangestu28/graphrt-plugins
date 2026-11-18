@@ -3,7 +3,7 @@
  * OAuth token refresh.
  */
 import { PluginError } from "../lib/shared/graphrt-plugin.mjs";
-import { redactPluginError, rejectInput, toCursorPage } from "../lib/client.mjs";
+import { redactPluginError, rejectInput, stringListProperty, toCursorPage, toStringList } from "../lib/client.mjs";
 
 const DEFAULT_USER_FIELDS =
   "open_id,union_id,avatar_url,display_name,bio_description,profile_deep_link,is_verified,username,follower_count,following_count,likes_count,video_count";
@@ -37,7 +37,14 @@ export const accountOperations = [
     },
     run: async ({ client, args, signal }) => {
       const requestBody = { max_count: args.limit, ...(args.cursor !== undefined && { cursor: parseVideoCursor(args.cursor) }) };
-      const responseBody = await client.open.request({ method: "POST", path: "/v2/video/list/", query: { fields: args.fields }, json: requestBody, signal });
+      const responseBody = await client.open.request({
+        method: "POST",
+        path: "/v2/video/list/",
+        query: { fields: args.fields },
+        json: requestBody,
+        idempotent: true,
+        signal,
+      });
       return toCursorPage(responseBody?.data, "videos");
     },
   },
@@ -48,18 +55,20 @@ export const accountOperations = [
     parameters: {
       type: "object",
       properties: {
-        video_ids: { type: "array", items: { type: "string" }, maxItems: MAX_VIDEOS_PER_REQUEST, description: "1-20 video ids" },
+        video_ids: stringListProperty("1-20 video ids (one id may be passed as a plain string)", MAX_VIDEOS_PER_REQUEST),
         fields: { type: "string", default: DEFAULT_VIDEO_FIELDS, description: "Comma-separated video fields" },
       },
       required: ["video_ids"],
     },
     run: async ({ client, args, signal }) => {
-      if (args.video_ids.length === 0) rejectInput("`video_ids` needs at least one id");
+      const videoIds = toStringList("video_ids", args.video_ids, MAX_VIDEOS_PER_REQUEST);
+      if (videoIds.length === 0) rejectInput("`video_ids` needs at least one id");
       const responseBody = await client.open.request({
         method: "POST",
         path: "/v2/video/query/",
         query: { fields: args.fields },
-        json: { filters: { video_ids: args.video_ids } },
+        json: { filters: { video_ids: videoIds } },
+        idempotent: true,
         signal,
       });
       return { data: responseBody?.data?.videos ?? [] };
@@ -98,7 +107,8 @@ export const accountOperations = [
  * @returns The creator info `data` object (Promise<object>)
  */
 export async function queryCreatorInfo(client, signal) {
-  const responseBody = await client.open.request({ method: "POST", path: "/v2/post/publish/creator_info/query/", json: {}, signal });
+  // A read sent as POST: idempotent so a 5xx is retried and not reported as a write with unknown outcome.
+  const responseBody = await client.open.request({ method: "POST", path: "/v2/post/publish/creator_info/query/", json: {}, idempotent: true, signal });
   return responseBody?.data ?? {};
 }
 
