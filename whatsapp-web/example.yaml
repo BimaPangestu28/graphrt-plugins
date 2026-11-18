@@ -1,0 +1,13 @@
+# Check the WhatsApp Web login and list unread chats (read-only).
+#   graphrt run whatsapp-web/example.yaml --plugins .
+# First time: run the login node once (see README) and scan the QR code.
+version: "1"
+name: whatsapp-web-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: status, type: whatsapp-web.get_status }
+    - { id: answer, type: answer, answer: "WhatsApp Web: {{#status.data.status#}} ({{#status.data.hint#}}) Sends today: {{#status.data.sends_today#}}/{{#status.data.daily_limit#}}" }
+  edges:
+    - { source: start, target: status }
+    - { source: status, target: answer }

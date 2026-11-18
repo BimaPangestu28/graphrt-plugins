@@ -1,0 +1,148 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  buildDesktopUserAgent,
+  classifyLaunchError,
+  isUnsupportedBrowserPage,
+  determineLoginStatus,
+  findNewOutgoingMessage,
+  mergeChatRows,
+  normalizePhoneNumber,
+  parseChatRows,
+  parseDeliveryStatus,
+  parseMessageDataId,
+  parseMessageRows,
+  parsePrePlainText,
+} from "../lib/parse.mjs";
+
+test("normalizePhoneNumber strips formatting and keeps international digits", () => {
+  assert.equal(normalizePhoneNumber("+62 812-3456-789"), "628123456789");
+  assert.equal(normalizePhoneNumber("(+1) 415 555 0100"), "14155550100");
+});
+
+for (const badNumber of ["0812", "abc", "+62 812 3456 7890 1234", "62x8123456789", "0081234567"]) {
+  test(`normalizePhoneNumber rejects ${JSON.stringify(badNumber)}`, () => {
+    assert.throws(() => normalizePhoneNumber(badNumber), { kind: "invalid_input" });
+  });
+}
+
+const MESSAGE_ID_CASES = [
+  ["true_628123456789@c.us_3EB0C0F8A4D1", { from_me: true, chat_id: "628123456789@c.us", id: "3EB0C0F8A4D1", participant: null }],
+  ["false_120363012345@g.us_3A9F2B_628111222333@c.us", { from_me: false, chat_id: "120363012345@g.us", id: "3A9F2B", participant: "628111222333@c.us" }],
+  ["false_98765432101234@lid_ABCDEF", { from_me: false, chat_id: "98765432101234@lid", id: "ABCDEF", participant: null }],
+];
+for (const [dataId, expected] of MESSAGE_ID_CASES) {
+  test(`parseMessageDataId ${dataId}`, () => assert.deepEqual(parseMessageDataId(dataId), expected));
+}
+
+test("parseMessageDataId returns null for unrelated ids", () => {
+  assert.equal(parseMessageDataId("album-123"), null);
+  assert.equal(parseMessageDataId(""), null);
+});
+
+test("parsePrePlainText reads time and sender", () => {
+  assert.deepEqual(parsePrePlainText("[10:42, 18/11/2026] Alice Smith: "), { time: "10:42, 18/11/2026", sender: "Alice Smith" });
+  assert.deepEqual(parsePrePlainText("[9:05 PM, 11/18/2026] +62 812-3456-789: "), { time: "9:05 PM, 11/18/2026", sender: "+62 812-3456-789" });
+  assert.deepEqual(parsePrePlainText("[10:42, 18/11/2026] Dr: Who: "), { time: "10:42, 18/11/2026", sender: "Dr: Who" });
+  assert.deepEqual(parsePrePlainText(null), { time: null, sender: null });
+});
+
+test("parseMessageRows builds messages, drops unknown rows, dedupes and keeps the last N", () => {
+  const rawRows = [
+    { dataId: "false_6281@c.us_A1", prePlainText: "[10:00, 18/11/2026] Budi: ", text: "halo", iconNames: [], iconLabels: [] },
+    { dataId: "true_6281@c.us_A2", prePlainText: "[10:01, 18/11/2026] Me: ", text: "hai juga", iconNames: ["msg-dblcheck"], iconLabels: [" Read "] },
+    { dataId: "true_6281@c.us_A2", prePlainText: "[10:01, 18/11/2026] Me: ", text: "hai juga", iconNames: [], iconLabels: [] },
+    { dataId: "not-a-message", prePlainText: null, text: "x", iconNames: [], iconLabels: [] },
+    { dataId: "false_6281@c.us_A3", prePlainText: null, text: "", iconNames: ["media-play"], iconLabels: [] },
+  ];
+  const messages = parseMessageRows(rawRows, 2);
+  assert.deepEqual(messages, [
+    { id: "A2", from_me: true, sender: "Me", time: "10:01, 18/11/2026", text: "hai juga", status: "read", chat_id: "6281@c.us", participant: null },
+    { id: "A3", from_me: false, sender: null, time: null, text: null, status: null, chat_id: "6281@c.us", participant: null },
+  ]);
+});
+
+const DELIVERY_CASES = [
+  [["msg-time"], [], "pending"],
+  [["status-time"], [], "pending"],
+  [["msg-check"], [" Sent "], "sent"],
+  [["msg-dblcheck"], [" Delivered "], "delivered"],
+  [["msg-dblcheck"], [" Read "], "read"],
+  [["tail-out"], [], null],
+];
+for (const [iconNames, iconLabels, expected] of DELIVERY_CASES) {
+  test(`parseDeliveryStatus ${iconNames} ${iconLabels} → ${expected}`, () => assert.equal(parseDeliveryStatus(iconNames, iconLabels), expected));
+}
+
+test("parseChatRows reads name, time, preview and unread count, ordered by position", () => {
+  const rawRows = [
+    { top: 72, title: "Ibu", text: "Ibu\nYesterday\nJangan lupa makan\n2", unreadLabel: "2 unread messages" },
+    { top: 0, title: "Kantor Group", text: "Kantor Group\n10:42\n~ Andi: meeting jam 3", unreadLabel: null },
+    { top: 144, title: "", text: "", unreadLabel: null },
+  ];
+  assert.deepEqual(parseChatRows(rawRows), [
+    { name: "Kantor Group", time: "10:42", last_message: "~ Andi: meeting jam 3", unread_count: 0 },
+    { name: "Ibu", time: "Yesterday", last_message: "Jangan lupa makan", unread_count: 2 },
+  ]);
+});
+
+test("mergeChatRows keeps the first sighting of each chat and appends new ones", () => {
+  const firstBatch = [{ name: "A", unread_count: 0 }, { name: "B", unread_count: 1 }];
+  const merged = mergeChatRows(firstBatch, [{ name: "B", unread_count: 5 }, { name: "C", unread_count: 0 }]);
+  assert.deepEqual(merged.map((chat) => [chat.name, chat.unread_count]), [["A", 0], ["B", 1], ["C", 0]]);
+});
+
+const LOGIN_STATUS_CASES = [
+  [{ hasChatList: true, hasQrCode: false }, "logged_in"],
+  [{ hasChatList: true, hasQrCode: true }, "logged_in"],
+  [{ hasChatList: false, hasQrCode: true }, "needs_login"],
+  [{ hasChatList: false, hasQrCode: false }, "loading"],
+  [null, "loading"],
+];
+for (const [signals, expected] of LOGIN_STATUS_CASES) {
+  test(`determineLoginStatus ${JSON.stringify(signals)} → ${expected}`, () => assert.equal(determineLoginStatus(signals), expected));
+}
+
+test("findNewOutgoingMessage ignores known and incoming messages", () => {
+  const rawRows = [
+    { dataId: "true_6281@c.us_OLD", prePlainText: null, text: "old", iconNames: ["msg-dblcheck"], iconLabels: [] },
+    { dataId: "false_6281@c.us_IN", prePlainText: null, text: "incoming", iconNames: [], iconLabels: [] },
+    { dataId: "true_6281@c.us_NEW", prePlainText: null, text: "new", iconNames: ["msg-time"], iconLabels: [] },
+  ];
+  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD"])).id, "NEW");
+  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD"])).status, "pending");
+  assert.equal(findNewOutgoingMessage(rawRows, new Set(["OLD", "NEW"])), null);
+});
+
+test("buildDesktopUserAgent drops the Headless marker and matches the platform", () => {
+  assert.equal(
+    buildDesktopUserAgent("159.0.8154.6", "darwin"),
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/159.0.8154.6 Safari/537.36",
+  );
+  assert.match(buildDesktopUserAgent("159.0.1.2", "linux"), /X11; Linux x86_64.*Chrome\/159\.0\.1\.2/);
+  assert.doesNotMatch(buildDesktopUserAgent("159.0.1.2", "win32"), /Headless/);
+});
+
+test("isUnsupportedBrowserPage recognises WhatsApp's update-your-browser page", () => {
+  assert.equal(isUnsupportedBrowserPage("WhatsApp works with Google Chrome 100+\nTo use WhatsApp, update Chrome"), true);
+  assert.equal(isUnsupportedBrowserPage("Scan to log in"), false);
+  assert.equal(isUnsupportedBrowserPage(null), false);
+});
+
+test("classifyLaunchError maps a missing browser to setup_required", () => {
+  const error = classifyLaunchError(new Error("browserType.launchPersistentContext: Executable doesn't exist at /x/chrome"));
+  assert.equal(error.kind, "setup_required");
+  assert.match(error.message, /playwright install chromium/);
+});
+
+test("classifyLaunchError explains a locked profile", () => {
+  const error = classifyLaunchError(new Error("Failed to create a ProcessSingleton for your profile directory"));
+  assert.equal(error.kind, "browser_error");
+  assert.match(error.message, /profile .*in use/i);
+});
+
+test("classifyLaunchError keeps other failures as browser_error", () => {
+  const error = classifyLaunchError(new Error("boom"));
+  assert.equal(error.kind, "browser_error");
+  assert.match(error.message, /boom/);
+});
