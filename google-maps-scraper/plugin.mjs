@@ -1,4 +1,4 @@
-// graphrt plugin `gmaps`: search Google Maps and extract business phone numbers.
+// graphrt plugin `google-maps-scraper`: search Google Maps and extract business phone numbers.
 //
 // Run it in a workflow with:  graphrt run example.yaml --plugins <parent dir>
 // Never console.log (stdout carries the plugin protocol); use console.error.
@@ -35,8 +35,8 @@ async function runSearch(config, hooks) {
   return { results, phones: collectPhones(results), count: results.length };
 }
 
-new Plugin("gmaps")
-  .node("gmaps.search", async (ctx, req) => {
+new Plugin("google-maps-scraper")
+  .node("google-maps-scraper.search", async (ctx, req) => {
     const searchOutput = await runSearch(req.config, {
       signal: ctx.signal,
       onProgress: (progressInfo) => ctx.progress("place", progressInfo),
@@ -45,7 +45,7 @@ new Plugin("gmaps")
   })
   .tool(
     {
-      name: "gmaps_search",
+      name: "search_places",
       description: "Search Google Maps and return matching places with phone, address, website and rating",
       parameters: SEARCH_PARAMETERS,
     },

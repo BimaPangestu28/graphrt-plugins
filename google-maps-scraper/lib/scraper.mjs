@@ -49,7 +49,7 @@ export async function searchPlaces(options, hooks = {}) {
     throw toCancelledIfAborted(searchError, hooks.signal);
   } finally {
     unbindAbort();
-    await browser.close().catch((closeError) => console.error(`[gmaps] browser close failed: ${closeError.message}`));
+    await browser.close().catch((closeError) => console.error(`[google-maps-scraper] browser close failed: ${closeError.message}`));
   }
 }
 
@@ -144,7 +144,7 @@ async function readPlaceAt(page, placeUrl, signal) {
   } catch (placeError) {
     // A closed browser after cancel must abort the search, not skip one place.
     if (placeError instanceof PluginError || signal?.aborted) throw placeError;
-    console.error(`[gmaps] skipping place ${placeUrl}: ${placeError.message}`);
+    console.error(`[google-maps-scraper] skipping place ${placeUrl}: ${placeError.message}`);
     return null;
   }
 }
@@ -152,7 +152,7 @@ async function readPlaceAt(page, placeUrl, signal) {
 async function readSinglePlace(page, hooks) {
   const placeResult = await readPlaceDetails(page).catch((placeError) => {
     if (hooks.signal?.aborted) throw placeError;
-    console.error(`[gmaps] no place found on ${page.url()}: ${placeError.message}`);
+    console.error(`[google-maps-scraper] no place found on ${page.url()}: ${placeError.message}`);
     return null;
   });
   if (!placeResult) return [];

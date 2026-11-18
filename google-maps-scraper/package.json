@@ -1,5 +1,5 @@
 {
-  "name": "graphrt-plugin-gmaps",
+  "name": "graphrt-plugin-google-maps-scraper",
   "version": "0.1.0",
   "private": true,
   "description": "graphrt plugin: search Google Maps and extract business phone numbers",

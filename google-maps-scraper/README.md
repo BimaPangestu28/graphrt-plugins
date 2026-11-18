@@ -1,4 +1,4 @@
-# gmaps
+# google-maps-scraper
 
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that searches Google Maps with a headless
@@ -10,8 +10,8 @@ Free: no API key or paid service.
 > Keep volumes low. For production use, consider the paid Google Places API.
 
 ## Features
-- `gmaps.search` node: query → `results`, `phones`, `count`
-- `gmaps/gmaps_search` tool for `tool` and `agent` nodes
+- `google-maps-scraper.search` node: query → `results`, `phones`, `count`
+- `google-maps-scraper/search_places` tool for `tool` and `agent` nodes
 - Scrolls the result list up to `max_results` (1–100); handles searches that open a single place
 - Per-place progress events, cancellation, clear errors (`invalid_input`, `blocked`, `setup_required`)
 
@@ -22,25 +22,25 @@ Free: no API key or paid service.
 
 ## Installation
 ```bash
-cd gmaps
+cd google-maps-scraper
 npm install
 npx playwright install chromium
 graphrt plugin install .
 ```
 The plugin runs `node plugin.mjs` from its own directory, so `node_modules/` must sit next to it.
 If you install it from git, run the two `npm`/`npx` commands inside the installed copy
-(`~/.graphrt/plugins/gmaps`).
+(`~/.graphrt/plugins/google-maps-scraper`).
 
 ## Quick Start
 ```bash
-graphrt run gmaps/example.yaml --plugins . --input query="bengkel motor Bandung"
+graphrt run google-maps-scraper/example.yaml --plugins . --input query="bengkel motor Bandung"
 # Found 5 places. Phones: ["081222888397", ...]
 ```
 
 ## Usage
 ```yaml
 - id: search
-  type: gmaps.search
+  type: google-maps-scraper.search
   query: "{{#start.query#}}"
   max_results: 20
 ```
@@ -60,7 +60,7 @@ Outputs:
 - `count`: integer.
 
 Timing: about 1–1.5 s per place. Node timeout is 5 minutes and at most 2 searches run at once.
-Cancelling a run closes the browser immediately. Tool calls (`gmaps/gmaps_search`) cannot be cancelled by the
+Cancelling a run closes the browser immediately. Tool calls (`google-maps-scraper/search_places`) cannot be cancelled by the
 host, so they stop themselves after 290 s with `cancelled`.
 `max_results` may be a number or a whole-number string (e.g. from `{{#start.n#}}`).
 

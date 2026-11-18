@@ -1,5 +1,5 @@
 {
-  "name": "gmaps",
+  "name": "google-maps-scraper",
   "version": "0.1.0",
   "description": "Search Google Maps with a headless browser and extract business phone numbers (free, no API key)",
   "license": "Apache-2.0",
@@ -17,7 +17,7 @@
   },
   "nodes": [
     {
-      "kind": "gmaps.search",
+      "kind": "google-maps-scraper.search",
       "title": "Google Maps search",
       "description": "Searches Google Maps and returns places with their phone numbers",
       "category": "integration",
@@ -72,7 +72,7 @@
   ],
   "tools": [
     {
-      "name": "gmaps_search",
+      "name": "search_places",
       "description": "Search Google Maps and return matching places with phone, address, website and rating",
       "parameters": {
         "type": "object",

@@ -15,7 +15,7 @@ import { PluginError } from "../graphrt-plugin.mjs";
 export function bindAbortToBrowser(signal, browser) {
   if (!signal) return () => {};
   const closeBrowser = () => {
-    browser.close().catch((closeError) => console.error(`[gmaps] browser close on cancel failed: ${closeError.message}`));
+    browser.close().catch((closeError) => console.error(`[google-maps-scraper] browser close on cancel failed: ${closeError.message}`));
   };
   if (signal.aborted) {
     closeBrowser();

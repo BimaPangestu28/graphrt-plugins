@@ -7,13 +7,13 @@ plugin with its own `graphrt-plugin.json`.
 ## Plugins
 | Plugin | Description |
 |--------|-------------|
-| [gmaps](gmaps/) | Search Google Maps (headless browser) and extract business phone numbers |
+| [google-maps-scraper](google-maps-scraper/) | Search Google Maps (headless browser) and extract business phone numbers |
 
 ## Usage
 ```bash
 graphrt run <workflow.yaml> --plugins /path/to/graphrt-plugins
 # or install one plugin
-graphrt plugin install ./gmaps
+graphrt plugin install ./google-maps-scraper
 ```
 See each plugin's README for setup.
 

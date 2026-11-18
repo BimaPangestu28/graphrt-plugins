@@ -1,5 +1,5 @@
 /**
- * Pure helpers for the gmaps plugin: config validation, URL building and
+ * Pure helpers for the google-maps-scraper plugin: config validation, URL building and
  * parsing of values scraped from a Google Maps place page.
  *
  * Kept free of Playwright so every rule here is unit-testable.
@@ -139,7 +139,7 @@ export function classifyLaunchError(launchError) {
   const message = String(launchError?.message ?? launchError);
   if (/Executable doesn't exist/i.test(message)) {
     return new PluginError(
-      "Chromium for Playwright is not installed. Run `npx playwright install chromium` in the gmaps plugin directory.",
+      "Chromium for Playwright is not installed. Run `npx playwright install chromium` in the google-maps-scraper plugin directory.",
       { kind: "setup_required" },
     );
   }
