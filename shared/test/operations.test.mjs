@@ -135,3 +135,38 @@ test("nodeOnly operations become nodes but never tools, so credentials stay out 
   await assert.rejects(runOperation("refresh_access_token", {}, { source: "tool" }), (error) => error.kind === "invalid_input");
   assert.equal((await runOperation("refresh_access_token", {}, { source: "node" })).data.access_token, "new");
 });
+
+test("localOnly plugins request no network or secrets and offer no node access_token", async () => {
+  const { buildManifest } = await import("../lib/operations.mjs");
+  const manifest = buildManifest({ ...pluginDefinition, version: "0", description: "d", localOnly: true });
+  assert.equal(manifest.permissions.network, false);
+  assert.equal(manifest.permissions.secrets, false);
+  assert.deepEqual(manifest.permissions.env, ["DEMO_ACCESS_TOKEN"]);
+  assert.equal("access_token" in manifest.nodes[0].config_schema.properties, false);
+  assert.equal(buildManifest({ ...pluginDefinition, version: "0", description: "d" }).permissions.network, true);
+});
+
+test("resolveToolDeadlineMs leaves 10 s of the host timeout, with a 5 s floor and the 120 s default", async () => {
+  const { resolveToolDeadlineMs } = await import("../lib/operations.mjs");
+  assert.equal(resolveToolDeadlineMs(pluginDefinition), 110000);
+  assert.equal(resolveToolDeadlineMs({ ...pluginDefinition, limits: { timeout_ms: 60000 } }), 50000);
+  assert.equal(resolveToolDeadlineMs({ ...pluginDefinition, limits: { timeout_ms: 8000 } }), 5000);
+});
+
+test("tool handlers pass a deadline signal that aborts the operation", async () => {
+  const { createToolHandler } = await import("../lib/operations.mjs");
+  const receivedCalls = [];
+  const runOperation = async (operationName, toolArguments, options) => {
+    receivedCalls.push({ operationName, toolArguments, options });
+    await new Promise((resolve) => options.signal.addEventListener("abort", resolve, { once: true }));
+    return { data: { aborted: options.signal.aborted, reason: options.signal.reason?.name }, next_cursor: null };
+  };
+  const handleTool = createToolHandler(runOperation, "get_profile", 20);
+  // AbortSignal.timeout's timer does not keep the event loop alive on its own.
+  const keepAliveTimer = setTimeout(() => {}, 5000);
+  const result = await handleTool({ fields: "id" }).finally(() => clearTimeout(keepAliveTimer));
+  assert.equal(receivedCalls[0].operationName, "get_profile");
+  assert.equal(receivedCalls[0].options.source, "tool");
+  assert.deepEqual(result.data, { data: { aborted: true, reason: "TimeoutError" }, next_cursor: null });
+  assert.equal(result.text, JSON.stringify(result.data));
+});
