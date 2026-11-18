@@ -151,3 +151,54 @@ test("request never puts the access token in error messages", async () => {
   });
   await assert.rejects(client.request({ path: "/x" }), (error) => !error.message.includes("secret-token"));
 });
+
+test("detectBodyError turns a 200 response with an error body into a PluginError", async () => {
+  const fakeFetch = createFakeFetch([{ body: { error: { code: "access_token_invalid", message: "bad token" } } }]);
+  const client = createTestClient(fakeFetch, {
+    detectBodyError: (body) => (body.error?.code !== "ok" ? { message: body.error.message, kind: "auth_error" } : null),
+  });
+  await assert.rejects(client.request({ path: "/x" }), (error) => error.kind === "auth_error" && /bad token/.test(error.message));
+});
+
+test("detectBodyError returning null keeps the response", async () => {
+  const fakeFetch = createFakeFetch([{ body: { error: { code: "ok" }, data: { id: 1 } } }]);
+  const client = createTestClient(fakeFetch, { detectBodyError: () => null });
+  assert.deepEqual((await client.request({ path: "/x" })).data, { id: 1 });
+});
+
+test("authorize may be async", async () => {
+  const fakeFetch = createFakeFetch([{ body: {} }]);
+  const client = createTestClient(fakeFetch, {
+    authorize: async ({ headers }) => {
+      headers.authorization = "Bearer late-token";
+    },
+  });
+  await client.request({ path: "/x" });
+  assert.equal(fakeFetch.calls[0].init.headers.authorization, "Bearer late-token");
+});
+
+test("refreshCredentials is called once on 401 and the request is retried", async () => {
+  let currentToken = "old-token";
+  let refreshCount = 0;
+  const fakeFetch = createFakeFetch([{ status: 401, body: { message: "expired" } }, { body: { ok: true } }]);
+  const client = createTestClient(fakeFetch, {
+    authorize: ({ headers }) => {
+      headers.authorization = `Bearer ${currentToken}`;
+    },
+    refreshCredentials: async () => {
+      refreshCount += 1;
+      currentToken = "new-token";
+      return true;
+    },
+  });
+  assert.deepEqual(await client.request({ method: "POST", path: "/x" }), { ok: true });
+  assert.equal(refreshCount, 1);
+  assert.equal(fakeFetch.calls[1].init.headers.authorization, "Bearer new-token");
+});
+
+test("refreshCredentials returning false surfaces the auth_error", async () => {
+  const fakeFetch = createFakeFetch([{ status: 401, body: { message: "expired" } }]);
+  const client = createTestClient(fakeFetch, { refreshCredentials: async () => false });
+  await assert.rejects(client.request({ path: "/x" }), (error) => error.kind === "auth_error");
+  assert.equal(fakeFetch.calls.length, 1);
+});

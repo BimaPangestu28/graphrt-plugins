@@ -81,3 +81,23 @@ test("runner rejects an unknown operation", async () => {
   const runOperation = createOperationRunner(pluginDefinition, { DEMO_ACCESS_TOKEN: "t" });
   await assert.rejects(runOperation("nope", {}, { source: "tool" }), (error) => error.kind === "invalid_input");
 });
+
+test("resolveAccessToken hook replaces the default token lookup", async () => {
+  const definitionWithResolver = {
+    ...pluginDefinition,
+    resolveAccessToken: ({ environment, nodeToken }) => nodeToken ?? environment.ALT_TOKEN ?? null,
+  };
+  const runOperation = createOperationRunner(definitionWithResolver, { ALT_TOKEN: "alt" });
+  assert.equal((await runOperation("get_profile", {}, { source: "tool" })).data.token, "alt");
+  const runWithoutToken = createOperationRunner(definitionWithResolver, {});
+  assert.equal((await runWithoutToken("get_profile", {}, { source: "tool" })).data.token, null);
+});
+
+test("buildManifest lists the token and extra env vars and merges limits", async () => {
+  const { buildManifest } = await import("../lib/operations.mjs");
+  const manifest = buildManifest({ ...pluginDefinition, version: "0.1.0", description: "d", extraEnv: ["DEMO_ID"], limits: { timeout_ms: 5 } });
+  assert.deepEqual(manifest.permissions.env, ["DEMO_ACCESS_TOKEN", "DEMO_ID"]);
+  assert.equal(manifest.limits.timeout_ms, 5);
+  assert.equal(manifest.limits.max_concurrency, 8);
+  assert.equal(manifest.runtime, "process");
+});

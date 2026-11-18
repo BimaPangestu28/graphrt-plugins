@@ -41,10 +41,17 @@ function isMissing(value) {
 }
 
 function validateValue(propertyName, propertySchema, rawValue) {
-  const value = coerceValue(propertySchema.type, rawValue);
+  const value = canonicalizeEnum(propertySchema.enum, coerceValue(propertySchema.type, rawValue));
   checkType(propertyName, propertySchema, value);
   checkConstraints(propertyName, propertySchema, value);
   return value;
+}
+
+// LLMs often send "post" for "POST"; accept a unique case-insensitive match.
+function canonicalizeEnum(enumValues, value) {
+  if (!enumValues || typeof value !== "string" || enumValues.includes(value)) return value;
+  const matches = enumValues.filter((enumValue) => typeof enumValue === "string" && enumValue.toLowerCase() === value.toLowerCase());
+  return matches.length === 1 ? matches[0] : value;
 }
 
 function coerceValue(declaredType, rawValue) {

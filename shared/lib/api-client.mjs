@@ -20,8 +20,11 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  *
  * @param options - Client configuration (object)
  * @param options.baseUrl - API root, e.g. "https://graph.facebook.com/v24.0" (string)
- * @param options.authorize - Adds credentials: `({headers, query}) => void` (function)
+ * @param options.authorize - Adds credentials: `({headers, query}) => void | Promise<void>` (function)
  * @param options.parseError - Optional `(status, body, headers) => {message?, kind?, retryAfterMs?}` (function)
+ * @param options.detectBodyError - Optional `(body, headers) => {message, kind?, retryAfterMs?} | null`, for APIs
+ *   that report errors inside 2xx bodies (function)
+ * @param options.refreshCredentials - Optional `async () => boolean`; called once on 401, retry if true (function)
  * @param options.fetchImpl - fetch implementation, for tests (function)
  * @param options.maxRetries - Retries after the first attempt (number, default 2)
  * @param options.retryBaseDelayMs - First backoff delay (number, default 1000)
@@ -50,20 +53,31 @@ export function createApiClient(options) {
 
 async function sendWithRetries(clientSettings, requestOptions) {
   const method = (requestOptions.method ?? "GET").toUpperCase();
-  const preparedRequest = prepareRequest(clientSettings, { ...requestOptions, method });
+  let preparedRequest = await prepareRequest(clientSettings, { ...requestOptions, method });
+  let hasRefreshedCredentials = false;
   for (let attempt = 0; ; attempt += 1) {
     const outcome = await sendOnce(clientSettings, preparedRequest, requestOptions.signal);
     if (outcome.response) return outcome.response;
+    if (await shouldRetryWithFreshCredentials(clientSettings, outcome.error, hasRefreshedCredentials)) {
+      hasRefreshedCredentials = true;
+      preparedRequest = await prepareRequest(clientSettings, { ...requestOptions, method });
+      continue;
+    }
     const canRetry = attempt < clientSettings.maxRetries && isRetryable(outcome.error, method);
     if (!canRetry) throw outcome.error;
     await waitBeforeRetry(clientSettings, outcome.error, attempt, requestOptions.signal);
   }
 }
 
-function prepareRequest(clientSettings, requestOptions) {
+async function shouldRetryWithFreshCredentials(clientSettings, pluginError, hasRefreshedCredentials) {
+  if (hasRefreshedCredentials || pluginError.kind !== "auth_error" || !clientSettings.refreshCredentials) return false;
+  return Boolean(await clientSettings.refreshCredentials());
+}
+
+async function prepareRequest(clientSettings, requestOptions) {
   const headers = { accept: "application/json", ...clientSettings.defaultHeaders, ...requestOptions.headers };
   const query = { ...requestOptions.query };
-  clientSettings.authorize?.({ headers, query });
+  await clientSettings.authorize?.({ headers, query });
   const url = buildUrl(clientSettings.baseUrl, requestOptions.path, query);
   const body = encodeBody(requestOptions, headers);
   const secrets = collectSecrets(headers, query);
@@ -121,7 +135,11 @@ async function sendOnce(clientSettings, preparedRequest, callerSignal) {
     return { error: classifyFetchFailure(fetchError, callerSignal, preparedRequest.secrets) };
   }
   const responseBody = await readBody(fetchResponse);
-  if (fetchResponse.ok) return { response: { body: responseBody, headers: fetchResponse.headers, status: fetchResponse.status } };
+  if (fetchResponse.ok) {
+    const bodyError = clientSettings.detectBodyError?.(responseBody, fetchResponse.headers);
+    if (bodyError) return { error: buildBodyError(bodyError, preparedRequest.secrets) };
+    return { response: { body: responseBody, headers: fetchResponse.headers, status: fetchResponse.status } };
+  }
   return { error: buildHttpError(clientSettings, fetchResponse, responseBody, preparedRequest.secrets) };
 }
 
@@ -153,6 +171,15 @@ function buildHttpError(clientSettings, fetchResponse, responseBody, secrets) {
     kind,
     retryable: isRetryableKind,
     retryAfterMs: retryAfterMs ?? undefined,
+  });
+}
+
+function buildBodyError(bodyError, secrets) {
+  const kind = bodyError.kind ?? "api_error";
+  return new PluginError(redact(`API error: ${bodyError.message}`, secrets), {
+    kind,
+    retryable: kind === "rate_limited",
+    retryAfterMs: bodyError.retryAfterMs,
   });
 }
 

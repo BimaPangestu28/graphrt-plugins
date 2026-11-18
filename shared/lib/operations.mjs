@@ -6,7 +6,9 @@
  *     name, version, description,
  *     tokenEnv: "META_ACCESS_TOKEN",          // env var holding the default token
  *     extraEnv: ["META_PAGE_ID"],             // other env vars the plugin may read
- *     createClient: ({ accessToken, environment }) => client,
+ *     createClient: ({ accessToken, environment, fetchImpl }) => client,
+ *     resolveAccessToken?: ({ environment, nodeToken }) => token | null,  // replaces the env lookup
+
  *     operations: [{ name, title, description, parameters, run }],
  *   }
  * Each operation becomes node kind `<name>.<operation>` and tool `<operation>`.
@@ -120,8 +122,10 @@ export function startPlugin(pluginDefinition, environment = process.env) {
 
 // Tools never accept a token from arguments: an LLM must not be able to choose credentials.
 function pickAccessToken(pluginDefinition, environment, rawArguments, source) {
-  const nodeToken = source === "node" ? rawArguments?.access_token : undefined;
-  const accessToken = (typeof nodeToken === "string" && nodeToken.trim()) || environment?.[pluginDefinition.tokenEnv];
+  const rawNodeToken = source === "node" ? rawArguments?.access_token : undefined;
+  const nodeToken = typeof rawNodeToken === "string" && rawNodeToken.trim() ? rawNodeToken.trim() : undefined;
+  if (pluginDefinition.resolveAccessToken) return pluginDefinition.resolveAccessToken({ environment, nodeToken });
+  const accessToken = nodeToken || environment?.[pluginDefinition.tokenEnv];
   if (!accessToken) {
     throw new PluginError(
       `No access token: set the ${pluginDefinition.tokenEnv} environment variable (and allow it in permissions.env) or pass \`access_token\` on the node`,

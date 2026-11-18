@@ -64,3 +64,7 @@ for (const [label, invalidArguments, fieldName] of [
     );
   });
 }
+
+test("validateArguments maps a case-insensitive enum match to the canonical value", () => {
+  assert.equal(validateArguments(schema, { message: "x", visibility: "public" }).visibility, "PUBLIC");
+});
