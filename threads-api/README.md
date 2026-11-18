@@ -74,11 +74,15 @@ graphrt run threads-api/example.yaml --plugins .
   hidden: true
 ```
 - **List operations** return `data` and `next_cursor`. Pass `next_cursor` back as `cursor` to get the next page.
-- **Publishing** creates a container, checks its status every 5 s (up to 5 minutes) until it is `FINISHED`,
+- **Publishing** creates a container, checks its status every 5 s (up to 6 minutes) until it is `FINISHED`,
   then publishes. `ERROR` or `EXPIRED` fails with `api_error` and the API's `error_message`. Text-only posts
-  are checked the same way. The output is `{id, container_id}`.
+  are checked the same way. The output is `{id, container_id}`. Carousel items are processed together, and the
+  whole publish must finish within 6 minutes.
+- **Safe retry:** if the final publish call fails, the error names the `container_id`. Run `publish_thread` again
+  with that `container_id` to publish the same container. Re-running without it would create a second post.
 - **Validation:** `text` is limited to 500 characters, `poll_options` to 2–4 entries and carousels to 2–20 items.
-- **Token refresh:** `refresh_access_token` exchanges the current token (at least 24 hours old and not expired)
+- **Token refresh (node only):** `refresh_access_token` is not offered to agents as a tool, so new tokens never
+  reach an LLM. It exchanges the current token (at least 24 hours old and not expired)
   for a new 60-day token and returns `{access_token, token_type, expires_in}`. The plugin does not store it.
   Update `THREADS_ACCESS_TOKEN` yourself, for example from a scheduled workflow.
 - **Polling:** graphrt plugins can't receive webhooks. To react to new replies or mentions, run a workflow on a

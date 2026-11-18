@@ -2,6 +2,7 @@
  * Threads post operations: list own threads/replies, mentions, keyword
  * search, repost and delete.
  */
+import { pathSegment } from "../lib/shared/path.mjs";
 import { paginationProperties, toPage } from "../lib/client.mjs";
 
 export const DEFAULT_MEDIA_FIELDS =
@@ -35,7 +36,7 @@ export const postOperations = [
       properties: { user_id: { type: "string", default: "me", description: "Threads user id (default: me)" }, ...LIST_PROPERTIES },
     },
     run: async ({ client, args, signal }) =>
-      toPage(await client.request({ path: `/${encodeURIComponent(args.user_id)}/threads`, query: buildListQuery(args), signal })),
+      toPage(await client.request({ path: `/${pathSegment(args.user_id)}/threads`, query: buildListQuery(args), signal })),
   },
   {
     name: "list_my_replies",
@@ -76,7 +77,7 @@ export const postOperations = [
     description: "Repost a Threads post to the account's profile. Returns the repost id.",
     parameters: { type: "object", properties: { media_id: MEDIA_ID_PROPERTY }, required: ["media_id"] },
     run: async ({ client, args, signal }) => ({
-      data: await client.request({ method: "POST", path: `/${encodeURIComponent(args.media_id)}/repost`, signal }),
+      data: await client.request({ method: "POST", path: `/${pathSegment(args.media_id)}/repost`, signal }),
     }),
   },
   {
@@ -85,7 +86,7 @@ export const postOperations = [
     description: "Delete one of the account's Threads posts or replies (needs threads_delete).",
     parameters: { type: "object", properties: { media_id: MEDIA_ID_PROPERTY }, required: ["media_id"] },
     run: async ({ client, args, signal }) => ({
-      data: await client.request({ method: "DELETE", path: `/${encodeURIComponent(args.media_id)}`, signal }),
+      data: await client.request({ method: "DELETE", path: `/${pathSegment(args.media_id)}`, signal }),
     }),
   },
 ];

@@ -10,6 +10,7 @@ export const THREADS_BASE_URL = `${THREADS_ORIGIN}/v1.0`;
 const RATE_LIMIT_CODES = new Set([4, 17, 32, 613]);
 const AUTH_ERROR_CODES = new Set([102, 190]);
 const INVALID_INPUT_CODES = new Set([100]);
+const OBJECT_DOES_NOT_EXIST_SUBCODE = 33;
 const NOT_FOUND_CODES = new Set([24]);
 
 /**
@@ -66,10 +67,11 @@ export function parseThreadsError(status, body) {
   ].filter(Boolean);
   const baseMessage = graphError.error_user_msg || graphError.message || "Unknown Threads API error";
   const message = details.length > 0 ? `${baseMessage} (${details.join(", ")})` : baseMessage;
-  return { message, kind: kindForGraphError(code, graphError.type, status) };
+  return { message, kind: kindForGraphError(code, Number(graphError.error_subcode), graphError.type, status) };
 }
 
-function kindForGraphError(code, errorType, status) {
+function kindForGraphError(code, subcode, errorType, status) {
+  if (code === 100 && subcode === OBJECT_DOES_NOT_EXIST_SUBCODE) return "not_found";
   if (RATE_LIMIT_CODES.has(code)) return "rate_limited";
   if (AUTH_ERROR_CODES.has(code)) return "auth_error";
   if (code === 10 || (code >= 200 && code <= 299)) return "permission_denied";

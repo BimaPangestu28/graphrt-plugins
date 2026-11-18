@@ -83,3 +83,11 @@ test("refresh_access_token maps an expired token error to auth_error", async () 
 test("operations fail with auth_error when THREADS_ACCESS_TOKEN is missing", async () => {
   await assert.rejects(runWithResponses("get_profile", {}, [], { GRAPHRT_POLL_INTERVAL_MS: "0" }), (error) => error.kind === "auth_error");
 });
+
+test("refresh_access_token is a node but not an LLM tool", async () => {
+  const { buildDescriptors } = await import("../lib/shared/operations.mjs");
+  const { pluginDefinition } = await import("../definition.mjs");
+  const { nodes, tools } = buildDescriptors(pluginDefinition);
+  assert.ok(nodes.some((node) => node.kind === "threads-api.refresh_access_token"));
+  assert.equal(tools.some((tool) => tool.name === "refresh_access_token"), false);
+});

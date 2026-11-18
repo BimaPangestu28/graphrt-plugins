@@ -440,7 +440,7 @@
     {
       "kind": "threads-api.publish_thread",
       "title": "Publish thread",
-      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 5 minutes).",
+      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `container_id` instead of re-running, so nothing is posted twice.",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -513,6 +513,10 @@
           "topic_tag": {
             "type": "string",
             "description": "Topic tag, without #"
+          },
+          "container_id": {
+            "type": "string",
+            "description": "Publish this existing container (from a failed attempt) instead of creating a new one"
           },
           "access_token": {
             "type": "string",
@@ -824,14 +828,6 @@
       }
     },
     {
-      "name": "refresh_access_token",
-      "description": "Exchange the current long-lived token (at least 24 hours old, not expired) for a new 60-day token. Returns {access_token, token_type, expires_in}; store the new token yourself.",
-      "parameters": {
-        "type": "object",
-        "properties": {}
-      }
-    },
-    {
       "name": "list_threads",
       "description": "List threads published by the account (or another user id the token can read), newest first.",
       "parameters": {
@@ -1022,7 +1018,7 @@
     },
     {
       "name": "publish_thread",
-      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 5 minutes).",
+      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `container_id` instead of re-running, so nothing is posted twice.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1094,6 +1090,10 @@
           "topic_tag": {
             "type": "string",
             "description": "Topic tag, without #"
+          },
+          "container_id": {
+            "type": "string",
+            "description": "Publish this existing container (from a failed attempt) instead of creating a new one"
           }
         }
       }

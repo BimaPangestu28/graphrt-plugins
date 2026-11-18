@@ -119,3 +119,19 @@ test("an async resolveAccessToken is awaited", async () => {
   const runOperation = createOperationRunner({ ...pluginDefinition, resolveAccessToken: async () => "async-token" }, {});
   assert.equal((await runOperation("get_profile", {}, { source: "tool" })).data.token, "async-token");
 });
+
+test("nodeOnly operations become nodes but never tools, so credentials stay out of LLM context", async () => {
+  const definitionWithNodeOnly = {
+    ...pluginDefinition,
+    operations: [
+      ...pluginDefinition.operations,
+      { name: "refresh_access_token", title: "Refresh", description: "d", nodeOnly: true, parameters: { type: "object", properties: {} }, run: async () => ({ data: { access_token: "new" } }) },
+    ],
+  };
+  const { nodes, tools } = buildDescriptors(definitionWithNodeOnly);
+  assert.ok(nodes.some((node) => node.kind === "demo.refresh_access_token"));
+  assert.equal(tools.some((tool) => tool.name === "refresh_access_token"), false);
+  const runOperation = createOperationRunner(definitionWithNodeOnly, { DEMO_ACCESS_TOKEN: "t" });
+  await assert.rejects(runOperation("refresh_access_token", {}, { source: "tool" }), (error) => error.kind === "invalid_input");
+  assert.equal((await runOperation("refresh_access_token", {}, { source: "node" })).data.access_token, "new");
+});

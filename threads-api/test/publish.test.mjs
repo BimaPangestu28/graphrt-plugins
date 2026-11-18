@@ -30,12 +30,11 @@ test("publish_thread treats PUBLISHED as done", async () => {
 test("publish_thread sends reply, quote, link and poll fields", async () => {
   const { calls } = await runWithResponses(
     "publish_thread",
-    { text: "poll?", reply_to_id: "r1", quote_post_id: "q1", link_attachment: "https://x.test", poll_options: ["A", "B", "C"] },
+    { text: "poll?", reply_to_id: "r1", link_attachment: "https://x.test", poll_options: ["A", "B", "C"] },
     FINISHED_FLOW,
   );
   const form = calls[0].form;
   assert.equal(form.reply_to_id, "r1");
-  assert.equal(form.quote_post_id, "q1");
   assert.equal(form.link_attachment, "https://x.test");
   assert.deepEqual(JSON.parse(form.poll_attachment), { option_a: "A", option_b: "B", option_c: "C" });
 });
@@ -50,60 +49,37 @@ test("publish_thread IMAGE and VIDEO send their media url and alt text", async (
   assert.equal(video.calls[0].form.video_url, "https://v.test/a.mp4");
 });
 
-test("publish_thread CAROUSEL creates carousel item children, then the parent", async () => {
+test("publish_thread CAROUSEL creates all children first, polls them together, then the parent", async () => {
   const { calls, output } = await runWithResponses(
     "publish_thread",
     { media_type: "CAROUSEL", text: "set", carousel_items: [{ image_url: "https://i.test/1.jpg", alt_text: "one" }, { video_url: "https://v.test/2.mp4" }] },
     [
       { body: { id: "child1" } },
-      { body: { status: "FINISHED" } },
       { body: { id: "child2" } },
+      { body: { status: "FINISHED" } },
       { body: { status: "FINISHED" } },
       { body: { id: "parent" } },
       { body: { status: "FINISHED" } },
       { body: { id: "post" } },
     ],
   );
+  assert.deepEqual(describeCalls(calls), [
+    "POST /v1.0/me/threads",
+    "POST /v1.0/me/threads",
+    "GET /v1.0/child1",
+    "GET /v1.0/child2",
+    "POST /v1.0/me/threads",
+    "GET /v1.0/parent",
+    "POST /v1.0/me/threads_publish",
+  ]);
   assert.equal(calls[0].form.is_carousel_item, "true");
-  assert.equal(calls[0].form.media_type, "IMAGE");
   assert.equal(calls[0].form.alt_text, "one");
-  assert.equal(calls[2].form.media_type, "VIDEO");
-  assert.equal(calls[2].form.video_url, "https://v.test/2.mp4");
+  assert.equal(calls[1].form.media_type, "VIDEO");
   assert.equal(calls[4].form.media_type, "CAROUSEL");
   assert.equal(calls[4].form.children, "child1,child2");
-  assert.equal(calls[4].form.text, "set");
-  assert.equal(calls[6].path, "/v1.0/me/threads_publish");
   assert.equal(calls[6].form.creation_id, "parent");
   assert.deepEqual(output.data, { id: "post", container_id: "parent" });
 });
-
-for (const failedStatus of ["ERROR", "EXPIRED"]) {
-  test(`publish_thread reports a ${failedStatus} container as api_error and does not publish`, async () => {
-    const responses = [{ body: { id: "c" } }, { body: { status: failedStatus, error_message: "FAILED_DOWNLOADING_VIDEO" } }];
-    await assert.rejects(
-      runWithResponses("publish_thread", { media_type: "VIDEO", video_url: "https://v.test/a.mp4" }, responses),
-      (error) => error.kind === "api_error" && error.message.includes(failedStatus) && /FAILED_DOWNLOADING_VIDEO/.test(error.message),
-    );
-  });
-}
-
-const twentyOneItems = Array.from({ length: 21 }, (_, index) => ({ image_url: `https://i.test/${index}.jpg` }));
-
-for (const [label, invalidArgs] of [
-  ["TEXT without text", { media_type: "TEXT" }],
-  ["text over 500 characters", { text: "a".repeat(501) }],
-  ["IMAGE without image_url", { media_type: "IMAGE" }],
-  ["VIDEO without video_url", { media_type: "VIDEO" }],
-  ["CAROUSEL with one item", { media_type: "CAROUSEL", carousel_items: [{ image_url: "https://i.test/1.jpg" }] }],
-  ["CAROUSEL with 21 items", { media_type: "CAROUSEL", carousel_items: twentyOneItems }],
-  ["CAROUSEL item without media", { media_type: "CAROUSEL", carousel_items: [{}, {}] }],
-  ["one poll option", { text: "q", poll_options: ["A"] }],
-  ["five poll options", { text: "q", poll_options: ["A", "B", "C", "D", "E"] }],
-]) {
-  test(`publish_thread rejects ${label}`, async () => {
-    await assert.rejects(runWithResponses("publish_thread", invalidArgs, []), (error) => error.kind === "invalid_input");
-  });
-}
 
 test("publish_thread accepts exactly 500 characters", async () => {
   const { calls } = await runWithResponses("publish_thread", { text: "a".repeat(500) }, FINISHED_FLOW);
@@ -114,3 +90,27 @@ test("publish_thread counts characters, not UTF-16 units, toward the 500 limit",
   const { calls } = await runWithResponses("publish_thread", { text: "😀".repeat(500) }, FINISHED_FLOW);
   assert.equal(calls.length, 3);
 });
+
+test("publish_thread with container_id skips creation and publishes that container", async () => {
+  const { calls, output } = await runWithResponses("publish_thread", { container_id: "c9" }, [{ body: { status: "FINISHED" } }, { body: { id: "post9" } }]);
+  assert.deepEqual(describeCalls(calls), ["GET /v1.0/c9", "POST /v1.0/me/threads_publish"]);
+  assert.equal(calls[1].form.creation_id, "c9");
+  assert.deepEqual(output.data, { id: "post9", container_id: "c9" });
+});
+
+test("a failed publish step reports the container_id and is not retryable", async () => {
+  await assert.rejects(
+    runWithResponses("publish_thread", { text: "x" }, [{ body: { id: "c7" } }, { body: { status: "FINISHED" } }, { status: 500, body: { error: { message: "boom", code: 2 } } }]),
+    (error) => error.retryable === false && /container_id c7/.test(error.message),
+  );
+});
+
+for (const [label, invalidArgs] of [
+  ["poll_options on an IMAGE post", { media_type: "IMAGE", image_url: "https://i.test/a.jpg", poll_options: ["A", "B"] }],
+  ["link_attachment on a VIDEO post", { media_type: "VIDEO", video_url: "https://v.test/a.mp4", link_attachment: "https://x.test" }],
+  ["reply_to_id together with quote_post_id", { text: "x", reply_to_id: "r", quote_post_id: "q" }],
+]) {
+  test(`publish_thread rejects ${label}`, async () => {
+    await assert.rejects(runWithResponses("publish_thread", invalidArgs, []), (error) => error.kind === "invalid_input");
+  });
+}

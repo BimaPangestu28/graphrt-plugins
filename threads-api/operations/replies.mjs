@@ -2,6 +2,7 @@
  * Threads reply moderation: list replies or the full conversation, hide
  * replies, and approve or ignore pending replies.
  */
+import { pathSegment } from "../lib/shared/path.mjs";
 import { paginationProperties, toPage } from "../lib/client.mjs";
 
 const DEFAULT_REPLY_FIELDS = "id,text,username,permalink,timestamp,media_type,has_replies,is_reply,root_post,replied_to,hide_status";
@@ -29,7 +30,7 @@ export const replyOperations = [
     },
     run: async ({ client, args, signal }) => {
       const edge = args.conversation ? "conversation" : "replies";
-      return toPage(await client.request({ path: `/${encodeURIComponent(args.media_id)}/${edge}`, query: buildReplyListQuery(args), signal }));
+      return toPage(await client.request({ path: `/${pathSegment(args.media_id)}/${edge}`, query: buildReplyListQuery(args), signal }));
     },
   },
   {
@@ -38,7 +39,7 @@ export const replyOperations = [
     description: "Hide or unhide a reply under one of the account's posts (needs threads_manage_replies).",
     parameters: { type: "object", properties: { reply_id: REPLY_ID_PROPERTY, hidden: { type: "boolean" } }, required: ["reply_id", "hidden"] },
     run: async ({ client, args, signal }) => ({
-      data: await client.request({ method: "POST", path: `/${encodeURIComponent(args.reply_id)}/manage_reply`, form: { hide: args.hidden }, signal }),
+      data: await client.request({ method: "POST", path: `/${pathSegment(args.reply_id)}/manage_reply`, form: { hide: args.hidden }, signal }),
     }),
   },
   {
@@ -52,7 +53,7 @@ export const replyOperations = [
     },
     run: async ({ client, args, signal }) => {
       const query = { ...buildReplyListQuery(args), approval_status: args.approval_status };
-      return toPage(await client.request({ path: `/${encodeURIComponent(args.media_id)}/pending_replies`, query, signal }));
+      return toPage(await client.request({ path: `/${pathSegment(args.media_id)}/pending_replies`, query, signal }));
     },
   },
   {
@@ -63,7 +64,7 @@ export const replyOperations = [
     run: async ({ client, args, signal }) => ({
       data: await client.request({
         method: "POST",
-        path: `/${encodeURIComponent(args.reply_id)}/manage_pending_reply`,
+        path: `/${pathSegment(args.reply_id)}/manage_pending_reply`,
         form: { approve: args.approve },
         signal,
       }),

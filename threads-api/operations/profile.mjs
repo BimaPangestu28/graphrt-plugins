@@ -39,6 +39,8 @@ export const profileOperations = [
   {
     name: "refresh_access_token",
     title: "Refresh Threads access token",
+    // Node only: the new token must never reach an LLM.
+    nodeOnly: true,
     description:
       "Exchange the current long-lived token (at least 24 hours old, not expired) for a new 60-day token. Returns {access_token, token_type, expires_in}; store the new token yourself.",
     parameters: { type: "object", properties: {} },

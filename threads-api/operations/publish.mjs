@@ -3,10 +3,13 @@
  * processed it, then publish it. Carousels create one container per item first.
  */
 import { rejectInput } from "../lib/client.mjs";
+import { PluginError } from "../lib/shared/graphrt-plugin.mjs";
+import { pathSegment } from "../lib/shared/path.mjs";
 import { pollUntilDone, resolvePollInterval } from "../lib/shared/polling.mjs";
 
 const CONTAINER_POLL_INTERVAL_MS = 5000;
-const CONTAINER_POLL_TIMEOUT_MS = 5 * 60 * 1000;
+// Whole publish (children + parent) must finish inside the manifest's 420 s timeout.
+const PUBLISH_DEADLINE_MS = 6 * 60 * 1000;
 const MAX_TEXT_CHARACTERS = 500;
 const MIN_CAROUSEL_ITEMS = 2;
 const MAX_CAROUSEL_ITEMS = 20;
@@ -21,7 +24,7 @@ export const publishOperations = [
     name: "publish_thread",
     title: "Publish thread",
     description:
-      "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 5 minutes).",
+      "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `container_id` instead of re-running, so nothing is posted twice.",
     parameters: {
       type: "object",
       properties: {
@@ -51,6 +54,7 @@ export const publishOperations = [
         },
         link_attachment: { type: "string", description: "URL shown as a link preview (TEXT posts)" },
         topic_tag: { type: "string", description: "Topic tag, without #" },
+        container_id: { type: "string", description: "Publish this existing container (from a failed attempt) instead of creating a new one" },
       },
     },
     run: publishThread,
@@ -58,15 +62,28 @@ export const publishOperations = [
 ];
 
 async function publishThread({ client, args, environment, signal }) {
+  const containerSettings = { client, environment, signal, deadline: Date.now() + PUBLISH_DEADLINE_MS };
+  const containerId = args.container_id ?? (await createPostContainer(containerSettings, args));
+  if (args.container_id) await waitForContainer(containerSettings, containerId);
+  try {
+    const published = await client.request({ method: "POST", path: "/me/threads_publish", form: { creation_id: containerId }, signal });
+    return { data: { id: published.id, container_id: containerId } };
+  } catch (publishError) {
+    throw new PluginError(`${publishError.message} (container_id ${containerId}: retry with \`container_id\` to publish it without creating a duplicate)`, {
+      kind: publishError.kind ?? "api_error",
+      retryable: false,
+    });
+  }
+}
+
+async function createPostContainer(containerSettings, args) {
   validatePublishArguments(args);
-  const containerSettings = { client, environment, signal };
   const containerForm = buildContainerForm(args);
   if (args.media_type === "CAROUSEL") {
     containerForm.children = (await createCarouselChildren(containerSettings, args.carousel_items)).join(",");
   }
-  const containerId = await createReadyContainer(containerSettings, containerForm);
-  const published = await client.request({ method: "POST", path: "/me/threads_publish", form: { creation_id: containerId }, signal });
-  return { data: { id: published.id, container_id: containerId } };
+  const [containerId] = await createContainers(containerSettings, [containerForm]);
+  return containerId;
 }
 
 function validatePublishArguments(args) {
@@ -77,6 +94,10 @@ function validatePublishArguments(args) {
   if (args.poll_options !== undefined && args.poll_options.length < MIN_POLL_OPTIONS) {
     rejectInput(`\`poll_options\` needs ${MIN_POLL_OPTIONS}-${MAX_POLL_OPTIONS} options`);
   }
+  if (args.media_type !== "TEXT" && (args.poll_options || args.link_attachment)) {
+    rejectInput("`poll_options` and `link_attachment` are only allowed on TEXT posts");
+  }
+  if (args.reply_to_id && args.quote_post_id) rejectInput("Pass either `reply_to_id` or `quote_post_id`, not both");
   const requiredMedia = { TEXT: "text", IMAGE: "image_url", VIDEO: "video_url" }[args.media_type];
   if (requiredMedia && !args[requiredMedia]) rejectInput(`${args.media_type} needs \`${requiredMedia}\``);
   if (args.media_type === "CAROUSEL") validateCarouselItems(args.carousel_items);
@@ -113,27 +134,36 @@ function buildPollAttachment(pollOptions) {
   return Object.fromEntries(pollOptions.map((pollOption, index) => [POLL_OPTION_KEYS[index], pollOption]));
 }
 
-async function createCarouselChildren(containerSettings, carouselItems) {
-  const childIds = [];
-  for (const carouselItem of carouselItems) {
-    const childForm = carouselItem.video_url
+function createCarouselChildren(containerSettings, carouselItems) {
+  const childForms = carouselItems.map((carouselItem) =>
+    carouselItem.video_url
       ? { is_carousel_item: true, media_type: "VIDEO", video_url: carouselItem.video_url, alt_text: carouselItem.alt_text }
-      : { is_carousel_item: true, media_type: "IMAGE", image_url: carouselItem.image_url, alt_text: carouselItem.alt_text };
-    childIds.push(await createReadyContainer(containerSettings, childForm));
-  }
-  return childIds;
+      : { is_carousel_item: true, media_type: "IMAGE", image_url: carouselItem.image_url, alt_text: carouselItem.alt_text },
+  );
+  return createContainers(containerSettings, childForms);
 }
 
-async function createReadyContainer({ client, environment, signal }, containerForm) {
-  const container = await client.request({ method: "POST", path: "/me/threads", form: containerForm, signal });
-  await pollUntilDone({
-    readStatus: () => client.request({ path: `/${encodeURIComponent(container.id)}`, query: { fields: "status,error_message" }, signal }),
+// Creates every container first, then waits for all of them together against one
+// deadline, so a carousel of videos fits inside the plugin timeout.
+async function createContainers(containerSettings, containerForms) {
+  const { client, signal } = containerSettings;
+  const containerIds = [];
+  for (const containerForm of containerForms) {
+    const container = await client.request({ method: "POST", path: "/me/threads", form: containerForm, signal });
+    containerIds.push(container.id);
+  }
+  await Promise.all(containerIds.map((containerId) => waitForContainer(containerSettings, containerId)));
+  return containerIds;
+}
+
+function waitForContainer({ client, environment, signal, deadline }, containerId) {
+  return pollUntilDone({
+    readStatus: () => client.request({ path: `/${pathSegment(containerId)}`, query: { fields: "status,error_message" }, signal }),
     isDone: (statusResult) => DONE_STATUSES.has(statusResult.status),
     isFailed: (statusResult) =>
       FAILED_STATUSES.has(statusResult.status) ? `${statusResult.status}: ${statusResult.error_message ?? "no details"}` : false,
     intervalMs: resolvePollInterval(environment, CONTAINER_POLL_INTERVAL_MS),
-    timeoutMs: CONTAINER_POLL_TIMEOUT_MS,
+    timeoutMs: Math.max(0, deadline - Date.now()),
     signal,
   });
-  return container.id;
 }

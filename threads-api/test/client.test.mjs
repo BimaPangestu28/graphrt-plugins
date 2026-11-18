@@ -72,3 +72,8 @@ test("a caller-supplied access_token query param is dropped; the env token is se
 test("api_request refuses other origins", async () => {
   await assert.rejects(runWithResponses("api_request", { path: "https://evil.test/me" }, []), (error) => error.kind === "invalid_input");
 });
+
+test("parseThreadsError maps code 100 subcode 33 to not_found", async () => {
+  const { parseThreadsError } = await import("../lib/client.mjs");
+  assert.equal(parseThreadsError(400, { error: { code: 100, error_subcode: 33, message: "m" } }).kind, "not_found");
+});
