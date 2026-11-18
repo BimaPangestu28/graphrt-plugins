@@ -2,7 +2,7 @@
  * Downloads a file from a public https URL for upload_media.
  *
  * The download never carries credentials (it does not use the API client),
- * refuses non-https URLs and redirects, checks the MIME type against what
+ * refuses non-https URLs (redirects are followed, but the final URL must be https), checks the MIME type against what
  * WhatsApp accepts for the media type, and stops reading past the size limit.
  *
  * Supported types and limits: developers.facebook.com/docs/whatsapp/cloud-api/reference/media
@@ -53,7 +53,11 @@ export async function downloadMedia(fetchImpl, { url, mediaType, mimeTypeOverrid
     rejectInput(`WhatsApp ${mediaType} must be one of ${mediaRule.mimeTypes.join(", ")}, got "${mimeType || "none"}" (pass \`mime_type\` if the server reports the wrong type)`);
   }
   if (Number(response.headers.get("content-length")) > mediaRule.maxBytes) rejectSize(mediaType, mediaRule);
-  const fileBytes = await readLimitedBytes(response, mediaType, mediaRule);
+  const fileBytes = await readLimitedBytes(response, mediaType, mediaRule).catch((readError) => {
+    // Our own size-limit error passes through; stalls and cancels while reading the body are classified.
+    if (readError instanceof PluginError) throw readError;
+    throw classifyDownloadFailure(readError, signal);
+  });
   return new Blob([fileBytes], { type: mimeType });
 }
 
@@ -76,10 +80,14 @@ async function fetchMediaFile(fetchImpl, url, signal) {
   try {
     return await fetchImpl(url, { method: "GET", redirect: "follow", signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
   } catch (fetchError) {
-    if (signal?.aborted) throw new PluginError("Download cancelled", { kind: "cancelled" });
-    const reason = fetchError?.name === "TimeoutError" ? "timed out" : String(fetchError?.cause?.message ?? fetchError?.message ?? fetchError);
-    throw new PluginError(`Could not download \`url\`: ${reason}`, { kind: "network_error" });
+    throw classifyDownloadFailure(fetchError, signal);
   }
+}
+
+function classifyDownloadFailure(downloadError, signal) {
+  if (signal?.aborted) return new PluginError("Download cancelled", { kind: "cancelled" });
+  const reason = downloadError?.name === "TimeoutError" ? "timed out" : String(downloadError?.cause?.message ?? downloadError?.message ?? downloadError);
+  return new PluginError(`Could not download \`url\`: ${reason}`, { kind: "network_error" });
 }
 
 async function readLimitedBytes(response, mediaType, mediaRule) {

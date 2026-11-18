@@ -300,3 +300,17 @@ test("a retry wait ends immediately when the signal is already aborted", async (
   );
   assert.ok(Date.now() - startedAt < 1000);
 });
+
+test("a per-request timeoutMs overrides the client timeout", async () => {
+  const slowFetch = (url, init) =>
+    new Promise((resolve, reject) => {
+      const timer = setTimeout(() => resolve(new Response("{}")), 60);
+      init.signal.addEventListener("abort", () => {
+        clearTimeout(timer);
+        reject(init.signal.reason);
+      });
+    });
+  const client = createTestClient(slowFetch, { timeoutMs: 10, maxRetries: 0 });
+  await assert.rejects(client.request({ path: "/x" }), (error) => error.kind === "network_error");
+  assert.deepEqual(await client.request({ path: "/x", timeoutMs: 500 }), {});
+});

@@ -34,7 +34,8 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  * @param options.timeoutMs - Per-attempt timeout (number, default 30000)
  * @param options.defaultHeaders - Headers sent on every request (object)
  * @returns `{request, requestWithHeaders}`; request options are
- *   `{method, path, query, json, form, body, headers, signal, redactResponse}`
+ *   `{method, path, query, json, form, body, headers, signal, redactResponse, timeoutMs}`
+ *   (`timeoutMs` overrides the client's per-attempt timeout, e.g. for large uploads)
  *
  * @example
  * const client = createApiClient({ baseUrl, authorize: ({ headers }) => { headers.authorization = `Bearer ${token}`; } });
@@ -93,7 +94,8 @@ async function prepareRequest(clientSettings, requestOptions) {
   const url = buildUrl(clientSettings.baseUrl, requestOptions.path, query);
   const body = encodeBody(requestOptions, headers);
   const secrets = collectSecrets(headers, query, extraSecrets);
-  return { url, method: requestOptions.method, init: { method: requestOptions.method, headers, body }, secrets };
+  const timeoutMs = requestOptions.timeoutMs ?? clientSettings.timeoutMs;
+  return { url, method: requestOptions.method, init: { method: requestOptions.method, headers, body }, secrets, timeoutMs };
 }
 
 function rejectBodyOnReadMethods(requestOptions) {
@@ -160,7 +162,7 @@ function collectSecrets(headers, query, extraSecrets) {
 }
 
 async function sendOnce(clientSettings, preparedRequest, callerSignal) {
-  const timeoutSignal = AbortSignal.timeout(clientSettings.timeoutMs);
+  const timeoutSignal = AbortSignal.timeout(preparedRequest.timeoutMs);
   const combinedSignal = callerSignal ? AbortSignal.any([callerSignal, timeoutSignal]) : timeoutSignal;
   let fetchResponse;
   let responseBody;

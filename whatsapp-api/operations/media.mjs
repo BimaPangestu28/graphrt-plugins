@@ -7,6 +7,9 @@ import { pathSegment } from "../lib/shared/path.mjs";
 import { downloadMedia, MEDIA_RULES } from "../lib/media-download.mjs";
 import { PHONE_NUMBER_ID_PROPERTY, phoneNumberIdOf } from "./messaging.mjs";
 
+// Large documents (up to 100 MB) need far more than the client's 30 s default; together with the
+// 120 s download this stays inside the operation's 300 s limit.
+export const UPLOAD_TIMEOUT_MS = 170000;
 const MEDIA_ID_PROPERTY = { type: "string", description: "Media id" };
 const OWNER_PHONE_NUMBER_ID_PROPERTY = { type: "string", description: "Optional: only succeed if the media belongs to this phone number id" };
 
@@ -22,7 +25,13 @@ async function uploadMediaFromUrl({ client, args, environment, signal }) {
   const path = `/${pathSegment(phoneNumberIdOf(args, environment))}/media`;
   const fileBlob = await downloadMedia(client.fetchImpl, { url: args.url, mediaType: args.type, mimeTypeOverride: args.mime_type, signal });
   // No json/form option: the client passes the FormData through and fetch sets the multipart boundary.
-  const uploadResponse = await client.request({ method: "POST", path, body: buildUploadForm(fileBlob, args.filename), signal });
+  const uploadResponse = await client.request({
+    method: "POST",
+    path,
+    body: buildUploadForm(fileBlob, args.filename),
+    signal,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+  });
   if (!uploadResponse?.id) throw new PluginError("WhatsApp accepted the upload but returned no media id", { kind: "api_error" });
   return { data: { id: uploadResponse.id, mime_type: fileBlob.type, file_size: fileBlob.size } };
 }

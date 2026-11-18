@@ -67,3 +67,35 @@ test("upload_media reports a failed download", async () => {
 test("upload_media fails when WhatsApp returns no media id", async () => {
   await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/a.jpg", type: "image" }, [IMAGE_RESPONSE, { body: {} }]), "api_error", /media id/);
 });
+
+test("upload_media gives the upload POST a longer timeout than the 30 s default", async () => {
+  const { mediaOperations, UPLOAD_TIMEOUT_MS } = await import("../operations/media.mjs");
+  const uploadOperation = mediaOperations.find((operation) => operation.name === "upload_media");
+  const requests = [];
+  const fakeClient = {
+    fetchImpl: async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/png" } }),
+    request: async (requestOptions) => (requests.push(requestOptions), { id: "media-1" }),
+  };
+  await uploadOperation.run({ client: fakeClient, args: { url: "https://cdn.example.com/a.png", type: "image" }, environment: { WHATSAPP_PHONE_NUMBER_ID: "123" } });
+  assert.ok(UPLOAD_TIMEOUT_MS > 30000);
+  assert.equal(requests[0].timeoutMs, UPLOAD_TIMEOUT_MS);
+});
+
+test("a download that stalls mid-body becomes network_error, and a cancel mid-body becomes cancelled", async () => {
+  const { downloadMedia } = await import("../lib/media-download.mjs");
+  const stallingFetch = async () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1]));
+          controller.error(new DOMException("The operation timed out.", "TimeoutError"));
+        },
+      }),
+      { headers: { "content-type": "image/png" } },
+    );
+  await assert.rejects(downloadMedia(stallingFetch, { url: "https://cdn.example.com/a.png", mediaType: "image" }), (error) => error.kind === "network_error");
+  await assert.rejects(
+    downloadMedia(stallingFetch, { url: "https://cdn.example.com/a.png", mediaType: "image", signal: AbortSignal.abort() }),
+    (error) => error.kind === "cancelled",
+  );
+});
