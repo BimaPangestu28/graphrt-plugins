@@ -1,0 +1,14 @@
+# Read the authenticated X user and their latest mentions (X bills per request: 1 user read + up to 5 post reads).
+#   X_ACCESS_TOKEN=... graphrt run x-api/example.yaml --plugins .
+version: "1"
+name: x-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: x-api.get_me, query_params: { "user.fields": "public_metrics" } }
+    - { id: mentions, type: x-api.list_mentions, user_id: "{{#me.data.data.id#}}", limit: 5 }
+    - { id: answer, type: answer, answer: "@{{#me.data.data.username#}}\nLatest mentions: {{#mentions.data.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: mentions }
+    - { source: mentions, target: answer }
