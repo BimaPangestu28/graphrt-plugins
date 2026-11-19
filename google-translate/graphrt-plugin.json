@@ -1,0 +1,346 @@
+{
+  "name": "google-translate",
+  "version": "0.1.0",
+  "description": "Google Cloud Translation (Basic, v2) with an API key: translate text, detect language, list languages",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_TRANSLATE_API_KEY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-translate.translate_text",
+      "title": "Translate text",
+      "description": "Translate texts into one language; [i].translatedText belongs to text[i], with detectedSourceLanguage when source is omitted",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts (at most 128 per call, 30k characters recommended)",
+            "maxItems": 128,
+            "items": {
+              "type": "string"
+            }
+          },
+          "target": {
+            "type": "string",
+            "description": "Target language (ISO-639 code), e.g. en, id, zh-CN"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source language (detected when omitted)"
+          },
+          "format": {
+            "type": "string",
+            "description": "text, or html to keep markup (and escape entities)",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          },
+          "model": {
+            "type": "string",
+            "description": "Translation model (default nmt)",
+            "enum": [
+              "nmt",
+              "base"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text",
+          "target"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-translate.detect_language",
+      "title": "Detect language",
+      "description": "Detect the language of texts; [i] lists {language, confidence} candidates for text[i]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts (at most 128 per call, 30k characters recommended)",
+            "maxItems": 128,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-translate.list_languages",
+      "title": "List languages",
+      "description": "Languages Google Translate supports, with names in the display language",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "display_language": {
+            "type": "string",
+            "description": "Language for the names, e.g. en",
+            "default": "en"
+          },
+          "model": {
+            "type": "string",
+            "description": "Only languages of this model",
+            "enum": [
+              "nmt",
+              "base"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-translate.api_request",
+      "title": "Cloud Translation API (v2) request",
+      "description": "Call any Cloud Translation API (v2) endpoint that has no dedicated operation, e.g. path \"/language/translate/v2/languages\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/language/translate/v2/languages\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "translate_text",
+      "description": "Translate texts into one language; [i].translatedText belongs to text[i], with detectedSourceLanguage when source is omitted",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts (at most 128 per call, 30k characters recommended)",
+            "maxItems": 128,
+            "items": {
+              "type": "string"
+            }
+          },
+          "target": {
+            "type": "string",
+            "description": "Target language (ISO-639 code), e.g. en, id, zh-CN"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source language (detected when omitted)"
+          },
+          "format": {
+            "type": "string",
+            "description": "text, or html to keep markup (and escape entities)",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          },
+          "model": {
+            "type": "string",
+            "description": "Translation model (default nmt)",
+            "enum": [
+              "nmt",
+              "base"
+            ]
+          }
+        },
+        "required": [
+          "text",
+          "target"
+        ]
+      }
+    },
+    {
+      "name": "detect_language",
+      "description": "Detect the language of texts; [i] lists {language, confidence} candidates for text[i]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts (at most 128 per call, 30k characters recommended)",
+            "maxItems": 128,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "list_languages",
+      "description": "Languages Google Translate supports, with names in the display language",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "display_language": {
+            "type": "string",
+            "description": "Language for the names, e.g. en",
+            "default": "en"
+          },
+          "model": {
+            "type": "string",
+            "description": "Only languages of this model",
+            "enum": [
+              "nmt",
+              "base"
+            ]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Cloud Translation API (v2) endpoint that has no dedicated operation, e.g. path \"/language/translate/v2/languages\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/language/translate/v2/languages\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

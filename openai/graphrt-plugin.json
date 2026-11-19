@@ -1,0 +1,1299 @@
+{
+  "name": "openai",
+  "version": "0.1.0",
+  "description": "OpenAI API: Responses and chat completions (non-streaming), embeddings, moderation, models, files and batches",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "OPENAI_API_KEY",
+      "OPENAI_TOOL_ALLOW_REMOTE_TOOLS",
+      "OPENAI_UPLOAD_DIR",
+      "OPENAI_OUTPUT_DIR",
+      "OPENAI_TOOL_ALLOW_BATCH"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "openai.create_response",
+      "title": "Create response",
+      "description": "Generate a model response with the Responses API (text in, text or JSON out; not streamed). The answer text is in output[].content[].text (mcp and connector tools from agents only when OPENAI_TOOL_ALLOW_REMOTE_TOOLS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. gpt-5-mini or gpt-5"
+          },
+          "input": {
+            "type": "string",
+            "description": "Prompt text",
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "string",
+            "description": "System/developer instructions"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "description": "Cap on output tokens, reasoning included",
+            "minimum": 1
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "description": "Reasoning effort for reasoning models",
+            "enum": [
+              "none",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          },
+          "text_format": {
+            "type": "object",
+            "description": "Output format, e.g. {\"type\":\"json_schema\",\"name\":\"x\",\"schema\":{...},\"strict\":true}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tool definitions (function tools, web_search, ...)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "previous_response_id": {
+            "type": "string",
+            "description": "Continue from a stored response (needs store: true on it)"
+          },
+          "store": {
+            "type": "boolean",
+            "description": "Store the response on OpenAI so it can be fetched or continued later",
+            "default": false
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (not accepted by every model)",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Up to 16 string key/value pairs"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.get_response",
+      "title": "Get response",
+      "description": "Get a stored response by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "response_id": {
+            "type": "string",
+            "description": "Response id (resp_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "response_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.delete_response",
+      "title": "Delete response",
+      "description": "Delete a stored response",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "response_id": {
+            "type": "string",
+            "description": "Response id (resp_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "response_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.create_chat_completion",
+      "title": "Create chat completion",
+      "description": "Generate a chat completion (not streamed). The answer is in choices[0].message.content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. gpt-5-mini"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "max_completion_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens, reasoning included",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (not accepted by every model)",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "response_format": {
+            "type": "object",
+            "description": "{\"type\":\"json_object\"} or {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions",
+            "items": {
+              "type": "object"
+            }
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "description": "Reasoning effort for reasoning models",
+            "enum": [
+              "none",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Best-effort deterministic sampling"
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.create_embeddings",
+      "title": "Create embeddings",
+      "description": "Embed texts as vectors; data[i].embedding belongs to input[i]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Embedding model, e.g. text-embedding-3-small"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "maxItems": 2048,
+            "items": {
+              "type": "string"
+            }
+          },
+          "dimensions": {
+            "type": "integer",
+            "description": "Shorter vectors (text-embedding-3 models only)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.create_moderation",
+      "title": "Moderate text",
+      "description": "Classify text for harmful content (free): results[0].flagged and per-category scores",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Text to classify",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Moderation model",
+            "default": "omni-moderation-latest"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.list_models",
+      "title": "List models",
+      "description": "List the models the API key can use",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.get_model",
+      "title": "Get model",
+      "description": "Get one model's id, owner and creation time",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.list_files",
+      "title": "List files",
+      "description": "List uploaded files, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "description": "Only files with this purpose",
+            "enum": [
+              "assistants",
+              "batch",
+              "fine-tune",
+              "vision",
+              "user_data",
+              "evals"
+            ]
+          },
+          "order": {
+            "type": "string",
+            "description": "Sort by creation time (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file (e.g. a .jsonl batch input) and get its file id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File to upload (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "batch for Batch API input",
+            "enum": [
+              "assistants",
+              "batch",
+              "fine-tune",
+              "vision",
+              "user_data",
+              "evals"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file",
+          "purpose"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.get_file",
+      "title": "Get file",
+      "description": "Get an uploaded file's metadata",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file-...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.download_file_content",
+      "title": "Download file content",
+      "description": "Save a file's content (e.g. a batch's output_file_id) into $OPENAI_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file-...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.delete_file",
+      "title": "Delete file",
+      "description": "Delete an uploaded file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file-...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.create_batch",
+      "title": "Create batch",
+      "description": "Start a Batch API job over an uploaded .jsonl file (50% cheaper, finishes within 24 h); poll it with get_batch (as an agent tool only when OPENAI_TOOL_ALLOW_BATCH=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input_file_id": {
+            "type": "string",
+            "description": "File id of the .jsonl input (purpose batch)"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint every line calls",
+            "enum": [
+              "/v1/responses",
+              "/v1/chat/completions",
+              "/v1/embeddings",
+              "/v1/completions",
+              "/v1/moderations"
+            ]
+          },
+          "completion_window": {
+            "type": "string",
+            "description": "Only 24h is supported",
+            "enum": [
+              "24h"
+            ],
+            "default": "24h"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Up to 16 string key/value pairs"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input_file_id",
+          "endpoint"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.get_batch",
+      "title": "Get batch",
+      "description": "Get a batch's status (validating, in_progress, completed, failed, expired, cancelled) and output_file_id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Batch id (batch_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.list_batches",
+      "title": "List batches",
+      "description": "List batches, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.cancel_batch",
+      "title": "Cancel batch",
+      "description": "Cancel a running batch (finished requests are still billed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Batch id (batch_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai.api_request",
+      "title": "OpenAI API request",
+      "description": "Call any OpenAI API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_response",
+      "description": "Generate a model response with the Responses API (text in, text or JSON out; not streamed). The answer text is in output[].content[].text (mcp and connector tools from agents only when OPENAI_TOOL_ALLOW_REMOTE_TOOLS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. gpt-5-mini or gpt-5"
+          },
+          "input": {
+            "type": "string",
+            "description": "Prompt text",
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "string",
+            "description": "System/developer instructions"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "description": "Cap on output tokens, reasoning included",
+            "minimum": 1
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "description": "Reasoning effort for reasoning models",
+            "enum": [
+              "none",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          },
+          "text_format": {
+            "type": "object",
+            "description": "Output format, e.g. {\"type\":\"json_schema\",\"name\":\"x\",\"schema\":{...},\"strict\":true}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tool definitions (function tools, web_search, ...)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "previous_response_id": {
+            "type": "string",
+            "description": "Continue from a stored response (needs store: true on it)"
+          },
+          "store": {
+            "type": "boolean",
+            "description": "Store the response on OpenAI so it can be fetched or continued later",
+            "default": false
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (not accepted by every model)",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Up to 16 string key/value pairs"
+          }
+        },
+        "required": [
+          "model",
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "get_response",
+      "description": "Get a stored response by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "response_id": {
+            "type": "string",
+            "description": "Response id (resp_...)"
+          }
+        },
+        "required": [
+          "response_id"
+        ]
+      }
+    },
+    {
+      "name": "create_chat_completion",
+      "description": "Generate a chat completion (not streamed). The answer is in choices[0].message.content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. gpt-5-mini"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "max_completion_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens, reasoning included",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (not accepted by every model)",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "response_format": {
+            "type": "object",
+            "description": "{\"type\":\"json_object\"} or {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions",
+            "items": {
+              "type": "object"
+            }
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "description": "Reasoning effort for reasoning models",
+            "enum": [
+              "none",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Best-effort deterministic sampling"
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "create_embeddings",
+      "description": "Embed texts as vectors; data[i].embedding belongs to input[i]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Embedding model, e.g. text-embedding-3-small"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "maxItems": 2048,
+            "items": {
+              "type": "string"
+            }
+          },
+          "dimensions": {
+            "type": "integer",
+            "description": "Shorter vectors (text-embedding-3 models only)",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "model",
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "create_moderation",
+      "description": "Classify text for harmful content (free): results[0].flagged and per-category scores",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Text to classify",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Moderation model",
+            "default": "omni-moderation-latest"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List the models the API key can use",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "Get one model's id, owner and creation time",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "List uploaded files, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "description": "Only files with this purpose",
+            "enum": [
+              "assistants",
+              "batch",
+              "fine-tune",
+              "vision",
+              "user_data",
+              "evals"
+            ]
+          },
+          "order": {
+            "type": "string",
+            "description": "Sort by creation time (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file (e.g. a .jsonl batch input) and get its file id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File to upload (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "batch for Batch API input",
+            "enum": [
+              "assistants",
+              "batch",
+              "fine-tune",
+              "vision",
+              "user_data",
+              "evals"
+            ]
+          }
+        },
+        "required": [
+          "file",
+          "purpose"
+        ]
+      }
+    },
+    {
+      "name": "get_file",
+      "description": "Get an uploaded file's metadata",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file-...)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "download_file_content",
+      "description": "Save a file's content (e.g. a batch's output_file_id) into $OPENAI_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file-...)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "create_batch",
+      "description": "Start a Batch API job over an uploaded .jsonl file (50% cheaper, finishes within 24 h); poll it with get_batch (as an agent tool only when OPENAI_TOOL_ALLOW_BATCH=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input_file_id": {
+            "type": "string",
+            "description": "File id of the .jsonl input (purpose batch)"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint every line calls",
+            "enum": [
+              "/v1/responses",
+              "/v1/chat/completions",
+              "/v1/embeddings",
+              "/v1/completions",
+              "/v1/moderations"
+            ]
+          },
+          "completion_window": {
+            "type": "string",
+            "description": "Only 24h is supported",
+            "enum": [
+              "24h"
+            ],
+            "default": "24h"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Up to 16 string key/value pairs"
+          }
+        },
+        "required": [
+          "input_file_id",
+          "endpoint"
+        ]
+      }
+    },
+    {
+      "name": "get_batch",
+      "description": "Get a batch's status (validating, in_progress, completed, failed, expired, cancelled) and output_file_id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Batch id (batch_...)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      }
+    },
+    {
+      "name": "list_batches",
+      "description": "List batches, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any OpenAI API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

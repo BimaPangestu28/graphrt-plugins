@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-anthropic",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Anthropic Claude API: messages, token counting, models, files and message batches",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

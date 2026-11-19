@@ -1,0 +1,757 @@
+{
+  "name": "ollama",
+  "version": "0.1.0",
+  "description": "Ollama on your own machine: generate, chat and embed (non-streaming), list, show, pull, copy and delete local models",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "OLLAMA_URL",
+      "OLLAMA_API_KEY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 1800000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "ollama.generate",
+      "title": "Generate",
+      "description": "Complete a prompt with a local model (not streamed); the text is in response",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Local model name, e.g. llama3.2 or qwen3:8b (see list_models)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Prompt"
+          },
+          "system": {
+            "type": "string",
+            "description": "System prompt (overrides the Modelfile's)"
+          },
+          "suffix": {
+            "type": "string",
+            "description": "Text after the completion (fill in the middle)"
+          },
+          "images": {
+            "type": "array",
+            "description": "Base64 images for vision models",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw": {
+            "type": "boolean",
+            "description": "Send the prompt without the model's template"
+          },
+          "format": {
+            "type": "object",
+            "description": "JSON schema the output must follow, e.g. {\"type\":\"object\",\"properties\":{...}}"
+          },
+          "options": {
+            "type": "object",
+            "description": "Model options, e.g. {\"temperature\":0,\"num_ctx\":8192,\"num_predict\":512}"
+          },
+          "think": {
+            "enum": [
+              true,
+              false,
+              "true",
+              "false",
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "Thinking models: true/false, or a level \"low\" | \"medium\" | \"high\" (gpt-oss); thinking is returned separately"
+          },
+          "keep_alive": {
+            "type": "string",
+            "description": "How long the model stays loaded, e.g. \"5m\", \"1h\" or \"0\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.chat",
+      "title": "Chat",
+      "description": "Chat with a local model (not streamed); the reply is in message.content (tool calls in message.tool_calls)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Local model name, e.g. llama3.2 or qwen3:8b (see list_models)"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions (models with tool support)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "format": {
+            "type": "object",
+            "description": "JSON schema the output must follow, e.g. {\"type\":\"object\",\"properties\":{...}}"
+          },
+          "options": {
+            "type": "object",
+            "description": "Model options, e.g. {\"temperature\":0,\"num_ctx\":8192,\"num_predict\":512}"
+          },
+          "think": {
+            "enum": [
+              true,
+              false,
+              "true",
+              "false",
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "Thinking models: true/false, or a level \"low\" | \"medium\" | \"high\" (gpt-oss); thinking is returned separately"
+          },
+          "keep_alive": {
+            "type": "string",
+            "description": "How long the model stays loaded, e.g. \"5m\", \"1h\" or \"0\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.embed",
+      "title": "Embed",
+      "description": "Embed texts with a local embedding model; embeddings[i] belongs to input[i]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Embedding model, e.g. nomic-embed-text or embeddinggemma"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "items": {
+              "type": "string"
+            }
+          },
+          "truncate": {
+            "type": "boolean",
+            "description": "Cut inputs to the context length (default true; false errors instead)"
+          },
+          "dimensions": {
+            "type": "integer",
+            "description": "Vector size, for models that support it",
+            "minimum": 1
+          },
+          "keep_alive": {
+            "type": "string",
+            "description": "How long the model stays loaded, e.g. \"5m\", \"1h\" or \"0\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.list_models",
+      "title": "List models",
+      "description": "List the models installed locally, with size and details",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.show_model",
+      "title": "Show model",
+      "description": "Show a local model's details, parameters, template, license and capabilities",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Local model name, e.g. llama3.2 or qwen3:8b (see list_models)"
+          },
+          "verbose": {
+            "type": "boolean",
+            "description": "Include the full tokenizer data (large)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.list_running_models",
+      "title": "List running models",
+      "description": "List models loaded in memory now",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.get_version",
+      "title": "Get version",
+      "description": "Get the Ollama server version",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.pull_model",
+      "title": "Pull model",
+      "description": "Download a model from the Ollama library and wait until it is installed (can be many GB)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Library model name, e.g. llama3.2:3b"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.copy_model",
+      "title": "Copy model",
+      "description": "Copy a local model to a new name (overwrites a model with that name)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Existing model"
+          },
+          "destination": {
+            "type": "string",
+            "description": "New name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "source",
+          "destination"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.delete_model",
+      "title": "Delete model",
+      "description": "Delete a local model and free its disk space",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Local model name, e.g. llama3.2 or qwen3:8b (see list_models)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ollama.api_request",
+      "title": "Ollama API request",
+      "description": "Call any Ollama API endpoint that has no dedicated operation, e.g. path \"/api/tags\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/api/tags\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "generate",
+      "description": "Complete a prompt with a local model (not streamed); the text is in response",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Local model name, e.g. llama3.2 or qwen3:8b (see list_models)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Prompt"
+          },
+          "system": {
+            "type": "string",
+            "description": "System prompt (overrides the Modelfile's)"
+          },
+          "suffix": {
+            "type": "string",
+            "description": "Text after the completion (fill in the middle)"
+          },
+          "images": {
+            "type": "array",
+            "description": "Base64 images for vision models",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw": {
+            "type": "boolean",
+            "description": "Send the prompt without the model's template"
+          },
+          "format": {
+            "type": "object",
+            "description": "JSON schema the output must follow, e.g. {\"type\":\"object\",\"properties\":{...}}"
+          },
+          "options": {
+            "type": "object",
+            "description": "Model options, e.g. {\"temperature\":0,\"num_ctx\":8192,\"num_predict\":512}"
+          },
+          "think": {
+            "enum": [
+              true,
+              false,
+              "true",
+              "false",
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "Thinking models: true/false, or a level \"low\" | \"medium\" | \"high\" (gpt-oss); thinking is returned separately"
+          },
+          "keep_alive": {
+            "type": "string",
+            "description": "How long the model stays loaded, e.g. \"5m\", \"1h\" or \"0\""
+          }
+        },
+        "required": [
+          "model",
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "chat",
+      "description": "Chat with a local model (not streamed); the reply is in message.content (tool calls in message.tool_calls)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Local model name, e.g. llama3.2 or qwen3:8b (see list_models)"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions (models with tool support)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "format": {
+            "type": "object",
+            "description": "JSON schema the output must follow, e.g. {\"type\":\"object\",\"properties\":{...}}"
+          },
+          "options": {
+            "type": "object",
+            "description": "Model options, e.g. {\"temperature\":0,\"num_ctx\":8192,\"num_predict\":512}"
+          },
+          "think": {
+            "enum": [
+              true,
+              false,
+              "true",
+              "false",
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "Thinking models: true/false, or a level \"low\" | \"medium\" | \"high\" (gpt-oss); thinking is returned separately"
+          },
+          "keep_alive": {
+            "type": "string",
+            "description": "How long the model stays loaded, e.g. \"5m\", \"1h\" or \"0\""
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "embed",
+      "description": "Embed texts with a local embedding model; embeddings[i] belongs to input[i]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Embedding model, e.g. nomic-embed-text or embeddinggemma"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "items": {
+              "type": "string"
+            }
+          },
+          "truncate": {
+            "type": "boolean",
+            "description": "Cut inputs to the context length (default true; false errors instead)"
+          },
+          "dimensions": {
+            "type": "integer",
+            "description": "Vector size, for models that support it",
+            "minimum": 1
+          },
+          "keep_alive": {
+            "type": "string",
+            "description": "How long the model stays loaded, e.g. \"5m\", \"1h\" or \"0\""
+          }
+        },
+        "required": [
+          "model",
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List the models installed locally, with size and details",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "show_model",
+      "description": "Show a local model's details, parameters, template, license and capabilities",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Local model name, e.g. llama3.2 or qwen3:8b (see list_models)"
+          },
+          "verbose": {
+            "type": "boolean",
+            "description": "Include the full tokenizer data (large)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      }
+    },
+    {
+      "name": "list_running_models",
+      "description": "List models loaded in memory now",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_version",
+      "description": "Get the Ollama server version",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Ollama API endpoint that has no dedicated operation, e.g. path \"/api/tags\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/api/tags\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

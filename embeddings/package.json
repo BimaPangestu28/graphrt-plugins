@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-embeddings",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Provider-agnostic text embeddings and similarity ranking over OpenAI-compatible /embeddings APIs",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

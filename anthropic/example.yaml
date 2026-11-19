@@ -1,0 +1,12 @@
+# List the Claude models your API key can use, with their context windows. Read-only and free.
+#   ANTHROPIC_API_KEY=sk-ant-... graphrt run anthropic/example.yaml --plugins .
+version: "1"
+name: anthropic-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: models, type: anthropic.list_models, limit: 10 }
+    - { id: answer, type: answer, answer: "Models: {{#models.data#}}" }
+  edges:
+    - { source: start, target: models }
+    - { source: models, target: answer }

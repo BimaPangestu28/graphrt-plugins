@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-mistral",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Mistral AI API: chat, FIM, embeddings, moderation, OCR, files and batch jobs",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

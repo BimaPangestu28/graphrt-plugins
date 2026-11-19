@@ -56,6 +56,16 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [fal-ai](fal-ai/) | fal.ai: run any fal model through the queue (waits, saves media), check, fetch or cancel requests, search models and prices (paid per run) | 7 |
 | [ideogram](ideogram/) | Ideogram: generate (4.5 and 3.0), remix, precise edit, inpaint, reframe, upscale, remove background and describe images, with free dry-run price quotes (paid per image) | 12 |
 | [google-imagen](google-imagen/) | Google image generation via the Gemini Interactions API (Nano Banana models; Imagen itself is shut down): generate, multi-turn and multi-image edits, saved to a local folder (paid per image) | 8 |
+| [openai](openai/) | OpenAI API for a second model: Responses and chat completions (non-streaming), embeddings, moderation, models, files and the Batch API (paid calls never retried; batches and mcp tools opt-in for agents; deletes and cancels node only) | 18 |
+| [anthropic](anthropic/) | Claude API (version 2026-10-21) for a second model: messages (non-streaming), token counting, models, files and Message Batches with parsed JSONL results (deletes and cancels are node only) | 15 |
+| [gemini](gemini/) | Google Gemini API for a second model: generateContent (non-streaming), countTokens, embeddings, models and the Files API with resumable upload (`delete_file` is node only) | 11 |
+| [groq](groq/) | Groq API (fast open models): chat completions (non-streaming), Whisper transcription and translation, text to speech, models, files and batches (deletes and cancels are node only) | 16 |
+| [mistral](mistral/) | Mistral AI API: chat and FIM completions (non-streaming), embeddings, moderation, OCR of PDFs and images to markdown, models, files and batch jobs (deletes and cancels are node only) | 18 |
+| [ollama](ollama/) | Local Ollama server (`OLLAMA_URL` defaults to localhost, optional `OLLAMA_API_KEY` for proxies): generate, chat and embed (non-streaming), list and show models; pull, copy and delete are node only | 11 |
+| [embeddings](embeddings/) | Provider-agnostic text embeddings over the OpenAI-compatible `/embeddings` API (OpenAI, Mistral, Gemini, Voyage, Ollama or a custom host, chosen by env) plus `rank_by_similarity` for semantic search with scores | 2 |
+| [deepl](deepl/) | DeepL API (Free and Pro): translate and rephrase text, translate documents, usage, languages and glossaries (read) | 11 |
+| [google-translate](google-translate/) | Google Cloud Translation Basic (v2) with an API key in a header: translate text, detect language, list languages | 4 |
+| [google-vision](google-vision/) | Google Cloud Vision with an API key: OCR, labels, faces, safe search and any feature mix for an image URL (downloaded by the plugin), `gs://` URI or allowed local file, plus batch pass-throughs for images and one PDF; billed calls never retried | 7 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

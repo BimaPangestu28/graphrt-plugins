@@ -1,0 +1,12 @@
+# List the models installed in your local Ollama. Read-only; needs `ollama serve` running.
+#   graphrt run ollama/example.yaml --plugins .          (OLLAMA_URL defaults to http://127.0.0.1:11434)
+version: "1"
+name: ollama-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: models, type: ollama.list_models }
+    - { id: answer, type: answer, answer: "Installed models: {{#models.data#}}" }
+  edges:
+    - { source: start, target: models }
+    - { source: models, target: answer }

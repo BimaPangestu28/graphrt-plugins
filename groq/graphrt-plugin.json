@@ -1,0 +1,1176 @@
+{
+  "name": "groq",
+  "version": "0.1.0",
+  "description": "Groq API: fast chat completions (non-streaming), Whisper transcription, text to speech, models, files and batches",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GROQ_API_KEY",
+      "GROQ_UPLOAD_DIR",
+      "GROQ_OUTPUT_DIR",
+      "GROQ_TOOL_ALLOW_BATCH"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "groq.create_chat_completion",
+      "title": "Create chat completion",
+      "description": "Generate a chat completion on Groq (not streamed); the answer is in choices[0].message.content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id from list_models, e.g. llama-3.3-70b-versatile or openai/gpt-oss-120b"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "max_completion_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "response_format": {
+            "type": "object",
+            "description": "{\"type\":\"json_object\"} or {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions",
+            "items": {
+              "type": "object"
+            }
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "description": "Reasoning models only",
+            "enum": [
+              "none",
+              "default",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ]
+          },
+          "reasoning_format": {
+            "type": "string",
+            "description": "How reasoning is returned (reasoning models)",
+            "enum": [
+              "hidden",
+              "raw",
+              "parsed"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Best-effort deterministic sampling"
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.list_models",
+      "title": "List models",
+      "description": "List the models available on Groq, with context_window",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.get_model",
+      "title": "Get model",
+      "description": "Get one model's owner, context window and status",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id; ids with a slash (openai/gpt-oss-120b) are sent encoded as one segment, like the official SDK"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.transcribe_audio",
+      "title": "Transcribe audio",
+      "description": "Speech to text in the spoken language with Whisper; the text is in text",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "whisper-large-v3-turbo (fast) or whisper-large-v3 (accurate)",
+            "default": "whisper-large-v3-turbo"
+          },
+          "file": {
+            "type": "string",
+            "description": "Audio file (flac, mp3, mp4, m4a, ogg, wav, webm; max 25 MB). Give file or url (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "url": {
+            "type": "string",
+            "description": "Public audio URL Groq fetches itself, instead of file"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Spelling hints or the previous segment's text"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "verbose_json adds segments and timestamps",
+            "enum": [
+              "json",
+              "text",
+              "verbose_json"
+            ],
+            "default": "json"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "ISO-639-1 code of the audio, e.g. en, id (improves accuracy)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.translate_audio",
+      "title": "Translate audio to English",
+      "description": "Speech in any language to English text with Whisper",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "whisper-large-v3-turbo (fast) or whisper-large-v3 (accurate)",
+            "default": "whisper-large-v3"
+          },
+          "file": {
+            "type": "string",
+            "description": "Audio file (flac, mp3, mp4, m4a, ogg, wav, webm; max 25 MB). Give file or url (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "url": {
+            "type": "string",
+            "description": "Public audio URL Groq fetches itself, instead of file"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Spelling hints or the previous segment's text"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "verbose_json adds segments and timestamps",
+            "enum": [
+              "json",
+              "text",
+              "verbose_json"
+            ],
+            "default": "json"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.create_speech",
+      "title": "Text to speech",
+      "description": "Turn text into speech and save the audio into $GROQ_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "TTS model from the Groq text-to-speech docs"
+          },
+          "input": {
+            "type": "string",
+            "description": "Text to speak",
+            "minLength": 1
+          },
+          "voice": {
+            "type": "string",
+            "description": "Voice name for the model"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "Audio format",
+            "enum": [
+              "flac",
+              "mp3",
+              "mulaw",
+              "ogg",
+              "wav"
+            ],
+            "default": "wav"
+          },
+          "sample_rate": {
+            "type": "integer",
+            "description": "Sample rate in Hz",
+            "enum": [
+              8000,
+              16000,
+              22050,
+              24000,
+              32000,
+              44100,
+              48000
+            ]
+          },
+          "speed": {
+            "type": "number",
+            "description": "Speaking speed",
+            "minimum": 0.5,
+            "maximum": 5
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "input",
+          "voice"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.list_files",
+      "title": "List files",
+      "description": "List uploaded files",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.upload_file",
+      "title": "Upload file",
+      "description": "Upload a .jsonl batch input file and get its file id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "JSONL file (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Only batch is supported",
+            "enum": [
+              "batch"
+            ],
+            "default": "batch"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.get_file",
+      "title": "Get file",
+      "description": "Get an uploaded file's metadata",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.download_file_content",
+      "title": "Download file content",
+      "description": "Save a file's content (e.g. a batch's output_file_id) into $GROQ_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.delete_file",
+      "title": "Delete file",
+      "description": "Delete an uploaded file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.create_batch",
+      "title": "Create batch",
+      "description": "Start a batch job over an uploaded .jsonl file (cheaper, finishes within the completion window); poll it with get_batch (as an agent tool only when GROQ_TOOL_ALLOW_BATCH=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input_file_id": {
+            "type": "string",
+            "description": "File id of the .jsonl input"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint every line calls",
+            "enum": [
+              "/v1/chat/completions"
+            ],
+            "default": "/v1/chat/completions"
+          },
+          "completion_window": {
+            "type": "string",
+            "description": "24h up to 7d",
+            "default": "24h"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "String key/value pairs"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input_file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.get_batch",
+      "title": "Get batch",
+      "description": "Get a batch's status and output_file_id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Batch id (batch_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.list_batches",
+      "title": "List batches",
+      "description": "List batches",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.cancel_batch",
+      "title": "Cancel batch",
+      "description": "Cancel a running batch (finished requests are still billed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Batch id (batch_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "groq.api_request",
+      "title": "Groq API request",
+      "description": "Call any Groq API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_chat_completion",
+      "description": "Generate a chat completion on Groq (not streamed); the answer is in choices[0].message.content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id from list_models, e.g. llama-3.3-70b-versatile or openai/gpt-oss-120b"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "max_completion_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "response_format": {
+            "type": "object",
+            "description": "{\"type\":\"json_object\"} or {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions",
+            "items": {
+              "type": "object"
+            }
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "description": "Reasoning models only",
+            "enum": [
+              "none",
+              "default",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ]
+          },
+          "reasoning_format": {
+            "type": "string",
+            "description": "How reasoning is returned (reasoning models)",
+            "enum": [
+              "hidden",
+              "raw",
+              "parsed"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Best-effort deterministic sampling"
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List the models available on Groq, with context_window",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "Get one model's owner, context window and status",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id; ids with a slash (openai/gpt-oss-120b) are sent encoded as one segment, like the official SDK"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      }
+    },
+    {
+      "name": "transcribe_audio",
+      "description": "Speech to text in the spoken language with Whisper; the text is in text",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "whisper-large-v3-turbo (fast) or whisper-large-v3 (accurate)",
+            "default": "whisper-large-v3-turbo"
+          },
+          "file": {
+            "type": "string",
+            "description": "Audio file (flac, mp3, mp4, m4a, ogg, wav, webm; max 25 MB). Give file or url (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "url": {
+            "type": "string",
+            "description": "Public audio URL Groq fetches itself, instead of file"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Spelling hints or the previous segment's text"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "verbose_json adds segments and timestamps",
+            "enum": [
+              "json",
+              "text",
+              "verbose_json"
+            ],
+            "default": "json"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "ISO-639-1 code of the audio, e.g. en, id (improves accuracy)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "translate_audio",
+      "description": "Speech in any language to English text with Whisper",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "whisper-large-v3-turbo (fast) or whisper-large-v3 (accurate)",
+            "default": "whisper-large-v3"
+          },
+          "file": {
+            "type": "string",
+            "description": "Audio file (flac, mp3, mp4, m4a, ogg, wav, webm; max 25 MB). Give file or url (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "url": {
+            "type": "string",
+            "description": "Public audio URL Groq fetches itself, instead of file"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Spelling hints or the previous segment's text"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "verbose_json adds segments and timestamps",
+            "enum": [
+              "json",
+              "text",
+              "verbose_json"
+            ],
+            "default": "json"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "create_speech",
+      "description": "Turn text into speech and save the audio into $GROQ_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "TTS model from the Groq text-to-speech docs"
+          },
+          "input": {
+            "type": "string",
+            "description": "Text to speak",
+            "minLength": 1
+          },
+          "voice": {
+            "type": "string",
+            "description": "Voice name for the model"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "Audio format",
+            "enum": [
+              "flac",
+              "mp3",
+              "mulaw",
+              "ogg",
+              "wav"
+            ],
+            "default": "wav"
+          },
+          "sample_rate": {
+            "type": "integer",
+            "description": "Sample rate in Hz",
+            "enum": [
+              8000,
+              16000,
+              22050,
+              24000,
+              32000,
+              44100,
+              48000
+            ]
+          },
+          "speed": {
+            "type": "number",
+            "description": "Speaking speed",
+            "minimum": 0.5,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "model",
+          "input",
+          "voice"
+        ]
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "List uploaded files",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a .jsonl batch input file and get its file id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "JSONL file (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Only batch is supported",
+            "enum": [
+              "batch"
+            ],
+            "default": "batch"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "get_file",
+      "description": "Get an uploaded file's metadata",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "download_file_content",
+      "description": "Save a file's content (e.g. a batch's output_file_id) into $GROQ_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "create_batch",
+      "description": "Start a batch job over an uploaded .jsonl file (cheaper, finishes within the completion window); poll it with get_batch (as an agent tool only when GROQ_TOOL_ALLOW_BATCH=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input_file_id": {
+            "type": "string",
+            "description": "File id of the .jsonl input"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint every line calls",
+            "enum": [
+              "/v1/chat/completions"
+            ],
+            "default": "/v1/chat/completions"
+          },
+          "completion_window": {
+            "type": "string",
+            "description": "24h up to 7d",
+            "default": "24h"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "String key/value pairs"
+          }
+        },
+        "required": [
+          "input_file_id"
+        ]
+      }
+    },
+    {
+      "name": "get_batch",
+      "description": "Get a batch's status and output_file_id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Batch id (batch_...)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      }
+    },
+    {
+      "name": "list_batches",
+      "description": "List batches",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Groq API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

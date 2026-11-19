@@ -1,0 +1,12 @@
+# Show how many characters your DeepL key has used this billing period. Read-only and free.
+#   DEEPL_API_KEY=...:fx graphrt run deepl/example.yaml --plugins .
+version: "1"
+name: deepl-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: usage, type: deepl.get_usage }
+    - { id: answer, type: answer, answer: "Used {{#usage.data.character_count#}} of {{#usage.data.character_limit#}} characters" }
+  edges:
+    - { source: start, target: usage }
+    - { source: usage, target: answer }

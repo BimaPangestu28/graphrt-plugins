@@ -1,0 +1,12 @@
+# List the Gemini models your API key can use, with their token limits. Read-only and free.
+#   GEMINI_API_KEY=... graphrt run gemini/example.yaml --plugins .
+version: "1"
+name: gemini-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: models, type: gemini.list_models, limit: 20 }
+    - { id: answer, type: answer, answer: "Models: {{#models.data#}}" }
+  edges:
+    - { source: start, target: models }
+    - { source: models, target: answer }

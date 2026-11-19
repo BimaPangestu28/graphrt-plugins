@@ -1,0 +1,873 @@
+{
+  "name": "deepl",
+  "version": "0.1.0",
+  "description": "DeepL API: translate and rephrase text, translate documents, usage, languages and glossaries",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "DEEPL_API_KEY",
+      "DEEPL_API_URL",
+      "DEEPL_UPLOAD_DIR",
+      "DEEPL_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "deepl.translate_text",
+      "title": "Translate text",
+      "description": "Translate up to 50 texts into one language; translations[i].text belongs to text[i], with detected_source_language",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts to translate",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages type target)"
+          },
+          "source_lang": {
+            "type": "string",
+            "description": "Source language, e.g. EN, ID (detected when omitted; required with glossary_id)"
+          },
+          "context": {
+            "type": "string",
+            "description": "Extra context that guides the translation but is not translated (not billed)"
+          },
+          "formality": {
+            "type": "string",
+            "description": "Formal or informal tone (some languages); prefer_* falls back silently",
+            "enum": [
+              "default",
+              "more",
+              "less",
+              "prefer_more",
+              "prefer_less"
+            ]
+          },
+          "model_type": {
+            "type": "string",
+            "description": "Translation model",
+            "enum": [
+              "quality_optimized",
+              "prefer_quality_optimized",
+              "latency_optimized"
+            ]
+          },
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary to apply (needs source_lang)"
+          },
+          "preserve_formatting": {
+            "type": "boolean",
+            "description": "Keep punctuation and casing as is"
+          },
+          "split_sentences": {
+            "type": "string",
+            "description": "Sentence splitting: 0 off, 1 on (default), nonewlines",
+            "enum": [
+              "0",
+              "1",
+              "nonewlines"
+            ]
+          },
+          "tag_handling": {
+            "type": "string",
+            "description": "Translate XML or HTML and keep the markup",
+            "enum": [
+              "xml",
+              "html"
+            ]
+          },
+          "custom_instructions": {
+            "type": "array",
+            "description": "Short instructions, e.g. 'Use British spelling' (quality_optimized model)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "show_billed_characters": {
+            "type": "boolean",
+            "description": "Return billed_characters per text"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text",
+          "target_lang"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.rephrase_text",
+      "title": "Rephrase text (DeepL Write)",
+      "description": "Improve or restyle texts with DeepL Write (Pro plans); improvements[i].text belongs to text[i]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts to improve",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Language of the result, e.g. EN-US, DE (default: the text's language)"
+          },
+          "writing_style": {
+            "type": "string",
+            "description": "simple, business, academic, casual (prefer_* to fall back)"
+          },
+          "tone": {
+            "type": "string",
+            "description": "enthusiastic, friendly, confident, diplomatic (prefer_* to fall back)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.get_usage",
+      "title": "Get usage",
+      "description": "Characters translated this billing period and the limit",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.list_languages",
+      "title": "List languages",
+      "description": "Languages DeepL supports as source or target, with supports_formality",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "source or target languages",
+            "enum": [
+              "source",
+              "target"
+            ],
+            "default": "target"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.list_glossaries",
+      "title": "List glossaries",
+      "description": "List glossaries with their language-pair dictionaries and entry counts (no entries)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.get_glossary",
+      "title": "Get glossary",
+      "description": "Get a glossary's name and dictionaries",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "glossary_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.get_glossary_entries",
+      "title": "Get glossary entries",
+      "description": "Get the entries of one dictionary (language pair) of a glossary, as TSV in dictionaries[0].entries",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary id"
+          },
+          "source_lang": {
+            "type": "string",
+            "description": "Source language of the dictionary, e.g. EN"
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Target language of the dictionary, e.g. DE"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "glossary_id",
+          "source_lang",
+          "target_lang"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.translate_document",
+      "title": "Translate document",
+      "description": "Upload a document (docx, pptx, xlsx, pdf, html, txt, ...) to translate; returns document_id and document_key for get_document_status",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Document to translate (max 30 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Target language, e.g. EN-US, DE"
+          },
+          "source_lang": {
+            "type": "string",
+            "description": "Source language (detected when omitted)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Convert the result, e.g. docx for a pdf"
+          },
+          "formality": {
+            "type": "string",
+            "description": "Formal or informal tone",
+            "enum": [
+              "default",
+              "more",
+              "less",
+              "prefer_more",
+              "prefer_less"
+            ]
+          },
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary to apply (needs source_lang)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file",
+          "target_lang"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.get_document_status",
+      "title": "Get document status",
+      "description": "Status of a document translation: queued, translating (seconds_remaining), done or error",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "document_id from translate_document"
+          },
+          "document_key": {
+            "type": "string",
+            "description": "document_key from translate_document"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "document_id",
+          "document_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.download_document",
+      "title": "Download translated document",
+      "description": "Save a translated document (status done) into $DEEPL_OUTPUT_DIR; DeepL allows one download",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "document_id from translate_document"
+          },
+          "document_key": {
+            "type": "string",
+            "description": "document_key from translate_document"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "document_id",
+          "document_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepl.api_request",
+      "title": "DeepL API request",
+      "description": "Call any DeepL API endpoint that has no dedicated operation, e.g. path \"/v2/usage\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/usage\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "translate_text",
+      "description": "Translate up to 50 texts into one language; translations[i].text belongs to text[i], with detected_source_language",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts to translate",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages type target)"
+          },
+          "source_lang": {
+            "type": "string",
+            "description": "Source language, e.g. EN, ID (detected when omitted; required with glossary_id)"
+          },
+          "context": {
+            "type": "string",
+            "description": "Extra context that guides the translation but is not translated (not billed)"
+          },
+          "formality": {
+            "type": "string",
+            "description": "Formal or informal tone (some languages); prefer_* falls back silently",
+            "enum": [
+              "default",
+              "more",
+              "less",
+              "prefer_more",
+              "prefer_less"
+            ]
+          },
+          "model_type": {
+            "type": "string",
+            "description": "Translation model",
+            "enum": [
+              "quality_optimized",
+              "prefer_quality_optimized",
+              "latency_optimized"
+            ]
+          },
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary to apply (needs source_lang)"
+          },
+          "preserve_formatting": {
+            "type": "boolean",
+            "description": "Keep punctuation and casing as is"
+          },
+          "split_sentences": {
+            "type": "string",
+            "description": "Sentence splitting: 0 off, 1 on (default), nonewlines",
+            "enum": [
+              "0",
+              "1",
+              "nonewlines"
+            ]
+          },
+          "tag_handling": {
+            "type": "string",
+            "description": "Translate XML or HTML and keep the markup",
+            "enum": [
+              "xml",
+              "html"
+            ]
+          },
+          "custom_instructions": {
+            "type": "array",
+            "description": "Short instructions, e.g. 'Use British spelling' (quality_optimized model)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "show_billed_characters": {
+            "type": "boolean",
+            "description": "Return billed_characters per text"
+          }
+        },
+        "required": [
+          "text",
+          "target_lang"
+        ]
+      }
+    },
+    {
+      "name": "rephrase_text",
+      "description": "Improve or restyle texts with DeepL Write (Pro plans); improvements[i].text belongs to text[i]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "array",
+            "description": "Texts to improve",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Language of the result, e.g. EN-US, DE (default: the text's language)"
+          },
+          "writing_style": {
+            "type": "string",
+            "description": "simple, business, academic, casual (prefer_* to fall back)"
+          },
+          "tone": {
+            "type": "string",
+            "description": "enthusiastic, friendly, confident, diplomatic (prefer_* to fall back)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "get_usage",
+      "description": "Characters translated this billing period and the limit",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_languages",
+      "description": "Languages DeepL supports as source or target, with supports_formality",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "source or target languages",
+            "enum": [
+              "source",
+              "target"
+            ],
+            "default": "target"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_glossaries",
+      "description": "List glossaries with their language-pair dictionaries and entry counts (no entries)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_glossary",
+      "description": "Get a glossary's name and dictionaries",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary id"
+          }
+        },
+        "required": [
+          "glossary_id"
+        ]
+      }
+    },
+    {
+      "name": "get_glossary_entries",
+      "description": "Get the entries of one dictionary (language pair) of a glossary, as TSV in dictionaries[0].entries",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary id"
+          },
+          "source_lang": {
+            "type": "string",
+            "description": "Source language of the dictionary, e.g. EN"
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Target language of the dictionary, e.g. DE"
+          }
+        },
+        "required": [
+          "glossary_id",
+          "source_lang",
+          "target_lang"
+        ]
+      }
+    },
+    {
+      "name": "translate_document",
+      "description": "Upload a document (docx, pptx, xlsx, pdf, html, txt, ...) to translate; returns document_id and document_key for get_document_status",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Document to translate (max 30 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "target_lang": {
+            "type": "string",
+            "description": "Target language, e.g. EN-US, DE"
+          },
+          "source_lang": {
+            "type": "string",
+            "description": "Source language (detected when omitted)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Convert the result, e.g. docx for a pdf"
+          },
+          "formality": {
+            "type": "string",
+            "description": "Formal or informal tone",
+            "enum": [
+              "default",
+              "more",
+              "less",
+              "prefer_more",
+              "prefer_less"
+            ]
+          },
+          "glossary_id": {
+            "type": "string",
+            "description": "Glossary to apply (needs source_lang)"
+          }
+        },
+        "required": [
+          "file",
+          "target_lang"
+        ]
+      }
+    },
+    {
+      "name": "get_document_status",
+      "description": "Status of a document translation: queued, translating (seconds_remaining), done or error",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "document_id from translate_document"
+          },
+          "document_key": {
+            "type": "string",
+            "description": "document_key from translate_document"
+          }
+        },
+        "required": [
+          "document_id",
+          "document_key"
+        ]
+      }
+    },
+    {
+      "name": "download_document",
+      "description": "Save a translated document (status done) into $DEEPL_OUTPUT_DIR; DeepL allows one download",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "document_id from translate_document"
+          },
+          "document_key": {
+            "type": "string",
+            "description": "document_key from translate_document"
+          }
+        },
+        "required": [
+          "document_id",
+          "document_key"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any DeepL API endpoint that has no dedicated operation, e.g. path \"/v2/usage\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/usage\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

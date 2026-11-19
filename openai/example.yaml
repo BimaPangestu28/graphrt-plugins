@@ -1,0 +1,12 @@
+# List the models your OpenAI API key can use. Read-only and free.
+#   OPENAI_API_KEY=sk-... graphrt run openai/example.yaml --plugins .
+version: "1"
+name: openai-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: models, type: openai.list_models }
+    - { id: answer, type: answer, answer: "Models: {{#models.data#}}" }
+  edges:
+    - { source: start, target: models }
+    - { source: models, target: answer }
