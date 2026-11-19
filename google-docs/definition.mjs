@@ -56,7 +56,7 @@ const operations = [
     path: "/documents",
     write: "unsafe",
     checkHint: "search Drive for the title",
-    params: { title: { in: "body", type: "string", required: true, minLength: 1 } },
+    params: { document_title: { in: "body", type: "string", required: true, minLength: 1, wireName: "title", description: "Title of the new document (sent as `title`)" } },
   },
   batchUpdateWrite("insert_text", "Insert text", "Insert text at an index, or append it at the end of the body"),
   batchUpdateWrite("replace_all_text", "Replace text", "Replace every occurrence of a text, e.g. template placeholders like {{name}}"),

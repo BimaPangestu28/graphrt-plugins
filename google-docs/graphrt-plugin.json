@@ -80,8 +80,9 @@
       "config_schema": {
         "type": "object",
         "properties": {
-          "title": {
+          "document_title": {
             "type": "string",
+            "description": "Title of the new document (sent as `title`)",
             "minLength": 1
           },
           "access_token": {
@@ -90,7 +91,7 @@
           }
         },
         "required": [
-          "title"
+          "document_title"
         ]
       },
       "outputs": [
@@ -359,13 +360,14 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "title": {
+          "document_title": {
             "type": "string",
+            "description": "Title of the new document (sent as `title`)",
             "minLength": 1
           }
         },
         "required": [
-          "title"
+          "document_title"
         ]
       }
     },

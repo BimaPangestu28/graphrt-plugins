@@ -99,5 +99,9 @@ npm test          # from the repo root
 Generated contract suite plus tests for the request builders and error mapping. Verified live only with an
 invalid token (`auth_error`).
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `create_document` parameter `title` is now `document_title` (still sent to the Docs API as `title`). graphrt takes `title` from every workflow node, so the old name could never be set from a node (the required field made the node fail to load); tool calls that passed `title` must use `document_title`.
+
 ## License
 Apache-2.0

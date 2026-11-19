@@ -17,7 +17,7 @@ describeRestPluginContract(pluginDefinition, {
       response: { body: { documentId: DOC, title: "Notes", revisionId: "r1" } },
       expect: { data: { documentId: DOC, title: "Notes", revisionId: "r1" } },
     },
-    create_document: { args: { title: "Meeting notes" }, request: { method: "POST", url: `${API}/documents`, query: "absent", json: { title: "Meeting notes" } }, response: { body: { documentId: "new1" } } },
+    create_document: { args: { document_title: "Meeting notes" }, request: { method: "POST", url: `${API}/documents`, query: "absent", json: { title: "Meeting notes" } }, response: { body: { documentId: "new1" } } },
     insert_text: {
       args: { document_id: DOC, text: "Hello\n", index: 1, tab_id: "t.0" },
       request: { method: "POST", url: `${API}/documents/${DOC}:batchUpdate`, query: "absent", json: { requests: [{ insertText: { text: "Hello\n", location: { index: 1, tabId: "t.0" } } }] } },
