@@ -1,0 +1,641 @@
+{
+  "name": "firestore",
+  "version": "0.1.0",
+  "description": "Google Cloud Firestore: get, list and query documents with plain JSON values, create and update (agents opt-in), delete (node only)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "FIRESTORE_PROJECT_ID",
+      "GOOGLE_CLOUD_PROJECT",
+      "FIRESTORE_DATABASE",
+      "FIRESTORE_MAX_RESULT_BYTES",
+      "FIRESTORE_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "firestore.get_document",
+      "title": "Get document",
+      "description": "Read one document by path (fields decoded to plain JSON)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Document path, e.g. users/u1 or users/u1/orders/o1"
+          },
+          "mask": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only return these field paths, e.g. [\"name\", \"address.city\"]"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "firestore.list_documents",
+      "title": "List documents",
+      "description": "List the documents of a collection (or subcollection), paginated with next_cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Collection path, e.g. users or users/u1/orders"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. \"created desc\""
+          },
+          "mask": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only return these field paths, e.g. [\"name\", \"address.city\"]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 50,
+            "description": "Documents per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "firestore.run_query",
+      "title": "Run query",
+      "description": "Query a collection (or a collection group) with where filters (AND), order_by, select, limit and offset",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Collection id to query, e.g. orders"
+          },
+          "parent_path": {
+            "type": "string",
+            "description": "Document path the collection lives under, e.g. users/u1 (default: the database root)"
+          },
+          "all_descendants": {
+            "type": "boolean",
+            "default": false,
+            "description": "Collection group query: every collection with this id at any depth under the parent"
+          },
+          "where": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 30,
+            "description": "Filters, e.g. [{\"field\": \"status\", \"op\": \"==\", \"value\": \"open\"}, {\"field\": \"total\", \"op\": \">=\", \"value\": 100}]"
+          },
+          "order_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "e.g. [\"total desc\", \"created\"]"
+          },
+          "select": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only return these field paths, e.g. [\"name\", \"address.city\"]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum documents"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Skip this many results (skipped documents are still billed as reads)"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "firestore.create_document",
+      "title": "Create document",
+      "description": "Create a document in a collection (with document_id, or an auto id); fails if it already exists (as an agent tool only when FIRESTORE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Collection path, e.g. users or users/u1/orders"
+          },
+          "document_id": {
+            "type": "string",
+            "description": "Document id (default: an auto id; with an id a retry cannot create a duplicate)"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Document fields, e.g. {\"name\": \"Ana\", \"visits\": 3, \"joined\": {\"timestampValue\": \"2026-11-19T10:00:00Z\"}}"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_path",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "firestore.update_document",
+      "title": "Update document",
+      "description": "Update a document: merge (default) sets only the given top-level fields and removes delete_fields; merge false replaces the whole document (as an agent tool only when FIRESTORE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Document path, e.g. users/u1 or users/u1/orders/o1"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Document fields, e.g. {\"name\": \"Ana\", \"visits\": 3, \"joined\": {\"timestampValue\": \"2026-11-19T10:00:00Z\"}}"
+          },
+          "merge": {
+            "type": "boolean",
+            "default": true,
+            "description": "true: only the given top-level fields change; false: the document becomes exactly `fields`"
+          },
+          "delete_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Top-level fields to remove (with merge)"
+          },
+          "must_exist": {
+            "type": "boolean",
+            "default": true,
+            "description": "Fail with not found instead of creating the document"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "firestore.delete_document",
+      "title": "Delete document",
+      "description": "Delete a document (its subcollections are not deleted); workflow nodes only",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Document path, e.g. users/u1 or users/u1/orders/o1"
+          },
+          "must_exist": {
+            "type": "boolean",
+            "default": false,
+            "description": "Fail with not found when the document does not exist"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_document",
+      "description": "Read one document by path (fields decoded to plain JSON)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Document path, e.g. users/u1 or users/u1/orders/o1"
+          },
+          "mask": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only return these field paths, e.g. [\"name\", \"address.city\"]"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "list_documents",
+      "description": "List the documents of a collection (or subcollection), paginated with next_cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Collection path, e.g. users or users/u1/orders"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. \"created desc\""
+          },
+          "mask": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only return these field paths, e.g. [\"name\", \"address.city\"]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 50,
+            "description": "Documents per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          }
+        },
+        "required": [
+          "collection_path"
+        ]
+      }
+    },
+    {
+      "name": "run_query",
+      "description": "Query a collection (or a collection group) with where filters (AND), order_by, select, limit and offset",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Collection id to query, e.g. orders"
+          },
+          "parent_path": {
+            "type": "string",
+            "description": "Document path the collection lives under, e.g. users/u1 (default: the database root)"
+          },
+          "all_descendants": {
+            "type": "boolean",
+            "default": false,
+            "description": "Collection group query: every collection with this id at any depth under the parent"
+          },
+          "where": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 30,
+            "description": "Filters, e.g. [{\"field\": \"status\", \"op\": \"==\", \"value\": \"open\"}, {\"field\": \"total\", \"op\": \">=\", \"value\": 100}]"
+          },
+          "order_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "e.g. [\"total desc\", \"created\"]"
+          },
+          "select": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only return these field paths, e.g. [\"name\", \"address.city\"]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum documents"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Skip this many results (skipped documents are still billed as reads)"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          }
+        },
+        "required": [
+          "collection_id"
+        ]
+      }
+    },
+    {
+      "name": "create_document",
+      "description": "Create a document in a collection (with document_id, or an auto id); fails if it already exists (as an agent tool only when FIRESTORE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Collection path, e.g. users or users/u1/orders"
+          },
+          "document_id": {
+            "type": "string",
+            "description": "Document id (default: an auto id; with an id a retry cannot create a duplicate)"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Document fields, e.g. {\"name\": \"Ana\", \"visits\": 3, \"joined\": {\"timestampValue\": \"2026-11-19T10:00:00Z\"}}"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          }
+        },
+        "required": [
+          "collection_path",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "update_document",
+      "description": "Update a document: merge (default) sets only the given top-level fields and removes delete_fields; merge false replaces the whole document (as an agent tool only when FIRESTORE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Document path, e.g. users/u1 or users/u1/orders/o1"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Document fields, e.g. {\"name\": \"Ana\", \"visits\": 3, \"joined\": {\"timestampValue\": \"2026-11-19T10:00:00Z\"}}"
+          },
+          "merge": {
+            "type": "boolean",
+            "default": true,
+            "description": "true: only the given top-level fields change; false: the document becomes exactly `fields`"
+          },
+          "delete_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Top-level fields to remove (with merge)"
+          },
+          "must_exist": {
+            "type": "boolean",
+            "default": true,
+            "description": "Fail with not found instead of creating the document"
+          },
+          "value_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: JSON values (timestamps etc. as {\"timestampValue\": \"...\"}); typed: Firestore Value JSON such as {\"stringValue\": \"x\"}"
+          }
+        },
+        "required": [
+          "path",
+          "fields"
+        ]
+      }
+    }
+  ]
+}

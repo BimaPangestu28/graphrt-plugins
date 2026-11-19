@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-s3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Amazon S3 and S3-compatible storage with SigV4 signing, read-only for agents by default",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

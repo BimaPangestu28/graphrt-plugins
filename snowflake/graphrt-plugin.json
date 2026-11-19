@@ -1,0 +1,373 @@
+{
+  "name": "snowflake",
+  "version": "0.1.0",
+  "description": "Snowflake SQL API with key-pair JWT auth: run statements with bindings, poll async statements, page result partitions, cancel; agent tools read-only with a dedicated role",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SNOWFLAKE_PRIVATE_KEY_PATH",
+      "SNOWFLAKE_PRIVATE_KEY",
+      "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE",
+      "SNOWFLAKE_ACCOUNT",
+      "SNOWFLAKE_USER",
+      "SNOWFLAKE_HOST",
+      "SNOWFLAKE_WAREHOUSE",
+      "SNOWFLAKE_DATABASE",
+      "SNOWFLAKE_SCHEMA",
+      "SNOWFLAKE_ROLE",
+      "SNOWFLAKE_TOOL_ROLE",
+      "SNOWFLAKE_STATEMENT_TIMEOUT_SECONDS",
+      "SNOWFLAKE_WAIT_MS",
+      "SNOWFLAKE_MAX_RESULT_BYTES",
+      "SNOWFLAKE_TOOL_ALLOW_WRITES",
+      "GRAPHRT_POLL_INTERVAL_MS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "snowflake.execute",
+      "title": "Execute statement",
+      "description": "Run one SQL statement with ? bindings and return typed rows (paged with next_cursor). As an agent tool only read-only statements (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN) run unless SNOWFLAKE_TOOL_ALLOW_WRITES=1",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement, e.g. SELECT id, total FROM orders WHERE status = ? LIMIT 100"
+          },
+          "bindings": {
+            "type": "array",
+            "maxItems": 1000,
+            "description": "Values for the ? placeholders in order; typed values as {\"type\": \"DATE\", \"value\": \"2026-11-19\"}"
+          },
+          "database": {
+            "type": "string",
+            "description": "Database (default SNOWFLAKE_DATABASE)"
+          },
+          "schema": {
+            "type": "string",
+            "description": "Schema (default SNOWFLAKE_SCHEMA)"
+          },
+          "warehouse": {
+            "type": "string",
+            "description": "Warehouse (default SNOWFLAKE_WAREHOUSE; nodes only)"
+          },
+          "role": {
+            "type": "string",
+            "description": "Role (default SNOWFLAKE_ROLE; nodes only, tools use SNOWFLAKE_TOOL_ROLE)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600,
+            "description": "Statement timeout (default SNOWFLAKE_STATEMENT_TIMEOUT_SECONDS, which also caps tool calls)"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait up to SNOWFLAKE_WAIT_MS for the result; false returns the statement_handle at once"
+          },
+          "query_tag": {
+            "type": "string",
+            "description": "QUERY_TAG for the query history (default graphrt)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by SNOWFLAKE_MAX_RESULT_BYTES)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "statement"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "snowflake.get_statement_status",
+      "title": "Statement status",
+      "description": "Check a statement started by execute; waits up to SNOWFLAKE_WAIT_MS and returns its first page of rows when it has finished",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "statement_handle": {
+            "type": "string",
+            "minLength": 1,
+            "description": "statement_handle from execute"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for it to finish (up to SNOWFLAKE_WAIT_MS)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by SNOWFLAKE_MAX_RESULT_BYTES)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "statement_handle"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "snowflake.get_statement_results",
+      "title": "Statement results page",
+      "description": "Next page of a finished statement's rows (across result partitions), from a next_cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "next_cursor from execute, get_statement_status or get_statement_results"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by SNOWFLAKE_MAX_RESULT_BYTES)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "snowflake.cancel_statement",
+      "title": "Cancel statement",
+      "description": "Cancel a running statement",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "statement_handle": {
+            "type": "string",
+            "minLength": 1,
+            "description": "statement_handle from execute"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "statement_handle"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "execute",
+      "description": "Run one SQL statement with ? bindings and return typed rows (paged with next_cursor). As an agent tool only read-only statements (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN) run unless SNOWFLAKE_TOOL_ALLOW_WRITES=1",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement, e.g. SELECT id, total FROM orders WHERE status = ? LIMIT 100"
+          },
+          "bindings": {
+            "type": "array",
+            "maxItems": 1000,
+            "description": "Values for the ? placeholders in order; typed values as {\"type\": \"DATE\", \"value\": \"2026-11-19\"}"
+          },
+          "database": {
+            "type": "string",
+            "description": "Database (default SNOWFLAKE_DATABASE)"
+          },
+          "schema": {
+            "type": "string",
+            "description": "Schema (default SNOWFLAKE_SCHEMA)"
+          },
+          "warehouse": {
+            "type": "string",
+            "description": "Warehouse (default SNOWFLAKE_WAREHOUSE; nodes only)"
+          },
+          "role": {
+            "type": "string",
+            "description": "Role (default SNOWFLAKE_ROLE; nodes only, tools use SNOWFLAKE_TOOL_ROLE)"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600,
+            "description": "Statement timeout (default SNOWFLAKE_STATEMENT_TIMEOUT_SECONDS, which also caps tool calls)"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait up to SNOWFLAKE_WAIT_MS for the result; false returns the statement_handle at once"
+          },
+          "query_tag": {
+            "type": "string",
+            "description": "QUERY_TAG for the query history (default graphrt)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by SNOWFLAKE_MAX_RESULT_BYTES)"
+          }
+        },
+        "required": [
+          "statement"
+        ]
+      }
+    },
+    {
+      "name": "get_statement_status",
+      "description": "Check a statement started by execute; waits up to SNOWFLAKE_WAIT_MS and returns its first page of rows when it has finished",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "statement_handle": {
+            "type": "string",
+            "minLength": 1,
+            "description": "statement_handle from execute"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for it to finish (up to SNOWFLAKE_WAIT_MS)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by SNOWFLAKE_MAX_RESULT_BYTES)"
+          }
+        },
+        "required": [
+          "statement_handle"
+        ]
+      }
+    },
+    {
+      "name": "get_statement_results",
+      "description": "Next page of a finished statement's rows (across result partitions), from a next_cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "next_cursor from execute, get_statement_status or get_statement_results"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by SNOWFLAKE_MAX_RESULT_BYTES)"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      }
+    },
+    {
+      "name": "cancel_statement",
+      "description": "Cancel a running statement",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "statement_handle": {
+            "type": "string",
+            "minLength": 1,
+            "description": "statement_handle from execute"
+          }
+        },
+        "required": [
+          "statement_handle"
+        ]
+      }
+    }
+  ]
+}

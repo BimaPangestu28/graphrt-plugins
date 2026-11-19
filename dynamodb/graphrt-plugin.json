@@ -1,0 +1,991 @@
+{
+  "name": "dynamodb",
+  "version": "0.1.0",
+  "description": "Amazon DynamoDB (SigV4): list and describe tables, get, query, scan and batch-get items with plain JSON values, put/update (agents opt-in) and delete (node only)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SESSION_TOKEN",
+      "DYNAMODB_REGION",
+      "AWS_REGION",
+      "AWS_DEFAULT_REGION",
+      "DYNAMODB_ENDPOINT",
+      "DYNAMODB_TIMEOUT_MS",
+      "DYNAMODB_ALLOWED_TABLES",
+      "DYNAMODB_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "dynamodb.list_tables",
+      "title": "List tables",
+      "description": "List DynamoDB table names in the region, paginated with next_cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100,
+            "description": "Maximum table names per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.describe_table",
+      "title": "Describe table",
+      "description": "Describe a table: key schema, attribute types, item count, size, billing mode and indexes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.get_item",
+      "title": "Get item",
+      "description": "Read one item by its primary key; data.item is null when it does not exist",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "key": {
+            "type": "object",
+            "description": "Primary key, e.g. {\"pk\": \"user#1\", \"sk\": \"profile\"} (in attribute_format)"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent read"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.query",
+      "title": "Query",
+      "description": "Query items by partition key (and optional sort key condition) on a table or index, one page with next_cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "key_condition_expression": {
+            "type": "string",
+            "minLength": 1,
+            "description": "e.g. \"pk = :pk AND begins_with(sk, :prefix)\""
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "filter_expression": {
+            "type": "string",
+            "description": "Filter applied after the key condition (still counts toward reads)"
+          },
+          "index_name": {
+            "type": "string",
+            "description": "Global or local secondary index to query"
+          },
+          "scan_index_forward": {
+            "type": "boolean",
+            "default": true,
+            "description": "false returns the newest (highest sort key) first"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent read (not on global indexes)"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum items to evaluate per page (DynamoDB Limit)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "key_condition_expression"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.scan",
+      "title": "Scan",
+      "description": "Scan a table or index page by page (reads every item: prefer query), with optional filter and next_cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "filter_expression": {
+            "type": "string",
+            "description": "e.g. \"#s = :open\""
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "index_name": {
+            "type": "string",
+            "description": "Index to scan"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent read"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum items to evaluate per page (DynamoDB Limit)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.batch_get_items",
+      "title": "Batch get items",
+      "description": "Read up to 100 items of one table by primary key; unprocessed keys are retried, any left over are returned",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 100,
+            "description": "Primary keys, e.g. [{\"pk\": \"a\"}, {\"pk\": \"b\"}]"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent reads"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "keys"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.put_item",
+      "title": "Put item",
+      "description": "Create or replace an item, optionally only when a condition holds (as an agent tool only when DYNAMODB_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "item": {
+            "type": "object",
+            "description": "The whole item including its key, e.g. {\"pk\": \"user#1\", \"name\": \"Ana\"}"
+          },
+          "condition_expression": {
+            "type": "string",
+            "description": "e.g. \"attribute_not_exists(pk)\" to never overwrite"
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "return_old_item": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return the item this put replaced"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "item"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.update_item",
+      "title": "Update item",
+      "description": "Update attributes of one item with an update expression (creates the item if missing unless a condition prevents it; as an agent tool only when DYNAMODB_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "key": {
+            "type": "object",
+            "description": "Primary key, e.g. {\"pk\": \"user#1\", \"sk\": \"profile\"} (in attribute_format)"
+          },
+          "update_expression": {
+            "type": "string",
+            "minLength": 1,
+            "description": "e.g. \"SET #s = :s, updated_at = :now ADD visits :one\""
+          },
+          "condition_expression": {
+            "type": "string",
+            "description": "e.g. \"attribute_exists(pk)\" to only update existing items"
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "return_values": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "ALL_NEW",
+              "UPDATED_NEW",
+              "ALL_OLD",
+              "UPDATED_OLD"
+            ],
+            "default": "ALL_NEW",
+            "description": "Which attributes to return"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "key",
+          "update_expression"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dynamodb.delete_item",
+      "title": "Delete item",
+      "description": "Delete one item by primary key, optionally only when a condition holds; workflow nodes only",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "key": {
+            "type": "object",
+            "description": "Primary key, e.g. {\"pk\": \"user#1\", \"sk\": \"profile\"} (in attribute_format)"
+          },
+          "condition_expression": {
+            "type": "string",
+            "description": "e.g. \"#s = :done\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "return_old_item": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return the deleted item"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_tables",
+      "description": "List DynamoDB table names in the region, paginated with next_cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100,
+            "description": "Maximum table names per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "describe_table",
+      "description": "Describe a table: key schema, attribute types, item count, size, billing mode and indexes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      }
+    },
+    {
+      "name": "get_item",
+      "description": "Read one item by its primary key; data.item is null when it does not exist",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "key": {
+            "type": "object",
+            "description": "Primary key, e.g. {\"pk\": \"user#1\", \"sk\": \"profile\"} (in attribute_format)"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent read"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          }
+        },
+        "required": [
+          "table",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "query",
+      "description": "Query items by partition key (and optional sort key condition) on a table or index, one page with next_cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "key_condition_expression": {
+            "type": "string",
+            "minLength": 1,
+            "description": "e.g. \"pk = :pk AND begins_with(sk, :prefix)\""
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "filter_expression": {
+            "type": "string",
+            "description": "Filter applied after the key condition (still counts toward reads)"
+          },
+          "index_name": {
+            "type": "string",
+            "description": "Global or local secondary index to query"
+          },
+          "scan_index_forward": {
+            "type": "boolean",
+            "default": true,
+            "description": "false returns the newest (highest sort key) first"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent read (not on global indexes)"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum items to evaluate per page (DynamoDB Limit)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        },
+        "required": [
+          "table",
+          "key_condition_expression"
+        ]
+      }
+    },
+    {
+      "name": "scan",
+      "description": "Scan a table or index page by page (reads every item: prefer query), with optional filter and next_cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "filter_expression": {
+            "type": "string",
+            "description": "e.g. \"#s = :open\""
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "index_name": {
+            "type": "string",
+            "description": "Index to scan"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent read"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum items to evaluate per page (DynamoDB Limit)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      }
+    },
+    {
+      "name": "batch_get_items",
+      "description": "Read up to 100 items of one table by primary key; unprocessed keys are retried, any left over are returned",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 100,
+            "description": "Primary keys, e.g. [{\"pk\": \"a\"}, {\"pk\": \"b\"}]"
+          },
+          "consistent_read": {
+            "type": "boolean",
+            "default": false,
+            "description": "Strongly consistent reads"
+          },
+          "projection_expression": {
+            "type": "string",
+            "description": "Attributes to return, e.g. \"#n, price\""
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          }
+        },
+        "required": [
+          "table",
+          "keys"
+        ]
+      }
+    },
+    {
+      "name": "put_item",
+      "description": "Create or replace an item, optionally only when a condition holds (as an agent tool only when DYNAMODB_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "item": {
+            "type": "object",
+            "description": "The whole item including its key, e.g. {\"pk\": \"user#1\", \"name\": \"Ana\"}"
+          },
+          "condition_expression": {
+            "type": "string",
+            "description": "e.g. \"attribute_not_exists(pk)\" to never overwrite"
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "return_old_item": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return the item this put replaced"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          }
+        },
+        "required": [
+          "table",
+          "item"
+        ]
+      }
+    },
+    {
+      "name": "update_item",
+      "description": "Update attributes of one item with an update expression (creates the item if missing unless a condition prevents it; as an agent tool only when DYNAMODB_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Table name (or table ARN)"
+          },
+          "key": {
+            "type": "object",
+            "description": "Primary key, e.g. {\"pk\": \"user#1\", \"sk\": \"profile\"} (in attribute_format)"
+          },
+          "update_expression": {
+            "type": "string",
+            "minLength": 1,
+            "description": "e.g. \"SET #s = :s, updated_at = :now ADD visits :one\""
+          },
+          "condition_expression": {
+            "type": "string",
+            "description": "e.g. \"attribute_exists(pk)\" to only update existing items"
+          },
+          "expression_attribute_names": {
+            "type": "object",
+            "description": "ExpressionAttributeNames, e.g. {\"#s\": \"status\"}"
+          },
+          "expression_attribute_values": {
+            "type": "object",
+            "description": "ExpressionAttributeValues, e.g. {\":s\": \"open\"} (in attribute_format)"
+          },
+          "return_values": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "ALL_NEW",
+              "UPDATED_NEW",
+              "ALL_OLD",
+              "UPDATED_OLD"
+            ],
+            "default": "ALL_NEW",
+            "description": "Which attributes to return"
+          },
+          "attribute_format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "typed"
+            ],
+            "default": "plain",
+            "description": "plain: ordinary JSON values; typed: DynamoDB JSON such as {\"S\": \"x\"}, {\"SS\": [..]}, {\"N\": \"1.50\"} (sets, binary, exact numbers)"
+          }
+        },
+        "required": [
+          "table",
+          "key",
+          "update_expression"
+        ]
+      }
+    }
+  ]
+}

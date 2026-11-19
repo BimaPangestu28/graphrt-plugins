@@ -1,0 +1,25 @@
+# List datasets, then dry-run and run a small query on a public dataset (bills a few MB at most, capped).
+#   export GOOGLE_SERVICE_ACCOUNT_JSON=/path/to/key.json BIGQUERY_PROJECT_ID=my-project
+#   graphrt run bigquery/example.yaml --plugins .
+version: "1"
+name: bigquery-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: datasets, type: bigquery.list_datasets, limit: 10 }
+    - id: estimate
+      type: bigquery.query
+      dry_run: true
+      sql: "SELECT name, SUM(number) AS total FROM `bigquery-public-data.usa_names.usa_1910_current` WHERE state = @state GROUP BY name ORDER BY total DESC LIMIT 5"
+      params: { state: "CA" }
+    - id: top_names
+      type: bigquery.query
+      sql: "SELECT name, SUM(number) AS total FROM `bigquery-public-data.usa_names.usa_1910_current` WHERE state = @state GROUP BY name ORDER BY total DESC LIMIT 5"
+      params: { state: "CA" }
+      maximum_bytes_billed: 200000000
+    - { id: answer, type: answer, answer: "Datasets: {{#datasets.data.datasets#}} | estimate: {{#estimate.data.total_bytes_processed#}} bytes | top names: {{#top_names.data.rows#}}" }
+  edges:
+    - { source: start, target: datasets }
+    - { source: datasets, target: estimate }
+    - { source: estimate, target: top_names }
+    - { source: top_names, target: answer }

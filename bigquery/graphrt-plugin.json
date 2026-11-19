@@ -1,0 +1,489 @@
+{
+  "name": "bigquery",
+  "version": "0.1.0",
+  "description": "Google BigQuery: datasets, tables and schemas, parameterised GoogleSQL queries with a bytes-billed cap, dry runs and paged results; agent tools run SELECT only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "BIGQUERY_PROJECT_ID",
+      "GOOGLE_CLOUD_PROJECT",
+      "BIGQUERY_LOCATION",
+      "BIGQUERY_MAX_BYTES_BILLED",
+      "BIGQUERY_MAX_RESULT_BYTES",
+      "BIGQUERY_QUERY_TIMEOUT_MS",
+      "BIGQUERY_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "bigquery.list_datasets",
+      "title": "List datasets",
+      "description": "List the datasets of a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Label filter, e.g. labels.env:prod"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum results per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bigquery.list_tables",
+      "title": "List tables",
+      "description": "List the tables and views of a dataset",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Dataset id, e.g. analytics"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum results per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bigquery.get_table",
+      "title": "Get table schema",
+      "description": "Get a table's schema (nested fields flattened), row and byte counts, partitioning and clustering",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Dataset id, e.g. analytics"
+          },
+          "table_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Table or view id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "table_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bigquery.query",
+      "title": "Run query",
+      "description": "Run one GoogleSQL query with @named or ? parameters; returns typed rows and next_cursor. Every query is capped by maximum_bytes_billed (at most BIGQUERY_MAX_BYTES_BILLED); dry_run estimates bytes for free. As an agent tool only SELECT runs unless BIGQUERY_TOOL_ALLOW_WRITES=1",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "GoogleSQL, e.g. SELECT name, total FROM shop.orders WHERE created >= @since LIMIT 100"
+          },
+          "params": {
+            "description": "Named params as an object ({\"since\": \"2026-11-01\"}) or positional as an array; typed values as {\"type\": \"DATE\", \"value\": \"2026-11-01\"}"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only validate and estimate bytes processed (free)"
+          },
+          "maximum_bytes_billed": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Bytes-billed limit for this query (default and maximum BIGQUERY_MAX_BYTES_BILLED)"
+          },
+          "default_dataset": {
+            "type": "string",
+            "description": "Dataset for unqualified table names: dataset or project.dataset"
+          },
+          "location": {
+            "type": "string",
+            "description": "Job location, e.g. US, EU, asia-southeast1 (default BIGQUERY_LOCATION)"
+          },
+          "use_query_cache": {
+            "type": "boolean",
+            "default": true,
+            "description": "Use cached results when available (free)"
+          },
+          "labels": {
+            "type": "object",
+            "description": "Job labels, e.g. {\"source\": \"graphrt\"}"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by BIGQUERY_MAX_RESULT_BYTES)"
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 90000,
+            "description": "How long to wait for the query to finish (default BIGQUERY_QUERY_TIMEOUT_MS)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bigquery.get_query_results",
+      "title": "Get query results",
+      "description": "Next page of a query's rows (or wait for a query that was still running), from a query's next_cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "next_cursor from query or get_query_results"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by BIGQUERY_MAX_RESULT_BYTES)"
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 90000,
+            "description": "How long to wait for the query to finish (default BIGQUERY_QUERY_TIMEOUT_MS)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_datasets",
+      "description": "List the datasets of a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Label filter, e.g. labels.env:prod"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum results per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_tables",
+      "description": "List the tables and views of a dataset",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Dataset id, e.g. analytics"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum results per page"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      }
+    },
+    {
+      "name": "get_table",
+      "description": "Get a table's schema (nested fields flattened), row and byte counts, partitioning and clustering",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Dataset id, e.g. analytics"
+          },
+          "table_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Table or view id"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "table_id"
+        ]
+      }
+    },
+    {
+      "name": "query",
+      "description": "Run one GoogleSQL query with @named or ? parameters; returns typed rows and next_cursor. Every query is capped by maximum_bytes_billed (at most BIGQUERY_MAX_BYTES_BILLED); dry_run estimates bytes for free. As an agent tool only SELECT runs unless BIGQUERY_TOOL_ALLOW_WRITES=1",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "GoogleSQL, e.g. SELECT name, total FROM shop.orders WHERE created >= @since LIMIT 100"
+          },
+          "params": {
+            "description": "Named params as an object ({\"since\": \"2026-11-01\"}) or positional as an array; typed values as {\"type\": \"DATE\", \"value\": \"2026-11-01\"}"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only validate and estimate bytes processed (free)"
+          },
+          "maximum_bytes_billed": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Bytes-billed limit for this query (default and maximum BIGQUERY_MAX_BYTES_BILLED)"
+          },
+          "default_dataset": {
+            "type": "string",
+            "description": "Dataset for unqualified table names: dataset or project.dataset"
+          },
+          "location": {
+            "type": "string",
+            "description": "Job location, e.g. US, EU, asia-southeast1 (default BIGQUERY_LOCATION)"
+          },
+          "use_query_cache": {
+            "type": "boolean",
+            "default": true,
+            "description": "Use cached results when available (free)"
+          },
+          "labels": {
+            "type": "object",
+            "description": "Job labels, e.g. {\"source\": \"graphrt\"}"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud project id (default BIGQUERY_PROJECT_ID)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by BIGQUERY_MAX_RESULT_BYTES)"
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 90000,
+            "description": "How long to wait for the query to finish (default BIGQUERY_QUERY_TIMEOUT_MS)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      }
+    },
+    {
+      "name": "get_query_results",
+      "description": "Next page of a query's rows (or wait for a query that was still running), from a query's next_cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "next_cursor from query or get_query_results"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Maximum rows in this page (also capped by BIGQUERY_MAX_RESULT_BYTES)"
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 90000,
+            "description": "How long to wait for the query to finish (default BIGQUERY_QUERY_TIMEOUT_MS)"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      }
+    }
+  ]
+}

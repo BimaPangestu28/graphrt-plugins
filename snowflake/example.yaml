@@ -1,0 +1,16 @@
+# Read the current session context and list a few tables. Read-only.
+#   export SNOWFLAKE_ACCOUNT=myorg-myaccount SNOWFLAKE_USER=GRAPHRT_READER SNOWFLAKE_PRIVATE_KEY_PATH=$HOME/.snowflake/rsa_key.p8
+#   export SNOWFLAKE_WAREHOUSE=REPORTING_WH SNOWFLAKE_ROLE=REPORTING_READER
+#   graphrt run snowflake/example.yaml --plugins .
+version: "1"
+name: snowflake-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: context, type: snowflake.execute, statement: "SELECT CURRENT_ACCOUNT() AS account, CURRENT_ROLE() AS role, CURRENT_WAREHOUSE() AS warehouse" }
+    - { id: tables, type: snowflake.execute, statement: "SELECT table_schema, table_name, row_count FROM information_schema.tables WHERE table_type = ? ORDER BY row_count DESC NULLS LAST LIMIT 10", bindings: ["BASE TABLE"] }
+    - { id: answer, type: answer, answer: "Session: {{#context.data.rows.0#}} | tables: {{#tables.data.rows#}}" }
+  edges:
+    - { source: start, target: context }
+    - { source: context, target: tables }
+    - { source: tables, target: answer }
