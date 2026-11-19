@@ -106,5 +106,9 @@ npm test          # from the repo root
 the `ok:false` mapping and the api_request read-method guard. Verified live only with an invalid token
 (`auth_error`); no real workspace was used.
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `upload_file` parameter `title` is now `file_title` (still sent to Slack as `title`). graphrt takes `title` from every workflow node, so the old name could never be set from a node; tool calls that passed `title` must use `file_title`.
+
 ## License
 Apache-2.0

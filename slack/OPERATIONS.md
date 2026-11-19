@@ -22,6 +22,6 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | `delete_message` | Delete a message permanently | **channel**, **ts** |
 | `add_reaction` | Add an emoji reaction to a message (a repeat answers already_reacted) | **channel**, **timestamp**, **name** |
 | `remove_reaction` | Remove the token's emoji reaction from a message | **channel**, **timestamp**, **name** |
-| `upload_file` | Upload a file (https URL, or an absolute path inside $SLACK_UPLOAD_DIR) and optionally share it in a channel or thread (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1) | **file**, filename, title, channel_id, initial_comment, thread_ts |
+| `upload_file` | Upload a file (https URL, or an absolute path inside $SLACK_UPLOAD_DIR) and optionally share it in a channel or thread (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1) | **file**, filename, file_title, channel_id, initial_comment, thread_ts |
 | `search_messages` | Search messages the user can see with Slack search syntax (in:#channel from:@user before:2026-01-01); needs a user token in SLACK_USER_TOKEN | **query**, sort, sort_dir, highlight, limit, cursor |
 | `api_request` | Call any Slack Web API endpoint that has no dedicated operation, e.g. path "/team.info". Only the API's own host is allowed. Agent tools may only call read methods (*.list, *.info, *.history, *.replies, *.get*, *.lookup*). | method, **path**, query, body |

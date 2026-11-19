@@ -40,7 +40,7 @@ export const uploadFileOperation = {
     properties: {
       file: { type: "string", description: `An https URL, or an absolute path inside $${UPLOAD_DIR_ENV}` },
       filename: { type: "string", description: "File name shown in Slack (default: the source file's name)" },
-      title: { type: "string", description: "File title" },
+      file_title: { type: "string", description: "File title shown in Slack (sent as `title`; default: the file name)" },
       channel_id: { type: "string", description: "Channel to share the file in; without it the file stays private to the uploader" },
       initial_comment: { type: "string", description: "Message posted with the file" },
       thread_ts: { type: "string", description: "Parent message ts, to upload as a thread reply (needs channel_id)" },
@@ -96,7 +96,7 @@ async function sendFileBytes(fetchImpl, uploadUrl, fileInput, signal) {
 }
 
 function buildCompletion(args, fileId, filename) {
-  const completion = { files: [{ id: fileId, title: args.title || filename }] };
+  const completion = { files: [{ id: fileId, title: args.file_title || filename }] };
   for (const fieldName of ["channel_id", "initial_comment", "thread_ts"]) if (args[fieldName]) completion[fieldName] = args[fieldName];
   return completion;
 }
