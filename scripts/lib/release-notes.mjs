@@ -4,30 +4,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "../plugins.mjs";
-import { RELEASE_REPOSITORY, releaseAssetUrl } from "./plugin-package.mjs";
+import { RELEASE_REPOSITORY, extractReadmeWarnings, releaseAssetUrl } from "./plugin-package.mjs";
 
-/**
- * Extracts `> **Warning:** ...` blockquotes from a plugin README so the release
- * page carries the same warning users see in the setup guide.
- *
- * @param readmeText - README markdown (string)
- * @returns Warning blockquotes, each as markdown (string[])
- */
-export function extractReadmeWarnings(readmeText) {
-  const warnings = [];
-  let currentQuote = null;
-  for (const line of readmeText.split("\n")) {
-    if (line.startsWith(">")) {
-      currentQuote ??= [];
-      currentQuote.push(line);
-      continue;
-    }
-    if (currentQuote && /\*\*Warning/i.test(currentQuote[0])) warnings.push(currentQuote.join("\n"));
-    currentQuote = null;
-  }
-  if (currentQuote && /\*\*Warning/i.test(currentQuote[0])) warnings.push(currentQuote.join("\n"));
-  return warnings;
-}
+export { extractReadmeWarnings };
 
 /**
  * Renders release notes: description, operation count, setup link, permissions,

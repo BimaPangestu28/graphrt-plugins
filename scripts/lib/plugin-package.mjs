@@ -15,9 +15,10 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { REPO_ROOT } from "../plugins.mjs";
-import { createTarGz } from "./tar-archive.mjs";
+import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
 export const MANIFEST_FILE_NAME = "graphrt-plugin.json";
+export const README_FILE_NAME = "README.md";
 export const RELEASE_REPOSITORY = process.env.GRAPHRT_PLUGINS_REPOSITORY || "BimaPangestu28/graphrt-plugins";
 export const CATALOG_TAG = "catalog";
 export const CATALOG_SCHEMA_VERSION = 1;
@@ -86,7 +87,7 @@ export function readSourceManifest(pluginName) {
  * @param pluginName - Plugin directory name (string)
  * @param options - Packing options
  * @param options.outputDirectory - Where the tarball is written (string)
- * @returns `{name, version, tag, tarballName, tarballPath, sha256, sizeBytes, manifest}` (object)
+ * @returns `{name, version, tag, tarballName, tarballPath, sha256, sizeBytes, manifest, readmeText}` (object)
  * @throws Error - When npm fails, a symlink or forbidden file would be shipped, or the manifest is invalid
  */
 export function packPlugin(pluginName, { outputDirectory }) {
@@ -113,6 +114,7 @@ export function packPlugin(pluginName, { outputDirectory }) {
       sha256: sha256Hex(tarballBytes),
       sizeBytes: tarballBytes.length,
       manifest: releasedManifest,
+      readmeText: existsSync(join(stagedDirectory, README_FILE_NAME)) ? readFileSync(join(stagedDirectory, README_FILE_NAME), "utf8") : null,
     };
   } finally {
     rmSync(stagedDirectory, { recursive: true, force: true });
@@ -270,14 +272,22 @@ export function sha256Hex(bytes) {
 /**
  * Builds one catalog entry from a released manifest and its tarball.
  *
+ * Nodes carry their `config_schema` (verbatim) and `outputs` (when the manifest
+ * declares them) so an agent builder can write correct steps for a plugin that is
+ * not installed yet. These are additive fields: schema-1 readers ignore them.
+ *
  * @param releasedManifest - The manifest inside the tarball (object)
- * @param tarball - `{sha256, sizeBytes}` of the published tarball (object)
+ * @param tarball - The published tarball (object)
+ * @param tarball.sha256 - Hex sha256 of the tarball bytes (string)
+ * @param tarball.sizeBytes - Tarball size (number)
+ * @param tarball.readmeText - The plugin README shipped in the tarball, or null (string|null)
  * @returns A catalog `plugins[]` entry (object)
  */
-export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes }) {
+export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }) {
   const { name, version } = releasedManifest;
   const tag = releaseTagFor(name, version);
   const permissions = releasedManifest.permissions ?? {};
+  const manifestNodes = releasedManifest.nodes ?? [];
   return {
     name,
     version,
@@ -288,10 +298,119 @@ export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes }) {
     permissions: { network: Boolean(permissions.network), secrets: Boolean(permissions.secrets), env: permissions.env ?? [] },
     needs_browser: needsBrowser(releasedManifest),
     node: NODE_REQUIREMENT,
-    nodes: (releasedManifest.nodes ?? []).map(({ kind, title, description }) => ({ kind, title: title ?? kind, description: description ?? "" })),
+    warning: readmeText ? extractCatalogWarning(readmeText) : null,
+    operations_count: manifestNodes.length,
+    nodes: manifestNodes.map((manifestNode) => buildCatalogNode(manifestNode)),
     tools: (releasedManifest.tools ?? []).map((tool) => tool.name),
     readme_url: `https://github.com/${RELEASE_REPOSITORY}/blob/${tag}/${name}/README.md`,
   };
+}
+
+/**
+ * Describes one manifest node for the catalog.
+ *
+ * @param manifestNode - A `nodes[]` entry of the released manifest (object)
+ * @returns `{kind, title, description, config_schema, outputs?}` (object)
+ */
+export function buildCatalogNode({ kind, title, description, config_schema: configSchema, outputs }) {
+  const catalogNode = { kind, title: title ?? kind, description: description ?? "", config_schema: configSchema ?? { type: "object" } };
+  if (Array.isArray(outputs)) catalogNode.outputs = outputs;
+  return catalogNode;
+}
+
+/**
+ * Extracts `> **Warning:** ...` blockquotes from a plugin README so release pages
+ * and the catalog carry the same warning users see in the setup guide.
+ *
+ * @param readmeText - README markdown (string)
+ * @returns Warning blockquotes, each as markdown (string[])
+ */
+export function extractReadmeWarnings(readmeText) {
+  const warnings = [];
+  let currentQuote = null;
+  const flushQuote = () => {
+    if (currentQuote && /\*\*Warning/i.test(currentQuote[0])) warnings.push(currentQuote.join("\n"));
+    currentQuote = null;
+  };
+  for (const line of readmeText.split("\n")) {
+    if (line.startsWith(">")) {
+      currentQuote ??= [];
+      currentQuote.push(line);
+      continue;
+    }
+    flushQuote();
+  }
+  flushQuote();
+  return warnings;
+}
+
+/**
+ * The catalog `warning`: the first README warning blockquote as one line of text,
+ * without the quote markers and the `**Warning:**` label (inline markdown kept).
+ *
+ * @param readmeText - README markdown (string)
+ * @returns The warning text, or null when the README has no warning blockquote (string|null)
+ */
+export function extractCatalogWarning(readmeText) {
+  const [firstWarning] = extractReadmeWarnings(readmeText);
+  if (!firstWarning) return null;
+  const warningText = firstWarning
+    .split("\n")
+    .map((line) => line.replace(/^>\s?/, "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/^\*\*Warning:?\*\*:?\s*/i, "");
+  return warningText || null;
+}
+
+/**
+ * Describes a published tarball from its own bytes: sha256, size, the shipped
+ * manifest and README. The catalog is built from this, never from local sources,
+ * so it matches what was released.
+ *
+ * @param tarballName - Asset name, e.g. `meta-api-0.1.0.tar.gz` (string)
+ * @param tarballBytes - The tarball bytes (Buffer)
+ * @returns `{tarballName, sha256, sizeBytes, manifest, readmeText}` (object)
+ * @throws Error - When the tarball has no top-level `<name>/graphrt-plugin.json`
+ */
+export function describeTarballBytes(tarballName, tarballBytes) {
+  const archiveEntries = readTarGz(tarballBytes);
+  const findTopLevelFile = (fileName) =>
+    archiveEntries.find((entry) => entry.type === "file" && entry.path.endsWith(`/${fileName}`) && entry.path.split("/").length === 2);
+  const manifestEntry = findTopLevelFile(MANIFEST_FILE_NAME);
+  if (!manifestEntry) throw new Error(`${tarballName}: tarball has no ${MANIFEST_FILE_NAME}`);
+  const readmeEntry = findTopLevelFile(README_FILE_NAME);
+  return {
+    tarballName,
+    sha256: sha256Hex(tarballBytes),
+    sizeBytes: tarballBytes.length,
+    manifest: JSON.parse(manifestEntry.content.toString("utf8")),
+    readmeText: readmeEntry ? readmeEntry.content.toString("utf8") : null,
+  };
+}
+
+/**
+ * Lists how a rebuilt catalog differs from the previous one in what it must keep:
+ * every previous plugin still listed, with the same version, sha256 and size.
+ *
+ * @param previousCatalog - The catalog currently published (object)
+ * @param nextEntries - The rebuilt catalog entries (object[])
+ * @returns Human-readable differences; empty when nothing was dropped or changed (string[])
+ */
+export function findCatalogRegressions(previousCatalog, nextEntries) {
+  const nextByName = new Map(nextEntries.map((entry) => [entry.name, entry]));
+  const regressions = [];
+  for (const previousEntry of previousCatalog.plugins ?? []) {
+    const nextEntry = nextByName.get(previousEntry.name);
+    if (!nextEntry) {
+      regressions.push(`${previousEntry.name}: missing from the rebuilt catalog`);
+      continue;
+    }
+    for (const field of ["version", "sha256", "size_bytes", "tarball_url"]) {
+      if (previousEntry[field] !== nextEntry[field]) regressions.push(`${previousEntry.name}: ${field} ${previousEntry[field]} -> ${nextEntry[field]}`);
+    }
+  }
+  return regressions;
 }
 
 /** A plugin needs a browser when it depends on Playwright (detected from the checked-in package.json). */

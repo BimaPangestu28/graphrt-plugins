@@ -1,9 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
-  assertAllowedPath, buildCatalog, buildCatalogEntry, formatSha256Sums, isPinnedPath, releaseTagFor, tarballNameFor, withChecksums,
+  assertAllowedPath, buildCatalog, buildCatalogEntry, describeTarballBytes, extractCatalogWarning, findCatalogRegressions, formatSha256Sums,
+  isPinnedPath, releaseTagFor, sha256Hex, tarballNameFor, withChecksums,
 } from "../lib/plugin-package.mjs";
 import { extractReadmeWarnings } from "../lib/release-notes.mjs";
+import { createTarGz } from "../lib/tar-archive.mjs";
+import { REPO_ROOT } from "../plugins.mjs";
 
 const sampleManifest = {
   name: "meta-api",
@@ -50,7 +55,9 @@ test("builds a catalog entry with download and readme URLs", () => {
   assert.equal(entry.tarball_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz");
   assert.equal(entry.readme_url, "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md");
   assert.deepEqual(entry.permissions, { network: true, secrets: true, env: ["META_ACCESS_TOKEN"] });
-  assert.deepEqual(entry.nodes, [{ kind: "meta-api.get_page", title: "Get page", description: "Reads a page" }]);
+  assert.deepEqual(entry.nodes, [{ kind: "meta-api.get_page", title: "Get page", description: "Reads a page", config_schema: {} }]);
+  assert.equal(entry.operations_count, 1);
+  assert.equal(entry.warning, null);
   assert.deepEqual(entry.tools, ["get_page"]);
   assert.equal(entry.needs_browser, false);
   assert.equal(entry.node, ">=20");
@@ -76,4 +83,82 @@ test("formats SHA256SUMS like sha256sum", () => {
 test("extracts README warning blockquotes only", () => {
   const readme = "# x\n\n> **Warning:** do not\n> spam.\n\n> Just a quote\n\ntext\n";
   assert.deepEqual(extractReadmeWarnings(readme), ["> **Warning:** do not\n> spam."]);
+});
+
+test("copies each node's config_schema verbatim and its outputs when declared", () => {
+  const configSchema = { type: "object", required: ["page_id"], properties: { page_id: { type: "string", description: "Page id" }, limit: { type: "integer", minimum: 1, default: 25 } } };
+  const outputs = [{ name: "data", type: "any", description: "API result" }];
+  const manifest = {
+    ...sampleManifest,
+    nodes: [
+      { kind: "meta-api.get_page", title: "Get page", description: "Reads a page", category: "integration", config_schema: configSchema, outputs },
+      { kind: "meta-api.ping", config_schema: { type: "object" } },
+    ],
+  };
+  const entry = buildCatalogEntry(manifest, { sha256: "0", sizeBytes: 1 });
+  assert.deepEqual(entry.nodes[0], { kind: "meta-api.get_page", title: "Get page", description: "Reads a page", config_schema: configSchema, outputs });
+  assert.deepEqual(entry.nodes[1], { kind: "meta-api.ping", title: "meta-api.ping", description: "", config_schema: { type: "object" } });
+  assert.equal("outputs" in entry.nodes[1], false);
+  assert.equal(entry.operations_count, 2);
+});
+
+test("copies every real manifest's node schemas verbatim", () => {
+  for (const pluginName of ["meta-api", "whatsapp-web", "google-maps-scraper"]) {
+    const manifest = JSON.parse(readFileSync(join(REPO_ROOT, pluginName, "graphrt-plugin.json"), "utf8"));
+    const entry = buildCatalogEntry(manifest, { sha256: "0", sizeBytes: 1 });
+    assert.equal(entry.operations_count, manifest.nodes.length, pluginName);
+    entry.nodes.forEach((catalogNode, index) => {
+      assert.deepEqual(catalogNode.config_schema, manifest.nodes[index].config_schema, catalogNode.kind);
+      assert.deepEqual(catalogNode.outputs, manifest.nodes[index].outputs, catalogNode.kind);
+    });
+  }
+});
+
+test("takes the first README warning blockquote as the catalog warning", () => {
+  const readme = "# x\n\n> Just a quote\n\n> **Warning:** breaks the **Terms of Service**.\n> Keep `volumes` low.\n\n> **Warning:** second one\n";
+  assert.equal(extractCatalogWarning(readme), "breaks the **Terms of Service**. Keep `volumes` low.");
+  assert.equal(extractCatalogWarning("# x\n\n> Just a quote\n"), null);
+  const entry = buildCatalogEntry(sampleManifest, { sha256: "0", sizeBytes: 1, readmeText: readme });
+  assert.equal(entry.warning, "breaks the **Terms of Service**. Keep `volumes` low.");
+});
+
+test("finds the Terms of Service warning in the whatsapp-web and google-maps-scraper READMEs only", () => {
+  const whatsappWarning = extractCatalogWarning(readFileSync(join(REPO_ROOT, "whatsapp-web", "README.md"), "utf8"));
+  assert.match(whatsappWarning, /^automating a personal WhatsApp account breaks WhatsApp's Terms of Service.*\*\*banned\*\*/);
+  assert.match(extractCatalogWarning(readFileSync(join(REPO_ROOT, "google-maps-scraper", "README.md"), "utf8")), /Terms of Service/);
+  assert.equal(extractCatalogWarning(readFileSync(join(REPO_ROOT, "meta-api", "README.md"), "utf8")), null);
+});
+
+test("describes a published tarball from its own bytes, keeping sha256 and size", () => {
+  const manifest = { ...sampleManifest, checksums: { "plugin.mjs": "ab" } };
+  const tarballBytes = createTarGz(
+    [
+      { path: "meta-api", type: "directory" },
+      { path: "meta-api/graphrt-plugin.json", type: "file", content: Buffer.from(JSON.stringify(manifest)) },
+      { path: "meta-api/README.md", type: "file", content: Buffer.from("# meta\n\n> **Warning:** careful.\n") },
+      { path: "meta-api/lib/graphrt-plugin.json", type: "file", content: Buffer.from("{}") },
+    ],
+    { mtimeSeconds: 0 },
+  );
+  const published = describeTarballBytes("meta-api-0.1.0.tar.gz", tarballBytes);
+  assert.equal(published.sha256, sha256Hex(tarballBytes));
+  assert.equal(published.sizeBytes, tarballBytes.length);
+  assert.deepEqual(published.manifest, manifest);
+  const entry = buildCatalogEntry(published.manifest, published);
+  assert.equal(entry.sha256, sha256Hex(tarballBytes));
+  assert.equal(entry.size_bytes, tarballBytes.length);
+  assert.equal(entry.warning, "careful.");
+  assert.throws(() => describeTarballBytes("x.tar.gz", createTarGz([{ path: "x", type: "directory" }], { mtimeSeconds: 0 })), /no graphrt-plugin.json/);
+});
+
+test("flags rebuilt catalogs that drop plugins or change their tarballs", () => {
+  const previousEntry = buildCatalogEntry(sampleManifest, { sha256: "a".repeat(64), sizeBytes: 10 });
+  const previousCatalog = buildCatalog([previousEntry, { ...previousEntry, name: "x-api" }], new Date());
+  const enrichedEntry = { ...previousEntry, warning: null, nodes: [] };
+  assert.deepEqual(findCatalogRegressions(previousCatalog, [enrichedEntry, { ...previousEntry, name: "x-api" }]), []);
+  assert.deepEqual(findCatalogRegressions(previousCatalog, [{ ...enrichedEntry, sha256: "b", size_bytes: 11 }]), [
+    `meta-api: sha256 ${"a".repeat(64)} -> b`,
+    "meta-api: size_bytes 10 -> 11",
+    "x-api: missing from the rebuilt catalog",
+  ]);
 });

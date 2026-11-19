@@ -60,10 +60,18 @@ lists them all.
     "tarball_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz",
     "sha256": "<hex of the tarball>", "size_bytes": 29257,
     "permissions": {"network": true, "secrets": true, "env": ["META_ACCESS_TOKEN"]},
-    "needs_browser": false, "node": ">=20",
-    "nodes": [{"kind": "meta-api.get_page", "title": "...", "description": "..."}], "tools": ["get_page"],
+    "needs_browser": false, "node": ">=20", "warning": null, "operations_count": 25,
+    "nodes": [{"kind": "meta-api.get_page", "title": "...", "description": "...",
+      "config_schema": {"type": "object", "properties": {"page_id": {"type": "string"}}},
+      "outputs": [{"name": "data", "type": "any", "description": "API result"}]}],
+    "tools": ["get_page"],
     "readme_url": "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md"}]}
   ```
+  Each node carries its `config_schema` (the manifest's JSON Schema, verbatim) and `outputs` (when the manifest
+  declares them), so a builder can write correct steps for a plugin that is not installed yet. `warning` is the
+  first `> **Warning:**` blockquote of the shipped README as one line (the Terms of Service warning of
+  `whatsapp-web` and `google-maps-scraper`), else `null`; `operations_count` is the number of nodes. These fields
+  were added within `schema: 1`: readers that do not know them ignore them.
 - **Desktop app:** reads `index.json`, downloads `tarball_url`, checks `sha256` (and `size_bytes`), extracts it
   and installs the `<name>/` directory, for example with `graphrt plugin install <extracted>/<name>`. When
   `needs_browser` is true it then installs Chromium for the bundled Playwright by running
@@ -97,6 +105,8 @@ graphrt plugin install ./meta-api
   run `graphrt plugin install` into a temporary directory). `npm run publish:plugins` tests, packs and verifies every
   plugin, creates the releases that do not exist yet and refreshes `catalog`; it never changes a published release,
   so bump the version in `definition.mjs` (or `graphrt-plugin.json` for google-maps-scraper) to ship a change.
+  `npm run publish:plugins -- --catalog-only` only rebuilds `index.json` and `SHA256SUMS` from the published tarballs
+  (after a catalog format change); it refuses to drop a plugin or change any version, `sha256` or `size_bytes`.
   `.github/workflows/release.yml` runs the same script on a `<name>-v<version>` tag push or by hand.
 
 Design notes and API research are in `docs/superpowers/`.
