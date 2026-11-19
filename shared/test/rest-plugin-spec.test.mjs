@@ -81,6 +81,7 @@ const INVALID_SPECS = [
   ],
   ["job without doneValues", withOperation({ method: "POST", write: "unsafe", job: { idPath: "id", poll: { path: "/jobs/{id}" }, statusPath: "status" } }), /doneValues/],
   ["download without envDir", withOperation({ download: { saveTo: { urlPaths: ["url"] } } }), /envDir/],
+  ["non-https operation baseUrl", withOperation({ baseUrl: "http://geo.example.com" }), /baseUrl/],
   ["download without urlPaths", withOperation({ download: { saveTo: { envDir: "DEMO_DIR", urlPaths: [] } } }), /urlPaths/],
 ];
 

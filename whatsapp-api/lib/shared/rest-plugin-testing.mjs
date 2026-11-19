@@ -84,10 +84,11 @@ function createContractContext(pluginDefinition, cases) {
   const credential = describeCredential(restSpec.auth, environment);
   const operationCases = cases.operations ?? {};
   const casedOperations = restSpec.operations.filter((operation) => operationCases[operation.name]);
-  const basePath = new URL(resolveBaseUrl(restSpec.baseUrl, environment)).pathname.replace(/\/$/, "");
-  const baseOrigin = new URL(resolveBaseUrl(restSpec.baseUrl, environment)).origin;
+  const resolveOperationBase = (operation) => new URL(resolveBaseUrl(operation.baseUrl ?? restSpec.baseUrl, environment));
+  const basePathFor = (operation) => resolveOperationBase(operation).pathname.replace(/\/$/, "");
+  const baseOriginFor = (operation) => resolveOperationBase(operation).origin;
   const hasApiRequest = pluginDefinition.operations.some((operation) => operation.name === "api_request") && restSpec.apiRequest !== false;
-  return { pluginDefinition, restSpec, environment, credential, operationCases, casedOperations, basePath, baseOrigin, hasApiRequest, checkAuth: cases.checkAuth };
+  return { pluginDefinition, restSpec, environment, credential, operationCases, casedOperations, basePathFor, baseOriginFor, hasApiRequest, checkAuth: cases.checkAuth };
 }
 
 function buildEnvironment(auth, caseEnvironment = {}) {
@@ -137,15 +138,16 @@ function requestShapeTest(contract, operation) {
     run: async () => {
       const { error, calls } = await runContractOperation(contract, operation.name, args, { responses: successResponses(contract, operation) });
       if (error) throw error;
-      assertRequestShape(contract, calls[0], expected);
+      assertRequestShape(contract, operation, calls[0], expected);
       assertAuthPlacement(contract, calls[0]);
     },
   };
 }
 
-function assertRequestShape(contract, call, expected) {
+function assertRequestShape(contract, operation, call, expected) {
   assert.equal(call.method, expected.method, "method");
-  assert.equal(call.path, `${contract.basePath}${expected.path}`, "path");
+  assert.equal(new URL(call.url).origin, contract.baseOriginFor(operation), "host");
+  assert.equal(call.path, `${contract.basePathFor(operation)}${expected.path}`, "path");
   if (expected.query !== undefined) assert.deepEqual(withoutAuthQuery(contract, call.query), expected.query, "query");
   if (expected.json !== undefined) assert.deepEqual(call.json, expected.json, "json body");
   if (expected.form !== undefined) assert.deepEqual(call.form, expected.form, "form body");
@@ -374,7 +376,7 @@ function assertPaginationParam(operation, call, wireName, expectedValue) {
 async function checkLinkPagination(contract, operation) {
   const { args, request } = contract.operationCases[operation.name];
   const limit = paginationLimit(contract, operation);
-  const nextUrl = `${contract.baseOrigin}${contract.basePath}${request.path}?contract_page=2`;
+  const nextUrl = `${contract.baseOriginFor(operation)}${contract.basePathFor(operation)}${request.path}?contract_page=2`;
   const firstArgs = limit === undefined ? args : { ...args, limit };
   const first = await runContractOperation(contract, operation.name, firstArgs, { responses: [{ body: [{}], headers: { link: `<${nextUrl}>; rel="next"` } }] });
   if (first.error) throw first.error;

@@ -97,6 +97,7 @@ export const pluginDefinition = defineRestPlugin({
       title: "List tasks",
       description: "List tasks in a project, newest first",
       method: "GET",                    // default GET
+      // baseUrl: "https://search.acme.example/v1",   // optional: this operation lives on another host of the API
       path: "/projects/{project_id}/tasks",
       params: {
         // in: "path" | "query" | "body" | "header"; type: string | integer | number | boolean | array | object
@@ -254,7 +255,9 @@ Add plugin-specific tests next to it for anything the spec cannot express.
 ## Escape hatches
 - `auth: { type: "custom", env, authorize }` for unusual headers or simple signing. `authorize` may be async and
   returns extra secrets to redact.
-- `baseUrl` as a function for regions and self-hosted instances.
+- `baseUrl` as a function for regions and self-hosted instances; an operation-level `baseUrl` for APIs spread
+  over several hosts (Open-Meteo's geocoding, upload hosts). The credential is sent to that host too, so only use
+  hosts that belong to the API. `api_request` always uses the plugin's `baseUrl`.
 - `pluginDefinition.operations` is a normal array: you can append hand-written operations
   (`{name, title, description, parameters, run}`) to the result of `defineRestPlugin` for one-off flows.
 - When most operations need custom code, write the plugin by hand with `shared/lib/api-client.mjs` and

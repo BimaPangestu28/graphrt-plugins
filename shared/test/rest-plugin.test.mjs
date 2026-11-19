@@ -426,3 +426,13 @@ test("the definition exposes its normalized spec for the contract tests", () => 
   assert.equal(demoDefinition.restSpec.operations.find((operation) => operation.name === "send_message").write, "unsafe");
   assert.equal(demoDefinition.restSpec.operations.find((operation) => operation.name === "get_item").write, "read");
 });
+
+test("an operation-level baseUrl sends that operation (and only it) to another host", async () => {
+  const geocode = { name: "geocode", title: "Geocode", description: "Search places", baseUrl: "https://geo.example.com/v1", path: "/search", params: { name: { in: "query", type: "string", required: true } } };
+  const definition = defineRestPlugin(demoSpec({ operations: [geocode, ...demoSpec().operations] }));
+  const { calls } = await runDemo("geocode", { name: "Berlin" }, undefined, { definition });
+  assert.equal(calls[0].url, "https://geo.example.com/v1/search?name=Berlin");
+  assert.equal(calls[0].headers.authorization, `Bearer ${TOKEN}`);
+  const other = await runDemo("get_item", { item_id: "1" }, undefined, { definition });
+  assert.equal(other.calls[0].url, "https://api.example.com/v1/items/1");
+});

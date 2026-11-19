@@ -6,7 +6,7 @@
  * Plugin spec: {name, version, description, apiName?, baseUrl (string | (environment) => string), auth, errors?,
  *   defaultHeaders?, extraEnv?, limits?, timeoutMs?, maxRetries?, apiRequest? (default on; false or
  *   {examplePath, apiName}), operations}.
- * Operation spec: {name, title, description, method?, path, params?, bodyMode?, write?, checkHint?, nodeOnly?,
+ * Operation spec: {name, title, description, baseUrl? (another host of the same API), method?, path, params?, bodyMode?, write?, checkHint?, nodeOnly?,
  *   toolPolicy?, response?, job?, download?, timeoutMs?}.
  *
  * Safety semantics:
@@ -99,19 +99,27 @@ function describePagination(response, method) {
   return { style, paramsIn: response.paramsIn ?? (READ_METHODS.has(method) ? "query" : "body") };
 }
 
+// The plugin's client, plus `clientFor(baseUrl)` for operations that live on another host of the same API.
 function createRestClient(spec, { accessToken, environment, fetchImpl, resolveHostAddresses }) {
-  const apiClient = createApiClient({
-    baseUrl: resolveBaseUrl(spec.baseUrl, environment),
-    authorize: createAuthorizer(spec.auth, accessToken, environment),
-    parseError: createErrorParser(spec.errors),
-    detectBodyError: createBodyErrorDetector(spec.errors),
-    defaultHeaders: spec.defaultHeaders,
-    timeoutMs: spec.timeoutMs,
-    maxRetries: spec.maxRetries,
-    fetchImpl,
-  });
+  const buildApiClient = (baseUrl) =>
+    createApiClient({
+      baseUrl: resolveBaseUrl(baseUrl, environment),
+      authorize: createAuthorizer(spec.auth, accessToken, environment),
+      parseError: createErrorParser(spec.errors),
+      detectBodyError: createBodyErrorDetector(spec.errors),
+      defaultHeaders: spec.defaultHeaders,
+      timeoutMs: spec.timeoutMs,
+      maxRetries: spec.maxRetries,
+      fetchImpl,
+    });
   const downloadFetch = fetchImpl ?? ((...fetchArguments) => globalThis.fetch(...fetchArguments));
-  return { ...apiClient, fetchImpl: downloadFetch, resolveHostAddresses };
+  const extras = { fetchImpl: downloadFetch, resolveHostAddresses };
+  const clientsByBaseUrl = new Map();
+  const clientFor = (baseUrl) => {
+    if (!clientsByBaseUrl.has(baseUrl)) clientsByBaseUrl.set(baseUrl, { ...buildApiClient(baseUrl), ...extras });
+    return clientsByBaseUrl.get(baseUrl);
+  };
+  return { ...clientFor(spec.baseUrl), clientFor };
 }
 
 /**
@@ -213,16 +221,17 @@ function buildJobProperties(operation) {
 
 async function runOperation(operation, context, jobTimeoutCapMs) {
   assertToolPolicy(operation, context);
-  const { client, args, signal } = context;
+  const { args, signal } = context;
+  const client = operation.baseUrl ? context.client.clientFor(operation.baseUrl) : context.client;
   const request = buildRestRequest(operation, args);
   const response = await withUnknownOutcomeHint(operation, client.requestWithHeaders({ ...request, signal }));
   if (operation.job) {
     const jobResult = await runRestJob({ operation, client, args, createBody: response.body, environment: context.environment, signal, timeoutCapMs: jobTimeoutCapMs });
-    return { data: await attachDownloads(operation, jobResult, jobResult.result, context), next_cursor: null };
+    return { data: await attachDownloads(operation, jobResult, jobResult.result, { ...context, client }), next_cursor: null };
   }
   const shapedResult = shapeRestResponse(operation, response, args);
   if (!operation.download) return shapedResult;
-  const resultWithFiles = await attachDownloads(operation, { result: shapedResult.data }, shapedResult.data, context);
+  const resultWithFiles = await attachDownloads(operation, { result: shapedResult.data }, shapedResult.data, { ...context, client });
   return { data: resultWithFiles, next_cursor: shapedResult.next_cursor };
 }
 

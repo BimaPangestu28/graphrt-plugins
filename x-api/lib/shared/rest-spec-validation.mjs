@@ -33,7 +33,7 @@ const AUTH_KEYS = {
   custom: ["type", "env", "authorize"],
 };
 const ERROR_KEYS = ["messagePath", "codePath", "retryAfterPath", "retryAfterUnit", "kindByCode", "kindByStatus", "retryableCodes", "okPath", "okValue", "errorPath"];
-const OPERATION_KEYS = ["name", "title", "description", "method", "path", "params", "bodyMode", "write", "checkHint", "nodeOnly", "toolPolicy", "response", "job", "download", "timeoutMs"];
+const OPERATION_KEYS = ["name", "title", "description", "baseUrl", "method", "path", "params", "bodyMode", "write", "checkHint", "nodeOnly", "toolPolicy", "response", "job", "download", "timeoutMs"];
 const PARAM_KEYS = ["in", "type", "required", "description", "enum", "min", "max", "default", "wireName", "items", "maxItems", "minLength"];
 const RESPONSE_KEYS = ["dataPath", "cursorPath", "cursorParam", "limitParam", "hasMorePath", "nextLinkHeader", "pagePagination", "offsetPagination", "maxLimit", "defaultLimit", "paramsIn"];
 const PAGE_PAGINATION_KEYS = ["pageParam", "sizeParam", "firstPage", "totalPagesPath"];
@@ -151,6 +151,7 @@ function validateOperation(spec, operation, fail) {
   const method = (operation.method ?? "GET").toUpperCase();
   if (!HTTP_METHODS.includes(method)) fail(`method \`${operation.method}\` is unknown; use one of ${HTTP_METHODS.join(", ")}`);
   if (typeof operation.path !== "string" || !operation.path.startsWith("/")) fail('`path` must start with "/"');
+  if (operation.baseUrl !== undefined && typeof operation.baseUrl !== "function") checkBaseUrl(operation.baseUrl, fail);
   validateWriteClass(operation, method, fail);
   validateParams(spec, operation, method, fail);
   validatePathPlaceholders(operation, fail);
