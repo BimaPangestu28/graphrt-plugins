@@ -11,6 +11,7 @@ can read chats and messages and send text and files in the background.
 > spam-like patterns can get your number **banned**. This plugin is for low-volume personal use: sends are
 > rate limited by default and never retried. For business messaging use the official Cloud API
 > (`whatsapp-api`). Selectors break when WhatsApp changes its web UI (see `lib/selectors.mjs`).
+> See [docs/tos-audit.md](../docs/tos-audit.md#whatsapp-web).
 
 ## Features
 - **Session:** `login` (node only) opens a visible window with the QR code. `get_status` reports
