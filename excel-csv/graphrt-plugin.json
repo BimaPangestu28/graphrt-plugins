@@ -1,0 +1,476 @@
+{
+  "name": "excel-csv",
+  "version": "0.1.0",
+  "description": "Local CSV/TSV and XLSX files: list sheets, read rows (sheet, A1 range, header row, row cap; formulas as values), write and convert, with CSV-injection protection",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "EXCEL_CSV_INPUT_DIRS",
+      "EXCEL_CSV_OUTPUT_DIR",
+      "EXCEL_CSV_MAX_INPUT_BYTES",
+      "EXCEL_CSV_MAX_OUTPUT_BYTES",
+      "EXCEL_CSV_MAX_ROWS",
+      "EXCEL_CSV_MAX_UNZIPPED_BYTES",
+      "EXCEL_CSV_MAX_COLUMNS",
+      "EXCEL_CSV_MAX_CELLS",
+      "EXCEL_CSV_MAX_RESULT_BYTES",
+      "EXCEL_CSV_MAX_MEMORY_MB",
+      "EXCEL_CSV_TIMEOUT_MS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "excel-csv.list_sheets",
+      "title": "List sheets",
+      "description": "Lists an .xlsx workbook's sheets with their 1-based index, visibility and used row/column counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": ".csv, .tsv, .txt or .xlsx file inside EXCEL_CSV_INPUT_DIRS (or EXCEL_CSV_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "excel-csv.read",
+      "title": "Read a table",
+      "description": "Reads rows from a CSV/TSV file or an XLSX sheet (optionally an A1 range). Formula cells give their saved results, dates ISO strings. Rows come as objects keyed by the header row, or as arrays",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": ".csv, .tsv, .txt or .xlsx file inside EXCEL_CSV_INPUT_DIRS (or EXCEL_CSV_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "sheet": {
+            "type": "string",
+            "description": "XLSX sheet name or 1-based index (default: the first sheet)"
+          },
+          "range": {
+            "type": "string",
+            "description": "XLSX A1 range such as A1:F200 (default: the used area)"
+          },
+          "header_row": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 1,
+            "description": "Row (1-based, within the range) holding column names; 0 means none (columns become column_1, column_2, ...)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 1000,
+            "description": "Most data rows returned (also capped by EXCEL_CSV_MAX_ROWS)"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              "auto",
+              ",",
+              ";",
+              "\t",
+              "|"
+            ],
+            "description": "CSV delimiter (reading default: auto-detect, tab for .tsv; writing default: ,)"
+          },
+          "row_format": {
+            "type": "string",
+            "enum": [
+              "objects",
+              "arrays"
+            ],
+            "default": "objects",
+            "description": "Rows as objects keyed by column name, or as arrays"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "excel-csv.write",
+      "title": "Write a table",
+      "description": "Writes rows (objects or arrays) to a new CSV or XLSX file in EXCEL_CSV_OUTPUT_DIR. XLSX cells are always literal values, never formulas; CSV cells that look like formulas are neutralised",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "maxItems": 1000000,
+            "description": "Rows: objects (keys become columns) or arrays of values"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Column order and header row (default: the objects' keys; none for arrays)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "default": "csv",
+            "description": "Output format"
+          },
+          "sheet_name": {
+            "type": "string",
+            "default": "Sheet1",
+            "description": "XLSX sheet name"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              "auto",
+              ",",
+              ";",
+              "\t",
+              "|"
+            ],
+            "description": "CSV delimiter (reading default: auto-detect, tab for .tsv; writing default: ,)"
+          },
+          "csv_injection_protection": {
+            "type": "boolean",
+            "default": true,
+            "description": "Prefix CSV cells starting with = + - @ tab or CR with ' so spreadsheet apps do not run them as formulas. Only workflow nodes may turn this off"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "rows"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "excel-csv.convert",
+      "title": "Convert CSV and XLSX",
+      "description": "Converts a CSV/TSV file to XLSX (decimal text becomes numbers unless keep_text) or an XLSX sheet to CSV; writes a new file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": ".csv, .tsv, .txt or .xlsx file inside EXCEL_CSV_INPUT_DIRS (or EXCEL_CSV_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "to": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "description": "Target format"
+          },
+          "sheet": {
+            "type": "string",
+            "description": "XLSX sheet name or 1-based index (default: the first sheet)"
+          },
+          "sheet_name": {
+            "type": "string",
+            "default": "Sheet1",
+            "description": "Sheet name when writing XLSX"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              "auto",
+              ",",
+              ";",
+              "\t",
+              "|"
+            ],
+            "description": "Delimiter of the CSV side: read from (default auto-detect) or written (default ,)"
+          },
+          "keep_text": {
+            "type": "boolean",
+            "default": false,
+            "description": "CSV to XLSX: keep every cell as text"
+          },
+          "csv_injection_protection": {
+            "type": "boolean",
+            "default": true,
+            "description": "Prefix CSV cells starting with = + - @ tab or CR with ' so spreadsheet apps do not run them as formulas. Only workflow nodes may turn this off"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_sheets",
+      "description": "Lists an .xlsx workbook's sheets with their 1-based index, visibility and used row/column counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": ".csv, .tsv, .txt or .xlsx file inside EXCEL_CSV_INPUT_DIRS (or EXCEL_CSV_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "read",
+      "description": "Reads rows from a CSV/TSV file or an XLSX sheet (optionally an A1 range). Formula cells give their saved results, dates ISO strings. Rows come as objects keyed by the header row, or as arrays",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": ".csv, .tsv, .txt or .xlsx file inside EXCEL_CSV_INPUT_DIRS (or EXCEL_CSV_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "sheet": {
+            "type": "string",
+            "description": "XLSX sheet name or 1-based index (default: the first sheet)"
+          },
+          "range": {
+            "type": "string",
+            "description": "XLSX A1 range such as A1:F200 (default: the used area)"
+          },
+          "header_row": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 1,
+            "description": "Row (1-based, within the range) holding column names; 0 means none (columns become column_1, column_2, ...)"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 1000,
+            "description": "Most data rows returned (also capped by EXCEL_CSV_MAX_ROWS)"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              "auto",
+              ",",
+              ";",
+              "\t",
+              "|"
+            ],
+            "description": "CSV delimiter (reading default: auto-detect, tab for .tsv; writing default: ,)"
+          },
+          "row_format": {
+            "type": "string",
+            "enum": [
+              "objects",
+              "arrays"
+            ],
+            "default": "objects",
+            "description": "Rows as objects keyed by column name, or as arrays"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "write",
+      "description": "Writes rows (objects or arrays) to a new CSV or XLSX file in EXCEL_CSV_OUTPUT_DIR. XLSX cells are always literal values, never formulas; CSV cells that look like formulas are neutralised",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "maxItems": 1000000,
+            "description": "Rows: objects (keys become columns) or arrays of values"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Column order and header row (default: the objects' keys; none for arrays)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "default": "csv",
+            "description": "Output format"
+          },
+          "sheet_name": {
+            "type": "string",
+            "default": "Sheet1",
+            "description": "XLSX sheet name"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              "auto",
+              ",",
+              ";",
+              "\t",
+              "|"
+            ],
+            "description": "CSV delimiter (reading default: auto-detect, tab for .tsv; writing default: ,)"
+          },
+          "csv_injection_protection": {
+            "type": "boolean",
+            "default": true,
+            "description": "Prefix CSV cells starting with = + - @ tab or CR with ' so spreadsheet apps do not run them as formulas. Only workflow nodes may turn this off"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "rows"
+        ]
+      }
+    },
+    {
+      "name": "convert",
+      "description": "Converts a CSV/TSV file to XLSX (decimal text becomes numbers unless keep_text) or an XLSX sheet to CSV; writes a new file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": ".csv, .tsv, .txt or .xlsx file inside EXCEL_CSV_INPUT_DIRS (or EXCEL_CSV_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "to": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "description": "Target format"
+          },
+          "sheet": {
+            "type": "string",
+            "description": "XLSX sheet name or 1-based index (default: the first sheet)"
+          },
+          "sheet_name": {
+            "type": "string",
+            "default": "Sheet1",
+            "description": "Sheet name when writing XLSX"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              "auto",
+              ",",
+              ";",
+              "\t",
+              "|"
+            ],
+            "description": "Delimiter of the CSV side: read from (default auto-detect) or written (default ,)"
+          },
+          "keep_text": {
+            "type": "boolean",
+            "default": false,
+            "description": "CSV to XLSX: keep every cell as text"
+          },
+          "csv_injection_protection": {
+            "type": "boolean",
+            "default": true,
+            "description": "Prefix CSV cells starting with = + - @ tab or CR with ' so spreadsheet apps do not run them as formulas. Only workflow nodes may turn this off"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "to"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,225 @@
+{
+  "name": "ocr-tesseract",
+  "version": "0.1.0",
+  "description": "OCR with the system Tesseract: text, hOCR or TSV from images or PDF pages in allowed directories, with language and page segmentation choices",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "OCR_TESSERACT_INPUT_DIRS",
+      "OCR_TESSERACT_OUTPUT_DIR",
+      "OCR_TESSERACT_MAX_INPUT_BYTES",
+      "OCR_TESSERACT_MAX_OUTPUT_BYTES",
+      "OCR_TESSERACT_TIMEOUT_MS",
+      "OCR_TESSERACT_MAX_INPUT_PIXELS",
+      "TESSERACT_BINARY",
+      "PDFTOPPM_BINARY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 2
+  },
+  "nodes": [
+    {
+      "kind": "ocr-tesseract.list_languages",
+      "title": "List OCR languages",
+      "description": "Lists the Tesseract language packs installed on this machine (codes such as eng, ind, chi_sim) for the `languages` parameter of ocr",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ocr-tesseract.ocr",
+      "title": "Recognise text",
+      "description": "Reads text from an image (png, jpeg, tiff, bmp, gif, webp) or one page of a PDF with Tesseract, as plain text, hOCR (HTML with word boxes) or TSV (word, box, confidence); optionally saves it to OCR_TESSERACT_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image or PDF inside OCR_TESSERACT_INPUT_DIRS (or OCR_TESSERACT_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "default": [
+              "eng"
+            ],
+            "description": "Installed language codes, e.g. [\"eng\", \"ind\"] (see list_languages)"
+          },
+          "psm": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 13,
+            "default": 3,
+            "description": "Page segmentation mode: 3 automatic (default), 4 one column, 6 one block, 7 one line, 11 sparse text"
+          },
+          "output_format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "hocr",
+              "tsv"
+            ],
+            "default": "text",
+            "description": "Result format"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000,
+            "default": 1,
+            "description": "PDF page to read (1-based)"
+          },
+          "dpi": {
+            "type": "integer",
+            "minimum": 72,
+            "maximum": 600,
+            "default": 300,
+            "description": "Resolution PDF pages are rendered at"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000000,
+            "default": 200000,
+            "description": "Most characters returned"
+          },
+          "save_output": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also write the result to a new file in OCR_TESSERACT_OUTPUT_DIR"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_languages",
+      "description": "Lists the Tesseract language packs installed on this machine (codes such as eng, ind, chi_sim) for the `languages` parameter of ocr",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "ocr",
+      "description": "Reads text from an image (png, jpeg, tiff, bmp, gif, webp) or one page of a PDF with Tesseract, as plain text, hOCR (HTML with word boxes) or TSV (word, box, confidence); optionally saves it to OCR_TESSERACT_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image or PDF inside OCR_TESSERACT_INPUT_DIRS (or OCR_TESSERACT_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "default": [
+              "eng"
+            ],
+            "description": "Installed language codes, e.g. [\"eng\", \"ind\"] (see list_languages)"
+          },
+          "psm": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 13,
+            "default": 3,
+            "description": "Page segmentation mode: 3 automatic (default), 4 one column, 6 one block, 7 one line, 11 sparse text"
+          },
+          "output_format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "hocr",
+              "tsv"
+            ],
+            "default": "text",
+            "description": "Result format"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000,
+            "default": 1,
+            "description": "PDF page to read (1-based)"
+          },
+          "dpi": {
+            "type": "integer",
+            "minimum": 72,
+            "maximum": 600,
+            "default": 300,
+            "description": "Resolution PDF pages are rendered at"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000000,
+            "default": 200000,
+            "description": "Most characters returned"
+          },
+          "save_output": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also write the result to a new file in OCR_TESSERACT_OUTPUT_DIR"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1069 @@
+{
+  "name": "ffmpeg",
+  "version": "0.1.0",
+  "description": "Local media with the system ffmpeg: probe, convert (fixed presets), trim, extract audio, thumbnails, resize, join, burn subtitles and GIFs, on files in allowed directories",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "FFMPEG_INPUT_DIRS",
+      "FFMPEG_OUTPUT_DIR",
+      "FFMPEG_MAX_INPUT_BYTES",
+      "FFMPEG_MAX_OUTPUT_BYTES",
+      "FFMPEG_TIMEOUT_MS",
+      "FFMPEG_MAX_INPUT_PIXELS",
+      "FFMPEG_MAX_INPUT_SECONDS",
+      "FFMPEG_THREADS",
+      "FFMPEG_BINARY",
+      "FFPROBE_BINARY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 1800000,
+    "max_concurrency": 2
+  },
+  "nodes": [
+    {
+      "kind": "ffmpeg.probe",
+      "title": "Probe a media file",
+      "description": "Reads a media file's container, duration, size, bit rate and streams (codec, resolution, frame rate, sample rate, channels, language) with ffprobe",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "include_raw": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return ffprobe's full JSON (format and streams)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.transcode",
+      "title": "Convert a media file",
+      "description": "Converts a video or audio file to another container/codec from a fixed preset menu (mp4, mov, mkv, webm, mp3, m4a, wav, flac, ogg, opus) at low, medium or high quality; writes a new file to FFMPEG_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm",
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "description": "Output format"
+          },
+          "video_codec": {
+            "type": "string",
+            "enum": [
+              "h264",
+              "h265",
+              "vp9",
+              "av1"
+            ],
+            "description": "Video codec (default: the format's first codec, e.g. h264 for mp4)"
+          },
+          "audio_codec": {
+            "type": "string",
+            "enum": [
+              "aac",
+              "mp3",
+              "opus",
+              "vorbis",
+              "flac",
+              "pcm"
+            ],
+            "description": "Audio codec (default: the format's first codec, e.g. aac for mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "extra_args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 40,
+            "description": "Workflow nodes only: extra output options from an allowlist (-crf, -preset, -tune, -b:v, -b:a, -maxrate, -bufsize, -r, -g, -ac, -ar, -pix_fmt, -profile:v, -level, -movflags, -q:a, -threads, -an, -vn, -sn), e.g. [\"-preset\", \"slow\"]"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "format"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.extract_audio",
+      "title": "Extract the audio track",
+      "description": "Writes the first audio track of a video or audio file as mp3, m4a, wav, flac, ogg or opus to FFMPEG_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "default": "mp3",
+            "description": "Audio format"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.resize",
+      "title": "Resize a video",
+      "description": "Scales a video to target_width and/or target_height (the missing side keeps the aspect ratio; with both, the video fits inside the box unless keep_aspect is false) and re-encodes it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 7680,
+            "description": "Target width in pixels (16-7680)"
+          },
+          "target_height": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 7680,
+            "description": "Target height in pixels (16-7680)"
+          },
+          "keep_aspect": {
+            "type": "boolean",
+            "default": true,
+            "description": "With both sides given, fit inside the box instead of stretching"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm"
+            ],
+            "description": "Output format (default: the input's container if it is one of these, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.trim",
+      "title": "Cut a section",
+      "description": "Cuts a section of a video or audio file between `start` and `end` (or `start` plus `duration`); re-encodes for frame accuracy, or copies streams (fast, cuts at keyframes) with accurate=false",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start time, seconds (e.g. 12.5) or HH:MM:SS[.fff] (default 0)"
+          },
+          "end": {
+            "type": "string",
+            "description": "End time, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "duration": {
+            "type": "string",
+            "description": "Length instead of end, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "accurate": {
+            "type": "boolean",
+            "default": true,
+            "description": "Re-encode for an exact cut (false: copy streams, faster, keyframe-aligned)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm",
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "description": "Output format (default: the input's container if it is a preset, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.concatenate",
+      "title": "Join media files",
+      "description": "Joins 2-50 video or audio files end to end. By default streams are copied (fast; all files must share codecs and sizes); reencode=true converts to a preset instead",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Files in order, each inside FFMPEG_INPUT_DIRS"
+          },
+          "reencode": {
+            "type": "boolean",
+            "default": false,
+            "description": "Re-encode instead of copying streams"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm",
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "description": "Output format (default: the first file's container if it is a preset, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "inputs"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.burn_subtitles",
+      "title": "Burn in subtitles",
+      "description": "Renders the cues of a .srt subtitle file (inside FFMPEG_INPUT_DIRS) into the video picture and re-encodes it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "subtitles": {
+            "type": "string",
+            "description": "SubRip (.srt) file inside FFMPEG_INPUT_DIRS"
+          },
+          "font_size": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 120,
+            "description": "Subtitle font size"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm"
+            ],
+            "description": "Output format (default: the input's container if it is a preset, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "subtitles"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.thumbnail",
+      "title": "Grab a frame",
+      "description": "Saves one video frame at a given time as a jpg, png or webp image, optionally scaled to a width",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "time": {
+            "type": "string",
+            "default": "0",
+            "description": "Frame time, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpg",
+              "png",
+              "webp"
+            ],
+            "default": "jpg",
+            "description": "Image format"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 7680,
+            "description": "Scale to this width in pixels (height keeps the aspect ratio)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ffmpeg.make_gif",
+      "title": "Make a GIF",
+      "description": "Turns up to 30 seconds of a video into an animated GIF with a generated palette (frame rate and width are capped)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "start": {
+            "type": "string",
+            "default": "0",
+            "description": "Start time, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "duration": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 30,
+            "default": 3,
+            "description": "Length in seconds (at most 30)"
+          },
+          "fps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10,
+            "description": "Frames per second"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 1280,
+            "default": 480,
+            "description": "Width in pixels (height keeps the aspect ratio)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "probe",
+      "description": "Reads a media file's container, duration, size, bit rate and streams (codec, resolution, frame rate, sample rate, channels, language) with ffprobe",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "include_raw": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return ffprobe's full JSON (format and streams)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "transcode",
+      "description": "Converts a video or audio file to another container/codec from a fixed preset menu (mp4, mov, mkv, webm, mp3, m4a, wav, flac, ogg, opus) at low, medium or high quality; writes a new file to FFMPEG_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm",
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "description": "Output format"
+          },
+          "video_codec": {
+            "type": "string",
+            "enum": [
+              "h264",
+              "h265",
+              "vp9",
+              "av1"
+            ],
+            "description": "Video codec (default: the format's first codec, e.g. h264 for mp4)"
+          },
+          "audio_codec": {
+            "type": "string",
+            "enum": [
+              "aac",
+              "mp3",
+              "opus",
+              "vorbis",
+              "flac",
+              "pcm"
+            ],
+            "description": "Audio codec (default: the format's first codec, e.g. aac for mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "extra_args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 40,
+            "description": "Workflow nodes only: extra output options from an allowlist (-crf, -preset, -tune, -b:v, -b:a, -maxrate, -bufsize, -r, -g, -ac, -ar, -pix_fmt, -profile:v, -level, -movflags, -q:a, -threads, -an, -vn, -sn), e.g. [\"-preset\", \"slow\"]"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "format"
+        ]
+      }
+    },
+    {
+      "name": "extract_audio",
+      "description": "Writes the first audio track of a video or audio file as mp3, m4a, wav, flac, ogg or opus to FFMPEG_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "default": "mp3",
+            "description": "Audio format"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "resize",
+      "description": "Scales a video to target_width and/or target_height (the missing side keeps the aspect ratio; with both, the video fits inside the box unless keep_aspect is false) and re-encodes it",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 7680,
+            "description": "Target width in pixels (16-7680)"
+          },
+          "target_height": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 7680,
+            "description": "Target height in pixels (16-7680)"
+          },
+          "keep_aspect": {
+            "type": "boolean",
+            "default": true,
+            "description": "With both sides given, fit inside the box instead of stretching"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm"
+            ],
+            "description": "Output format (default: the input's container if it is one of these, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "trim",
+      "description": "Cuts a section of a video or audio file between `start` and `end` (or `start` plus `duration`); re-encodes for frame accuracy, or copies streams (fast, cuts at keyframes) with accurate=false",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start time, seconds (e.g. 12.5) or HH:MM:SS[.fff] (default 0)"
+          },
+          "end": {
+            "type": "string",
+            "description": "End time, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "duration": {
+            "type": "string",
+            "description": "Length instead of end, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "accurate": {
+            "type": "boolean",
+            "default": true,
+            "description": "Re-encode for an exact cut (false: copy streams, faster, keyframe-aligned)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm",
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "description": "Output format (default: the input's container if it is a preset, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "concatenate",
+      "description": "Joins 2-50 video or audio files end to end. By default streams are copied (fast; all files must share codecs and sizes); reencode=true converts to a preset instead",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Files in order, each inside FFMPEG_INPUT_DIRS"
+          },
+          "reencode": {
+            "type": "boolean",
+            "default": false,
+            "description": "Re-encode instead of copying streams"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm",
+              "mp3",
+              "m4a",
+              "wav",
+              "flac",
+              "ogg",
+              "opus"
+            ],
+            "description": "Output format (default: the first file's container if it is a preset, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "inputs"
+        ]
+      }
+    },
+    {
+      "name": "burn_subtitles",
+      "description": "Renders the cues of a .srt subtitle file (inside FFMPEG_INPUT_DIRS) into the video picture and re-encodes it",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "subtitles": {
+            "type": "string",
+            "description": "SubRip (.srt) file inside FFMPEG_INPUT_DIRS"
+          },
+          "font_size": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 120,
+            "description": "Subtitle font size"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mp4",
+              "mov",
+              "mkv",
+              "webm"
+            ],
+            "description": "Output format (default: the input's container if it is a preset, else mp4)"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium",
+            "description": "Encoding quality preset (low = smaller file)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "subtitles"
+        ]
+      }
+    },
+    {
+      "name": "thumbnail",
+      "description": "Saves one video frame at a given time as a jpg, png or webp image, optionally scaled to a width",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "time": {
+            "type": "string",
+            "default": "0",
+            "description": "Frame time, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpg",
+              "png",
+              "webp"
+            ],
+            "default": "jpg",
+            "description": "Image format"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 7680,
+            "description": "Scale to this width in pixels (height keeps the aspect ratio)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "make_gif",
+      "description": "Turns up to 30 seconds of a video into an animated GIF with a generated palette (frame rate and width are capped)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Media file path inside FFMPEG_INPUT_DIRS (or FFMPEG_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "start": {
+            "type": "string",
+            "default": "0",
+            "description": "Start time, seconds (e.g. 12.5) or HH:MM:SS[.fff]"
+          },
+          "duration": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 30,
+            "default": 3,
+            "description": "Length in seconds (at most 30)"
+          },
+          "fps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10,
+            "description": "Frames per second"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 1280,
+            "default": 480,
+            "description": "Width in pixels (height keeps the aspect ratio)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    }
+  ]
+}

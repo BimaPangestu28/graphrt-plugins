@@ -1,0 +1,18 @@
+# Read a PDF's page count and first page text, then save its first page as a new PDF.
+#   PDF_TOOLS_INPUT_DIRS=~/pdfs/in PDF_TOOLS_OUTPUT_DIR=~/pdfs/out graphrt run pdf-tools/example.yaml --plugins .
+version: "1"
+name: pdf-tools-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: info, type: pdf-tools.info, input: report.pdf }
+    - { id: text, type: pdf-tools.extract_text, input: report.pdf, pages: "1", max_chars: 500 }
+    - { id: first, type: pdf-tools.extract_pages, input: report.pdf, pages: "1" }
+    - id: answer
+      type: answer
+      answer: "{{#info.data.page_count#}} page(s). Page 1: {{#text.data.text#}} -> {{#first.data.path#}}"
+  edges:
+    - { source: start, target: info }
+    - { source: info, target: text }
+    - { source: text, target: first }
+    - { source: first, target: answer }

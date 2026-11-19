@@ -1,0 +1,16 @@
+# List the installed OCR languages and read the text of a scanned image.
+#   OCR_TESSERACT_INPUT_DIRS=~/scans graphrt run ocr-tesseract/example.yaml --plugins .
+version: "1"
+name: ocr-tesseract-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: languages, type: ocr-tesseract.list_languages }
+    - { id: read, type: ocr-tesseract.ocr, input: scan.png, languages: ["eng"], psm: 3 }
+    - id: answer
+      type: answer
+      answer: "Languages: {{#languages.data.languages#}}. Text: {{#read.data.text#}}"
+  edges:
+    - { source: start, target: languages }
+    - { source: languages, target: read }
+    - { source: read, target: answer }

@@ -1,0 +1,267 @@
+{
+  "name": "qr-code",
+  "version": "0.1.0",
+  "description": "QR codes: generate PNG or SVG files (error correction, size, colours) and decode QR codes from local images in allowed directories",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "QR_CODE_INPUT_DIRS",
+      "QR_CODE_OUTPUT_DIR",
+      "QR_CODE_MAX_INPUT_BYTES",
+      "QR_CODE_MAX_OUTPUT_BYTES",
+      "QR_CODE_MAX_INPUT_PIXELS",
+      "QR_CODE_MAX_OUTPUT_PIXELS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 60000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "qr-code.generate",
+      "title": "Generate a QR code",
+      "description": "Encodes text or a URL as a QR code and writes it as a new PNG or SVG file in QR_CODE_OUTPUT_DIR (error correction, margin, size and colours adjustable)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text or URL to encode (at most 4296 characters; less at higher error correction)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "svg"
+            ],
+            "default": "png",
+            "description": "Output format"
+          },
+          "error_correction": {
+            "type": "string",
+            "enum": [
+              "L",
+              "M",
+              "Q",
+              "H"
+            ],
+            "default": "M",
+            "description": "Error correction: L 7%, M 15%, Q 25%, H 30% of the code can be damaged"
+          },
+          "module_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 8,
+            "description": "Pixels per QR module (PNG)"
+          },
+          "image_size": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 4096,
+            "description": "Total image width in pixels; overrides module_size"
+          },
+          "margin": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20,
+            "default": 4,
+            "description": "Quiet zone in modules"
+          },
+          "dark_color": {
+            "type": "string",
+            "default": "#000000",
+            "description": "Module colour (hex)"
+          },
+          "light_color": {
+            "type": "string",
+            "default": "#ffffff",
+            "description": "Background colour (hex)"
+          },
+          "include_data": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return the SVG text, or the PNG as a data: URL"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qr-code.decode",
+      "title": "Decode QR codes",
+      "description": "Finds and decodes QR codes (also Micro QR and rMQR) in a png, jpeg, gif or bmp image, returning each code's text, error correction level and corner positions",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image inside QR_CODE_INPUT_DIRS (or QR_CODE_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "max_codes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 4,
+            "description": "Most codes to return"
+          },
+          "try_harder": {
+            "type": "boolean",
+            "default": true,
+            "description": "Spend more time: also try rotated and inverted images"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "generate",
+      "description": "Encodes text or a URL as a QR code and writes it as a new PNG or SVG file in QR_CODE_OUTPUT_DIR (error correction, margin, size and colours adjustable)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text or URL to encode (at most 4296 characters; less at higher error correction)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "svg"
+            ],
+            "default": "png",
+            "description": "Output format"
+          },
+          "error_correction": {
+            "type": "string",
+            "enum": [
+              "L",
+              "M",
+              "Q",
+              "H"
+            ],
+            "default": "M",
+            "description": "Error correction: L 7%, M 15%, Q 25%, H 30% of the code can be damaged"
+          },
+          "module_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 8,
+            "description": "Pixels per QR module (PNG)"
+          },
+          "image_size": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 4096,
+            "description": "Total image width in pixels; overrides module_size"
+          },
+          "margin": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20,
+            "default": 4,
+            "description": "Quiet zone in modules"
+          },
+          "dark_color": {
+            "type": "string",
+            "default": "#000000",
+            "description": "Module colour (hex)"
+          },
+          "light_color": {
+            "type": "string",
+            "default": "#ffffff",
+            "description": "Background colour (hex)"
+          },
+          "include_data": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return the SVG text, or the PNG as a data: URL"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "decode",
+      "description": "Finds and decodes QR codes (also Micro QR and rMQR) in a png, jpeg, gif or bmp image, returning each code's text, error correction level and corner positions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image inside QR_CODE_INPUT_DIRS (or QR_CODE_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "max_codes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 4,
+            "description": "Most codes to return"
+          },
+          "try_harder": {
+            "type": "boolean",
+            "default": true,
+            "description": "Spend more time: also try rotated and inverted images"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    }
+  ]
+}

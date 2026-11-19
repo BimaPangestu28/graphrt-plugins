@@ -1,0 +1,16 @@
+# Read a CSV and save it as an Excel workbook.
+#   EXCEL_CSV_INPUT_DIRS=~/tables/in EXCEL_CSV_OUTPUT_DIR=~/tables/out graphrt run excel-csv/example.yaml --plugins .
+version: "1"
+name: excel-csv-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: products, type: excel-csv.read, input: products.csv, max_rows: 100 }
+    - { id: workbook, type: excel-csv.convert, input: products.csv, to: xlsx, sheet_name: Products }
+    - id: answer
+      type: answer
+      answer: "{{#products.data.row_count#}} row(s), first: {{#products.data.rows.0.name#}} -> {{#workbook.data.path#}}"
+  edges:
+    - { source: start, target: products }
+    - { source: products, target: workbook }
+    - { source: workbook, target: answer }
