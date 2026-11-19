@@ -26,5 +26,5 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | `add_reaction` | React to a message as the bot | **channel_id**, **message_id**, **emoji** |
 | `remove_own_reaction` | Remove the bot's reaction from a message | **channel_id**, **message_id**, **emoji** |
 | `start_thread_from_message` | Start a thread on an existing message (as an agent tool only when DISCORD_TOOL_ALLOW_SEND=1) | **channel_id**, **message_id**, **name**, auto_archive_duration |
-| `start_thread` | Start a thread without a starter message (public by default) (as an agent tool only when DISCORD_TOOL_ALLOW_SEND=1) | **channel_id**, **name**, type, auto_archive_duration, invitable |
+| `start_thread` | Start a thread without a starter message (public by default) (as an agent tool only when DISCORD_TOOL_ALLOW_SEND=1) | **channel_id**, **name**, thread_type, auto_archive_duration, invitable |
 | `api_request` | Call any Discord REST API endpoint that has no dedicated operation, e.g. path "/users/@me". Only the API's own host is allowed. | method, **path**, query, body |
