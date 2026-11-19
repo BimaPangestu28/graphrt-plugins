@@ -1,0 +1,363 @@
+{
+  "name": "libur-nasional",
+  "version": "0.1.0",
+  "description": "Indonesian public holidays (libur nasional) and cuti bersama, 2011 to next year: list, check a date, upcoming holidays, working-day counts (no API key, cached)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": [
+      "LIBUR_NASIONAL_API_URL",
+      "LIBUR_NASIONAL_CACHE_TTL_SECONDS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "libur-nasional.list_holidays",
+      "title": "List holidays",
+      "description": "Indonesian national holidays (libur nasional) and cuti bersama of a year (2011 to next year), optionally one month or kind; each item has date, name, is_national_holiday and kind",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Year (default: the current year in Asia/Jakarta)",
+            "minimum": 2011,
+            "maximum": 2100
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "description": "Only this month (1-12)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "libur_nasional",
+              "cuti_bersama"
+            ],
+            "default": "all",
+            "description": "all, libur_nasional (national holidays) or cuti_bersama (collective leave)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "libur-nasional.check_date",
+      "title": "Check a date",
+      "description": "Whether a date (default: today in Asia/Jakarta) is a national holiday, cuti bersama, weekend or working day, with the holiday names",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (default: today in Asia/Jakarta)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "libur-nasional.next_holidays",
+      "title": "Upcoming holidays",
+      "description": "The next national holidays (and cuti bersama) from a date, across the year boundary, with how many days away each is",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD to start from, included (default: today in Asia/Jakarta)"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 5,
+            "description": "How many holidays"
+          },
+          "include_cuti_bersama": {
+            "type": "boolean",
+            "default": true,
+            "description": "Also list cuti bersama (collective leave) days"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "libur-nasional.count_working_days",
+      "title": "Count working days",
+      "description": "Working days (Monday-Friday minus national holidays and, by default, cuti bersama) between two dates, both included; at most 3 calendar years",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD (included)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day, YYYY-MM-DD (included)"
+          },
+          "cuti_bersama_is_day_off": {
+            "type": "boolean",
+            "default": true,
+            "description": "Count cuti bersama as days off (true for civil servants; many private employers follow it)"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "libur-nasional.api_request",
+      "title": "API Hari Libur request",
+      "description": "Call any API Hari Libur endpoint that has no dedicated operation, e.g. path \"/api/today\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/api/today\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_holidays",
+      "description": "Indonesian national holidays (libur nasional) and cuti bersama of a year (2011 to next year), optionally one month or kind; each item has date, name, is_national_holiday and kind",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "description": "Year (default: the current year in Asia/Jakarta)",
+            "minimum": 2011,
+            "maximum": 2100
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "description": "Only this month (1-12)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "libur_nasional",
+              "cuti_bersama"
+            ],
+            "default": "all",
+            "description": "all, libur_nasional (national holidays) or cuti_bersama (collective leave)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "check_date",
+      "description": "Whether a date (default: today in Asia/Jakarta) is a national holiday, cuti bersama, weekend or working day, with the holiday names",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (default: today in Asia/Jakarta)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "next_holidays",
+      "description": "The next national holidays (and cuti bersama) from a date, across the year boundary, with how many days away each is",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD to start from, included (default: today in Asia/Jakarta)"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 5,
+            "description": "How many holidays"
+          },
+          "include_cuti_bersama": {
+            "type": "boolean",
+            "default": true,
+            "description": "Also list cuti bersama (collective leave) days"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "count_working_days",
+      "description": "Working days (Monday-Friday minus national holidays and, by default, cuti bersama) between two dates, both included; at most 3 calendar years",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD (included)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day, YYYY-MM-DD (included)"
+          },
+          "cuti_bersama_is_day_off": {
+            "type": "boolean",
+            "default": true,
+            "description": "Count cuti bersama as days off (true for civil servants; many private employers follow it)"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any API Hari Libur endpoint that has no dedicated operation, e.g. path \"/api/today\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/api/today\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

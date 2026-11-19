@@ -1,0 +1,14 @@
+# List the province domains and the strategic indicators of Indonesia (read-only).
+#   BPS_API_KEY=... graphrt run bps/example.yaml --plugins .
+version: "1"
+name: bps-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: provinces, type: bps.list_domains, domain_type: prov }
+    - { id: indicators, type: bps.list_strategic_indicators, domain: "0000", lang: eng }
+    - { id: answer, type: answer, answer: "Provinces: {{#provinces.data#}} | Indicators: {{#indicators.data#}}" }
+  edges:
+    - { source: start, target: provinces }
+    - { source: provinces, target: indicators }
+    - { source: indicators, target: answer }

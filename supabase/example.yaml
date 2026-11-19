@@ -1,0 +1,21 @@
+# List the project's storage buckets and read the 5 newest rows of a table. Read-only.
+#   SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_KEY=sb_publishable_... \
+#     graphrt run supabase/example.yaml --plugins .
+# Change `todos` to one of your tables (row level security applies to publishable/anon keys).
+version: "1"
+name: supabase-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: buckets, type: supabase.list_buckets }
+    - id: rows
+      type: supabase.select_rows
+      table: todos
+      columns: id,created_at
+      order: created_at.desc
+      limit: 5
+    - { id: answer, type: answer, answer: "buckets: {{#buckets.data#}} | rows: {{#rows.data#}}" }
+  edges:
+    - { source: start, target: buckets }
+    - { source: buckets, target: rows }
+    - { source: rows, target: answer }

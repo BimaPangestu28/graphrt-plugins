@@ -1,0 +1,16 @@
+# Show the cluster version and its indices, then search one of them. Read-only.
+#   ELASTICSEARCH_URL=https://... ELASTICSEARCH_API_KEY=... graphrt run elasticsearch/example.yaml --plugins .
+version: "1"
+name: elasticsearch-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: info, type: elasticsearch.get_cluster_info }
+    - { id: indices, type: elasticsearch.list_indices, columns: [index, health, docs.count], sort_by: [index] }
+    - { id: hits, type: elasticsearch.search, index: "*", size: 3, query: { match_all: {} } }
+    - { id: answer, type: answer, answer: "{{#info.data.cluster_name#}} {{#info.data.version.number#}}: {{#indices.data#}} | sample hits: {{#hits.data.hits.hits#}}" }
+  edges:
+    - { source: start, target: info }
+    - { source: info, target: indices }
+    - { source: indices, target: hits }
+    - { source: hits, target: answer }

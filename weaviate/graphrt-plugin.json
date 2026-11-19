@@ -1,0 +1,1278 @@
+{
+  "name": "weaviate",
+  "version": "0.1.0",
+  "description": "Weaviate: near-text, vector, hybrid and BM25 search with filters, counts, objects and schema; agent writes need an opt-in, deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "WEAVIATE_URL",
+      "WEAVIATE_API_KEY",
+      "WEAVIATE_PROVIDER_HEADERS",
+      "WEAVIATE_TOOL_ALLOW_WRITES",
+      "WEAVIATE_TOOL_ALLOW_RAW_GRAPHQL"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "weaviate.get_meta",
+      "title": "Server meta",
+      "description": "Weaviate version, hostname and enabled modules",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.list_collections",
+      "title": "List collections",
+      "description": "Collections (classes) with their properties, vectorizer and index settings",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.get_collection",
+      "title": "Get collection",
+      "description": "One collection's schema: properties and data types, vectorizer, module and index config",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.get_nodes_status",
+      "title": "Nodes status",
+      "description": "Cluster nodes with status, version and (verbose) shard and object counts per collection",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "type": "string",
+            "description": "minimal or verbose (shard and object counts)",
+            "enum": [
+              "minimal",
+              "verbose"
+            ],
+            "default": "verbose"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.search_objects",
+      "title": "Search objects",
+      "description": "Search a collection: near_text, near_vector, near_object, hybrid_query or bm25_query (one at a time, or none to list), with a where filter; objects with _additional id, distance or score",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\""
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Properties to return, e.g. [\"title\", \"body\"] (id and scores are always returned)"
+          },
+          "near_text": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Semantic search by text concepts (the collection's vectorizer embeds them)"
+          },
+          "near_vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 8192,
+            "description": "Semantic search by a query vector"
+          },
+          "near_object": {
+            "type": "string",
+            "description": "Find objects similar to the object with this UUID"
+          },
+          "hybrid_query": {
+            "type": "string",
+            "description": "Hybrid search (keyword + vector) for this text"
+          },
+          "bm25_query": {
+            "type": "string",
+            "description": "Keyword (BM25) search for this text"
+          },
+          "search_properties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Properties bm25/hybrid search in, boost with ^, e.g. [\"title^2\", \"body\"]"
+          },
+          "alpha": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Hybrid weight: 0 = keyword only, 1 = vector only (default 0.75)"
+          },
+          "fusion_type": {
+            "type": "string",
+            "enum": [
+              "rankedFusion",
+              "relativeScoreFusion"
+            ],
+            "description": "Hybrid fusion (default relativeScoreFusion)"
+          },
+          "hybrid_vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 8192,
+            "description": "Hybrid: use this vector instead of embedding hybrid_query"
+          },
+          "distance": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Vector searches: maximum distance"
+          },
+          "target_vectors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "description": "Named vectors to search (collections with several vectors)"
+          },
+          "where": {
+            "type": "object",
+            "description": "Filter, e.g. {\"path\": [\"year\"], \"operator\": \"GreaterThan\", \"valueInt\": 2000} or {\"operator\": \"And\", \"operands\": [...]}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10,
+            "description": "Maximum objects"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Skip this many results"
+          },
+          "autocut": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Cut results after this many jumps in distance/score"
+          },
+          "after": {
+            "type": "string",
+            "description": "Cursor paging without a search: UUID of the last object of the previous page"
+          },
+          "include_vector": {
+            "type": "boolean",
+            "description": "Also return each object's vector"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.count_objects",
+      "title": "Count objects",
+      "description": "Number of objects in a collection, optionally matching a where filter (count)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\""
+          },
+          "where": {
+            "type": "object",
+            "description": "Filter, e.g. {\"path\": [\"year\"], \"operator\": \"GreaterThan\", \"valueInt\": 2000} or {\"operator\": \"And\", \"operands\": [...]}"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.list_objects",
+      "title": "List objects",
+      "description": "Objects of a collection in UUID order, page by page (next_cursor is the last object's id)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "include": {
+            "type": "string",
+            "description": "Also return the vector or classification info",
+            "enum": [
+              "vector",
+              "classification"
+            ]
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.get_object",
+      "title": "Get object",
+      "description": "One object by collection and UUID with its properties (and vector with include: vector)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Object UUID",
+            "minLength": 1
+          },
+          "include": {
+            "type": "string",
+            "description": "Also return the vector or classification info",
+            "enum": [
+              "vector",
+              "classification"
+            ]
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.create_object",
+      "title": "Create object",
+      "description": "Add an object (vectorized by the collection's vectorizer unless you pass vector); fails when the id exists (as an agent tool only when WEAVIATE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values, e.g. {\"title\": \"Hello\", \"year\": 2024}"
+          },
+          "object_uuid": {
+            "type": "string",
+            "description": "UUID for the object (generated when omitted; set it to make retries safe)"
+          },
+          "vector": {
+            "type": "array",
+            "description": "Your own vector (collections without a vectorizer)",
+            "maxItems": 8192,
+            "items": {
+              "type": "number"
+            }
+          },
+          "vectors": {
+            "type": "object",
+            "description": "Named vectors, e.g. {\"title_vector\": [0.1, ...]}"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.update_object",
+      "title": "Update object",
+      "description": "Merge property values into an object (JSON merge patch); the object is re-vectorized when needed (as an agent tool only when WEAVIATE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Object UUID",
+            "minLength": 1
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values, e.g. {\"title\": \"Hello\", \"year\": 2024}"
+          },
+          "vector": {
+            "type": "array",
+            "description": "Your own vector (collections without a vectorizer)",
+            "maxItems": 8192,
+            "items": {
+              "type": "number"
+            }
+          },
+          "vectors": {
+            "type": "object",
+            "description": "Named vectors, e.g. {\"title_vector\": [0.1, ...]}"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.batch_objects",
+      "title": "Batch import objects",
+      "description": "Add or replace many objects in one request (objects with an existing id are replaced); check each result's errors (as an agent tool only when WEAVIATE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "objects": {
+            "type": "array",
+            "description": "Objects, e.g. [{\"class\": \"Article\", \"id\": \"<uuid>\", \"properties\": {...}}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "objects"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.delete_object",
+      "title": "Delete object",
+      "description": "Delete one object by collection and UUID",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Object UUID",
+            "minLength": 1
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.graphql_query",
+      "title": "GraphQL query",
+      "description": "Run a raw GraphQL query (Get, Aggregate, Explore; generative search and vectorizers may bill your model provider) (as an agent tool only when WEAVIATE_TOOL_ALLOW_RAW_GRAPHQL=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "GraphQL document, e.g. \"{ Get { Article(limit: 2) { title } } }\"",
+            "minLength": 1
+          },
+          "variables": {
+            "type": "object",
+            "description": "GraphQL variables"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "weaviate.api_request",
+      "title": "Weaviate REST API request",
+      "description": "Call any Weaviate REST API endpoint that has no dedicated operation, e.g. path \"/v1/schema/<collection>/shards\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/schema/<collection>/shards\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_meta",
+      "description": "Weaviate version, hostname and enabled modules",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_collections",
+      "description": "Collections (classes) with their properties, vectorizer and index settings",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_collection",
+      "description": "One collection's schema: properties and data types, vectorizer, module and index config",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "get_nodes_status",
+      "description": "Cluster nodes with status, version and (verbose) shard and object counts per collection",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "type": "string",
+            "description": "minimal or verbose (shard and object counts)",
+            "enum": [
+              "minimal",
+              "verbose"
+            ],
+            "default": "verbose"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "search_objects",
+      "description": "Search a collection: near_text, near_vector, near_object, hybrid_query or bm25_query (one at a time, or none to list), with a where filter; objects with _additional id, distance or score",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\""
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Properties to return, e.g. [\"title\", \"body\"] (id and scores are always returned)"
+          },
+          "near_text": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Semantic search by text concepts (the collection's vectorizer embeds them)"
+          },
+          "near_vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 8192,
+            "description": "Semantic search by a query vector"
+          },
+          "near_object": {
+            "type": "string",
+            "description": "Find objects similar to the object with this UUID"
+          },
+          "hybrid_query": {
+            "type": "string",
+            "description": "Hybrid search (keyword + vector) for this text"
+          },
+          "bm25_query": {
+            "type": "string",
+            "description": "Keyword (BM25) search for this text"
+          },
+          "search_properties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Properties bm25/hybrid search in, boost with ^, e.g. [\"title^2\", \"body\"]"
+          },
+          "alpha": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Hybrid weight: 0 = keyword only, 1 = vector only (default 0.75)"
+          },
+          "fusion_type": {
+            "type": "string",
+            "enum": [
+              "rankedFusion",
+              "relativeScoreFusion"
+            ],
+            "description": "Hybrid fusion (default relativeScoreFusion)"
+          },
+          "hybrid_vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 8192,
+            "description": "Hybrid: use this vector instead of embedding hybrid_query"
+          },
+          "distance": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Vector searches: maximum distance"
+          },
+          "target_vectors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "description": "Named vectors to search (collections with several vectors)"
+          },
+          "where": {
+            "type": "object",
+            "description": "Filter, e.g. {\"path\": [\"year\"], \"operator\": \"GreaterThan\", \"valueInt\": 2000} or {\"operator\": \"And\", \"operands\": [...]}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10,
+            "description": "Maximum objects"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Skip this many results"
+          },
+          "autocut": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Cut results after this many jumps in distance/score"
+          },
+          "after": {
+            "type": "string",
+            "description": "Cursor paging without a search: UUID of the last object of the previous page"
+          },
+          "include_vector": {
+            "type": "boolean",
+            "description": "Also return each object's vector"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "count_objects",
+      "description": "Number of objects in a collection, optionally matching a where filter (count)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\""
+          },
+          "where": {
+            "type": "object",
+            "description": "Filter, e.g. {\"path\": [\"year\"], \"operator\": \"GreaterThan\", \"valueInt\": 2000} or {\"operator\": \"And\", \"operands\": [...]}"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "list_objects",
+      "description": "Objects of a collection in UUID order, page by page (next_cursor is the last object's id)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "include": {
+            "type": "string",
+            "description": "Also return the vector or classification info",
+            "enum": [
+              "vector",
+              "classification"
+            ]
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 25
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "get_object",
+      "description": "One object by collection and UUID with its properties (and vector with include: vector)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Object UUID",
+            "minLength": 1
+          },
+          "include": {
+            "type": "string",
+            "description": "Also return the vector or classification info",
+            "enum": [
+              "vector",
+              "classification"
+            ]
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          }
+        },
+        "required": [
+          "collection",
+          "object_id"
+        ]
+      }
+    },
+    {
+      "name": "create_object",
+      "description": "Add an object (vectorized by the collection's vectorizer unless you pass vector); fails when the id exists (as an agent tool only when WEAVIATE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values, e.g. {\"title\": \"Hello\", \"year\": 2024}"
+          },
+          "object_uuid": {
+            "type": "string",
+            "description": "UUID for the object (generated when omitted; set it to make retries safe)"
+          },
+          "vector": {
+            "type": "array",
+            "description": "Your own vector (collections without a vectorizer)",
+            "maxItems": 8192,
+            "items": {
+              "type": "number"
+            }
+          },
+          "vectors": {
+            "type": "object",
+            "description": "Named vectors, e.g. {\"title_vector\": [0.1, ...]}"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "update_object",
+      "description": "Merge property values into an object (JSON merge patch); the object is re-vectorized when needed (as an agent tool only when WEAVIATE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Collection (class) name, e.g. \"Article\"",
+            "minLength": 1
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Object UUID",
+            "minLength": 1
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values, e.g. {\"title\": \"Hello\", \"year\": 2024}"
+          },
+          "vector": {
+            "type": "array",
+            "description": "Your own vector (collections without a vectorizer)",
+            "maxItems": 8192,
+            "items": {
+              "type": "number"
+            }
+          },
+          "vectors": {
+            "type": "object",
+            "description": "Named vectors, e.g. {\"title_vector\": [0.1, ...]}"
+          },
+          "tenant": {
+            "type": "string",
+            "description": "Tenant (multi-tenant collections)"
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          }
+        },
+        "required": [
+          "collection",
+          "object_id"
+        ]
+      }
+    },
+    {
+      "name": "batch_objects",
+      "description": "Add or replace many objects in one request (objects with an existing id are replaced); check each result's errors (as an agent tool only when WEAVIATE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "objects": {
+            "type": "array",
+            "description": "Objects, e.g. [{\"class\": \"Article\", \"id\": \"<uuid>\", \"properties\": {...}}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "consistency_level": {
+            "type": "string",
+            "description": "Replica acknowledgement (replicated collections)",
+            "enum": [
+              "ONE",
+              "QUORUM",
+              "ALL"
+            ]
+          }
+        },
+        "required": [
+          "objects"
+        ]
+      }
+    },
+    {
+      "name": "graphql_query",
+      "description": "Run a raw GraphQL query (Get, Aggregate, Explore; generative search and vectorizers may bill your model provider) (as an agent tool only when WEAVIATE_TOOL_ALLOW_RAW_GRAPHQL=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "GraphQL document, e.g. \"{ Get { Article(limit: 2) { title } } }\"",
+            "minLength": 1
+          },
+          "variables": {
+            "type": "object",
+            "description": "GraphQL variables"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Weaviate REST API endpoint that has no dedicated operation, e.g. path \"/v1/schema/<collection>/shards\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/schema/<collection>/shards\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

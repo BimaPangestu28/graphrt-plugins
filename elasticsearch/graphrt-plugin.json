@@ -1,0 +1,1327 @@
+{
+  "name": "elasticsearch",
+  "version": "0.1.0",
+  "description": "Elasticsearch: search, count and ES|QL, get and multi-get documents, index metadata; index/update need an opt-in for agents, deletes and bulk are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ELASTICSEARCH_URL",
+      "ELASTICSEARCH_API_KEY",
+      "ELASTICSEARCH_USERNAME",
+      "ELASTICSEARCH_PASSWORD",
+      "ELASTICSEARCH_TOOL_API_EXTRA_PATHS",
+      "ELASTICSEARCH_TOOL_ALLOW_ESQL",
+      "ELASTICSEARCH_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "elasticsearch.get_cluster_info",
+      "title": "Cluster info",
+      "description": "Cluster name, uuid and version (version.number, build flavor) of the connected cluster",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.get_cluster_health",
+      "title": "Cluster health",
+      "description": "Cluster health: status (green/yellow/red), node counts, active/unassigned shards",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Detail level (default cluster)",
+            "enum": [
+              "cluster",
+              "indices",
+              "shards"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.list_indices",
+      "title": "List indices",
+      "description": "Indices with health, status, document count and size (_cat/indices as JSON); hidden and system indices are not listed",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "health": {
+            "type": "string",
+            "description": "Only indices with this health",
+            "enum": [
+              "green",
+              "yellow",
+              "red"
+            ]
+          },
+          "columns": {
+            "type": "array",
+            "description": "Columns, e.g. index, health, docs.count, store.size (default all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by": {
+            "type": "array",
+            "description": "Sort columns, e.g. [\"index\"] or [\"docs.count:desc\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bytes": {
+            "type": "string",
+            "description": "Unit for sizes (default human readable)",
+            "enum": [
+              "b",
+              "kb",
+              "mb",
+              "gb"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.get_mapping",
+      "title": "Get mapping",
+      "description": "Field mappings (types) of an index, keyed by index name",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias; comma-separated and wildcards allowed for reads, e.g. \"logs-*,metrics-*\"",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.search",
+      "title": "Search",
+      "description": "Search documents with the Query DSL; hits are in hits.hits[]._source, totals in hits.total, aggregations in aggregations",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias; comma-separated and wildcards allowed for reads, e.g. \"logs-*,metrics-*\"",
+            "minLength": 1
+          },
+          "query": {
+            "type": "object",
+            "description": "Query DSL, e.g. {\"match\": {\"title\": \"graph\"}} or {\"bool\": {\"filter\": [...]}} (default match_all)"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Hits to return (0 for aggregations only)",
+            "minimum": 0,
+            "maximum": 10000,
+            "default": 10
+          },
+          "from": {
+            "type": "integer",
+            "description": "Offset (from + size at most 10000; use search_after beyond)",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "sort": {
+            "type": "array",
+            "description": "Sort, e.g. [{\"@timestamp\": \"desc\"}, \"_score\"]",
+            "items": {}
+          },
+          "search_after": {
+            "type": "array",
+            "description": "The sort values of the last hit of the previous page",
+            "items": {}
+          },
+          "source_fields": {
+            "type": "array",
+            "description": "Only these _source fields, e.g. [\"title\", \"author.*\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return from mappings (fields[] in each hit)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aggs": {
+            "type": "object",
+            "description": "Aggregations, e.g. {\"by_tag\": {\"terms\": {\"field\": \"tags\"}}}"
+          },
+          "highlight": {
+            "type": "object",
+            "description": "Highlighting, e.g. {\"fields\": {\"body\": {}}}"
+          },
+          "knn": {
+            "type": "object",
+            "description": "Approximate kNN, e.g. {\"field\": \"embedding\", \"query_vector\": [...], \"k\": 10, \"num_candidates\": 100}"
+          },
+          "track_total_hits": {
+            "type": "boolean",
+            "description": "Count all hits exactly (default: up to 10000)"
+          },
+          "search_timeout": {
+            "type": "string",
+            "description": "Search time limit, e.g. \"10s\""
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.count",
+      "title": "Count",
+      "description": "Number of documents matching a query (count)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias; comma-separated and wildcards allowed for reads, e.g. \"logs-*,metrics-*\"",
+            "minLength": 1
+          },
+          "query": {
+            "type": "object",
+            "description": "Query DSL, e.g. {\"match\": {\"title\": \"graph\"}} or {\"bool\": {\"filter\": [...]}} (default match_all)"
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.esql_query",
+      "title": "ES|QL query",
+      "description": "Run an ES|QL query (read-only language), e.g. \"FROM logs-* | WHERE status >= 500 | STATS c = COUNT(*) BY host | LIMIT 10\"; columns and values are returned (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_ESQL=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "ES|QL query; use ? placeholders with params for values",
+            "minLength": 1
+          },
+          "params": {
+            "type": "array",
+            "description": "Values for ? placeholders, e.g. [\"error\", 500]",
+            "items": {}
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query DSL filter applied before the ES|QL query"
+          },
+          "columnar": {
+            "type": "boolean",
+            "description": "Return values column by column"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.get_document",
+      "title": "Get document",
+      "description": "One document by _id; the document is in _source (found: false when missing returns not_found)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "doc_id": {
+            "type": "string",
+            "description": "Document _id",
+            "minLength": 1
+          },
+          "source_includes": {
+            "type": "array",
+            "description": "Only these _source fields",
+            "items": {
+              "type": "string"
+            }
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index",
+          "doc_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.multi_get",
+      "title": "Get documents",
+      "description": "Several documents of one index by _id (docs[] with found and _source)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Document ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_includes": {
+            "type": "array",
+            "description": "Only these _source fields",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.index_document",
+      "title": "Index document",
+      "description": "Create or replace the document with this _id (result: created or updated) (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "doc_id": {
+            "type": "string",
+            "description": "Document _id",
+            "minLength": 1
+          },
+          "document": {
+            "type": "object",
+            "description": "The whole document, e.g. {\"title\": \"Hello\", \"tags\": [\"a\"]}"
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index",
+          "doc_id",
+          "document"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.create_document",
+      "title": "Create document",
+      "description": "Add a document with a generated _id (returned as _id) (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "document": {
+            "type": "object",
+            "description": "The whole document"
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index",
+          "document"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.update_document",
+      "title": "Update document",
+      "description": "Merge fields into a document (partial update; no scripts); doc_as_upsert creates it when missing (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "doc_id": {
+            "type": "string",
+            "description": "Document _id",
+            "minLength": 1
+          },
+          "doc": {
+            "type": "object",
+            "description": "Fields to merge, e.g. {\"status\": \"done\"}"
+          },
+          "doc_as_upsert": {
+            "type": "boolean",
+            "description": "Create the document from doc when it does not exist"
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "retry_on_conflict": {
+            "type": "integer",
+            "description": "Retries on version conflicts",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index",
+          "doc_id",
+          "doc"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.delete_document",
+      "title": "Delete document",
+      "description": "Delete one document by _id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "doc_id": {
+            "type": "string",
+            "description": "Document _id",
+            "minLength": 1
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index",
+          "doc_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.delete_by_query",
+      "title": "Delete by query",
+      "description": "Delete every document matching a query (deleted, failures)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias; comma-separated and wildcards allowed for reads, e.g. \"logs-*,metrics-*\"",
+            "minLength": 1
+          },
+          "query": {
+            "type": "object",
+            "description": "Query DSL selecting the documents to delete"
+          },
+          "refresh": {
+            "type": "boolean",
+            "description": "Refresh the affected shards afterwards"
+          },
+          "conflicts": {
+            "type": "string",
+            "description": "On version conflicts: abort (default) or proceed",
+            "enum": [
+              "abort",
+              "proceed"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index",
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.bulk",
+      "title": "Bulk",
+      "description": "Many index/create/update/delete actions in one request; lines alternate action and source, e.g. [{\"index\": {\"_index\": \"docs\", \"_id\": \"1\"}}, {\"title\": \"A\"}]; check errors and items[]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "description": "NDJSON lines (action, then source for index/create/update)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "lines"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elasticsearch.api_request",
+      "title": "Elasticsearch REST API request",
+      "description": "Call any Elasticsearch REST API endpoint that has no dedicated operation, e.g. path \"/<index>/_settings\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/<index>/_settings\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_cluster_info",
+      "description": "Cluster name, uuid and version (version.number, build flavor) of the connected cluster",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_cluster_health",
+      "description": "Cluster health: status (green/yellow/red), node counts, active/unassigned shards",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Detail level (default cluster)",
+            "enum": [
+              "cluster",
+              "indices",
+              "shards"
+            ]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_indices",
+      "description": "Indices with health, status, document count and size (_cat/indices as JSON); hidden and system indices are not listed",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "health": {
+            "type": "string",
+            "description": "Only indices with this health",
+            "enum": [
+              "green",
+              "yellow",
+              "red"
+            ]
+          },
+          "columns": {
+            "type": "array",
+            "description": "Columns, e.g. index, health, docs.count, store.size (default all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by": {
+            "type": "array",
+            "description": "Sort columns, e.g. [\"index\"] or [\"docs.count:desc\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bytes": {
+            "type": "string",
+            "description": "Unit for sizes (default human readable)",
+            "enum": [
+              "b",
+              "kb",
+              "mb",
+              "gb"
+            ]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_mapping",
+      "description": "Field mappings (types) of an index, keyed by index name",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias; comma-separated and wildcards allowed for reads, e.g. \"logs-*,metrics-*\"",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "index"
+        ]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search documents with the Query DSL; hits are in hits.hits[]._source, totals in hits.total, aggregations in aggregations",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias; comma-separated and wildcards allowed for reads, e.g. \"logs-*,metrics-*\"",
+            "minLength": 1
+          },
+          "query": {
+            "type": "object",
+            "description": "Query DSL, e.g. {\"match\": {\"title\": \"graph\"}} or {\"bool\": {\"filter\": [...]}} (default match_all)"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Hits to return (0 for aggregations only)",
+            "minimum": 0,
+            "maximum": 10000,
+            "default": 10
+          },
+          "from": {
+            "type": "integer",
+            "description": "Offset (from + size at most 10000; use search_after beyond)",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "sort": {
+            "type": "array",
+            "description": "Sort, e.g. [{\"@timestamp\": \"desc\"}, \"_score\"]",
+            "items": {}
+          },
+          "search_after": {
+            "type": "array",
+            "description": "The sort values of the last hit of the previous page",
+            "items": {}
+          },
+          "source_fields": {
+            "type": "array",
+            "description": "Only these _source fields, e.g. [\"title\", \"author.*\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return from mappings (fields[] in each hit)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aggs": {
+            "type": "object",
+            "description": "Aggregations, e.g. {\"by_tag\": {\"terms\": {\"field\": \"tags\"}}}"
+          },
+          "highlight": {
+            "type": "object",
+            "description": "Highlighting, e.g. {\"fields\": {\"body\": {}}}"
+          },
+          "knn": {
+            "type": "object",
+            "description": "Approximate kNN, e.g. {\"field\": \"embedding\", \"query_vector\": [...], \"k\": 10, \"num_candidates\": 100}"
+          },
+          "track_total_hits": {
+            "type": "boolean",
+            "description": "Count all hits exactly (default: up to 10000)"
+          },
+          "search_timeout": {
+            "type": "string",
+            "description": "Search time limit, e.g. \"10s\""
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          }
+        },
+        "required": [
+          "index"
+        ]
+      }
+    },
+    {
+      "name": "count",
+      "description": "Number of documents matching a query (count)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias; comma-separated and wildcards allowed for reads, e.g. \"logs-*,metrics-*\"",
+            "minLength": 1
+          },
+          "query": {
+            "type": "object",
+            "description": "Query DSL, e.g. {\"match\": {\"title\": \"graph\"}} or {\"bool\": {\"filter\": [...]}} (default match_all)"
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          }
+        },
+        "required": [
+          "index"
+        ]
+      }
+    },
+    {
+      "name": "esql_query",
+      "description": "Run an ES|QL query (read-only language), e.g. \"FROM logs-* | WHERE status >= 500 | STATS c = COUNT(*) BY host | LIMIT 10\"; columns and values are returned (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_ESQL=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "ES|QL query; use ? placeholders with params for values",
+            "minLength": 1
+          },
+          "params": {
+            "type": "array",
+            "description": "Values for ? placeholders, e.g. [\"error\", 500]",
+            "items": {}
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query DSL filter applied before the ES|QL query"
+          },
+          "columnar": {
+            "type": "boolean",
+            "description": "Return values column by column"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "get_document",
+      "description": "One document by _id; the document is in _source (found: false when missing returns not_found)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "doc_id": {
+            "type": "string",
+            "description": "Document _id",
+            "minLength": 1
+          },
+          "source_includes": {
+            "type": "array",
+            "description": "Only these _source fields",
+            "items": {
+              "type": "string"
+            }
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          }
+        },
+        "required": [
+          "index",
+          "doc_id"
+        ]
+      }
+    },
+    {
+      "name": "multi_get",
+      "description": "Several documents of one index by _id (docs[] with found and _source)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Document ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_includes": {
+            "type": "array",
+            "description": "Only these _source fields",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "index",
+          "ids"
+        ]
+      }
+    },
+    {
+      "name": "index_document",
+      "description": "Create or replace the document with this _id (result: created or updated) (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "doc_id": {
+            "type": "string",
+            "description": "Document _id",
+            "minLength": 1
+          },
+          "document": {
+            "type": "object",
+            "description": "The whole document, e.g. {\"title\": \"Hello\", \"tags\": [\"a\"]}"
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          }
+        },
+        "required": [
+          "index",
+          "doc_id",
+          "document"
+        ]
+      }
+    },
+    {
+      "name": "create_document",
+      "description": "Add a document with a generated _id (returned as _id) (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "document": {
+            "type": "object",
+            "description": "The whole document"
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          }
+        },
+        "required": [
+          "index",
+          "document"
+        ]
+      }
+    },
+    {
+      "name": "update_document",
+      "description": "Merge fields into a document (partial update; no scripts); doc_as_upsert creates it when missing (as an agent tool only when ELASTICSEARCH_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Index, data stream or alias to write to",
+            "minLength": 1
+          },
+          "doc_id": {
+            "type": "string",
+            "description": "Document _id",
+            "minLength": 1
+          },
+          "doc": {
+            "type": "object",
+            "description": "Fields to merge, e.g. {\"status\": \"done\"}"
+          },
+          "doc_as_upsert": {
+            "type": "boolean",
+            "description": "Create the document from doc when it does not exist"
+          },
+          "refresh": {
+            "type": "string",
+            "description": "Make the change visible to search: true, wait_for or false (default)",
+            "enum": [
+              "true",
+              "false",
+              "wait_for"
+            ]
+          },
+          "retry_on_conflict": {
+            "type": "integer",
+            "description": "Retries on version conflicts",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "routing": {
+            "type": "string",
+            "description": "Custom routing value (only when the index uses routing)"
+          }
+        },
+        "required": [
+          "index",
+          "doc_id",
+          "doc"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Elasticsearch REST API endpoint that has no dedicated operation, e.g. path \"/<index>/_settings\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/<index>/_settings\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

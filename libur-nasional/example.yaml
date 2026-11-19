@@ -1,0 +1,18 @@
+# Is today a holiday in Indonesia, what is coming up, and how many working days are left this year? Read-only, no API key.
+#   graphrt run libur-nasional/example.yaml --plugins .
+version: "1"
+name: libur-nasional-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: today, type: libur-nasional.check_date }
+    - { id: upcoming, type: libur-nasional.next_holidays, count: 3 }
+    - { id: december, type: libur-nasional.count_working_days, start_date: "2026-12-01", end_date: "2026-12-31" }
+    - id: answer
+      type: answer
+      answer: "Today {{#today.data.date#}} ({{#today.data.hari#}}): holiday={{#today.data.is_holiday#}} {{#today.data.holidays#}}, working day={{#today.data.is_working_day#}}. Next: {{#upcoming.data.holidays.0.date#}} {{#upcoming.data.holidays.0.name#}} (in {{#upcoming.data.holidays.0.days_away#}} days). Working days in December 2026: {{#december.data.working_days#}}"
+  edges:
+    - { source: start, target: today }
+    - { source: today, target: upcoming }
+    - { source: upcoming, target: december }
+    - { source: december, target: answer }

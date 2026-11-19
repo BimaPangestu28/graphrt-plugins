@@ -1,0 +1,2086 @@
+{
+  "name": "bps",
+  "version": "0.1.0",
+  "description": "BPS (Statistics Indonesia) Web API: domains, subjects, variables and dynamic data, static tables, indicators, press releases, publications, search, glossary, KBLI and export/import",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "BPS_API_KEY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "bps.list_domains",
+      "title": "List BPS domains",
+      "description": "BPS domains (national, provinces, regencies/cities) with their 4-digit domain_id, needed by every other operation",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain_type": {
+            "type": "string",
+            "description": "all, prov (provinces), kab (regencies/cities), kabbyprov (regencies of one province: set province)",
+            "enum": [
+              "all",
+              "prov",
+              "kab",
+              "kabbyprov"
+            ]
+          },
+          "province": {
+            "type": "string",
+            "description": "4-digit province domain id for kabbyprov, e.g. 3200",
+            "minLength": 4
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_subject_categories",
+      "title": "List subject categories",
+      "description": "Top-level subject categories of a domain (e.g. Sosial dan Kependudukan, Ekonomi dan Perdagangan)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_subjects",
+      "title": "List subjects",
+      "description": "Subjects of a domain (sub_id, title, category); filter by subject category",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "subject_category": {
+            "type": "integer",
+            "description": "subcat_id from list_subject_categories",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_variables",
+      "title": "List variables",
+      "description": "Variables (dynamic tables) of a domain with unit and subject; use var_id with get_dynamic_data",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "subject": {
+            "type": "integer",
+            "description": "sub_id from list_subjects",
+            "minimum": 1
+          },
+          "year": {
+            "type": "integer",
+            "description": "Only variables with data for this year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "own_domain_only": {
+            "type": "integer",
+            "description": "1 = only variables that exist in this domain",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "vertical_variable": {
+            "type": "integer",
+            "description": "Only variables using this vertical variable id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_vertical_variables",
+      "title": "List vertical variables",
+      "description": "Row breakdowns (vervar, e.g. provinces or age groups) of a domain or of one variable",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_derived_variables",
+      "title": "List derived variables",
+      "description": "Column breakdowns (turvar) of a domain or of one variable",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "group": {
+            "type": "integer",
+            "description": "Group id of the vertical variable",
+            "minimum": 0
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_periods",
+      "title": "List periods",
+      "description": "Periods (th_id and year label) available for a variable; th_id goes into get_dynamic_data",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_derived_periods",
+      "title": "List derived periods",
+      "description": "Sub-periods (turth: annual, months, quarters) of a variable",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_units",
+      "title": "List units",
+      "description": "Measurement units used by variables of a domain",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.get_dynamic_data",
+      "title": "Get dynamic data",
+      "description": "Values of one variable with labels: datacontent keys concatenate vervar + var + turvar + th + turth ids; read labels from vervar, turvar, tahun, turtahun",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "variable": {
+            "type": "integer",
+            "description": "var_id from list_variables",
+            "minimum": 1
+          },
+          "periods": {
+            "type": "string",
+            "description": "th_id(s) from list_periods: one (\"124\"), a list (\"123;124\") or a range (\"120:124\")"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "derived_variable": {
+            "type": "integer",
+            "description": "turvar_id from list_derived_variables"
+          },
+          "vertical_variable": {
+            "type": "integer",
+            "description": "Row id (item_ver_id), e.g. 9999 for INDONESIA"
+          },
+          "derived_periods": {
+            "type": "string",
+            "description": "turth_id(s): \"0\", \"1;2\" or \"1:12\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain",
+          "variable",
+          "periods"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_static_tables",
+      "title": "List static tables",
+      "description": "Published static tables of a domain (table_id, title, subject, update date, Excel link)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "month": {
+            "type": "integer",
+            "description": "Month 1-12",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "year": {
+            "type": "integer",
+            "description": "Four-digit year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search words (use + between words, e.g. inflasi+bulanan)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.get_static_table",
+      "title": "Get static table",
+      "description": "One static table; its HTML table is in `table`",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language: ind or eng",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "item_id": {
+            "type": "integer",
+            "description": "table_id from list_static_tables",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain",
+          "lang",
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_strategic_indicators",
+      "title": "List strategic indicators",
+      "description": "Headline indicators (inflation, unemployment, growth, ...) with their latest value; national and province domains only",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.get_foreign_trade",
+      "title": "Get export/import data",
+      "description": "Export or import value (USD) and net weight (kg) by HS code, port and country for a year",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "trade_flow": {
+            "type": "integer",
+            "description": "1 export, 2 import",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "period_type": {
+            "type": "integer",
+            "description": "1 monthly, 2 annual",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "hs_codes": {
+            "type": "string",
+            "description": "HS code(s) separated by \";\", e.g. \"03;04\""
+          },
+          "hs_code_type": {
+            "type": "integer",
+            "description": "1 two-digit HS chapters, 2 full HS codes",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "year": {
+            "type": "integer",
+            "description": "Year of the data",
+            "minimum": 1990,
+            "maximum": 2100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "trade_flow",
+          "period_type",
+          "hs_codes",
+          "hs_code_type",
+          "year"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_press_releases",
+      "title": "List press releases",
+      "description": "Official statistical news releases (BRS) of a domain",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "month": {
+            "type": "integer",
+            "description": "Month 1-12",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "year": {
+            "type": "integer",
+            "description": "Four-digit year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search words (use + between words, e.g. inflasi+bulanan)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.get_press_release",
+      "title": "Get press release",
+      "description": "One press release with abstract, release date and PDF link",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language: ind or eng",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "item_id": {
+            "type": "string",
+            "description": "brs_id from list_press_releases"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain",
+          "lang",
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_publications",
+      "title": "List publications",
+      "description": "Publications of a domain (statistical yearbooks, reports) with PDF links",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "month": {
+            "type": "integer",
+            "description": "Month 1-12",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "year": {
+            "type": "integer",
+            "description": "Four-digit year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search words (use + between words, e.g. inflasi+bulanan)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.get_publication",
+      "title": "Get publication",
+      "description": "One publication with catalogue numbers, ISSN, abstract and PDF link",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language: ind or eng",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "item_id": {
+            "type": "string",
+            "description": "pub_id from list_publications"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain",
+          "lang",
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.search_content",
+      "title": "Search content",
+      "description": "Full-text search of one kind of content (tables, publications, press releases, news, infographics) in a domain",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Kind of content",
+            "enum": [
+              "tablestatistic",
+              "publication",
+              "pressrelease",
+              "news",
+              "infographic"
+            ]
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Words to search for (use + between words)"
+          },
+          "from_date": {
+            "type": "string",
+            "description": "Start date YYYY-MM-DD"
+          },
+          "to_date": {
+            "type": "string",
+            "description": "End date YYYY-MM-DD"
+          },
+          "classification": {
+            "type": "string",
+            "description": "CSA subject id"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perpage`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain",
+          "content_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_glossary",
+      "title": "List glossary",
+      "description": "Statistical concepts and definitions (Indonesian and English), optionally those starting with a letter",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "description": "First letter(s), e.g. a"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perpage`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.list_classifications",
+      "title": "List classifications",
+      "description": "Items of the KBLI (industry, 2009-2020) or KBKI (products, 2015) classifications",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "description": "Classification",
+            "enum": [
+              "kbli2009",
+              "kbli2015",
+              "kbli2017",
+              "kbli2020",
+              "kbki2015"
+            ]
+          },
+          "level": {
+            "type": "string",
+            "description": "Item level, e.g. kategori, golongan pokok, golongan, subgolongan, kelompok"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perpage`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "classification"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "bps.api_request",
+      "title": "BPS Web API request",
+      "description": "Call any BPS Web API endpoint that has no dedicated operation, e.g. path \"/v1/api/list/model/infographic/domain/0000\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/api/list/model/infographic/domain/0000\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_domains",
+      "description": "BPS domains (national, provinces, regencies/cities) with their 4-digit domain_id, needed by every other operation",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain_type": {
+            "type": "string",
+            "description": "all, prov (provinces), kab (regencies/cities), kabbyprov (regencies of one province: set province)",
+            "enum": [
+              "all",
+              "prov",
+              "kab",
+              "kabbyprov"
+            ]
+          },
+          "province": {
+            "type": "string",
+            "description": "4-digit province domain id for kabbyprov, e.g. 3200",
+            "minLength": 4
+          }
+        },
+        "required": [
+          "domain_type"
+        ]
+      }
+    },
+    {
+      "name": "list_subject_categories",
+      "description": "Top-level subject categories of a domain (e.g. Sosial dan Kependudukan, Ekonomi dan Perdagangan)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "list_subjects",
+      "description": "Subjects of a domain (sub_id, title, category); filter by subject category",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "subject_category": {
+            "type": "integer",
+            "description": "subcat_id from list_subject_categories",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "list_variables",
+      "description": "Variables (dynamic tables) of a domain with unit and subject; use var_id with get_dynamic_data",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "subject": {
+            "type": "integer",
+            "description": "sub_id from list_subjects",
+            "minimum": 1
+          },
+          "year": {
+            "type": "integer",
+            "description": "Only variables with data for this year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "own_domain_only": {
+            "type": "integer",
+            "description": "1 = only variables that exist in this domain",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "vertical_variable": {
+            "type": "integer",
+            "description": "Only variables using this vertical variable id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "list_vertical_variables",
+      "description": "Row breakdowns (vervar, e.g. provinces or age groups) of a domain or of one variable",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "list_derived_variables",
+      "description": "Column breakdowns (turvar) of a domain or of one variable",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "group": {
+            "type": "integer",
+            "description": "Group id of the vertical variable",
+            "minimum": 0
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "list_periods",
+      "description": "Periods (th_id and year label) available for a variable; th_id goes into get_dynamic_data",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "list_derived_periods",
+      "description": "Sub-periods (turth: annual, months, quarters) of a variable",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "list_units",
+      "description": "Measurement units used by variables of a domain",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "get_dynamic_data",
+      "description": "Values of one variable with labels: datacontent keys concatenate vervar + var + turvar + th + turth ids; read labels from vervar, turvar, tahun, turtahun",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "variable": {
+            "type": "integer",
+            "description": "var_id from list_variables",
+            "minimum": 1
+          },
+          "periods": {
+            "type": "string",
+            "description": "th_id(s) from list_periods: one (\"124\"), a list (\"123;124\") or a range (\"120:124\")"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "derived_variable": {
+            "type": "integer",
+            "description": "turvar_id from list_derived_variables"
+          },
+          "vertical_variable": {
+            "type": "integer",
+            "description": "Row id (item_ver_id), e.g. 9999 for INDONESIA"
+          },
+          "derived_periods": {
+            "type": "string",
+            "description": "turth_id(s): \"0\", \"1;2\" or \"1:12\""
+          }
+        },
+        "required": [
+          "domain",
+          "variable",
+          "periods"
+        ]
+      }
+    },
+    {
+      "name": "list_static_tables",
+      "description": "Published static tables of a domain (table_id, title, subject, update date, Excel link)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "month": {
+            "type": "integer",
+            "description": "Month 1-12",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "year": {
+            "type": "integer",
+            "description": "Four-digit year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search words (use + between words, e.g. inflasi+bulanan)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "get_static_table",
+      "description": "One static table; its HTML table is in `table`",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language: ind or eng",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "item_id": {
+            "type": "integer",
+            "description": "table_id from list_static_tables",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "domain",
+          "lang",
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "list_strategic_indicators",
+      "description": "Headline indicators (inflation, unemployment, growth, ...) with their latest value; national and province domains only",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "variable": {
+            "type": "integer",
+            "description": "Variable id (var_id from list_variables), e.g. 145",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "get_foreign_trade",
+      "description": "Export or import value (USD) and net weight (kg) by HS code, port and country for a year",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trade_flow": {
+            "type": "integer",
+            "description": "1 export, 2 import",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "period_type": {
+            "type": "integer",
+            "description": "1 monthly, 2 annual",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "hs_codes": {
+            "type": "string",
+            "description": "HS code(s) separated by \";\", e.g. \"03;04\""
+          },
+          "hs_code_type": {
+            "type": "integer",
+            "description": "1 two-digit HS chapters, 2 full HS codes",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "year": {
+            "type": "integer",
+            "description": "Year of the data",
+            "minimum": 1990,
+            "maximum": 2100
+          }
+        },
+        "required": [
+          "trade_flow",
+          "period_type",
+          "hs_codes",
+          "hs_code_type",
+          "year"
+        ]
+      }
+    },
+    {
+      "name": "list_press_releases",
+      "description": "Official statistical news releases (BRS) of a domain",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "month": {
+            "type": "integer",
+            "description": "Month 1-12",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "year": {
+            "type": "integer",
+            "description": "Four-digit year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search words (use + between words, e.g. inflasi+bulanan)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "get_press_release",
+      "description": "One press release with abstract, release date and PDF link",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language: ind or eng",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "item_id": {
+            "type": "string",
+            "description": "brs_id from list_press_releases"
+          }
+        },
+        "required": [
+          "domain",
+          "lang",
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "list_publications",
+      "description": "Publications of a domain (statistical yearbooks, reports) with PDF links",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "month": {
+            "type": "integer",
+            "description": "Month 1-12",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "year": {
+            "type": "integer",
+            "description": "Four-digit year",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search words (use + between words, e.g. inflasi+bulanan)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "get_publication",
+      "description": "One publication with catalogue numbers, ISSN, abstract and PDF link",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language: ind or eng",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "item_id": {
+            "type": "string",
+            "description": "pub_id from list_publications"
+          }
+        },
+        "required": [
+          "domain",
+          "lang",
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "search_content",
+      "description": "Full-text search of one kind of content (tables, publications, press releases, news, infographics) in a domain",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "4-digit BPS domain id from list_domains: \"0000\" national, \"3100\" DKI Jakarta, \"3273\" Kota Bandung",
+            "minLength": 4
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Kind of content",
+            "enum": [
+              "tablestatistic",
+              "publication",
+              "pressrelease",
+              "news",
+              "infographic"
+            ]
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Words to search for (use + between words)"
+          },
+          "from_date": {
+            "type": "string",
+            "description": "Start date YYYY-MM-DD"
+          },
+          "to_date": {
+            "type": "string",
+            "description": "End date YYYY-MM-DD"
+          },
+          "classification": {
+            "type": "string",
+            "description": "CSA subject id"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Response language (default ind)",
+            "enum": [
+              "ind",
+              "eng"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perpage`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "domain",
+          "content_type"
+        ]
+      }
+    },
+    {
+      "name": "list_glossary",
+      "description": "Statistical concepts and definitions (Indonesian and English), optionally those starting with a letter",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "description": "First letter(s), e.g. a"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perpage`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_classifications",
+      "description": "Items of the KBLI (industry, 2009-2020) or KBKI (products, 2015) classifications",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "description": "Classification",
+            "enum": [
+              "kbli2009",
+              "kbli2015",
+              "kbli2017",
+              "kbli2020",
+              "kbki2015"
+            ]
+          },
+          "level": {
+            "type": "string",
+            "description": "Item level, e.g. kategori, golongan pokok, golongan, subgolongan, kelompok"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perpage`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "classification"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any BPS Web API endpoint that has no dedicated operation, e.g. path \"/v1/api/list/model/infographic/domain/0000\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/api/list/model/infographic/domain/0000\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

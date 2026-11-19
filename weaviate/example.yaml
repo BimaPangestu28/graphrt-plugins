@@ -1,0 +1,16 @@
+# Show the server version and collections, then list a few objects of the first collection. Read-only.
+#   WEAVIATE_URL=https://<cluster>.weaviate.cloud WEAVIATE_API_KEY=... graphrt run weaviate/example.yaml --plugins .
+version: "1"
+name: weaviate-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: meta, type: weaviate.get_meta }
+    - { id: collections, type: weaviate.list_collections }
+    - { id: sample, type: weaviate.search_objects, collection: "{{#collections.data.0.class#}}", limit: 3 }
+    - { id: answer, type: answer, answer: "Weaviate {{#meta.data.version#}}: first collection {{#collections.data.0.class#}} | sample: {{#sample.data#}}" }
+  edges:
+    - { source: start, target: meta }
+    - { source: meta, target: collections }
+    - { source: collections, target: sample }
+    - { source: sample, target: answer }

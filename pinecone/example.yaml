@@ -1,0 +1,14 @@
+# List the project's indexes, then read the first index's stats from its own host. Read-only.
+#   PINECONE_API_KEY=... graphrt run pinecone/example.yaml --plugins .
+version: "1"
+name: pinecone-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: indexes, type: pinecone.list_indexes }
+    - { id: stats, type: pinecone.describe_index_stats, index_host: "{{#indexes.data.0.host#}}" }
+    - { id: answer, type: answer, answer: "{{#indexes.data.0.name#}}: {{#stats.data#}}" }
+  edges:
+    - { source: start, target: indexes }
+    - { source: indexes, target: stats }
+    - { source: stats, target: answer }

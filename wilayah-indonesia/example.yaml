@@ -1,0 +1,16 @@
+# Find the district Coblong (Kota Bandung) and list its villages. Read-only, no API key needed.
+#   graphrt run wilayah-indonesia/example.yaml --plugins .
+version: "1"
+name: wilayah-indonesia-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: district, type: wilayah-indonesia.search_regions, query: coblong, level: district, within_code: "32.73", limit: 1 }
+    - id: villages
+      type: wilayah-indonesia.list_villages
+      district_code: "{{#district.data.regions.0.code#}}"
+    - { id: answer, type: answer, answer: "{{#district.data.regions.0.address#}}: {{#villages.data#}}" }
+  edges:
+    - { source: start, target: district }
+    - { source: district, target: villages }
+    - { source: villages, target: answer }

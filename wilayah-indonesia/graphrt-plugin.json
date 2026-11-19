@@ -1,0 +1,345 @@
+{
+  "name": "wilayah-indonesia",
+  "version": "0.1.0",
+  "description": "Indonesian administrative regions with Kemendagri codes: provinces, regencies/cities, districts and villages, lookups with full addresses, and name search (no API key)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": [
+      "WILAYAH_INDONESIA_DATA_REF",
+      "WILAYAH_INDONESIA_DATA_SHA256",
+      "WILAYAH_INDONESIA_CACHE_DIR",
+      "WILAYAH_INDONESIA_CACHE_TTL_HOURS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 90000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "wilayah-indonesia.list_provinces",
+      "title": "List provinces",
+      "description": "All 38 provinces of Indonesia with their 2-digit Kemendagri codes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wilayah-indonesia.list_regencies",
+      "title": "List regencies and cities",
+      "description": "Regencies (kabupaten) and cities (kota) of a province",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "province_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "2-digit province code, e.g. 32"
+          }
+        },
+        "required": [
+          "province_code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wilayah-indonesia.list_districts",
+      "title": "List districts",
+      "description": "Districts (kecamatan) of a regency or city",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "regency_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Regency/city code, e.g. 32.73 or 3273"
+          }
+        },
+        "required": [
+          "regency_code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wilayah-indonesia.list_villages",
+      "title": "List villages",
+      "description": "Villages of a district: desa and kelurahan (type) with their 10-digit codes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "district_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "District code, e.g. 32.73.07 or 327307"
+          }
+        },
+        "required": [
+          "district_code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wilayah-indonesia.get_region",
+      "title": "Get region",
+      "description": "One region by Kemendagri code (dots optional, e.g. 32.73.07.1001 or 3273071001): name, level, village type (desa/kelurahan), parents and full address",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Kemendagri code of a province, regency/city, district or village"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wilayah-indonesia.search_regions",
+      "title": "Search regions",
+      "description": "Find provinces, regencies/cities, districts or villages by name (case and accent insensitive, every word must match), best matches first, with full addresses",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "description": "One region name or part of it, e.g. \"coblong\" or \"kota bandung\" (narrow with level and within_code)"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "province",
+              "regency",
+              "district",
+              "village"
+            ],
+            "description": "Only this level"
+          },
+          "within_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Only regions under this code, e.g. 32 (Jawa Barat) or 32.73 (Kota Bandung)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Maximum results"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_provinces",
+      "description": "All 38 provinces of Indonesia with their 2-digit Kemendagri codes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_regencies",
+      "description": "Regencies (kabupaten) and cities (kota) of a province",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "province_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "2-digit province code, e.g. 32"
+          }
+        },
+        "required": [
+          "province_code"
+        ]
+      }
+    },
+    {
+      "name": "list_districts",
+      "description": "Districts (kecamatan) of a regency or city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "regency_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Regency/city code, e.g. 32.73 or 3273"
+          }
+        },
+        "required": [
+          "regency_code"
+        ]
+      }
+    },
+    {
+      "name": "list_villages",
+      "description": "Villages of a district: desa and kelurahan (type) with their 10-digit codes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "district_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "District code, e.g. 32.73.07 or 327307"
+          }
+        },
+        "required": [
+          "district_code"
+        ]
+      }
+    },
+    {
+      "name": "get_region",
+      "description": "One region by Kemendagri code (dots optional, e.g. 32.73.07.1001 or 3273071001): name, level, village type (desa/kelurahan), parents and full address",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Kemendagri code of a province, regency/city, district or village"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    },
+    {
+      "name": "search_regions",
+      "description": "Find provinces, regencies/cities, districts or villages by name (case and accent insensitive, every word must match), best matches first, with full addresses",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "description": "One region name or part of it, e.g. \"coblong\" or \"kota bandung\" (narrow with level and within_code)"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "province",
+              "regency",
+              "district",
+              "village"
+            ],
+            "description": "Only this level"
+          },
+          "within_code": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Only regions under this code, e.g. 32 (Jawa Barat) or 32.73 (Kota Bandung)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Maximum results"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-libur-nasional",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Indonesian public holidays and cuti bersama, date checks and working-day counts (no API key)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

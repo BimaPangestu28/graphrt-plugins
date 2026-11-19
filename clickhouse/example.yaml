@@ -1,0 +1,21 @@
+# Server version, databases, and a read-only parameterised query. Read-only.
+#   CLICKHOUSE_URL=https://<host>.clickhouse.cloud:8443 CLICKHOUSE_PASSWORD=... \
+#     graphrt run clickhouse/example.yaml --plugins .
+# Without CLICKHOUSE_URL it talks to http://localhost:8123 as user `default`.
+version: "1"
+name: clickhouse-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: info, type: clickhouse.server_info }
+    - { id: databases, type: clickhouse.list_databases }
+    - id: busiest
+      type: clickhouse.query
+      sql: "SELECT database, count() AS tables FROM system.tables WHERE database != {skip:String} GROUP BY database ORDER BY tables DESC LIMIT 5"
+      parameters: { skip: system }
+    - { id: answer, type: answer, answer: "ClickHouse {{#info.data.0.version#}} | databases: {{#databases.data#}} | tables per database: {{#busiest.data.data#}}" }
+  edges:
+    - { source: start, target: info }
+    - { source: info, target: databases }
+    - { source: databases, target: busiest }
+    - { source: busiest, target: answer }

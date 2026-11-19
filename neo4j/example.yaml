@@ -1,0 +1,19 @@
+# Show the server version, the labels, and the five most connected nodes. Read-only (read transactions).
+#   NEO4J_URL=https://<id>.databases.neo4j.io NEO4J_USERNAME=neo4j NEO4J_PASSWORD=... graphrt run neo4j/example.yaml --plugins .
+version: "1"
+name: neo4j-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: server, type: neo4j.get_server_info }
+    - { id: labels, type: neo4j.list_labels }
+    - id: top
+      type: neo4j.run_read_query
+      statement: "MATCH (n) RETURN labels(n) AS labels, elementId(n) AS element_id, COUNT { (n)--() } AS degree ORDER BY degree DESC LIMIT $limit"
+      parameters: { limit: 5 }
+    - { id: answer, type: answer, answer: "Neo4j {{#server.data.neo4j_version#}}: labels {{#labels.data.records#}} | most connected: {{#top.data.records#}}" }
+  edges:
+    - { source: start, target: server }
+    - { source: server, target: labels }
+    - { source: labels, target: top }
+    - { source: top, target: answer }

@@ -1,0 +1,1549 @@
+{
+  "name": "qdrant",
+  "version": "0.1.0",
+  "description": "Qdrant vector database (Cloud or self-hosted): collections, query (vector, hybrid, recommend, groups), scroll, retrieve, count, facets; writes opt-in for agents, deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "QDRANT_API_KEY",
+      "QDRANT_URL",
+      "QDRANT_TOOL_API_EXTRA_PATHS",
+      "QDRANT_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "qdrant.list_collections",
+      "title": "List collections",
+      "description": "Names of all collections",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.get_collection",
+      "title": "Get collection",
+      "description": "Collection info: status, point and indexed vector counts, vector config (size, distance), payload schema",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.collection_exists",
+      "title": "Collection exists",
+      "description": "Whether a collection exists ({exists: true|false})",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.list_aliases",
+      "title": "List aliases",
+      "description": "Collection aliases ({alias_name, collection_name})",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.create_collection",
+      "title": "Create collection",
+      "description": "Create a collection, e.g. vectors {\"size\": 768, \"distance\": \"Cosine\"} or named vectors {\"text\": {...}} (as an agent tool only when QDRANT_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "vectors": {
+            "type": "object",
+            "description": "Vector config: {\"size\": 768, \"distance\": \"Cosine\" | \"Dot\" | \"Euclid\" | \"Manhattan\"}, or named configs"
+          },
+          "sparse_vectors": {
+            "type": "object",
+            "description": "Named sparse vector configs, e.g. {\"bm25\": {\"modifier\": \"idf\"}}"
+          },
+          "on_disk_payload": {
+            "type": "boolean",
+            "description": "Keep payload on disk"
+          },
+          "shard_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "replication_factor": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name",
+          "vectors"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.delete_collection",
+      "title": "Delete collection",
+      "description": "Delete a collection and all its points",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.query_points",
+      "title": "Query points",
+      "description": "Universal search: nearest neighbours of a vector or point, recommend, hybrid (prefetch + fusion), order by payload; returns scored points",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "query": {
+            "type": "object",
+            "description": "What to search for: {\"nearest\": [0.1, ...]} (vector), {\"nearest\": <point id>}, {\"recommend\": {\"positive\": [ids]}}, {\"fusion\": \"rrf\"} (with prefetch), {\"order_by\": \"price\"}, {\"sample\": \"random\"}"
+          },
+          "using": {
+            "type": "string",
+            "description": "Named vector to search (collections with named vectors)"
+          },
+          "prefetch": {
+            "type": "array",
+            "description": "Sub-queries for hybrid search / re-scoring, e.g. dense and sparse, fused by query {\"fusion\": \"rrf\"}",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "Drop results scoring below this"
+          },
+          "search_params": {
+            "type": "object",
+            "description": "Search parameters, e.g. {\"hnsw_ef\": 128, \"exact\": false}"
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "result_limit": {
+            "type": "integer",
+            "description": "Maximum points to return",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10
+          },
+          "result_offset": {
+            "type": "integer",
+            "description": "Skip this many results",
+            "minimum": 0
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.query_points_groups",
+      "title": "Query points in groups",
+      "description": "Like query_points, but grouped by a payload field (e.g. best chunks per document)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "query": {
+            "type": "object",
+            "description": "What to search for: {\"nearest\": [0.1, ...]} (vector), {\"nearest\": <point id>}, {\"recommend\": {\"positive\": [ids]}}, {\"fusion\": \"rrf\"} (with prefetch), {\"order_by\": \"price\"}, {\"sample\": \"random\"}"
+          },
+          "using": {
+            "type": "string",
+            "description": "Named vector to search (collections with named vectors)"
+          },
+          "prefetch": {
+            "type": "array",
+            "description": "Sub-queries for hybrid search / re-scoring, e.g. dense and sparse, fused by query {\"fusion\": \"rrf\"}",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "Drop results scoring below this"
+          },
+          "search_params": {
+            "type": "object",
+            "description": "Search parameters, e.g. {\"hnsw_ef\": 128, \"exact\": false}"
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "group_by": {
+            "type": "string",
+            "description": "Payload field to group by, e.g. document_id"
+          },
+          "group_size": {
+            "type": "integer",
+            "description": "Points per group (default 3)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "group_limit": {
+            "type": "integer",
+            "description": "Maximum groups (default 10)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name",
+          "group_by"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.scroll_points",
+      "title": "Scroll points",
+      "description": "Page through points matching a filter (by id, or ordered by a payload field), with payload",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "order_by": {
+            "type": "object",
+            "description": "Order by an indexed payload field, e.g. {\"key\": \"timestamp\", \"direction\": \"desc\"} (no cursor paging then)"
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.get_points",
+      "title": "Retrieve points",
+      "description": "Points by ids with payload (and vectors if asked)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Point ids (unsigned integers or UUID strings)",
+            "maxItems": 10000
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.get_point",
+      "title": "Get point",
+      "description": "One point by id with payload and vectors",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "point_id": {
+            "type": "string",
+            "description": "Point id (integer or UUID)"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name",
+          "point_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.count_points",
+      "title": "Count points",
+      "description": "Number of points matching a filter ({count})",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "exact": {
+            "type": "boolean",
+            "description": "Exact count (false: faster estimate)",
+            "default": true
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.facet_counts",
+      "title": "Facet counts",
+      "description": "Distinct values of an indexed payload field with their point counts (hits: [{value, count}])",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "key": {
+            "type": "string",
+            "description": "Payload field (must have a keyword/integer/bool index)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "facet_limit": {
+            "type": "integer",
+            "description": "Maximum values (default 10)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "exact": {
+            "type": "boolean",
+            "description": "Exact counts (default false)"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.upsert_points",
+      "title": "Upsert points",
+      "description": "Insert or overwrite points by id: [{\"id\": 1 | \"uuid\", \"vector\": [...] | {\"name\": [...]}, \"payload\": {...}}] (as an agent tool only when QDRANT_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "points": {
+            "type": "array",
+            "description": "Points to upsert",
+            "maxItems": 10000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "update_filter": {
+            "type": "object",
+            "description": "Only overwrite existing points matching this filter (new points are always inserted)"
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "Wait until the change is applied (false: return once queued)",
+            "default": true
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name",
+          "points"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.set_payload",
+      "title": "Set payload",
+      "description": "Merge payload fields into points chosen by ids or by a filter (other fields are kept) (as an agent tool only when QDRANT_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Fields to set, e.g. {\"status\": \"reviewed\"}"
+          },
+          "points": {
+            "type": "array",
+            "description": "Points to change (unsigned integers or UUID strings)",
+            "maxItems": 10000
+          },
+          "filter": {
+            "type": "object",
+            "description": "Change every point matching this filter instead of ids"
+          },
+          "key": {
+            "type": "string",
+            "description": "Set the payload under this nested key, e.g. meta.review"
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "Wait until the change is applied (false: return once queued)",
+            "default": true
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name",
+          "payload"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.delete_points",
+      "title": "Delete points",
+      "description": "Delete points by ids, or every point matching a filter",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "points": {
+            "type": "array",
+            "description": "Points to delete (unsigned integers or UUID strings)",
+            "maxItems": 10000
+          },
+          "filter": {
+            "type": "object",
+            "description": "Delete every point matching this filter instead of ids"
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "Wait until the change is applied (false: return once queued)",
+            "default": true
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qdrant.api_request",
+      "title": "Qdrant REST API request",
+      "description": "Call any Qdrant REST API endpoint that has no dedicated operation, e.g. path \"/collections/<collection_name>/optimizations\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/collections/<collection_name>/optimizations\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_collections",
+      "description": "Names of all collections",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_collection",
+      "description": "Collection info: status, point and indexed vector counts, vector config (size, distance), payload schema",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      }
+    },
+    {
+      "name": "collection_exists",
+      "description": "Whether a collection exists ({exists: true|false})",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      }
+    },
+    {
+      "name": "list_aliases",
+      "description": "Collection aliases ({alias_name, collection_name})",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "create_collection",
+      "description": "Create a collection, e.g. vectors {\"size\": 768, \"distance\": \"Cosine\"} or named vectors {\"text\": {...}} (as an agent tool only when QDRANT_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "vectors": {
+            "type": "object",
+            "description": "Vector config: {\"size\": 768, \"distance\": \"Cosine\" | \"Dot\" | \"Euclid\" | \"Manhattan\"}, or named configs"
+          },
+          "sparse_vectors": {
+            "type": "object",
+            "description": "Named sparse vector configs, e.g. {\"bm25\": {\"modifier\": \"idf\"}}"
+          },
+          "on_disk_payload": {
+            "type": "boolean",
+            "description": "Keep payload on disk"
+          },
+          "shard_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "replication_factor": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "collection_name",
+          "vectors"
+        ]
+      }
+    },
+    {
+      "name": "query_points",
+      "description": "Universal search: nearest neighbours of a vector or point, recommend, hybrid (prefetch + fusion), order by payload; returns scored points",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "query": {
+            "type": "object",
+            "description": "What to search for: {\"nearest\": [0.1, ...]} (vector), {\"nearest\": <point id>}, {\"recommend\": {\"positive\": [ids]}}, {\"fusion\": \"rrf\"} (with prefetch), {\"order_by\": \"price\"}, {\"sample\": \"random\"}"
+          },
+          "using": {
+            "type": "string",
+            "description": "Named vector to search (collections with named vectors)"
+          },
+          "prefetch": {
+            "type": "array",
+            "description": "Sub-queries for hybrid search / re-scoring, e.g. dense and sparse, fused by query {\"fusion\": \"rrf\"}",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "Drop results scoring below this"
+          },
+          "search_params": {
+            "type": "object",
+            "description": "Search parameters, e.g. {\"hnsw_ef\": 128, \"exact\": false}"
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "result_limit": {
+            "type": "integer",
+            "description": "Maximum points to return",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10
+          },
+          "result_offset": {
+            "type": "integer",
+            "description": "Skip this many results",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      }
+    },
+    {
+      "name": "query_points_groups",
+      "description": "Like query_points, but grouped by a payload field (e.g. best chunks per document)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "query": {
+            "type": "object",
+            "description": "What to search for: {\"nearest\": [0.1, ...]} (vector), {\"nearest\": <point id>}, {\"recommend\": {\"positive\": [ids]}}, {\"fusion\": \"rrf\"} (with prefetch), {\"order_by\": \"price\"}, {\"sample\": \"random\"}"
+          },
+          "using": {
+            "type": "string",
+            "description": "Named vector to search (collections with named vectors)"
+          },
+          "prefetch": {
+            "type": "array",
+            "description": "Sub-queries for hybrid search / re-scoring, e.g. dense and sparse, fused by query {\"fusion\": \"rrf\"}",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "Drop results scoring below this"
+          },
+          "search_params": {
+            "type": "object",
+            "description": "Search parameters, e.g. {\"hnsw_ef\": 128, \"exact\": false}"
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "group_by": {
+            "type": "string",
+            "description": "Payload field to group by, e.g. document_id"
+          },
+          "group_size": {
+            "type": "integer",
+            "description": "Points per group (default 3)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "group_limit": {
+            "type": "integer",
+            "description": "Maximum groups (default 10)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "collection_name",
+          "group_by"
+        ]
+      }
+    },
+    {
+      "name": "scroll_points",
+      "description": "Page through points matching a filter (by id, or ordered by a payload field), with payload",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "order_by": {
+            "type": "object",
+            "description": "Order by an indexed payload field, e.g. {\"key\": \"timestamp\", \"direction\": \"desc\"} (no cursor paging then)"
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      }
+    },
+    {
+      "name": "get_points",
+      "description": "Points by ids with payload (and vectors if asked)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Point ids (unsigned integers or UUID strings)",
+            "maxItems": 10000
+          },
+          "with_payload": {
+            "type": "boolean",
+            "description": "Return the payload of each point",
+            "default": true
+          },
+          "with_vector": {
+            "type": "boolean",
+            "description": "Return the vectors of each point",
+            "default": false
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          }
+        },
+        "required": [
+          "collection_name",
+          "ids"
+        ]
+      }
+    },
+    {
+      "name": "get_point",
+      "description": "One point by id with payload and vectors",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "point_id": {
+            "type": "string",
+            "description": "Point id (integer or UUID)"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          }
+        },
+        "required": [
+          "collection_name",
+          "point_id"
+        ]
+      }
+    },
+    {
+      "name": "count_points",
+      "description": "Number of points matching a filter ({count})",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "exact": {
+            "type": "boolean",
+            "description": "Exact count (false: faster estimate)",
+            "default": true
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      }
+    },
+    {
+      "name": "facet_counts",
+      "description": "Distinct values of an indexed payload field with their point counts (hits: [{value, count}])",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "key": {
+            "type": "string",
+            "description": "Payload field (must have a keyword/integer/bool index)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Qdrant filter, e.g. {\"must\": [{\"key\": \"city\", \"match\": {\"value\": \"Bandung\"}}], \"must_not\": [...], \"should\": [...]}"
+          },
+          "facet_limit": {
+            "type": "integer",
+            "description": "Maximum values (default 10)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "exact": {
+            "type": "boolean",
+            "description": "Exact counts (default false)"
+          },
+          "consistency": {
+            "type": "string",
+            "description": "Read consistency across replicas (default: one replica)",
+            "enum": [
+              "majority",
+              "quorum",
+              "all"
+            ]
+          }
+        },
+        "required": [
+          "collection_name",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "upsert_points",
+      "description": "Insert or overwrite points by id: [{\"id\": 1 | \"uuid\", \"vector\": [...] | {\"name\": [...]}, \"payload\": {...}}] (as an agent tool only when QDRANT_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "points": {
+            "type": "array",
+            "description": "Points to upsert",
+            "maxItems": 10000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "update_filter": {
+            "type": "object",
+            "description": "Only overwrite existing points matching this filter (new points are always inserted)"
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "Wait until the change is applied (false: return once queued)",
+            "default": true
+          }
+        },
+        "required": [
+          "collection_name",
+          "points"
+        ]
+      }
+    },
+    {
+      "name": "set_payload",
+      "description": "Merge payload fields into points chosen by ids or by a filter (other fields are kept) (as an agent tool only when QDRANT_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Fields to set, e.g. {\"status\": \"reviewed\"}"
+          },
+          "points": {
+            "type": "array",
+            "description": "Points to change (unsigned integers or UUID strings)",
+            "maxItems": 10000
+          },
+          "filter": {
+            "type": "object",
+            "description": "Change every point matching this filter instead of ids"
+          },
+          "key": {
+            "type": "string",
+            "description": "Set the payload under this nested key, e.g. meta.review"
+          },
+          "shard_key": {
+            "type": "string",
+            "description": "Shard key, for collections with custom sharding"
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "Wait until the change is applied (false: return once queued)",
+            "default": true
+          }
+        },
+        "required": [
+          "collection_name",
+          "payload"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Qdrant REST API endpoint that has no dedicated operation, e.g. path \"/collections/<collection_name>/optimizations\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/collections/<collection_name>/optimizations\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
