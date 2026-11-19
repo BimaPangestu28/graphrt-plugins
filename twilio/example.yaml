@@ -1,0 +1,14 @@
+# Check the account balance and validate a number with the free Lookup. Read-only, nothing is sent or billed.
+#   TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... graphrt run twilio/example.yaml --plugins .
+version: "1"
+name: twilio-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: balance, type: twilio.get_balance }
+    - { id: lookup, type: twilio.lookup_phone_number, phone_number: "+14155552671" }
+    - { id: answer, type: answer, answer: "Balance {{#balance.data.balance#}} {{#balance.data.currency#}}; +14155552671 valid: {{#lookup.data.valid#}}" }
+  edges:
+    - { source: start, target: balance }
+    - { source: balance, target: lookup }
+    - { source: lookup, target: answer }

@@ -1,0 +1,12 @@
+# Show the device's connection status and remaining quota. Read-only, nothing is sent.
+#   FONNTE_TOKEN=... graphrt run fonnte/example.yaml --plugins .
+version: "1"
+name: fonnte-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: device, type: fonnte.get_device }
+    - { id: answer, type: answer, answer: "Device {{#device.data.device#}} is {{#device.data.device_status#}}, quota {{#device.data.quota#}}, expires {{#device.data.expired#}}" }
+  edges:
+    - { source: start, target: device }
+    - { source: device, target: answer }

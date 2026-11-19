@@ -1,0 +1,561 @@
+{
+  "name": "wablas",
+  "version": "0.1.0",
+  "description": "Wablas WhatsApp gateway (Indonesia): send text, images, documents and videos to one number, message reports, cancel, device info; agent sends need an opt-in and an E.164 recipient allowlist",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "WABLAS_TOKEN",
+      "WABLAS_DOMAIN",
+      "WABLAS_SECRET_KEY",
+      "WABLAS_TOOL_RECIPIENT_ALLOWLIST",
+      "WABLAS_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "wablas.get_device_info",
+      "title": "Device info",
+      "description": "The device's name, sender number, connection status, remaining quota and expiry date",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wablas.list_message_reports",
+      "title": "Message reports",
+      "description": "Sent and received messages with their status (pending, sent, read, cancel), newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Only this number (digits with country code, e.g. 6281234567890)"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Only messages with this ref_id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sent",
+              "read",
+              "cancel"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "description": "Only this day, YYYY-MM-DD"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "One message id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perPage`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wablas.send_message",
+      "title": "Send message",
+      "description": "Send a WhatsApp text to one number (queued; paid from the device quota) (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Message text"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "phone",
+          "message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wablas.send_image",
+      "title": "Send image",
+      "description": "Send a WhatsApp image by URL to one number (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "image": {
+            "type": "string",
+            "description": "Public URL of a JPG or PNG (max 2 MB)"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (up to 1024 characters)"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "phone",
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wablas.send_document",
+      "title": "Send document",
+      "description": "Send a WhatsApp document by URL to one number (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "document": {
+            "type": "string",
+            "description": "Public URL of a doc, docx, pdf, odt, csv, ppt, pptx, xls, xlsx or txt file"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Document name / caption"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "phone",
+          "document"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wablas.send_video",
+      "title": "Send video",
+      "description": "Send a WhatsApp video by URL to one number (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "video": {
+            "type": "string",
+            "description": "Public URL of an MP4 video"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "phone",
+          "video",
+          "caption"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wablas.cancel_message",
+      "title": "Cancel message",
+      "description": "Cancel a pending message so it is not sent (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id from a send or a report"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wablas.resend_message",
+      "title": "Resend message",
+      "description": "Send a failed or pending message again",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id from a send or a report"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_device_info",
+      "description": "The device's name, sender number, connection status, remaining quota and expiry date",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_message_reports",
+      "description": "Sent and received messages with their status (pending, sent, read, cancel), newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Only this number (digits with country code, e.g. 6281234567890)"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Only messages with this ref_id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sent",
+              "read",
+              "cancel"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "description": "Only this day, YYYY-MM-DD"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "One message id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `perPage`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a WhatsApp text to one number (queued; paid from the device quota) (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Message text"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          }
+        },
+        "required": [
+          "phone",
+          "message"
+        ]
+      }
+    },
+    {
+      "name": "send_image",
+      "description": "Send a WhatsApp image by URL to one number (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "image": {
+            "type": "string",
+            "description": "Public URL of a JPG or PNG (max 2 MB)"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption (up to 1024 characters)"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          }
+        },
+        "required": [
+          "phone",
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "send_document",
+      "description": "Send a WhatsApp document by URL to one number (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "document": {
+            "type": "string",
+            "description": "Public URL of a doc, docx, pdf, odt, csv, ppt, pptx, xls, xlsx or txt file"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Document name / caption"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          }
+        },
+        "required": [
+          "phone",
+          "document"
+        ]
+      }
+    },
+    {
+      "name": "send_video",
+      "description": "Send a WhatsApp video by URL to one number (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "video": {
+            "type": "string",
+            "description": "Public URL of an MP4 video"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Your reference, to find the message in reports"
+          }
+        },
+        "required": [
+          "phone",
+          "video",
+          "caption"
+        ]
+      }
+    },
+    {
+      "name": "cancel_message",
+      "description": "Cancel a pending message so it is not sent (as an agent tool only when WABLAS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id from a send or a report"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      }
+    }
+  ]
+}

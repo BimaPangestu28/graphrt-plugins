@@ -1,0 +1,12 @@
+# Read the account balance. Read-only, nothing is sent or billed.
+#   VONAGE_API_KEY=... VONAGE_API_SECRET=... graphrt run vonage/example.yaml --plugins .
+version: "1"
+name: vonage-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: balance, type: vonage.get_balance }
+    - { id: answer, type: answer, answer: "Balance: {{#balance.data.value#}} EUR (auto-reload {{#balance.data.autoReload#}})" }
+  edges:
+    - { source: start, target: balance }
+    - { source: balance, target: answer }
