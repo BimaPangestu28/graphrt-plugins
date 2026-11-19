@@ -1,6 +1,6 @@
 {
   "name": "meta-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Facebook Page, Instagram, Messenger and Instagram Direct via the official Meta Graph API",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -15,7 +15,11 @@
       "META_ACCESS_TOKEN",
       "META_PAGE_ID",
       "META_IG_USER_ID",
-      "META_GRAPH_VERSION"
+      "META_GRAPH_VERSION",
+      "META_TOOL_ALLOW_POST",
+      "META_TOOL_ALLOW_ENGAGE",
+      "META_TOOL_ALLOW_DM",
+      "META_TOOL_RECIPIENT_ALLOWLIST"
     ]
   },
   "limits": {
@@ -107,7 +111,7 @@
     {
       "kind": "meta-api.create_page_post",
       "title": "Create Page post",
-      "description": "Publish (or schedule) a text and/or link post on the Facebook Page.",
+      "description": "Publish (or schedule) a text and/or link post on the Facebook Page. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -155,7 +159,7 @@
     {
       "kind": "meta-api.create_page_photo_post",
       "title": "Create Page photo post",
-      "description": "Publish a photo post on the Facebook Page from a public image URL.",
+      "description": "Publish a photo post on the Facebook Page from a public image URL. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -201,7 +205,7 @@
     {
       "kind": "meta-api.update_page_post",
       "title": "Update Page post",
-      "description": "Edit the text of a Page post this app created.",
+      "description": "Edit the text of a Page post this app created. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -338,7 +342,7 @@
     {
       "kind": "meta-api.reply_to_comment",
       "title": "Reply on Facebook",
-      "description": "Comment on a Page post or reply to a comment as the Page.",
+      "description": "Comment on a Page post or reply to a comment as the Page. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -381,7 +385,7 @@
     {
       "kind": "meta-api.set_comment_hidden",
       "title": "Hide/unhide Facebook comment",
-      "description": "Hide or unhide a comment on the Page.",
+      "description": "Hide or unhide a comment on the Page. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -453,7 +457,7 @@
     {
       "kind": "meta-api.like_comment",
       "title": "Like Facebook comment",
-      "description": "Like a comment as the Page.",
+      "description": "Like a comment as the Page. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -487,7 +491,7 @@
     {
       "kind": "meta-api.unlike_comment",
       "title": "Unlike Facebook comment",
-      "description": "Remove the Page's like from a comment.",
+      "description": "Remove the Page's like from a comment. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -633,7 +637,7 @@
     {
       "kind": "meta-api.publish_instagram_media",
       "title": "Publish to Instagram",
-      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total).",
+      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total). (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -799,7 +803,7 @@
     {
       "kind": "meta-api.reply_to_instagram_comment",
       "title": "Reply to Instagram comment",
-      "description": "Reply to a comment on the account's Instagram media.",
+      "description": "Reply to a comment on the account's Instagram media. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -838,7 +842,7 @@
     {
       "kind": "meta-api.set_instagram_comment_hidden",
       "title": "Hide/unhide Instagram comment",
-      "description": "Hide or unhide a comment on the account's Instagram media.",
+      "description": "Hide or unhide a comment on the account's Instagram media. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -1016,7 +1020,7 @@
     {
       "kind": "meta-api.send_message",
       "title": "Send message",
-      "description": "Send a Messenger or Instagram Direct message from the Page to a PSID/IGSID. Free-form only within 24 h of their last message; otherwise use MESSAGE_TAG + HUMAN_AGENT.",
+      "description": "Send a Messenger or Instagram Direct message from the Page to a PSID/IGSID. Free-form only within 24 h of their last message; otherwise use MESSAGE_TAG + HUMAN_AGENT. (as an agent tool only when META_TOOL_ALLOW_DM=1 and the recipient is in META_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -1191,7 +1195,7 @@
     },
     {
       "name": "create_page_post",
-      "description": "Publish (or schedule) a text and/or link post on the Facebook Page.",
+      "description": "Publish (or schedule) a text and/or link post on the Facebook Page. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1221,7 +1225,7 @@
     },
     {
       "name": "create_page_photo_post",
-      "description": "Publish a photo post on the Facebook Page from a public image URL.",
+      "description": "Publish a photo post on the Facebook Page from a public image URL. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1249,7 +1253,7 @@
     },
     {
       "name": "update_page_post",
-      "description": "Edit the text of a Page post this app created.",
+      "description": "Edit the text of a Page post this app created. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1264,22 +1268,6 @@
         "required": [
           "post_id",
           "message"
-        ]
-      }
-    },
-    {
-      "name": "delete_page_post",
-      "description": "Delete a Page post.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "post_id": {
-            "type": "string",
-            "description": "Post id, e.g. 1234_5678"
-          }
-        },
-        "required": [
-          "post_id"
         ]
       }
     },
@@ -1332,7 +1320,7 @@
     },
     {
       "name": "reply_to_comment",
-      "description": "Comment on a Page post or reply to a comment as the Page.",
+      "description": "Comment on a Page post or reply to a comment as the Page. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1357,7 +1345,7 @@
     },
     {
       "name": "set_comment_hidden",
-      "description": "Hide or unhide a comment on the Page.",
+      "description": "Hide or unhide a comment on the Page. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1376,24 +1364,8 @@
       }
     },
     {
-      "name": "delete_comment",
-      "description": "Delete a comment on the Page.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "comment_id": {
-            "type": "string",
-            "description": "Comment id"
-          }
-        },
-        "required": [
-          "comment_id"
-        ]
-      }
-    },
-    {
       "name": "like_comment",
-      "description": "Like a comment as the Page.",
+      "description": "Like a comment as the Page. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1409,7 +1381,7 @@
     },
     {
       "name": "unlike_comment",
-      "description": "Remove the Page's like from a comment.",
+      "description": "Remove the Page's like from a comment. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1483,7 +1455,7 @@
     },
     {
       "name": "publish_instagram_media",
-      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total).",
+      "description": "Publish an image, reel (VIDEO is published as REELS), story or carousel from public media URLs. Waits for Instagram to process the media (up to 6 minutes in total). (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1595,7 +1567,7 @@
     },
     {
       "name": "reply_to_instagram_comment",
-      "description": "Reply to a comment on the account's Instagram media.",
+      "description": "Reply to a comment on the account's Instagram media. (as an agent tool only when META_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1616,7 +1588,7 @@
     },
     {
       "name": "set_instagram_comment_hidden",
-      "description": "Hide or unhide a comment on the account's Instagram media.",
+      "description": "Hide or unhide a comment on the account's Instagram media. (as an agent tool only when META_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1631,22 +1603,6 @@
         "required": [
           "comment_id",
           "hidden"
-        ]
-      }
-    },
-    {
-      "name": "delete_instagram_comment",
-      "description": "Delete a comment on the account's Instagram media.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "comment_id": {
-            "type": "string",
-            "description": "Instagram comment id"
-          }
-        },
-        "required": [
-          "comment_id"
         ]
       }
     },
@@ -1722,7 +1678,7 @@
     },
     {
       "name": "send_message",
-      "description": "Send a Messenger or Instagram Direct message from the Page to a PSID/IGSID. Free-form only within 24 h of their last message; otherwise use MESSAGE_TAG + HUMAN_AGENT.",
+      "description": "Send a Messenger or Instagram Direct message from the Page to a PSID/IGSID. Free-form only within 24 h of their last message; otherwise use MESSAGE_TAG + HUMAN_AGENT. (as an agent tool only when META_TOOL_ALLOW_DM=1 and the recipient is in META_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {

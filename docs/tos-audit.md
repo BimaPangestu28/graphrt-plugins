@@ -169,7 +169,9 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - Both plugins use official Graph APIs only.
 - **Missing:** **fixed** for threads-api 0.3.0: publishing, replies and reposts need `THREADS_TOOL_ALLOW_POST=1` as
   agent tools, reply moderation needs `THREADS_TOOL_ALLOW_ENGAGE=1`, and `delete_thread` is node only.
-  meta-api: see below.
+  meta-api 0.2.0 (**fixed**): publishing and comment replies need `META_TOOL_ALLOW_POST=1`, comment moderation and
+  likes need `META_TOOL_ALLOW_ENGAGE=1`, `send_message` needs `META_TOOL_ALLOW_DM=1` and the recipient in
+  `META_TOOL_RECIPIENT_ALLOWLIST`, and deletes are node only.
 
 ## Marketplaces: shopee-api, tiktok-shop-api, lazada
 - **Risk: low** (official, partner-gated APIs). All three portals render with JavaScript only, so the terms text was
