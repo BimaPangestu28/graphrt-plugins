@@ -1,0 +1,2516 @@
+{
+  "name": "redis",
+  "version": "0.1.0",
+  "description": "Redis: binary-safe strings, hashes, lists, sets, sorted sets, streams, SCAN and publish, with an optional key prefix (agent tools read-only unless REDIS_TOOL_ALLOW_WRITES=1)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "REDIS_URL",
+      "REDIS_KEY_PREFIX",
+      "REDIS_TOOL_ALLOW_WRITES",
+      "REDIS_MAX_VALUE_BYTES",
+      "REDIS_MAX_RESULT_BYTES",
+      "REDIS_COMMAND_TIMEOUT_MS",
+      "REDIS_IDLE_MINUTES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 90000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "redis.get",
+      "title": "Get value",
+      "description": "Read a string value. Returns null when the key does not exist; values above REDIS_MAX_VALUE_BYTES come back cut, with `truncated: true`.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.mget",
+      "title": "Get values",
+      "description": "Read up to 100 string values. Keys that do not exist or hold another type give null. When the values together pass REDIS_MAX_RESULT_BYTES, the rest are listed in `omitted_keys`.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Keys (at most 100); binary keys as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.set",
+      "title": "Set value",
+      "description": "Write a string value, optionally with an expiry (`ex` seconds or `px` milliseconds) and only if it does not exist (`nx`) or already exists (`xx`). Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "value": {
+            "type": "string",
+            "description": "Value (text, or base64 with encoding: base64)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "ex": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000,
+            "description": "Expire after this many seconds"
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000000,
+            "description": "Expire after this many milliseconds"
+          },
+          "nx": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only set when the key does not exist"
+          },
+          "xx": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only set when the key already exists"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.del",
+      "title": "Delete keys",
+      "description": "Delete up to 100 keys. Returns how many existed. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Keys (at most 100); binary keys as {\"base64\": \"…\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.exists",
+      "title": "Keys exist",
+      "description": "Check up to 100 keys: returns which exist and how many.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Keys (at most 100); binary keys as {\"base64\": \"…\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.expire",
+      "title": "Set expiry",
+      "description": "Set a key's time to live in seconds (optionally only when it has none (NX), has one (XX), or the new one is greater (GT) or less (LT)). Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000,
+            "description": "Time to live"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "NX",
+              "XX",
+              "GT",
+              "LT"
+            ],
+            "description": "NX, XX, GT or LT (Redis 7+)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "seconds"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.ttl",
+      "title": "Time to live",
+      "description": "Read a key's remaining time to live in seconds (`exists: false` when the key is missing, `persistent: true` when it has no expiry).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.incr",
+      "title": "Increment",
+      "description": "Add 1 to an integer value (a missing key counts as 0). Returns the new value. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.incrby",
+      "title": "Increment by",
+      "description": "Add an integer (negative to subtract) to an integer value (a missing key counts as 0). Returns the new value. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "increment": {
+            "type": "integer",
+            "description": "Amount to add"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "increment"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.hget",
+      "title": "Get hash field",
+      "description": "Read one field of a hash. Returns null when the key or field does not exist. A field above REDIS_MAX_VALUE_BYTES is not read: value null, `truncated: true` and its `size`.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "field": {
+            "description": "Field name; a binary name as {\"base64\": \"…\"} or \"base64:<…>\""
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "field"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.hset",
+      "title": "Set hash fields",
+      "description": "Set one or more fields of a hash, e.g. {\"name\": \"Budi\", \"city\": \"Bandung\"}. Returns how many fields were new. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Field names to values (strings; base64 values with encoding: base64); at most 1000 fields"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.hgetall",
+      "title": "Get all hash fields",
+      "description": "Read a hash as an object (at most 1000 fields, read with HSCAN; larger hashes come back partially with `truncated: true`). Field names that are not UTF-8 appear as \"base64:<…>\".",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.hdel",
+      "title": "Delete hash fields",
+      "description": "Delete fields from a hash. Returns how many existed. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "fields": {
+            "type": "array",
+            "maxItems": 1000,
+            "description": "Field names (binary names as {\"base64\": \"…\"} or \"base64:<…>\")"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.lpush",
+      "title": "Push to list head",
+      "description": "Insert values at the head of a list (the last value ends up first). Returns the new length. At most 1000 values per call. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Values (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "values"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.rpush",
+      "title": "Push to list tail",
+      "description": "Append values to the tail of a list. Returns the new length. At most 1000 values per call. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Values (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "values"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.lrange",
+      "title": "List range",
+      "description": "Read list items from `start` to `stop` (inclusive, negative from the end); at most 1000 items, with next_cursor for the rest.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "start": {
+            "type": "integer",
+            "default": 0,
+            "description": "First index (negative counts from the end)"
+          },
+          "stop": {
+            "type": "integer",
+            "default": -1,
+            "description": "Last index, inclusive (-1 is the last item); at most 1000 items are returned"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.llen",
+      "title": "List length",
+      "description": "Number of items in a list (0 when the key does not exist).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.sadd",
+      "title": "Add to set",
+      "description": "Add members to a set. Returns how many were new. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Members (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.smembers",
+      "title": "Set members",
+      "description": "List a set's members (at most 1000; of a larger set, 1000 arbitrary members with `truncated: true`).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.srem",
+      "title": "Remove from set",
+      "description": "Remove members from a set. Returns how many were there. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Members (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.zadd",
+      "title": "Add to sorted set",
+      "description": "Add members with scores to a sorted set, e.g. [{\"member\": \"budi\", \"score\": 120}]. Returns how many were new (or changed, with `changed: true`). Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 1000,
+            "description": "Items {member, score}"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "NX",
+              "XX"
+            ],
+            "description": "NX: only add new members; XX: only update existing ones"
+          },
+          "comparison": {
+            "type": "string",
+            "enum": [
+              "GT",
+              "LT"
+            ],
+            "description": "Only update when the new score is greater (GT) or less (LT)"
+          },
+          "changed": {
+            "type": "boolean",
+            "default": false,
+            "description": "Count changed scores as well as new members"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.zrange",
+      "title": "Sorted set range",
+      "description": "Read sorted-set members by rank (`start`/`stop`) or, with `by_score`, by score (`min`/`max`, e.g. \"(10\" or \"+inf\"); lowest first unless `reverse`. At most 1000 members.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "start": {
+            "type": "integer",
+            "default": 0,
+            "description": "First index (negative counts from the end)"
+          },
+          "stop": {
+            "type": "integer",
+            "default": -1,
+            "description": "Last index, inclusive (-1 is the last item); at most 1000 items are returned"
+          },
+          "by_score": {
+            "type": "boolean",
+            "default": false,
+            "description": "Select by score between `min` and `max` instead of by rank"
+          },
+          "min": {
+            "type": "string",
+            "default": "-inf",
+            "description": "Lowest score with by_score (\"(5\" excludes 5)"
+          },
+          "max": {
+            "type": "string",
+            "default": "+inf",
+            "description": "Highest score with by_score"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "Highest score first"
+          },
+          "with_scores": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return {member, score} items instead of members"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.zrem",
+      "title": "Remove from sorted set",
+      "description": "Remove members from a sorted set. Returns how many were there. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Members (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.scan",
+      "title": "Scan keys",
+      "description": "List keys in pages with SCAN (never KEYS): pass `match` (glob, e.g. \"cart:*\"), `count` as a hint and the returned next_cursor to continue. Keys are returned without REDIS_KEY_PREFIX.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "default": "0",
+            "description": "`next_cursor` from the previous page; \"0\" starts"
+          },
+          "match": {
+            "type": "string",
+            "description": "Glob pattern within the prefix, e.g. \"order:*\""
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "How much work SCAN does per page (a hint; a page may hold more or fewer keys)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "list",
+              "set",
+              "zset",
+              "hash",
+              "stream"
+            ],
+            "description": "Only keys of this type"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.publish",
+      "title": "Publish message",
+      "description": "Publish a message on a pub/sub channel (REDIS_KEY_PREFIX is added to the channel). Returns how many subscribers received it. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Channel name"
+          },
+          "message": {
+            "type": "string",
+            "description": "Message (text, or base64 with encoding: base64)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.xadd",
+      "title": "Add stream entry",
+      "description": "Append an entry {field: value} to a stream, optionally trimming it to about `max_length` entries. Returns the new entry id. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Entry fields, e.g. {\"order\": \"A-12\", \"status\": \"paid\"} (at most 1000)"
+          },
+          "id": {
+            "type": "string",
+            "default": "*",
+            "description": "Entry id; \"*\" lets Redis choose"
+          },
+          "max_length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000000,
+            "description": "Trim the stream to about this many entries (MAXLEN ~)"
+          },
+          "no_create": {
+            "type": "boolean",
+            "default": false,
+            "description": "Do not create the stream when it does not exist"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.xrange",
+      "title": "Read stream range",
+      "description": "Read stream entries between `start` and `end` ids (\"-\" and \"+\" for the ends), oldest first unless `reverse`. Pass next_cursor back as `start` (or `end` when reversed) for the next page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "start": {
+            "type": "string",
+            "default": "-",
+            "description": "First id (\"-\" for the oldest; \"(id\" excludes it)"
+          },
+          "end": {
+            "type": "string",
+            "default": "+",
+            "description": "Last id (\"+\" for the newest)"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Entries to return"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "Newest first (XREVRANGE)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.xreadgroup",
+      "title": "Read stream as consumer",
+      "description": "Read entries for a consumer of a consumer group (never blocks). `id` \">\" gets new entries (and records them as pending for this consumer); \"0\" re-reads this consumer's pending entries. Counts as a write because it changes the group's state. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "group": {
+            "type": "string",
+            "description": "Consumer group"
+          },
+          "consumer": {
+            "type": "string",
+            "description": "Consumer name (created on first use)"
+          },
+          "id": {
+            "type": "string",
+            "default": ">",
+            "description": "\">\" for new entries, or an id to read pending entries after it"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10,
+            "description": "Entries to return"
+          },
+          "no_ack": {
+            "type": "boolean",
+            "default": false,
+            "description": "Acknowledge the returned entries right away (no xack needed). Entries the size cap leaves out stay pending and are listed in `pending_ids`."
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "group",
+          "consumer"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.xgroup_create",
+      "title": "Create consumer group",
+      "description": "Create a consumer group on a stream, starting at `id` (\"$\" for only new entries, \"0\" for the whole stream). Creates the stream when missing unless `create_stream` is false. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "group": {
+            "type": "string",
+            "description": "Consumer group"
+          },
+          "id": {
+            "type": "string",
+            "default": "$",
+            "description": "\"$\" (new entries only), \"0\" (everything) or an entry id"
+          },
+          "create_stream": {
+            "type": "boolean",
+            "default": true,
+            "description": "Create an empty stream when the key does not exist (MKSTREAM)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "group"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.xack",
+      "title": "Acknowledge stream entries",
+      "description": "Acknowledge entries a consumer group has processed, so they leave the pending list. Returns how many were pending. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "group": {
+            "type": "string",
+            "description": "Consumer group"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Entry ids"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "key",
+          "group",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "redis.command",
+      "title": "Run Redis command",
+      "description": "Workflow nodes only: run one Redis command given as name + argument array, e.g. {\"command\": \"HINCRBY\", \"args\": [\"stats\", \"views\", 1]}. Dangerous, scripting, blocking and connection-state commands are refused.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Command name, e.g. \"ZSCORE\" or \"OBJECT\""
+          },
+          "args": {
+            "type": "array",
+            "maxItems": 1000,
+            "description": "Arguments (strings or numbers), never a joined string"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "command"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get",
+      "description": "Read a string value. Returns null when the key does not exist; values above REDIS_MAX_VALUE_BYTES come back cut, with `truncated: true`.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "mget",
+      "description": "Read up to 100 string values. Keys that do not exist or hold another type give null. When the values together pass REDIS_MAX_RESULT_BYTES, the rest are listed in `omitted_keys`.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Keys (at most 100); binary keys as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      }
+    },
+    {
+      "name": "set",
+      "description": "Write a string value, optionally with an expiry (`ex` seconds or `px` milliseconds) and only if it does not exist (`nx`) or already exists (`xx`). Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "value": {
+            "type": "string",
+            "description": "Value (text, or base64 with encoding: base64)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          },
+          "ex": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000,
+            "description": "Expire after this many seconds"
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000000,
+            "description": "Expire after this many milliseconds"
+          },
+          "nx": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only set when the key does not exist"
+          },
+          "xx": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only set when the key already exists"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    },
+    {
+      "name": "del",
+      "description": "Delete up to 100 keys. Returns how many existed. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Keys (at most 100); binary keys as {\"base64\": \"…\"}"
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      }
+    },
+    {
+      "name": "exists",
+      "description": "Check up to 100 keys: returns which exist and how many.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Keys (at most 100); binary keys as {\"base64\": \"…\"}"
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      }
+    },
+    {
+      "name": "expire",
+      "description": "Set a key's time to live in seconds (optionally only when it has none (NX), has one (XX), or the new one is greater (GT) or less (LT)). Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000,
+            "description": "Time to live"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "NX",
+              "XX",
+              "GT",
+              "LT"
+            ],
+            "description": "NX, XX, GT or LT (Redis 7+)"
+          }
+        },
+        "required": [
+          "key",
+          "seconds"
+        ]
+      }
+    },
+    {
+      "name": "ttl",
+      "description": "Read a key's remaining time to live in seconds (`exists: false` when the key is missing, `persistent: true` when it has no expiry).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "incr",
+      "description": "Add 1 to an integer value (a missing key counts as 0). Returns the new value. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "incrby",
+      "description": "Add an integer (negative to subtract) to an integer value (a missing key counts as 0). Returns the new value. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "increment": {
+            "type": "integer",
+            "description": "Amount to add"
+          }
+        },
+        "required": [
+          "key",
+          "increment"
+        ]
+      }
+    },
+    {
+      "name": "hget",
+      "description": "Read one field of a hash. Returns null when the key or field does not exist. A field above REDIS_MAX_VALUE_BYTES is not read: value null, `truncated: true` and its `size`.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "field": {
+            "description": "Field name; a binary name as {\"base64\": \"…\"} or \"base64:<…>\""
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "field"
+        ]
+      }
+    },
+    {
+      "name": "hset",
+      "description": "Set one or more fields of a hash, e.g. {\"name\": \"Budi\", \"city\": \"Bandung\"}. Returns how many fields were new. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Field names to values (strings; base64 values with encoding: base64); at most 1000 fields"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "hgetall",
+      "description": "Read a hash as an object (at most 1000 fields, read with HSCAN; larger hashes come back partially with `truncated: true`). Field names that are not UTF-8 appear as \"base64:<…>\".",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "hdel",
+      "description": "Delete fields from a hash. Returns how many existed. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "fields": {
+            "type": "array",
+            "maxItems": 1000,
+            "description": "Field names (binary names as {\"base64\": \"…\"} or \"base64:<…>\")"
+          }
+        },
+        "required": [
+          "key",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "lpush",
+      "description": "Insert values at the head of a list (the last value ends up first). Returns the new length. At most 1000 values per call. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Values (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "values"
+        ]
+      }
+    },
+    {
+      "name": "rpush",
+      "description": "Append values to the tail of a list. Returns the new length. At most 1000 values per call. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Values (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "values"
+        ]
+      }
+    },
+    {
+      "name": "lrange",
+      "description": "Read list items from `start` to `stop` (inclusive, negative from the end); at most 1000 items, with next_cursor for the rest.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "start": {
+            "type": "integer",
+            "default": 0,
+            "description": "First index (negative counts from the end)"
+          },
+          "stop": {
+            "type": "integer",
+            "default": -1,
+            "description": "Last index, inclusive (-1 is the last item); at most 1000 items are returned"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "llen",
+      "description": "Number of items in a list (0 when the key does not exist).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "sadd",
+      "description": "Add members to a set. Returns how many were new. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Members (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      }
+    },
+    {
+      "name": "smembers",
+      "description": "List a set's members (at most 1000; of a larger set, 1000 arbitrary members with `truncated: true`).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "srem",
+      "description": "Remove members from a set. Returns how many were there. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Members (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      }
+    },
+    {
+      "name": "zadd",
+      "description": "Add members with scores to a sorted set, e.g. [{\"member\": \"budi\", \"score\": 120}]. Returns how many were new (or changed, with `changed: true`). Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 1000,
+            "description": "Items {member, score}"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "NX",
+              "XX"
+            ],
+            "description": "NX: only add new members; XX: only update existing ones"
+          },
+          "comparison": {
+            "type": "string",
+            "enum": [
+              "GT",
+              "LT"
+            ],
+            "description": "Only update when the new score is greater (GT) or less (LT)"
+          },
+          "changed": {
+            "type": "boolean",
+            "default": false,
+            "description": "Count changed scores as well as new members"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      }
+    },
+    {
+      "name": "zrange",
+      "description": "Read sorted-set members by rank (`start`/`stop`) or, with `by_score`, by score (`min`/`max`, e.g. \"(10\" or \"+inf\"); lowest first unless `reverse`. At most 1000 members.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "start": {
+            "type": "integer",
+            "default": 0,
+            "description": "First index (negative counts from the end)"
+          },
+          "stop": {
+            "type": "integer",
+            "default": -1,
+            "description": "Last index, inclusive (-1 is the last item); at most 1000 items are returned"
+          },
+          "by_score": {
+            "type": "boolean",
+            "default": false,
+            "description": "Select by score between `min` and `max` instead of by rank"
+          },
+          "min": {
+            "type": "string",
+            "default": "-inf",
+            "description": "Lowest score with by_score (\"(5\" excludes 5)"
+          },
+          "max": {
+            "type": "string",
+            "default": "+inf",
+            "description": "Highest score with by_score"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "Highest score first"
+          },
+          "with_scores": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return {member, score} items instead of members"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "zrem",
+      "description": "Remove members from a sorted set. Returns how many were there. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Members (at most 1000)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "members"
+        ]
+      }
+    },
+    {
+      "name": "scan",
+      "description": "List keys in pages with SCAN (never KEYS): pass `match` (glob, e.g. \"cart:*\"), `count` as a hint and the returned next_cursor to continue. Keys are returned without REDIS_KEY_PREFIX.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "default": "0",
+            "description": "`next_cursor` from the previous page; \"0\" starts"
+          },
+          "match": {
+            "type": "string",
+            "description": "Glob pattern within the prefix, e.g. \"order:*\""
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "How much work SCAN does per page (a hint; a page may hold more or fewer keys)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "list",
+              "set",
+              "zset",
+              "hash",
+              "stream"
+            ],
+            "description": "Only keys of this type"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "publish",
+      "description": "Publish a message on a pub/sub channel (REDIS_KEY_PREFIX is added to the channel). Returns how many subscribers received it. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Channel name"
+          },
+          "message": {
+            "type": "string",
+            "description": "Message (text, or base64 with encoding: base64)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "channel",
+          "message"
+        ]
+      }
+    },
+    {
+      "name": "xadd",
+      "description": "Append an entry {field: value} to a stream, optionally trimming it to about `max_length` entries. Returns the new entry id. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Entry fields, e.g. {\"order\": \"A-12\", \"status\": \"paid\"} (at most 1000)"
+          },
+          "id": {
+            "type": "string",
+            "default": "*",
+            "description": "Entry id; \"*\" lets Redis choose"
+          },
+          "max_length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000000,
+            "description": "Trim the stream to about this many entries (MAXLEN ~)"
+          },
+          "no_create": {
+            "type": "boolean",
+            "default": false,
+            "description": "Do not create the stream when it does not exist"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "xrange",
+      "description": "Read stream entries between `start` and `end` ids (\"-\" and \"+\" for the ends), oldest first unless `reverse`. Pass next_cursor back as `start` (or `end` when reversed) for the next page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "start": {
+            "type": "string",
+            "default": "-",
+            "description": "First id (\"-\" for the oldest; \"(id\" excludes it)"
+          },
+          "end": {
+            "type": "string",
+            "default": "+",
+            "description": "Last id (\"+\" for the newest)"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Entries to return"
+          },
+          "reverse": {
+            "type": "boolean",
+            "default": false,
+            "description": "Newest first (XREVRANGE)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "xreadgroup",
+      "description": "Read entries for a consumer of a consumer group (never blocks). `id` \">\" gets new entries (and records them as pending for this consumer); \"0\" re-reads this consumer's pending entries. Counts as a write because it changes the group's state. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "group": {
+            "type": "string",
+            "description": "Consumer group"
+          },
+          "consumer": {
+            "type": "string",
+            "description": "Consumer name (created on first use)"
+          },
+          "id": {
+            "type": "string",
+            "default": ">",
+            "description": "\">\" for new entries, or an id to read pending entries after it"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10,
+            "description": "Entries to return"
+          },
+          "no_ack": {
+            "type": "boolean",
+            "default": false,
+            "description": "Acknowledge the returned entries right away (no xack needed). Entries the size cap leaves out stay pending and are listed in `pending_ids`."
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "`utf8` (text; values that are not valid UTF-8 come back as {\"base64\": \"…\"}) or `base64` (binary)"
+          }
+        },
+        "required": [
+          "key",
+          "group",
+          "consumer"
+        ]
+      }
+    },
+    {
+      "name": "xgroup_create",
+      "description": "Create a consumer group on a stream, starting at `id` (\"$\" for only new entries, \"0\" for the whole stream). Creates the stream when missing unless `create_stream` is false. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "group": {
+            "type": "string",
+            "description": "Consumer group"
+          },
+          "id": {
+            "type": "string",
+            "default": "$",
+            "description": "\"$\" (new entries only), \"0\" (everything) or an entry id"
+          },
+          "create_stream": {
+            "type": "boolean",
+            "default": true,
+            "description": "Create an empty stream when the key does not exist (MKSTREAM)"
+          }
+        },
+        "required": [
+          "key",
+          "group"
+        ]
+      }
+    },
+    {
+      "name": "xack",
+      "description": "Acknowledge entries a consumer group has processed, so they leave the pending list. Returns how many were pending. Agent tool calls need REDIS_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key (REDIS_KEY_PREFIX is added in front); a binary key as {\"base64\": \"…\"}"
+          },
+          "group": {
+            "type": "string",
+            "description": "Consumer group"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Entry ids"
+          }
+        },
+        "required": [
+          "key",
+          "group",
+          "ids"
+        ]
+      }
+    }
+  ]
+}

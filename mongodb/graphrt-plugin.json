@@ -1,0 +1,1294 @@
+{
+  "name": "mongodb",
+  "version": "0.1.0",
+  "description": "MongoDB: find, count, distinct and aggregate with Extended JSON, list databases and collections, and insert/update/replace/delete (agent tools read-only unless MONGODB_TOOL_ALLOW_WRITES=1)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MONGODB_URL",
+      "MONGODB_DATABASE",
+      "MONGODB_TOOL_ALLOW_WRITES",
+      "MONGODB_TOOL_ALLOWED_DATABASES",
+      "MONGODB_MAX_RESULT_BYTES",
+      "MONGODB_IDLE_MINUTES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 100000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "mongodb.find",
+      "title": "Find documents",
+      "description": "Find documents in a collection with an Extended JSON filter, projection and sort. Returns up to `limit` documents (max 1000, and at most MONGODB_MAX_RESULT_BYTES) and a next_cursor for the next page.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "projection": {
+            "type": "object",
+            "description": "Fields to return, e.g. {\"name\": 1, \"total\": 1, \"_id\": 0}"
+          },
+          "sort": {
+            "type": "object",
+            "description": "Sort order, e.g. {\"created\": -1}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Documents to return (max 1000)"
+          },
+          "skip": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000,
+            "description": "Documents to skip"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page (replaces skip)"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.find_one",
+      "title": "Find one document",
+      "description": "Return the first document that matches an Extended JSON filter (optionally sorted and projected), or null.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "projection": {
+            "type": "object",
+            "description": "Fields to return, e.g. {\"name\": 1, \"total\": 1, \"_id\": 0}"
+          },
+          "sort": {
+            "type": "object",
+            "description": "Sort order, e.g. {\"created\": -1}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.count",
+      "title": "Count documents",
+      "description": "Count the documents that match an Extended JSON filter (an empty filter counts the whole collection).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.distinct",
+      "title": "Distinct values",
+      "description": "List the distinct values of a field (dotted paths allowed) among documents that match a filter; at most 1000 values.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Field name, e.g. \"status\" or \"address.city\""
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "field"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.aggregate",
+      "title": "Aggregate",
+      "description": "Run an aggregation pipeline (Extended JSON stages) on a collection and return up to `limit` documents. Agent tool calls may only use allowlisted stages and operators (no JavaScript, no $out), and $merge only with MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "pipeline": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            },
+            "description": "Stages, e.g. [{\"$match\": {\"status\": \"paid\"}}, {\"$group\": {\"_id\": \"$city\", \"total\": {\"$sum\": \"$amount\"}}}]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Documents to return (max 1000)"
+          },
+          "allow_disk_use": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let large $sort/$group stages spill to disk"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "pipeline"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.list_databases",
+      "title": "List databases",
+      "description": "List the databases the connection's user may see, with their size on disk. Agent tool calls only see the databases they may use.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.list_collections",
+      "title": "List collections",
+      "description": "List the collections and views in a database (at most 1000 names).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.insert_one",
+      "title": "Insert document",
+      "description": "Insert one document (Extended JSON). Returns its _id. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "document": {
+            "type": "object",
+            "description": "Document in Extended JSON, e.g. {\"name\": \"Budi\", \"joined\": {\"$date\": \"2026-11-19T00:00:00Z\"}, \"balance\": {\"$numberDecimal\": \"10.50\"}}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "document"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.insert_many",
+      "title": "Insert documents",
+      "description": "Insert up to 1000 documents (Extended JSON). Returns their _ids. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "documents": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            },
+            "description": "Documents to insert"
+          },
+          "ordered": {
+            "type": "boolean",
+            "default": true,
+            "description": "Stop at the first error (true) or insert the rest anyway (false)"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "documents"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.update_one",
+      "title": "Update document",
+      "description": "Apply update operators ($set, $inc, $push…) to the first document that matches the filter. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "update": {
+            "type": "object",
+            "description": "Update operators in Extended JSON, e.g. {\"$set\": {\"status\": \"shipped\"}, \"$inc\": {\"stock\": -1}}"
+          },
+          "upsert": {
+            "type": "boolean",
+            "default": false,
+            "description": "Insert a document when nothing matches"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "filter",
+          "update"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.update_many",
+      "title": "Update documents",
+      "description": "Apply update operators to every document that matches the filter. An empty filter needs `allow_all: true` (workflow nodes only). Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "update": {
+            "type": "object",
+            "description": "Update operators in Extended JSON, e.g. {\"$set\": {\"status\": \"shipped\"}, \"$inc\": {\"stock\": -1}}"
+          },
+          "upsert": {
+            "type": "boolean",
+            "default": false,
+            "description": "Insert a document when nothing matches"
+          },
+          "allow_all": {
+            "type": "boolean",
+            "default": false,
+            "description": "Required (workflow nodes only) to run with an empty filter, which matches every document"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "filter",
+          "update"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.replace_one",
+      "title": "Replace document",
+      "description": "Replace the first document that matches the filter with a new document (no update operators). Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "replacement": {
+            "type": "object",
+            "description": "Document in Extended JSON, e.g. {\"name\": \"Budi\", \"joined\": {\"$date\": \"2026-11-19T00:00:00Z\"}, \"balance\": {\"$numberDecimal\": \"10.50\"}}"
+          },
+          "upsert": {
+            "type": "boolean",
+            "default": false,
+            "description": "Insert a document when nothing matches"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "filter",
+          "replacement"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.delete_one",
+      "title": "Delete document",
+      "description": "Delete the first document that matches the filter. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "filter"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mongodb.delete_many",
+      "title": "Delete documents",
+      "description": "Delete every document that matches the filter. An empty filter needs `allow_all: true` (workflow nodes only). Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "allow_all": {
+            "type": "boolean",
+            "default": false,
+            "description": "Required (workflow nodes only) to run with an empty filter, which matches every document"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection",
+          "filter"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "find",
+      "description": "Find documents in a collection with an Extended JSON filter, projection and sort. Returns up to `limit` documents (max 1000, and at most MONGODB_MAX_RESULT_BYTES) and a next_cursor for the next page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "projection": {
+            "type": "object",
+            "description": "Fields to return, e.g. {\"name\": 1, \"total\": 1, \"_id\": 0}"
+          },
+          "sort": {
+            "type": "object",
+            "description": "Sort order, e.g. {\"created\": -1}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Documents to return (max 1000)"
+          },
+          "skip": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000,
+            "description": "Documents to skip"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "`next_cursor` from the previous page (replaces skip)"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "find_one",
+      "description": "Return the first document that matches an Extended JSON filter (optionally sorted and projected), or null.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "projection": {
+            "type": "object",
+            "description": "Fields to return, e.g. {\"name\": 1, \"total\": 1, \"_id\": 0}"
+          },
+          "sort": {
+            "type": "object",
+            "description": "Sort order, e.g. {\"created\": -1}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "count",
+      "description": "Count the documents that match an Extended JSON filter (an empty filter counts the whole collection).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection"
+        ]
+      }
+    },
+    {
+      "name": "distinct",
+      "description": "List the distinct values of a field (dotted paths allowed) among documents that match a filter; at most 1000 values.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Field name, e.g. \"status\" or \"address.city\""
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "field"
+        ]
+      }
+    },
+    {
+      "name": "aggregate",
+      "description": "Run an aggregation pipeline (Extended JSON stages) on a collection and return up to `limit` documents. Agent tool calls may only use allowlisted stages and operators (no JavaScript, no $out), and $merge only with MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "pipeline": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            },
+            "description": "Stages, e.g. [{\"$match\": {\"status\": \"paid\"}}, {\"$group\": {\"_id\": \"$city\", \"total\": {\"$sum\": \"$amount\"}}}]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Documents to return (max 1000)"
+          },
+          "allow_disk_use": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let large $sort/$group stages spill to disk"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "pipeline"
+        ]
+      }
+    },
+    {
+      "name": "list_databases",
+      "description": "List the databases the connection's user may see, with their size on disk. Agent tool calls only see the databases they may use.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "list_collections",
+      "description": "List the collections and views in a database (at most 1000 names).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          }
+        }
+      }
+    },
+    {
+      "name": "insert_one",
+      "description": "Insert one document (Extended JSON). Returns its _id. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "document": {
+            "type": "object",
+            "description": "Document in Extended JSON, e.g. {\"name\": \"Budi\", \"joined\": {\"$date\": \"2026-11-19T00:00:00Z\"}, \"balance\": {\"$numberDecimal\": \"10.50\"}}"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "document"
+        ]
+      }
+    },
+    {
+      "name": "insert_many",
+      "description": "Insert up to 1000 documents (Extended JSON). Returns their _ids. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "documents": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            },
+            "description": "Documents to insert"
+          },
+          "ordered": {
+            "type": "boolean",
+            "default": true,
+            "description": "Stop at the first error (true) or insert the rest anyway (false)"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "documents"
+        ]
+      }
+    },
+    {
+      "name": "update_one",
+      "description": "Apply update operators ($set, $inc, $push…) to the first document that matches the filter. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "update": {
+            "type": "object",
+            "description": "Update operators in Extended JSON, e.g. {\"$set\": {\"status\": \"shipped\"}, \"$inc\": {\"stock\": -1}}"
+          },
+          "upsert": {
+            "type": "boolean",
+            "default": false,
+            "description": "Insert a document when nothing matches"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "filter",
+          "update"
+        ]
+      }
+    },
+    {
+      "name": "update_many",
+      "description": "Apply update operators to every document that matches the filter. An empty filter needs `allow_all: true` (workflow nodes only). Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "update": {
+            "type": "object",
+            "description": "Update operators in Extended JSON, e.g. {\"$set\": {\"status\": \"shipped\"}, \"$inc\": {\"stock\": -1}}"
+          },
+          "upsert": {
+            "type": "boolean",
+            "default": false,
+            "description": "Insert a document when nothing matches"
+          },
+          "allow_all": {
+            "type": "boolean",
+            "default": false,
+            "description": "Required (workflow nodes only) to run with an empty filter, which matches every document"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "filter",
+          "update"
+        ]
+      }
+    },
+    {
+      "name": "replace_one",
+      "description": "Replace the first document that matches the filter with a new document (no update operators). Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "replacement": {
+            "type": "object",
+            "description": "Document in Extended JSON, e.g. {\"name\": \"Budi\", \"joined\": {\"$date\": \"2026-11-19T00:00:00Z\"}, \"balance\": {\"$numberDecimal\": \"10.50\"}}"
+          },
+          "upsert": {
+            "type": "boolean",
+            "default": false,
+            "description": "Insert a document when nothing matches"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "filter",
+          "replacement"
+        ]
+      }
+    },
+    {
+      "name": "delete_one",
+      "description": "Delete the first document that matches the filter. Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "filter"
+        ]
+      }
+    },
+    {
+      "name": "delete_many",
+      "description": "Delete every document that matches the filter. An empty filter needs `allow_all: true` (workflow nodes only). Agent tool calls need MONGODB_TOOL_ALLOW_WRITES=1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name; defaults to MONGODB_DATABASE or the database in the connection string"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Query filter in Extended JSON, e.g. {\"status\": \"paid\", \"_id\": {\"$oid\": \"65a1f0c2e4b0a1b2c3d4e5f6\"}, \"created\": {\"$gte\": {\"$date\": \"2026-01-01T00:00:00Z\"}}}. Required: pass {} on purpose to match any document"
+          },
+          "allow_all": {
+            "type": "boolean",
+            "default": false,
+            "description": "Required (workflow nodes only) to run with an empty filter, which matches every document"
+          },
+          "max_time_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000,
+            "default": 15000,
+            "description": "Server-side time limit (maxTimeMS) in milliseconds"
+          }
+        },
+        "required": [
+          "collection",
+          "filter"
+        ]
+      }
+    }
+  ]
+}

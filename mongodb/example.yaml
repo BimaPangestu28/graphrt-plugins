@@ -1,0 +1,20 @@
+# Read the newest paid orders (read-only).
+#   MONGODB_URL="mongodb://app:<password>@127.0.0.1:27017/shop" graphrt run mongodb/example.yaml --plugins .
+version: "1"
+name: mongodb-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: total, type: mongodb.count, collection: orders, filter: { status: paid } }
+    - id: latest
+      type: mongodb.find
+      collection: orders
+      filter: { status: paid }
+      projection: { _id: 0, number: 1, total: 1, created: 1 }
+      sort: { created: -1 }
+      limit: 5
+    - { id: answer, type: answer, answer: "{{#total.data.count#}} paid orders; newest: {{#latest.data.documents#}}" }
+  edges:
+    - { source: start, target: total }
+    - { source: total, target: latest }
+    - { source: latest, target: answer }

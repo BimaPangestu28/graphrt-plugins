@@ -1,0 +1,16 @@
+# Count a page view and read the leaderboard (the node writes; agent tools would need REDIS_TOOL_ALLOW_WRITES=1).
+#   REDIS_URL="redis://:<password>@127.0.0.1:6379/0" REDIS_KEY_PREFIX="demo:" graphrt run redis/example.yaml --plugins .
+version: "1"
+name: redis-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: views, type: redis.incr, key: "views:home" }
+    - { id: score, type: redis.zadd, key: leaderboard, members: [{ member: budi, score: 120 }, { member: sari, score: 99 }] }
+    - { id: top, type: redis.zrange, key: leaderboard, start: 0, stop: 2, reverse: true, with_scores: true }
+    - { id: answer, type: answer, answer: "Home views: {{#views.data.value#}}. Top: {{#top.data.members#}}" }
+  edges:
+    - { source: start, target: views }
+    - { source: views, target: score }
+    - { source: score, target: top }
+    - { source: top, target: answer }

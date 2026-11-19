@@ -27,6 +27,8 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [airtable-api](airtable-api/) | Airtable: list bases and schemas, list/find/get records (safely escaped formulas), create, update and upsert records (deletes are node only) | 10 |
 | [google-calendar](google-calendar/) | Google Calendar: events with Meet links, free/busy and DST-aware free-slot search, idempotent booking; agent tools limited to allowed calendars (OAuth or service account) | 10 |
 | [web-browser](web-browser/) | Read public web pages in a headless browser: readable text or markdown, links, CSS-selector extraction and screenshots; public hosts only (no loopback, private or metadata addresses), robots.txt respected, no clicking or typing | 4 |
+| [mongodb](mongodb/) | MongoDB: find, count, distinct and aggregate with Extended JSON, list databases and collections, insert/update/replace/delete; agent tools read-only unless opted in, never server-side JavaScript | 14 |
+| [redis](redis/) | Redis: binary-safe strings, hashes, lists, sets, sorted sets, streams, SCAN and publish with an optional key prefix; agent tools read-only unless opted in, a node-only `command` escape hatch with a denylist | 31 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).

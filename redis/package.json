@@ -1,0 +1,15 @@
+{
+  "name": "graphrt-plugin-redis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: binary-safe Redis strings, hashes, lists, sets, sorted sets, streams and pub/sub with key-prefix isolation",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@ioredis/commands": "2.0.0",
+    "ioredis": "6.0.0"
+  }
+}
