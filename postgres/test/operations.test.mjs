@@ -25,7 +25,7 @@ test("manifest: five operations are tools, connection and policy env declared, n
 
 test("query runs in a READ ONLY transaction with a local statement timeout, rolls back and discards session state", () =>
   withRunner({ scenario: { cursorFields: ITEM_FIELDS, cursorRows: [["1", "kopi", Buffer.from([1, 2, 255])]] } }, async ({ runOperation, log }) => {
-    const output = await runOperation("query", { sql: "SELECT id, name, raw FROM items WHERE name = $1", params: ["kopi"], timeout_ms: 1500 }, AS_TOOL);
+    const output = await runOperation("query", { sql: "SELECT id, name, raw FROM items WHERE name = $1", params: ["kopi"], statement_timeout_ms: 1500 }, AS_TOOL);
     assert.deepEqual(queryTexts(log), [
       "SELECT current_setting('is_superuser') = 'on' AS is_superuser",
       "BEGIN READ ONLY",
@@ -79,7 +79,7 @@ test("a write inside query is refused by the database and reported as permission
 
 test("statement timeout from the server maps to kind timeout", () =>
   withRunner({ scenario: { cursorError: sqlError("57014", "canceling statement due to statement timeout") } }, async ({ runOperation }) => {
-    await assert.rejects(runOperation("query", { sql: "SELECT pg_sleep(10)", timeout_ms: 200 }, AS_TOOL), { kind: "timeout", message: /200 ms/ });
+    await assert.rejects(runOperation("query", { sql: "SELECT pg_sleep(10)", statement_timeout_ms: 200 }, AS_TOOL), { kind: "timeout", message: /200 ms/ });
   }));
 
 test("execute is refused for agent tool calls unless POSTGRES_TOOL_ALLOW_WRITES=1, before connecting", () =>

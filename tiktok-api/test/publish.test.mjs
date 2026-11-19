@@ -8,7 +8,7 @@ const describeCalls = (calls) => calls.map((call) => `${call.method} ${call.path
 test("publish_video direct: creator info, init, then polls until PUBLISH_COMPLETE", async () => {
   const { output, calls } = await runWithResponses(
     "publish_video",
-    { video_url: "https://cdn.example.com/a.mp4", title: "hello #fyp", privacy_level: "SELF_ONLY", disable_duet: true, is_aigc: true },
+    { video_url: "https://cdn.example.com/a.mp4", post_title: "hello #fyp", privacy_level: "SELF_ONLY", disable_duet: true, is_aigc: true },
     [
       CREATOR_INFO,
       openOk({ publish_id: "pub1" }),
@@ -73,7 +73,7 @@ test("publish_photos direct posts photos from URLs with a cover index", async ()
   const photoUrls = ["https://cdn.example.com/1.jpg", "https://cdn.example.com/2.jpg"];
   const { output, calls } = await runWithResponses(
     "publish_photos",
-    { photo_urls: photoUrls, title: "trip", description: "day one", privacy_level: "PUBLIC_TO_EVERYONE", photo_cover_index: 1, auto_add_music: true },
+    { photo_urls: photoUrls, post_title: "trip", description: "day one", privacy_level: "PUBLIC_TO_EVERYONE", photo_cover_index: 1, auto_add_music: true },
     [CREATOR_INFO, openOk({ publish_id: "ph1" }), openOk({ status: "PUBLISH_COMPLETE", publicaly_available_post_id: [9] })],
   );
   assert.deepEqual(describeCalls(calls), [
@@ -161,7 +161,7 @@ test("a transient 502 while polling does not abort a publish that succeeds", asy
 });
 
 for (const [label, extraArgs] of [
-  ["title", { title: "caption" }],
+  ["post_title", { post_title: "caption" }],
   ["privacy_level", { privacy_level: "SELF_ONLY" }],
   ["disable_comment", { disable_comment: true }],
 ]) {

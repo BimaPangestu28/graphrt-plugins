@@ -11,7 +11,7 @@ import { replyOperations } from "./operations/replies.mjs";
 
 export const pluginDefinition = {
   name: "threads-api",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "Threads profiles, posts, publishing, replies, mentions and search via the official Threads API",
   tokenEnv: "THREADS_ACCESS_TOKEN",
   extraEnv: [],

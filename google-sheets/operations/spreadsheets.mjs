@@ -45,14 +45,14 @@ function buildCreateBody(args) {
   const sheetTitles = args.sheet_titles ?? [];
   if (new Set(sheetTitles).size !== sheetTitles.length) rejectInput("`sheet_titles` must not repeat a title");
   return {
-    properties: { title: args.title, locale: args.locale, timeZone: args.time_zone },
+    properties: { title: args.spreadsheet_title, locale: args.locale, timeZone: args.time_zone },
     sheets: sheetTitles.length > 0 ? sheetTitles.map((sheetTitle) => ({ properties: { title: sheetTitle } })) : undefined,
   };
 }
 
 function buildAddSheetRequest(args) {
   const gridProperties = args.row_count || args.column_count ? { rowCount: args.row_count, columnCount: args.column_count } : undefined;
-  return { requests: [{ addSheet: { properties: { title: args.title, index: args.index, gridProperties } } }] };
+  return { requests: [{ addSheet: { properties: { title: args.sheet_title, index: args.index, gridProperties } } }] };
 }
 
 export const spreadsheetOperations = [
@@ -73,16 +73,16 @@ export const spreadsheetOperations = [
     parameters: {
       type: "object",
       properties: {
-        title: { type: "string", minLength: 1, description: "Spreadsheet title" },
+        spreadsheet_title: { type: "string", minLength: 1, description: "Spreadsheet title" },
         sheet_titles: { type: "array", items: { type: "string" }, maxItems: MAX_SHEET_TITLES, description: "Sheet (tab) titles; default one sheet named Sheet1" },
         locale: { type: "string", description: "Locale, e.g. id_ID or en_US (affects number and date parsing)" },
         time_zone: { type: "string", description: "Time zone, e.g. Asia/Jakarta" },
       },
-      required: ["title"],
+      required: ["spreadsheet_title"],
     },
     run: async ({ client, args, signal }) => {
       const pendingCreate = client.request({ method: "POST", path: "/spreadsheets", json: buildCreateBody(args), signal });
-      const spreadsheet = await withWriteOutcomeHint(pendingCreate, `look for a spreadsheet titled ${JSON.stringify(args.title)} in Google Drive before creating another`);
+      const spreadsheet = await withWriteOutcomeHint(pendingCreate, `look for a spreadsheet titled ${JSON.stringify(args.spreadsheet_title)} in Google Drive before creating another`);
       return { data: summarizeSpreadsheet(spreadsheet) };
     },
   },
@@ -94,12 +94,12 @@ export const spreadsheetOperations = [
       type: "object",
       properties: {
         spreadsheet_id: SPREADSHEET_ID_PROPERTY,
-        title: { type: "string", minLength: 1, description: "New sheet title" },
+        sheet_title: { type: "string", minLength: 1, description: "New sheet (tab) title" },
         index: { type: "integer", minimum: 0, description: "Position among the tabs (0 = first); default last" },
         row_count: { type: "integer", minimum: 1, maximum: 1000000, description: "Rows (default 1000)" },
         column_count: { type: "integer", minimum: 1, maximum: 18278, description: "Columns (default 26)" },
       },
-      required: ["spreadsheet_id", "title"],
+      required: ["spreadsheet_id", "sheet_title"],
     },
     run: async ({ client, args, signal }) => {
       const pendingAdd = client.request({ method: "POST", path: `${spreadsheetPath(args.spreadsheet_id)}:batchUpdate`, json: buildAddSheetRequest(args), signal });

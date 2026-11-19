@@ -34,7 +34,7 @@ export const publishingOperations = [
       properties: {
         video_url: { type: "string", minLength: 1, description: "Public video URL on a domain verified for the app" },
         mode: { type: "string", enum: ["direct", "inbox"], default: "direct" },
-        title: { type: "string", description: "Caption with #hashtags and @mentions (direct only; inbox drafts are captioned in the TikTok app)" },
+        post_title: { type: "string", description: "Caption with #hashtags and @mentions, sent as post_info.title (direct only; inbox drafts are captioned in the TikTok app)" },
         privacy_level: PRIVACY_LEVEL_PROPERTY,
         disable_comment: { type: "boolean" },
         disable_duet: { type: "boolean" },
@@ -59,7 +59,7 @@ export const publishingOperations = [
       properties: {
         photo_urls: stringListProperty("1-35 public image URLs (one URL may be passed as a plain string)", MAX_PHOTOS),
         mode: { type: "string", enum: ["direct", "upload"], default: "direct" },
-        title: { type: "string" },
+        post_title: { type: "string", description: "Post title, sent as post_info.title" },
         description: { type: "string", description: "Post text with #hashtags and @mentions" },
         privacy_level: PRIVACY_LEVEL_PROPERTY,
         photo_cover_index: { type: "integer", minimum: 0, default: 0, description: "Index of the cover photo in photo_urls" },
@@ -81,7 +81,7 @@ export const publishingOperations = [
 ];
 
 const DIRECT_VIDEO_FIELDS = [
-  "title",
+  "post_title",
   "privacy_level",
   "disable_comment",
   "disable_duet",
@@ -119,7 +119,7 @@ async function publishPhotos({ client, args: rawArgs, environment, signal }) {
   validatePhotoArguments(args);
   const isDirect = args.mode === "direct";
   if (isDirect) await assertPrivacyLevelAllowed(client, args.privacy_level, signal);
-  const postInfoFields = ["title", "description", ...(isDirect ? ["privacy_level"] : []), "disable_comment", "auto_add_music"];
+  const postInfoFields = ["post_title", "description", ...(isDirect ? ["privacy_level"] : []), "disable_comment", "auto_add_music"];
   const requestBody = {
     media_type: "PHOTO",
     post_mode: isDirect ? "DIRECT_POST" : "MEDIA_UPLOAD",
@@ -205,6 +205,13 @@ function describePublish(publishId, statusResult) {
   };
 }
 
+// graphrt takes `title` from workflow nodes, so the caption arrives as `post_title` and is renamed for TikTok.
+const POST_INFO_WIRE_NAMES = { post_title: "title" };
+
 function pickDefined(source, fieldNames) {
-  return Object.fromEntries(fieldNames.filter((fieldName) => source[fieldName] !== undefined).map((fieldName) => [fieldName, source[fieldName]]));
+  return Object.fromEntries(
+    fieldNames
+      .filter((fieldName) => source[fieldName] !== undefined)
+      .map((fieldName) => [POST_INFO_WIRE_NAMES[fieldName] ?? fieldName, source[fieldName]]),
+  );
 }

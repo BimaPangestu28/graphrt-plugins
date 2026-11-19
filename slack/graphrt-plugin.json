@@ -722,9 +722,9 @@
             "type": "string",
             "description": "File name shown in Slack (default: the source file's name)"
           },
-          "title": {
+          "file_title": {
             "type": "string",
-            "description": "File title"
+            "description": "File title shown in Slack (sent as `title`; default: the file name)"
           },
           "channel_id": {
             "type": "string",
@@ -1287,9 +1287,9 @@
             "type": "string",
             "description": "File name shown in Slack (default: the source file's name)"
           },
-          "title": {
+          "file_title": {
             "type": "string",
-            "description": "File title"
+            "description": "File title shown in Slack (sent as `title`; default: the file name)"
           },
           "channel_id": {
             "type": "string",

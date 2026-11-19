@@ -1134,7 +1134,7 @@
             "default": 100,
             "description": "How much work SCAN does per page (a hint; a page may hold more or fewer keys)"
           },
-          "type": {
+          "key_type": {
             "type": "string",
             "enum": [
               "string",
@@ -1144,7 +1144,7 @@
               "hash",
               "stream"
             ],
-            "description": "Only keys of this type"
+            "description": "Only keys of this type (sent as SCAN ... TYPE)"
           },
           "encoding": {
             "type": "string",
@@ -1238,7 +1238,7 @@
             "type": "object",
             "description": "Entry fields, e.g. {\"order\": \"A-12\", \"status\": \"paid\"} (at most 1000)"
           },
-          "id": {
+          "entry_id": {
             "type": "string",
             "default": "*",
             "description": "Entry id; \"*\" lets Redis choose"
@@ -1369,7 +1369,7 @@
             "type": "string",
             "description": "Consumer name (created on first use)"
           },
-          "id": {
+          "start_id": {
             "type": "string",
             "default": ">",
             "description": "\">\" for new entries, or an id to read pending entries after it"
@@ -1434,7 +1434,7 @@
             "type": "string",
             "description": "Consumer group"
           },
-          "id": {
+          "start_id": {
             "type": "string",
             "default": "$",
             "description": "\"$\" (new entries only), \"0\" (everything) or an entry id"
@@ -2256,7 +2256,7 @@
             "default": 100,
             "description": "How much work SCAN does per page (a hint; a page may hold more or fewer keys)"
           },
-          "type": {
+          "key_type": {
             "type": "string",
             "enum": [
               "string",
@@ -2266,7 +2266,7 @@
               "hash",
               "stream"
             ],
-            "description": "Only keys of this type"
+            "description": "Only keys of this type (sent as SCAN ... TYPE)"
           },
           "encoding": {
             "type": "string",
@@ -2324,7 +2324,7 @@
             "type": "object",
             "description": "Entry fields, e.g. {\"order\": \"A-12\", \"status\": \"paid\"} (at most 1000)"
           },
-          "id": {
+          "entry_id": {
             "type": "string",
             "default": "*",
             "description": "Entry id; \"*\" lets Redis choose"
@@ -2419,7 +2419,7 @@
             "type": "string",
             "description": "Consumer name (created on first use)"
           },
-          "id": {
+          "start_id": {
             "type": "string",
             "default": ">",
             "description": "\">\" for new entries, or an id to read pending entries after it"
@@ -2466,7 +2466,7 @@
             "type": "string",
             "description": "Consumer group"
           },
-          "id": {
+          "start_id": {
             "type": "string",
             "default": "$",
             "description": "\"$\" (new entries only), \"0\" (everything) or an entry id"

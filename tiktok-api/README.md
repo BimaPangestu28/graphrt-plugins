@@ -88,7 +88,7 @@ graphrt run tiktok-api/example.yaml --plugins .
 - id: post
   type: tiktok-api.publish_video
   video_url: "https://media.example.com/clips/launch.mp4"
-  title: "Launch day #fyp"
+  post_title: "Launch day #fyp"
   privacy_level: SELF_ONLY
 - id: reply
   type: tiktok-api.reply_to_comment
@@ -107,7 +107,7 @@ graphrt run tiktok-api/example.yaml --plugins .
   5xx or network error like any read; they are never reported as a write with an unknown outcome.
 - **Publishing modes:**
   - `publish_video`: `mode: direct` (the default) needs `privacy_level`. `mode: inbox` sends a draft that the creator
-    finishes in the app; it takes only `video_url` (and `wait`). Post settings such as `title` or `privacy_level` fail
+    finishes in the app; it takes only `video_url` (and `wait`). Post settings such as `post_title` or `privacy_level` fail
     with `invalid_input` instead of being dropped, because inbox drafts are captioned and configured in the TikTok app.
   - `publish_photos`: `mode: direct` or `mode: upload`.
   - With `wait: false` the operation returns the `publish_id` right away. Check it later with `get_publish_status`.
@@ -130,6 +130,10 @@ TikTok's messages are kept, with the code and `log_id` / `request_id` for suppor
 ## Development
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
+
+## Changelog
+### 0.2.0
+- **Breaking:** `publish_video` and `publish_photos` parameter `title` is now `post_title` (still sent to TikTok as `post_info.title`). graphrt takes `title` from every workflow node, so the old name was silently dropped on nodes (posts went out without a caption); tool calls that passed `title` must use `post_title`.
 
 ## License
 Apache-2.0

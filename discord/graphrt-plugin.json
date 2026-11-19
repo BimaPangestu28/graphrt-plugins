@@ -848,9 +848,9 @@
             "type": "string",
             "minLength": 1
           },
-          "type": {
+          "thread_type": {
             "type": "integer",
-            "description": "11 public thread, 12 private thread",
+            "description": "11 public thread, 12 private thread (sent as `type`)",
             "enum": [
               11,
               12
@@ -1409,9 +1409,9 @@
             "type": "string",
             "minLength": 1
           },
-          "type": {
+          "thread_type": {
             "type": "integer",
-            "description": "11 public thread, 12 private thread",
+            "description": "11 public thread, 12 private thread (sent as `type`)",
             "enum": [
               11,
               12

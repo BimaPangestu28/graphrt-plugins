@@ -115,7 +115,7 @@ test("scan uses MATCH with the escaped prefix, strips it, never sends KEYS", asy
     environment: { REDIS_KEY_PREFIX: "shop[1]:" },
     responders: { scan: () => [Buffer.from("42"), bulk("shop[1]:cart:1", "shop[1]:cart:2")] },
   });
-  const output = await runOperation("scan", { match: "cart:*", count: 50, type: "string" }, AS_TOOL);
+  const output = await runOperation("scan", { match: "cart:*", count: 50, key_type: "string" }, AS_TOOL);
   assert.deepEqual(state.commands[0], ["scan", "0", "MATCH", "shop\\[1\\]:cart:*", "COUNT", "50", "TYPE", "string"]);
   assert.deepEqual(output.data.keys, ["cart:1", "cart:2"]);
   assert.equal(output.next_cursor, "42");
@@ -265,6 +265,17 @@ test("xreadgroup never blocks and decodes entries", async () => {
   assert.deepEqual(state.commands[0], ["xreadgroup", "GROUP", "workers", "w1", "COUNT", "5", "STREAMS", "s", ">"]);
   assert.ok(!state.commands[0].includes("BLOCK"));
   assert.deepEqual(output.data.entries, [{ id: "5-0", fields: { job: "send" } }]);
+});
+
+test("stream ids are set with entry_id (xadd) and start_id (xreadgroup, xgroup_create); graphrt reserves `id`", async () => {
+  const { runOperation, state } = createTestRunner({ responders: { xreadgroup: () => null } });
+  await runOperation("xadd", { key: "s", fields: { a: "1" }, entry_id: "1700000000000-5" });
+  await runOperation("xreadgroup", { key: "s", group: "g", consumer: "c", start_id: "0" });
+  await runOperation("xgroup_create", { key: "s", group: "g", start_id: "0" });
+  assert.equal(state.commands[0].at(-3), "1700000000000-5");
+  assert.equal(state.commands[1].at(-1), "0");
+  assert.deepEqual(state.commands[2].slice(1, 5), ["CREATE", "s", "g", "0"]);
+  await assert.rejects(runOperation("xadd", { key: "s", fields: { a: "1" }, entry_id: "bad id" }), { kind: "invalid_input", message: /`entry_id`/ });
 });
 
 test("xgroup_create maps BUSYGROUP to conflict; NOGROUP is not_found", async () => {

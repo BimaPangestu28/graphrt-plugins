@@ -158,7 +158,7 @@ const writeOperations = [
     params: {
       channel_id: CHANNEL_ID,
       name: { in: "body", type: "string", required: true, minLength: 1 },
-      type: { in: "body", type: "integer", enum: [11, 12], default: 11, description: "11 public thread, 12 private thread" },
+      thread_type: { in: "body", type: "integer", enum: [11, 12], default: 11, wireName: "type", description: "11 public thread, 12 private thread (sent as `type`)" },
       auto_archive_duration: autoArchive,
       invitable: { in: "body", type: "boolean", description: "Private threads: whether non-moderators can add members" },
     },

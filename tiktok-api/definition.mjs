@@ -24,7 +24,7 @@ const API_SELECTOR_PROPERTY = {
 
 export const pluginDefinition = {
   name: "tiktok-api",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "TikTok profile, videos and Content Posting (Open API), plus comments and DMs (Business API), via the official TikTok APIs",
   tokenEnv: "TIKTOK_ACCESS_TOKEN",
   extraEnv: ["TIKTOK_BUSINESS_ACCESS_TOKEN", "TIKTOK_BUSINESS_ID", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"],

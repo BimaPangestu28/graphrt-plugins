@@ -6,7 +6,7 @@ const IMAGE_RESPONSE = { body: "JPEGBYTES", headers: { "content-type": "image/jp
 const UPLOAD_RESPONSE = { body: { id: "media-1" } };
 
 test("upload_media downloads without credentials, then uploads multipart to /{phone-number-id}/media", async () => {
-  const { output, calls, rawBodies } = await runWithResponses("upload_media", { url: "https://img.test/a.jpg", type: "image" }, [IMAGE_RESPONSE, UPLOAD_RESPONSE]);
+  const { output, calls, rawBodies } = await runWithResponses("upload_media", { url: "https://img.test/a.jpg", media_type: "image" }, [IMAGE_RESPONSE, UPLOAD_RESPONSE]);
   assert.deepEqual(
     calls.map((call) => `${call.method} ${call.url}`),
     ["GET https://img.test/a.jpg", "POST https://graph.facebook.com/v26.0/111/media"],
@@ -25,7 +25,7 @@ test("upload_media downloads without credentials, then uploads multipart to /{ph
 });
 
 test("upload_media uses mime_type when the server sends a generic content type", async () => {
-  const { rawBodies } = await runWithResponses("upload_media", { url: "https://files.test/inv.pdf", type: "document", mime_type: "application/pdf", filename: "inv.pdf" }, [
+  const { rawBodies } = await runWithResponses("upload_media", { url: "https://files.test/inv.pdf", media_type: "document", mime_type: "application/pdf", filename: "inv.pdf" }, [
     { body: "%PDF", headers: { "content-type": "application/octet-stream" } },
     UPLOAD_RESPONSE,
   ]);
@@ -34,14 +34,14 @@ test("upload_media uses mime_type when the server sends a generic content type",
 });
 
 test("upload_media only downloads https URLs", async () => {
-  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "http://img.test/a.jpg", type: "image" }, []), "invalid_input", /https/);
-  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "not a url", type: "image" }, []), "invalid_input", /url/);
+  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "http://img.test/a.jpg", media_type: "image" }, []), "invalid_input", /https/);
+  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "not a url", media_type: "image" }, []), "invalid_input", /url/);
 });
 
 test("upload_media rejects a content type that does not fit the media type", async () => {
   await rejectsWithKind(
     assert,
-    runWithResponses("upload_media", { url: "https://img.test/page", type: "image" }, [{ body: "<html>", headers: { "content-type": "text/html" } }]),
+    runWithResponses("upload_media", { url: "https://img.test/page", media_type: "image" }, [{ body: "<html>", headers: { "content-type": "text/html" } }]),
     "invalid_input",
     /text\/html/,
   );
@@ -54,18 +54,18 @@ for (const [mediaType, mimeType, limitText, oversizedBytes] of [
 ]) {
   test(`upload_media rejects ${mediaType} over ${limitText}, by header and by actual size`, async () => {
     const oversizedHeader = { body: "small", headers: { "content-type": mimeType, "content-length": String(oversizedBytes) } };
-    await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://f.test/x", type: mediaType }, [oversizedHeader]), "invalid_input", new RegExp(limitText));
+    await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://f.test/x", media_type: mediaType }, [oversizedHeader]), "invalid_input", new RegExp(limitText));
     const oversizedBody = { body: "x".repeat(oversizedBytes), headers: { "content-type": mimeType } };
-    await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://f.test/x", type: mediaType }, [oversizedBody]), "invalid_input", new RegExp(limitText));
+    await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://f.test/x", media_type: mediaType }, [oversizedBody]), "invalid_input", new RegExp(limitText));
   });
 }
 
 test("upload_media reports a failed download", async () => {
-  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/missing.jpg", type: "image" }, [{ status: 404, body: "nope" }]), "invalid_input", /404/);
+  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/missing.jpg", media_type: "image" }, [{ status: 404, body: "nope" }]), "invalid_input", /404/);
 });
 
 test("upload_media fails when WhatsApp returns no media id", async () => {
-  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/a.jpg", type: "image" }, [IMAGE_RESPONSE, { body: {} }]), "api_error", /media id/);
+  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/a.jpg", media_type: "image" }, [IMAGE_RESPONSE, { body: {} }]), "api_error", /media id/);
 });
 
 test("upload_media gives the upload POST a longer timeout than the 30 s default", async () => {
@@ -77,7 +77,7 @@ test("upload_media gives the upload POST a longer timeout than the 30 s default"
     request: async (requestOptions) => (requests.push(requestOptions), { id: "media-1" }),
     resolveHostAddresses: createFakeResolver(),
   };
-  await uploadOperation.run({ client: fakeClient, args: { url: "https://cdn.example.com/a.png", type: "image" }, environment: { WHATSAPP_PHONE_NUMBER_ID: "123" } });
+  await uploadOperation.run({ client: fakeClient, args: { url: "https://cdn.example.com/a.png", media_type: "image" }, environment: { WHATSAPP_PHONE_NUMBER_ID: "123" } });
   assert.ok(UPLOAD_TIMEOUT_MS > 30000);
   assert.equal(requests[0].timeoutMs, UPLOAD_TIMEOUT_MS);
 });
@@ -102,7 +102,7 @@ test("a download that stalls mid-body becomes network_error, and a cancel mid-bo
 });
 
 test("upload_media ignores mime_type when the server reports a specific type", async () => {
-  const { rawBodies, output } = await runWithResponses("upload_media", { url: "https://img.test/a", type: "image", mime_type: "image/jpeg" }, [
+  const { rawBodies, output } = await runWithResponses("upload_media", { url: "https://img.test/a", media_type: "image", mime_type: "image/jpeg" }, [
     { body: "PNG", headers: { "content-type": "image/png" } },
     UPLOAD_RESPONSE,
   ]);
@@ -110,7 +110,7 @@ test("upload_media ignores mime_type when the server reports a specific type", a
   assert.equal(output.data.mime_type, "image/png");
   await rejectsWithKind(
     assert,
-    runWithResponses("upload_media", { url: "https://img.test/page", type: "image", mime_type: "image/jpeg" }, [{ body: "<html>", headers: { "content-type": "text/html" } }]),
+    runWithResponses("upload_media", { url: "https://img.test/page", media_type: "image", mime_type: "image/jpeg" }, [{ body: "<html>", headers: { "content-type": "text/html" } }]),
     "invalid_input",
     /text\/html/,
   );
@@ -125,10 +125,10 @@ test("upload_media uses mime_type when the server reports no content type", asyn
 
 test("upload_media accepts the image types the Cloud API lists: JPEG, PNG and static WebP", async () => {
   for (const mimeType of ["image/jpeg", "image/png", "image/webp"]) {
-    const { rawBodies } = await runWithResponses("upload_media", { url: "https://img.test/a", type: "image" }, [{ body: "x", headers: { "content-type": mimeType } }, UPLOAD_RESPONSE]);
+    const { rawBodies } = await runWithResponses("upload_media", { url: "https://img.test/a", media_type: "image" }, [{ body: "x", headers: { "content-type": mimeType } }, UPLOAD_RESPONSE]);
     assert.equal(rawBodies[1].get("type"), mimeType);
   }
-  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/a", type: "image" }, [{ body: "x", headers: { "content-type": "image/gif" } }]), "invalid_input", /image\/gif/);
+  await rejectsWithKind(assert, runWithResponses("upload_media", { url: "https://img.test/a", media_type: "image" }, [{ body: "x", headers: { "content-type": "image/gif" } }]), "invalid_input", /image\/gif/);
 });
 
 test("upload_media gives the default file name an extension from the MIME type", async () => {
@@ -138,13 +138,13 @@ test("upload_media gives the default file name an extension from the MIME type",
     ["document", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "upload.docx"],
     ["sticker", "image/webp", "upload.webp"],
   ]) {
-    const { rawBodies } = await runWithResponses("upload_media", { url: "https://f.test/download", type: mediaType }, [{ body: "x", headers: { "content-type": mimeType } }, UPLOAD_RESPONSE]);
+    const { rawBodies } = await runWithResponses("upload_media", { url: "https://f.test/download", media_type: mediaType }, [{ body: "x", headers: { "content-type": mimeType } }, UPLOAD_RESPONSE]);
     assert.equal(rawBodies[1].get("file").name, expectedName, mimeType);
   }
 });
 
 test("upload_media follows redirects by hand, checking every hop", async () => {
-  const { calls } = await runWithResponses("upload_media", { url: "https://img.test/a.jpg", type: "image" }, [
+  const { calls } = await runWithResponses("upload_media", { url: "https://img.test/a.jpg", media_type: "image" }, [
     { status: 302, body: "", headers: { location: "https://cdn.test/real.jpg" } },
     IMAGE_RESPONSE,
     UPLOAD_RESPONSE,
@@ -163,7 +163,7 @@ for (const [label, url, responses, addressesByHost, expectedMessage] of [
   test(`upload_media refuses ${label} with invalid_input`, async () => {
     await rejectsWithKind(
       assert,
-      runWithResponses("upload_media", { url, type: "image" }, responses, undefined, createFakeResolver(addressesByHost)),
+      runWithResponses("upload_media", { url, media_type: "image" }, responses, undefined, createFakeResolver(addressesByHost)),
       "invalid_input",
       expectedMessage,
     );

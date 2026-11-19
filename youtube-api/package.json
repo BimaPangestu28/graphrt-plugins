@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-youtube-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "graphrt plugin: YouTube channel, videos, comments and live chat via the YouTube Data API v3",
   "type": "module",

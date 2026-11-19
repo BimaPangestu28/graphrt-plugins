@@ -35,7 +35,7 @@ test("real server: write as node, read-only query as tool (DML and DDL refused),
     await assert.rejects(runOperation("query", { sql: `CREATE TABLE ${tableName}_evil (x INT)` }, asTool), { kind: "permission_denied" });
     await assert.rejects(runOperation("query", { sql: "SELECT 1; SELECT 2" }, asTool), { kind: "invalid_input" });
     await assert.rejects(
-      runOperation("query", { sql: "SELECT count(*) FROM information_schema.COLUMNS a, information_schema.COLUMNS b, information_schema.COLUMNS c", timeout_ms: 200 }, asTool),
+      runOperation("query", { sql: "SELECT count(*) FROM information_schema.COLUMNS a, information_schema.COLUMNS b, information_schema.COLUMNS c", statement_timeout_ms: 200 }, asTool),
       { kind: "timeout" },
     );
     const count = await runOperation("query", { sql: `SELECT count(*) AS n FROM ${tableName}` }, asTool);

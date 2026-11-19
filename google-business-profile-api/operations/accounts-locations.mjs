@@ -98,14 +98,14 @@ export const accountLocationOperations = [
       type: "object",
       properties: {
         parent_account: { type: "string", description: "Organization or user group account id, to list the accounts under it" },
-        type: { type: "string", enum: ["PERSONAL", "LOCATION_GROUP", "USER_GROUP", "ORGANIZATION"], description: "Only accounts of this type" },
+        account_type: { type: "string", enum: ["PERSONAL", "LOCATION_GROUP", "USER_GROUP", "ORGANIZATION"], description: "Only accounts of this type (sent as the `type=` filter)" },
         ...paginationProperties(20, 20),
       },
     },
     run: async ({ client, args, signal }) => {
       const query = {
         parentAccount: args.parent_account === undefined ? undefined : `accounts/${normalizeResourceId(args.parent_account, "accounts", "parent_account")}`,
-        filter: args.type === undefined ? undefined : `type=${args.type}`,
+        filter: args.account_type === undefined ? undefined : `type=${args.account_type}`,
         pageSize: args.limit,
         pageToken: args.cursor,
       };

@@ -23,7 +23,7 @@ function buildUploadForm(fileBlob, filename) {
 
 async function uploadMediaFromUrl({ client, args, environment, signal }) {
   const path = `/${pathSegment(phoneNumberIdOf(args, environment))}/media`;
-  const downloadOptions = { url: args.url, mediaType: args.type, mimeTypeOverride: args.mime_type, signal, resolveHostAddresses: client.resolveHostAddresses };
+  const downloadOptions = { url: args.url, mediaType: args.media_type, mimeTypeOverride: args.mime_type, signal, resolveHostAddresses: client.resolveHostAddresses };
   const fileBlob = await downloadMedia(client.fetchImpl, downloadOptions);
   // No json/form option: the client passes the FormData through and fetch sets the multipart boundary.
   const uploadResponse = await client.request({
@@ -47,12 +47,12 @@ export const mediaOperations = [
       type: "object",
       properties: {
         url: { type: "string", description: "Public https URL of the file" },
-        type: { type: "string", enum: Object.keys(MEDIA_RULES), description: "How the file will be sent" },
+        media_type: { type: "string", enum: Object.keys(MEDIA_RULES), description: "How the file will be sent (image, video, audio, document or sticker)" },
         mime_type: { type: "string", description: "MIME type to use when the server reports no Content-Type or application/octet-stream (ignored otherwise)" },
         filename: { type: "string", description: "File name for the upload (default: upload.<extension from the MIME type>)" },
         phone_number_id: PHONE_NUMBER_ID_PROPERTY,
       },
-      required: ["url", "type"],
+      required: ["url", "media_type"],
     },
     run: uploadMediaFromUrl,
   },

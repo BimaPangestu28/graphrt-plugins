@@ -120,5 +120,9 @@ TikTok Shop's message is kept, together with the code and `request_id` for suppo
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `send_message` parameter `type` is now `message_type` (still sent to TikTok Shop as `type`). graphrt takes `type` from every workflow node, so the old name was silently dropped on nodes (every node message was TEXT); tool calls that passed `type` must use `message_type`.
+
 ## License
 Apache-2.0

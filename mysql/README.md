@@ -37,7 +37,7 @@ Without `node_modules/`, every operation fails with `setup_required`.
 | `MYSQL_URL` | (none) | Connection URL, e.g. `mysql://app:secret@db.example.com:3306/shop?ssl-mode=VERIFY_IDENTITY` (`mariadb://` works too). Percent-encode special characters. Only `ssl-mode` / `sslmode` is read from the query string; other parameters are ignored. |
 | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` | port `3306` | Used when `MYSQL_URL` is unset |
 | `MYSQL_SSL_MODE` | `disable` | `disable`, `require` (TLS without certificate checks) or `verify-full`; MySQL's `DISABLED`, `REQUIRED` and `VERIFY_IDENTITY` work too |
-| `MYSQL_STATEMENT_TIMEOUT_MS` | `30000` | Default statement timeout (100 to 600000). Nodes may pass any `timeout_ms`; for agent tool calls this value is also the ceiling. |
+| `MYSQL_STATEMENT_TIMEOUT_MS` | `30000` | Default statement timeout (100 to 600000). Nodes may pass any `statement_timeout_ms`; for agent tool calls this value is also the ceiling. |
 | `MYSQL_CONNECT_TIMEOUT_MS` | `10000` | Connect timeout |
 | `MYSQL_MAX_RESULT_BYTES` | `1000000` | Most JSON bytes of returned rows per call (1000 to 8000000) |
 | `MYSQL_POOL_MAX` | `4` | Connections per pool |
@@ -107,7 +107,7 @@ graphrt run mysql/example.yaml --plugins .
   - Reads set `max_execution_time` (MySQL) or `max_statement_time` (MariaDB), which stops long SELECTs
     (`timeout`). MySQL's `SLEEP()` is the exception: when interrupted it returns `1` instead of failing.
   - Statements the server timeout does not cover (non-SELECT, and every `execute`) get `KILL QUERY` from the plugin
-    5 s past `timeout_ms`.
+    5 s past `statement_timeout_ms`.
   - Cancelling the run or a passed tool deadline also sends `KILL QUERY`, on a separate connection, and discards
     the pooled one. A read that was killed is always reported as `cancelled` or `timeout`, never as a result.
 - **No retries for writes:** `execute` never retries. If the connection is lost or the call is cancelled, the error
@@ -125,7 +125,7 @@ graphrt run mysql/example.yaml --plugins .
 | `permission_denied` | A write or DDL in a read-only call (1792), missing privileges (1044, 1142, 1227, ...), `--secure-file-priv` (1290), `execute` from a tool without the opt-in, or `CALL` in an agent `query` |
 | `invalid_input` | Bad arguments, syntax errors, several statements, data or constraint errors (SQLSTATE classes 21, 22, 23, 42) |
 | `not_found` | Unknown database, table or function; `describe_table` on a missing table |
-| `timeout` | `max_execution_time` / `max_statement_time` reached (3024, 1969), or killed by the plugin 5 s past `timeout_ms` |
+| `timeout` | `max_execution_time` / `max_statement_time` reached (3024, 1969), or killed by the plugin 5 s past `statement_timeout_ms` |
 | `cancelled` | The run was cancelled or the tool deadline passed |
 | `rate_limited` | Too many connections (1040, 1203), retryable |
 | `setup_required` | No connection configured, or `npm install` not run |
@@ -137,6 +137,10 @@ graphrt run mysql/example.yaml --plugins .
 MYSQL_INTEGRATION_URL=mysql://scratch_user:pass@127.0.0.1:3306/scratch node --test test/integration.test.mjs
 ```
 Use a throwaway database and a user with ALL on it only (no global privileges). The tests create `graphrt_it_<random>` tables and a procedure there and drop them again; they never cancel queries (no `KILL`).
+
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** the `query`, `execute` and `explain` parameter `timeout_ms` is now `statement_timeout_ms`. graphrt takes `timeout_ms` from every workflow node as the node's own run timeout, so the old name never reached the plugin from a node (it limited the whole node instead of the statement); tool calls that passed `timeout_ms` must use `statement_timeout_ms`. A node may still set graphrt's `timeout_ms` alongside it.
 
 ## License
 Apache-2.0

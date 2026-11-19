@@ -44,7 +44,7 @@ describeRestPluginContract(pluginDefinition, {
       request: { method: "PATCH", url: `${API}/files/a`, query: { addParents: "f2", removeParents: "f1", fields: "id,name,parents,webViewLink", supportsAllDrives: "true" }, json: { name: "Renamed" } },
     },
     share_file: {
-      args: { file_id: "a", role: "reader", type: "user", email_address: "bob@example.com", send_notification_email: false },
+      args: { file_id: "a", role: "reader", grantee_type: "user", email_address: "bob@example.com", send_notification_email: false },
       request: { method: "POST", url: `${API}/files/a/permissions`, query: { sendNotificationEmail: "false", ...ALL_DRIVES }, json: { role: "reader", type: "user", emailAddress: "bob@example.com" } },
     },
     remove_permission: { args: { file_id: "a", permission_id: "p1" }, request: { method: "DELETE", url: `${API}/files/a/permissions/p1`, query: ALL_DRIVES, body: "absent" }, response: { status: 204 } },

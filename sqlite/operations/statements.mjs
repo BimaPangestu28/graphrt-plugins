@@ -18,7 +18,7 @@ const queryOperation = {
   description: "Runs one parameterised SQL statement on a read-only connection, so it cannot change the file. Returns rows (objects), fields, row_count and truncated",
   parameters: {
     type: "object",
-    properties: { database: DATABASE_PARAMETER, sql: SQL_PARAMETER, params: PARAMS_PARAMETER, max_rows: MAX_ROWS_PARAMETER, timeout_ms: TIMEOUT_PARAMETER },
+    properties: { database: DATABASE_PARAMETER, sql: SQL_PARAMETER, params: PARAMS_PARAMETER, max_rows: MAX_ROWS_PARAMETER, statement_timeout_ms: TIMEOUT_PARAMETER },
     required: ["sql"],
   },
   run: async ({ client, args, signal, source }) => {
@@ -39,7 +39,7 @@ const executeOperation = {
       sql: SQL_PARAMETER,
       params: PARAMS_PARAMETER,
       max_rows: { ...MAX_ROWS_PARAMETER, description: "Most RETURNING rows to return (default 500, at most 5000)" },
-      timeout_ms: TIMEOUT_PARAMETER,
+      statement_timeout_ms: TIMEOUT_PARAMETER,
       create_if_missing: { type: "boolean", default: false, description: "Create the database file if it does not exist (its directory must be inside SQLITE_ALLOWED_DIRS)" },
     },
     required: ["sql"],
@@ -66,7 +66,7 @@ const explainOperation = {
   description: "Shows SQLite's plan for one statement (EXPLAIN QUERY PLAN) on a read-only connection; the statement is not run",
   parameters: {
     type: "object",
-    properties: { database: DATABASE_PARAMETER, sql: SQL_PARAMETER, params: PARAMS_PARAMETER, timeout_ms: TIMEOUT_PARAMETER },
+    properties: { database: DATABASE_PARAMETER, sql: SQL_PARAMETER, params: PARAMS_PARAMETER, statement_timeout_ms: TIMEOUT_PARAMETER },
     required: ["sql"],
   },
   run: async ({ client, args, signal, source }) => {

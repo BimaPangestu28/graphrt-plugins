@@ -19,7 +19,7 @@ import { templateOperations } from "./operations/templates.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "whatsapp-api",
-    version: "0.1.0",
+    version: "0.2.0",
     description: "WhatsApp Business Cloud API: send messages and templates, manage media, templates and the business profile",
     tokenEnv: "WHATSAPP_ACCESS_TOKEN",
     extraEnv: ["WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_GRAPH_VERSION"],

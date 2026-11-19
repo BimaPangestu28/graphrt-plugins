@@ -17,7 +17,7 @@ const queryOperation = {
     "Runs one parameterised SQL statement in a READ ONLY transaction that is always rolled back, so it cannot change data. Returns rows (objects), fields, row_count and truncated",
   parameters: {
     type: "object",
-    properties: { sql: SQL_PARAMETER, params: PARAMS_PARAMETER, max_rows: MAX_ROWS_PARAMETER, timeout_ms: TIMEOUT_PARAMETER },
+    properties: { sql: SQL_PARAMETER, params: PARAMS_PARAMETER, max_rows: MAX_ROWS_PARAMETER, statement_timeout_ms: TIMEOUT_PARAMETER },
     required: ["sql"],
   },
   run: async ({ client, args, signal, source }) => {
@@ -45,7 +45,7 @@ const executeOperation = {
       sql: SQL_PARAMETER,
       params: PARAMS_PARAMETER,
       max_rows: { ...MAX_ROWS_PARAMETER, description: "Most rows to return if the statement returns any (default 500, at most 5000)" },
-      timeout_ms: { ...TIMEOUT_PARAMETER, description: "The statement is killed (KILL QUERY) when it runs this long plus 5 s (default from MYSQL_STATEMENT_TIMEOUT_MS, 30000)" },
+      statement_timeout_ms: { ...TIMEOUT_PARAMETER, description: "The statement is killed (KILL QUERY) when it runs this long plus 5 s (default from MYSQL_STATEMENT_TIMEOUT_MS, 30000)" },
     },
     required: ["sql"],
   },
@@ -66,7 +66,7 @@ const explainOperation = {
       params: PARAMS_PARAMETER,
       format: { type: "string", enum: ["traditional", "json", "tree"], default: "traditional", description: "Plan as table rows, MySQL's JSON plan or a text tree (ignored with analyze, which is always a tree)" },
       analyze: { type: "boolean", default: false, description: "EXPLAIN ANALYZE: run the statement and report real timings (read-only, rolled back)" },
-      timeout_ms: TIMEOUT_PARAMETER,
+      statement_timeout_ms: TIMEOUT_PARAMETER,
     },
     required: ["sql"],
   },

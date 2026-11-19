@@ -79,7 +79,7 @@ graphrt run threads-api/example.yaml --plugins .
   are checked the same way. The output is `{id, container_id}`. Carousel items are processed together, and the
   whole publish must finish within 6 minutes.
 - **Safe retry:** if the final publish call fails, the error names the `container_id`. Run `publish_thread` again
-  with that `container_id` to publish the same container. Re-running without it would create a second post.
+  with `existing_container_id` set to that id to publish the same container. Re-running without it would create a second post.
 - **Validation:** `text` is limited to 500 characters, `poll_options` to 2–4 entries and carousels to 2–20 items.
 - **Token refresh (node only):** `refresh_access_token` is not offered to agents as a tool, so new tokens never
   reach an LLM. It exchanges the current token (at least 24 hours old and not expired)
@@ -100,6 +100,10 @@ graphrt run threads-api/example.yaml --plugins .
 ## Development
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
+
+## Changelog
+### 0.2.0
+- **Breaking:** `publish_thread` parameter `container_id` is now `existing_container_id`. graphrt takes `container_id` from every workflow node (it marks a node's parent container), so the old name could never be set from a node; tool calls that passed `container_id` must use `existing_container_id`. The output still reports `container_id`.
 
 ## License
 Apache-2.0

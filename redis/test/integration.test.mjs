@@ -114,7 +114,7 @@ describe("redis against a temporary redis-server", { skip: skipReason }, () => {
 
   test("streams: xadd, xrange paging, consumer group read and ack", async () => {
     const run = createRunner();
-    await run("xgroup_create", { key: "orders", group: "workers", id: "0" });
+    await run("xgroup_create", { key: "orders", group: "workers", start_id: "0" });
     await assert.rejects(run("xgroup_create", { key: "orders", group: "workers" }), { kind: "conflict" });
     const ids = [];
     for (const order of ["A-1", "A-2", "A-3"]) ids.push((await run("xadd", { key: "orders", fields: { order } })).data.id);
@@ -142,17 +142,17 @@ describe("redis against a temporary redis-server", { skip: skipReason }, () => {
   test("review: xreadgroup no_ack under the result cap loses nothing", async () => {
     const run = createRunner({ REDIS_KEY_PREFIX: "r1:", REDIS_MAX_RESULT_BYTES: "2048" });
     for (let index = 0; index < 6; index += 1) await run("xadd", { key: "s", fields: { f: "y".repeat(900) } });
-    await run("xgroup_create", { key: "s", group: "g", id: "0" });
+    await run("xgroup_create", { key: "s", group: "g", start_id: "0" });
     const first = await run("xreadgroup", { key: "s", group: "g", consumer: "c", count: 6, no_ack: true });
     assert.equal(first.data.truncated, true);
     assert.equal(first.data.pending_ids.length, 6 - first.data.count);
     const seen = new Set(first.data.entries.map((entry) => entry.id));
     for (let round = 0; round < 6 && seen.size < 6; round += 1) {
-      const again = await run("xreadgroup", { key: "s", group: "g", consumer: "c", id: "0", count: 6, no_ack: true });
+      const again = await run("xreadgroup", { key: "s", group: "g", consumer: "c", start_id: "0", count: 6, no_ack: true });
       for (const entry of again.data.entries) seen.add(entry.id);
     }
     assert.equal(seen.size, 6, "every entry was delivered");
-    const empty = await run("xreadgroup", { key: "s", group: "g", consumer: "c", id: "0" });
+    const empty = await run("xreadgroup", { key: "s", group: "g", consumer: "c", start_id: "0" });
     assert.equal(empty.data.count, 0, "nothing left pending");
   });
 

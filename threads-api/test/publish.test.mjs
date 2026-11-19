@@ -91,8 +91,8 @@ test("publish_thread counts characters, not UTF-16 units, toward the 500 limit",
   assert.equal(calls.length, 3);
 });
 
-test("publish_thread with container_id skips creation and publishes that container", async () => {
-  const { calls, output } = await runWithResponses("publish_thread", { container_id: "c9" }, [{ body: { status: "FINISHED" } }, { body: { id: "post9" } }]);
+test("publish_thread with existing_container_id skips creation and publishes that container", async () => {
+  const { calls, output } = await runWithResponses("publish_thread", { existing_container_id: "c9" }, [{ body: { status: "FINISHED" } }, { body: { id: "post9" } }]);
   assert.deepEqual(describeCalls(calls), ["GET /v1.0/c9", "POST /v1.0/me/threads_publish"]);
   assert.equal(calls[1].form.creation_id, "c9");
   assert.deepEqual(output.data, { id: "post9", container_id: "c9" });
@@ -101,7 +101,7 @@ test("publish_thread with container_id skips creation and publishes that contain
 test("a failed publish step reports the container_id and is not retryable", async () => {
   await assert.rejects(
     runWithResponses("publish_thread", { text: "x" }, [{ body: { id: "c7" } }, { body: { status: "FINISHED" } }, { status: 500, body: { error: { message: "boom", code: 2 } } }]),
-    (error) => error.retryable === false && /container_id c7/.test(error.message),
+    (error) => error.retryable === false && /container_id c7/.test(error.message) && /existing_container_id/.test(error.message),
   );
 });
 

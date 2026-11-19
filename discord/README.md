@@ -93,5 +93,9 @@ npm test          # from the repo root
 Generated contract suite plus Discord-specific cases (auth header, User-Agent, backwards paging, error codes,
 rate limits). Verified live only with an invalid token (`auth_error`).
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `start_thread` parameter `type` is now `thread_type` (still sent to Discord as `type`). graphrt takes `type` from every workflow node, so the old name could never be set from a node; tool calls that passed `type` must use `thread_type`.
+
 ## License
 Apache-2.0

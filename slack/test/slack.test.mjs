@@ -48,7 +48,7 @@ test("ok:false bodies become typed errors", async () => {
 
 test("upload_file runs the three-step external upload and shares in the channel", () =>
   withUploadDirectory(async (directory) => {
-    const { output, error, calls } = await runSlack("upload_file", { file: join(directory, "report.txt"), title: "Report", channel_id: "C1", initial_comment: "Weekly report" }, { responses: uploadResponses(), environment: { SLACK_UPLOAD_DIR: directory } });
+    const { output, error, calls } = await runSlack("upload_file", { file: join(directory, "report.txt"), file_title: "Report", channel_id: "C1", initial_comment: "Weekly report" }, { responses: uploadResponses(), environment: { SLACK_UPLOAD_DIR: directory } });
     if (error) throw error;
     assert.equal(calls[0].url, "https://slack.com/api/files.getUploadURLExternal");
     assert.deepEqual(calls[0].form, { filename: "report.txt", length: "11" });

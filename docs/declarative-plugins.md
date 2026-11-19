@@ -110,6 +110,9 @@ export const pluginDefinition = defineRestPlugin({
         status: { in: "query", type: "string", enum: ["open", "done"], description: "Filter by status" },
         labels: { in: "query", type: "array", items: { type: "string" }, style: "repeat" },   // labels=a&labels=b
         include_archived: { in: "query", type: "boolean", wireName: "archived" },             // API name differs
+        // Never name a param after a key graphrt takes from nodes (id, type, title, data, timeout, timeout_ms, retry,
+        // width, height, ... — RESERVED_NODE_KEYS in shared/lib/reserved-node-keys.mjs): rename it and use wireName.
+        task_type: { in: "query", type: "string", wireName: "type" },
       },
       // dataPath picks `data`; one pagination style generates `limit` and `cursor` params and `next_cursor`.
       response: { dataPath: "data", cursorPath: "meta.next_cursor", cursorParam: "cursor", limitParam: "page_size", hasMorePath: "meta.has_more", maxLimit: 100 },
@@ -130,7 +133,7 @@ export const pluginDefinition = defineRestPlugin({
       checkHint: "list_tasks for the project and look for the title",
       params: {
         project_id: { in: "path", type: "string", required: true },
-        title: { in: "body", type: "string", required: true, minLength: 1, wireName: "task.title" },   // {"task":{"title":...}}
+        task_title: { in: "body", type: "string", required: true, minLength: 1, wireName: "task.title" },   // {"task":{"title":...}}
         due: { in: "body", type: "string", description: "YYYY-MM-DD", wireName: "task.due_on" },
         notify: { in: "body", type: "boolean", default: false },
       },
@@ -354,9 +357,9 @@ there too unless `sendCredential: false` (public CDNs). `api_request` always use
 ## Load-time validation
 `defineRestPlugin` checks the spec when `definition.mjs` is imported (so `npm run sync` fails at once).
 - **Typos and names:** unknown keys (`requried`), unknown param locations, types and styles, invalid or duplicate
-  `wireName`s, `__proto__`/`constructor`/`prototype` segments, `default`/`enum` values of the wrong type.
-- **Paths:** placeholders without an `in: "path"` param, path params that are unused or optional, a path param
-  `id` that would clash with a job's `{id}`.
+  `wireName`s, param names graphrt takes from workflow nodes (`id`, `type`, `title`, `data`, `timeout`, ... — a node
+  could never set them; rename the param and keep the API name with `wireName`), `__proto__`/`constructor`/`prototype` segments, `default`/`enum` values of the wrong type.
+- **Paths:** placeholders without an `in: "path"` param, path params that are unused or optional.
 - **Write classes:** non-GET operations without `write`, and `write: "read"` on POST.
 - **Bodies:** body params on GET, `file` params outside multipart, constants that collide with params.
 - **Pagination:** more than one style; params whose wire names clash with the pagination's.

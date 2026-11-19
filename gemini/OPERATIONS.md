@@ -9,7 +9,7 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 |-----------|-------------|------------|
 | `generate_content` | Ask Gemini (not streamed); the text is in candidates[0].content.parts[].text. Check candidates[0].finishReason and promptFeedback.blockReason (urlContext from agents only when GEMINI_TOOL_ALLOW_URL_CONTEXT=1) | **model**, **contents**, system_instruction, generation_config, tools, tool_config, safety_settings, cached_content |
 | `count_tokens` | Count the tokens of contents for a model (free) | **model**, **contents** |
-| `embed_content` | Embed one text; the vector is in embedding.values | **model**, **content**, task_type, title, output_dimensionality |
+| `embed_content` | Embed one text; the vector is in embedding.values | **model**, **content**, task_type, document_title, output_dimensionality |
 | `batch_embed_contents` | Embed up to 100 texts in one call; embeddings[i].values belongs to requests[i] | **model**, **requests** |
 | `list_models` | List Gemini models with their token limits and supportedGenerationMethods | cursor, limit |
 | `get_model` | Get one model's token limits, defaults and supported methods | **model** |

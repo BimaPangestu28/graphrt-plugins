@@ -11,7 +11,7 @@ import { videoOperations } from "./operations/videos.mjs";
 
 export const pluginDefinition = {
   name: "youtube-api",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "YouTube channel, videos, comments and live chat via the official YouTube Data API v3",
   tokenEnv: "YOUTUBE_ACCESS_TOKEN",
   extraEnv: ["YOUTUBE_REFRESH_TOKEN", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"],

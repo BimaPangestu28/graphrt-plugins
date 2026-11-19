@@ -1,6 +1,7 @@
 /**
- * Runs the shared tests and every plugin's tests, and checks that copied
- * shared code and generated manifests are up to date.
+ * Runs the shared tests and every plugin's tests, checks that copied
+ * shared code and generated manifests are up to date, and that no manifest
+ * declares a node parameter graphrt reserves.
  *
  * Usage: node scripts/run-tests.mjs
  */
@@ -14,7 +15,8 @@ const testDirectories = readdirSync(REPO_ROOT, { withFileTypes: true })
   .map((entry) => join(REPO_ROOT, entry.name));
 
 const syncCheck = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "sync-shared.mjs"), "--check"], { stdio: "inherit" });
-let failedSuites = syncCheck.status === 0 ? 0 : 1;
+const reservedParameterCheck = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "check-reserved-parameters.mjs")], { stdio: "inherit" });
+let failedSuites = (syncCheck.status === 0 ? 0 : 1) + (reservedParameterCheck.status === 0 ? 0 : 1);
 
 for (const testDirectory of testDirectories) {
   const testFiles = readdirSync(join(testDirectory, "test")).filter((fileName) => fileName.endsWith(".test.mjs"));

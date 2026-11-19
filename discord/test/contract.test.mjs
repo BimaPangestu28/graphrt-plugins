@@ -70,8 +70,8 @@ describeRestPluginContract(pluginDefinition, {
       request: { method: "POST", url: `${API}/channels/20/messages/301/threads`, query: "absent", json: { name: "Release notes", auto_archive_duration: 1440 } },
     },
     start_thread: {
-      args: { channel_id: "20", name: "Incident 42" },
-      request: { method: "POST", url: `${API}/channels/20/threads`, query: "absent", json: { name: "Incident 42", type: 11 } },
+      args: { channel_id: "20", name: "Incident 42", thread_type: 12 },
+      request: { method: "POST", url: `${API}/channels/20/threads`, query: "absent", json: { name: "Incident 42", type: 12 } },
     },
   },
 });

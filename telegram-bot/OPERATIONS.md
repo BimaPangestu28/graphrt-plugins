@@ -7,7 +7,7 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 
 | Operation | Description | Parameters |
 |-----------|-------------|------------|
-| `get_updates` | Fetch new messages, button presses and other updates by long polling. Pass next_cursor back as cursor (or store it with state-store); it also confirms the updates already received. Fails while a webhook is set. | cursor, offset, limit, timeout, allowed_updates |
+| `get_updates` | Fetch new messages, button presses and other updates by long polling. Pass next_cursor back as cursor (or store it with state-store); it also confirms the updates already received. Fails while a webhook is set. | cursor, offset, limit, long_poll_seconds, allowed_updates |
 | `send_message` | Send a text message to a chat, optionally formatted, as a reply, silent, or with an inline/reply keyboard. Never resent automatically. | **chat_id**, **text**, parse_mode, disable_link_preview, reply_to_message_id, disable_notification, protect_content, message_thread_id, reply_markup |
 | `send_photo` | Send a photo by http(s) URL (Telegram downloads it, max 5 MB) or by file_id. Local files are not supported. | **chat_id**, **photo**, caption, parse_mode, reply_to_message_id, disable_notification, protect_content, message_thread_id, reply_markup, has_spoiler |
 | `send_document` | Send a file by http(s) URL (Telegram downloads it, max 20 MB, PDF or ZIP only) or by file_id. Local files are not supported. | **chat_id**, **document**, caption, parse_mode, reply_to_message_id, disable_notification, protect_content, message_thread_id, reply_markup |

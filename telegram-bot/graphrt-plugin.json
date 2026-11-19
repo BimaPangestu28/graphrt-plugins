@@ -44,12 +44,12 @@
             "default": 100,
             "description": "Maximum updates to return"
           },
-          "timeout": {
+          "long_poll_seconds": {
             "type": "integer",
             "minimum": 0,
             "maximum": 25,
             "default": 0,
-            "description": "Long-poll seconds to wait for updates (0 = return at once)"
+            "description": "Long-poll seconds to wait for updates (0 = return at once; sent as `timeout`)"
           },
           "allowed_updates": {
             "type": "array",
@@ -845,12 +845,12 @@
             "default": 100,
             "description": "Maximum updates to return"
           },
-          "timeout": {
+          "long_poll_seconds": {
             "type": "integer",
             "minimum": 0,
             "maximum": 25,
             "default": 0,
-            "description": "Long-poll seconds to wait for updates (0 = return at once)"
+            "description": "Long-poll seconds to wait for updates (0 = return at once; sent as `timeout`)"
           },
           "allowed_updates": {
             "type": "array",

@@ -10,17 +10,17 @@ const REQUEST_CASES = [
   ["get_spreadsheet", { spreadsheet_id: ID }, { method: "GET", path: `/spreadsheets/${ID}`, query: { fields: /^spreadsheetId,spreadsheetUrl,properties\(title/ } }],
   [
     "create_spreadsheet",
-    { title: "Orders", sheet_titles: ["2026", "Archive"], locale: "id_ID", time_zone: "Asia/Jakarta" },
+    { spreadsheet_title: "Orders", sheet_titles: ["2026", "Archive"], locale: "id_ID", time_zone: "Asia/Jakarta" },
     {
       method: "POST",
       path: "/spreadsheets",
       json: { properties: { title: "Orders", locale: "id_ID", timeZone: "Asia/Jakarta" }, sheets: [{ properties: { title: "2026" } }, { properties: { title: "Archive" } }] },
     },
   ],
-  ["create_spreadsheet", { title: "Plain" }, { method: "POST", path: "/spreadsheets", json: { properties: { title: "Plain" } } }],
+  ["create_spreadsheet", { spreadsheet_title: "Plain" }, { method: "POST", path: "/spreadsheets", json: { properties: { title: "Plain" } } }],
   [
     "add_sheet",
-    { spreadsheet_id: ID, title: "Q4", index: 0, row_count: 100, column_count: 5 },
+    { spreadsheet_id: ID, sheet_title: "Q4", index: 0, row_count: 100, column_count: 5 },
     { method: "POST", path: `/spreadsheets/${ID}:batchUpdate`, json: { requests: [{ addSheet: { properties: { title: "Q4", index: 0, gridProperties: { rowCount: 100, columnCount: 5 } } } }] } },
   ],
   [
@@ -167,7 +167,7 @@ test("get_spreadsheet condenses the metadata", async () => {
 
 test("add_sheet returns the new sheet's properties", async () => {
   const replies = [{ addSheet: { properties: { sheetId: 42, title: "Q4", index: 1, sheetType: "GRID", gridProperties: { rowCount: 1000, columnCount: 26 } } } }];
-  const { output } = await runWithResponses("add_sheet", { spreadsheet_id: ID, title: "Q4" }, [{ body: { replies } }]);
+  const { output } = await runWithResponses("add_sheet", { spreadsheet_id: ID, sheet_title: "Q4" }, [{ body: { replies } }]);
   assert.equal(output.data.sheet_id, 42);
   assert.equal(output.data.title, "Q4");
 });
@@ -214,7 +214,7 @@ test("validation: rows, ranges and sheet names", async () => {
     ["read_range", { spreadsheet_id: ID, sheet: "x".repeat(101) }],
     ["read_range", { spreadsheet_id: ID, sheet: "tab\tname" }],
     ["read_range", { spreadsheet_id: "..", range: "A1" }],
-    ["create_spreadsheet", { title: "T", sheet_titles: ["a", "a"] }],
+    ["create_spreadsheet", { spreadsheet_title: "T", sheet_titles: ["a", "a"] }],
   ];
   for (const [operationName, args] of invalidCases) {
     await assert.rejects(runWithResponses(operationName, args, []), isInvalidInput, `${operationName} ${JSON.stringify(args)}`);

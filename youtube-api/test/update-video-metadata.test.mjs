@@ -12,7 +12,7 @@ const EXISTING_SNIPPET = {
 };
 
 test("update_video_metadata reads the snippet, merges only the given fields, then PUTs it", async () => {
-  const { output, calls } = await runWithResponses("update_video_metadata", { video_id: "v1", title: "New title" }, [
+  const { output, calls } = await runWithResponses("update_video_metadata", { video_id: "v1", video_title: "New title" }, [
     { body: { items: [{ id: "v1", snippet: EXISTING_SNIPPET }] } },
     { body: { id: "v1", snippet: { ...EXISTING_SNIPPET, title: "New title" } } },
   ]);
@@ -36,7 +36,7 @@ test("update_video_metadata maps description, tags and category_id", async () =>
 });
 
 test("update_video_metadata drops the read-only localized copy so it cannot overwrite the new title", async () => {
-  const { calls } = await runWithResponses("update_video_metadata", { video_id: "v1", title: "T" }, [
+  const { calls } = await runWithResponses("update_video_metadata", { video_id: "v1", video_title: "T" }, [
     { body: { items: [{ id: "v1", snippet: { ...EXISTING_SNIPPET, localized: { title: "Old title", description: "Old description" } } }] } },
     { body: {} },
   ]);
@@ -48,7 +48,7 @@ test("update_video_metadata requires at least one field to change", async () => 
 });
 
 test("update_video_metadata fails with not_found when the video does not exist", async () => {
-  await assert.rejects(runWithResponses("update_video_metadata", { video_id: "missing", title: "T" }, [{ body: { items: [] } }]), (error) => error.kind === "not_found");
+  await assert.rejects(runWithResponses("update_video_metadata", { video_id: "missing", video_title: "T" }, [{ body: { items: [] } }]), (error) => error.kind === "not_found");
 });
 
 test("update_video_metadata clears the description with clear_description: true", async () => {

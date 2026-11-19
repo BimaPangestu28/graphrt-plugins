@@ -92,5 +92,9 @@ npm test          # from the repo root
 `test/contract.test.mjs` runs the generated contract suite plus DeepL-specific cases. Verified live with invalid
 free and Pro keys (clean `auth_error`).
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `list_languages` parameter `type` is now `language_type` (still sent to DeepL as `type`). graphrt takes `type` from every workflow node, so the old name was silently dropped on nodes (they always listed target languages); tool calls that passed `type` must use `language_type`.
+
 ## License
 Apache-2.0

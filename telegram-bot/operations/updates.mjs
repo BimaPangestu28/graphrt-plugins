@@ -45,11 +45,11 @@ async function runGetUpdates({ client, args, signal }) {
   const params = {
     offset: resolveOffset(args),
     limit: args.limit,
-    timeout: args.timeout,
+    timeout: args.long_poll_seconds,
     // The shared client joins string arrays with commas; Telegram wants a JSON array.
     allowed_updates: args.allowed_updates === undefined ? undefined : JSON.stringify(args.allowed_updates),
   };
-  const updates = await callBotMethod(client, "getUpdates", { params, signal, read: true, timeoutMs: getUpdatesTimeoutMs(args.timeout) });
+  const updates = await callBotMethod(client, "getUpdates", { params, signal, read: true, timeoutMs: getUpdatesTimeoutMs(args.long_poll_seconds) });
   return { data: updates ?? [], next_cursor: nextCursorOf(updates) };
 }
 
@@ -65,7 +65,7 @@ export const updateOperations = [
         cursor: { type: "string", description: "next_cursor from a previous call (last update_id + 1)" },
         offset: { type: "integer", description: "Raw getUpdates offset instead of cursor; negative values read from the end of the queue" },
         limit: { type: "integer", minimum: 1, maximum: 100, default: 100, description: "Maximum updates to return" },
-        timeout: { type: "integer", minimum: 0, maximum: MAX_LONG_POLL_SECONDS, default: 0, description: "Long-poll seconds to wait for updates (0 = return at once)" },
+        long_poll_seconds: { type: "integer", minimum: 0, maximum: MAX_LONG_POLL_SECONDS, default: 0, description: "Long-poll seconds to wait for updates (0 = return at once; sent as `timeout`)" },
         allowed_updates: ALLOWED_UPDATES_PROPERTY,
       },
     },

@@ -46,7 +46,7 @@ const translateText = {
   timeoutMs: TRANSLATE_TIMEOUT_MS,
   params: {
     text: { in: "body", type: "array", items: { type: "string" }, required: true, maxItems: 50, description: "Texts to translate" },
-    target_lang: langParam("Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages type target)", true),
+    target_lang: langParam("Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages with language_type target)", true),
     source_lang: langParam("Source language, e.g. EN, ID (detected when omitted; required with glossary_id)"),
     context: { in: "body", type: "string", description: "Extra context that guides the translation but is not translated (not billed)" },
     formality: { in: "body", type: "string", enum: FORMALITIES, description: "Formal or informal tone (some languages); prefer_* falls back silently" },
@@ -84,7 +84,7 @@ const listLanguages = {
   title: "List languages",
   description: "Languages DeepL supports as source or target, with supports_formality",
   path: "/v2/languages",
-  params: { type: { in: "query", type: "string", enum: ["source", "target"], default: "target", description: "source or target languages" } },
+  params: { language_type: { in: "query", type: "string", enum: ["source", "target"], default: "target", wireName: "type", description: "source or target languages (sent as `type`)" } },
 };
 
 const listGlossaries = {
