@@ -1,0 +1,18 @@
+# Wait up to 30 seconds for a new or changed CSV file in a watched directory.
+#   mkdir -p ~/graphrt-inbox
+#   FILE_WATCHER_ALLOWED_DIRS=~/graphrt-inbox graphrt run file-watcher/example.yaml --plugins .
+#   (drop a .csv file into ~/graphrt-inbox while it waits)
+version: "1"
+name: file-watcher-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: baseline, type: file-watcher.snapshot, path: ".", name_pattern: "*.csv" }
+    - { id: wait, type: file-watcher.wait_for_change, cursor: "{{#baseline.data.cursor#}}", timeout_seconds: 30, poll_interval_ms: 1000 }
+    - id: answer
+      type: answer
+      answer: "changed: {{#wait.data.changed#}}; added: {{#wait.data.added#}}; modified: {{#wait.data.modified#}}; removed: {{#wait.data.removed#}}"
+  edges:
+    - { source: start, target: baseline }
+    - { source: baseline, target: wait }
+    - { source: wait, target: answer }

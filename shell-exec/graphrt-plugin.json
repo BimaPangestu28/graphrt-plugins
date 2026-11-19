@@ -1,0 +1,136 @@
+{
+  "name": "shell-exec",
+  "version": "0.1.0",
+  "description": "DANGEROUS: run allowlisted local executables with argument arrays (never a shell) in allowed directories, with a clean environment, timeouts that kill the process group, output caps and secret redaction; agents only for what SHELL_EXEC_TOOL_RULES allows",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "SHELL_EXEC_COMMANDS",
+      "SHELL_EXEC_ALLOWED_DIRS",
+      "SHELL_EXEC_TOOL_RULES",
+      "SHELL_EXEC_TIMEOUT_MS",
+      "SHELL_EXEC_MAX_OUTPUT_BYTES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 620000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "shell-exec.run_command",
+      "title": "Run an allowlisted command",
+      "description": "Runs one executable from SHELL_EXEC_COMMANDS with an argument array (no shell, no globbing, no variable expansion) in an allowed directory, with a clean environment, a timeout and output caps. Agents may only run what SHELL_EXEC_TOOL_RULES allows (exact path, fixed argument prefix, per-argument pattern)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Base name or absolute path of an executable in SHELL_EXEC_COMMANDS, e.g. git"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "description": "Arguments, each passed as-is (no shell)"
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory inside SHELL_EXEC_ALLOWED_DIRS (default: the first one); relative paths start there"
+          },
+          "env": {
+            "type": "object",
+            "description": "Extra environment variables (workflow nodes only); the child otherwise gets only PATH, HOME and LANG"
+          },
+          "stdin": {
+            "type": "string",
+            "description": "Text written to the program's standard input (at most 1 MiB)"
+          },
+          "command_timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "description": "Time limit (default and maximum: SHELL_EXEC_TIMEOUT_MS); the whole process group is killed when it passes"
+          },
+          "fail_on_error": {
+            "type": "boolean",
+            "default": false,
+            "description": "Fail the call when the exit code is not 0 (otherwise the exit code is part of the result)"
+          }
+        },
+        "required": [
+          "command"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "run_command",
+      "description": "Runs one executable from SHELL_EXEC_COMMANDS with an argument array (no shell, no globbing, no variable expansion) in an allowed directory, with a clean environment, a timeout and output caps. Agents may only run what SHELL_EXEC_TOOL_RULES allows (exact path, fixed argument prefix, per-argument pattern)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Base name or absolute path of an executable in SHELL_EXEC_COMMANDS, e.g. git"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "description": "Arguments, each passed as-is (no shell)"
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory inside SHELL_EXEC_ALLOWED_DIRS (default: the first one); relative paths start there"
+          },
+          "env": {
+            "type": "object",
+            "description": "Extra environment variables (workflow nodes only); the child otherwise gets only PATH, HOME and LANG"
+          },
+          "stdin": {
+            "type": "string",
+            "description": "Text written to the program's standard input (at most 1 MiB)"
+          },
+          "command_timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "description": "Time limit (default and maximum: SHELL_EXEC_TIMEOUT_MS); the whole process group is killed when it passes"
+          },
+          "fail_on_error": {
+            "type": "boolean",
+            "default": false,
+            "description": "Fail the call when the exit code is not 0 (otherwise the exit code is part of the result)"
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    }
+  ]
+}

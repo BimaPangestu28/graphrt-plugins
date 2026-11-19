@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-shell-exec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: run allowlisted local executables without a shell (dangerous)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

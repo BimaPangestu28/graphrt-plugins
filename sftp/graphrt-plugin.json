@@ -1,0 +1,458 @@
+{
+  "name": "sftp",
+  "version": "0.1.0",
+  "description": "SFTP with a pinned host key: list, stat and read remote files inside SFTP_ROOT, download to an allowed local directory, upload from one (staged, no overwrite unless a node asks); agent writes opt-in, deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": [
+      "SFTP_HOST",
+      "SFTP_PORT",
+      "SFTP_USERNAME",
+      "SFTP_PASSWORD",
+      "SFTP_PRIVATE_KEY",
+      "SFTP_PRIVATE_KEY_PATH",
+      "SFTP_PRIVATE_KEY_PASSPHRASE",
+      "SFTP_HOST_FINGERPRINT",
+      "SFTP_ROOT",
+      "SFTP_INPUT_DIRS",
+      "SFTP_OUTPUT_DIR",
+      "SFTP_MAX_INPUT_BYTES",
+      "SFTP_MAX_OUTPUT_BYTES",
+      "SFTP_TOOL_ALLOW_WRITES",
+      "SFTP_CONNECT_TIMEOUT_MS",
+      "SFTP_OPERATION_TIMEOUT_MS",
+      "SFTP_MAX_READ_BYTES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 1800000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "sftp.list_directory",
+      "title": "List a remote directory",
+      "description": "Lists a directory on the SFTP server inside SFTP_ROOT (name, type, size, modified time, permission bits), sorted by name",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)",
+            "default": "/"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most entries; `truncated` says when there were more"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sftp.stat",
+      "title": "Stat a remote path",
+      "description": "Describes a file or directory on the SFTP server inside SFTP_ROOT (type, size, modified time, permission bits)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sftp.read_file",
+      "title": "Read a remote file",
+      "description": "Reads a file on the SFTP server inside SFTP_ROOT as UTF-8 text or base64, up to max_bytes from offset; `truncated` says when more remains",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "utf8 for text (a cut may end in U+FFFD), base64 for binary"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Byte offset to start at"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 262144,
+            "description": "Most bytes to read (never more than SFTP_MAX_READ_BYTES)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sftp.download",
+      "title": "Download a file",
+      "description": "Downloads a file from the SFTP server (inside SFTP_ROOT) into a new file with a generated name in SFTP_OUTPUT_DIR; nothing local is overwritten",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sftp.upload",
+      "title": "Upload a file",
+      "description": "Uploads a local file from SFTP_INPUT_DIRS to the SFTP server inside SFTP_ROOT: staged under a temporary name, then renamed. Existing files are never replaced unless a workflow node passes overwrite. Agents need SFTP_TOOL_ALLOW_WRITES=1",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "local_path": {
+            "type": "string",
+            "description": "Local file inside SFTP_INPUT_DIRS (absolute, ~/..., or relative to the first one)"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace an existing regular file (workflow nodes only; needs the server's posix-rename extension)"
+          },
+          "create_parents": {
+            "type": "boolean",
+            "default": false,
+            "description": "Create missing remote directories inside SFTP_ROOT"
+          }
+        },
+        "required": [
+          "local_path",
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sftp.make_directory",
+      "title": "Make a remote directory",
+      "description": "Creates a directory on the SFTP server inside SFTP_ROOT (with create_parents, missing parents too). Agents need SFTP_TOOL_ALLOW_WRITES=1",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "create_parents": {
+            "type": "boolean",
+            "default": false,
+            "description": "Create missing parents inside SFTP_ROOT"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sftp.delete_path",
+      "title": "Delete a remote file or empty directory",
+      "description": "Deletes one file, symlink (the link itself) or empty directory on the SFTP server inside SFTP_ROOT; never recursive, never SFTP_ROOT itself (workflow nodes only)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_directory",
+      "description": "Lists a directory on the SFTP server inside SFTP_ROOT (name, type, size, modified time, permission bits), sorted by name",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)",
+            "default": "/"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most entries; `truncated` says when there were more"
+          }
+        }
+      }
+    },
+    {
+      "name": "stat",
+      "description": "Describes a file or directory on the SFTP server inside SFTP_ROOT (type, size, modified time, permission bits)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "read_file",
+      "description": "Reads a file on the SFTP server inside SFTP_ROOT as UTF-8 text or base64, up to max_bytes from offset; `truncated` says when more remains",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "utf8 for text (a cut may end in U+FFFD), base64 for binary"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Byte offset to start at"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 262144,
+            "description": "Most bytes to read (never more than SFTP_MAX_READ_BYTES)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "download",
+      "description": "Downloads a file from the SFTP server (inside SFTP_ROOT) into a new file with a generated name in SFTP_OUTPUT_DIR; nothing local is overwritten",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "upload",
+      "description": "Uploads a local file from SFTP_INPUT_DIRS to the SFTP server inside SFTP_ROOT: staged under a temporary name, then renamed. Existing files are never replaced unless a workflow node passes overwrite. Agents need SFTP_TOOL_ALLOW_WRITES=1",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "local_path": {
+            "type": "string",
+            "description": "Local file inside SFTP_INPUT_DIRS (absolute, ~/..., or relative to the first one)"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace an existing regular file (workflow nodes only; needs the server's posix-rename extension)"
+          },
+          "create_parents": {
+            "type": "boolean",
+            "default": false,
+            "description": "Create missing remote directories inside SFTP_ROOT"
+          }
+        },
+        "required": [
+          "local_path",
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "make_directory",
+      "description": "Creates a directory on the SFTP server inside SFTP_ROOT (with create_parents, missing parents too). Agents need SFTP_TOOL_ALLOW_WRITES=1",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the server relative to SFTP_ROOT (\"/\" is SFTP_ROOT itself; .. never leaves it)"
+          },
+          "create_parents": {
+            "type": "boolean",
+            "default": false,
+            "description": "Create missing parents inside SFTP_ROOT"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

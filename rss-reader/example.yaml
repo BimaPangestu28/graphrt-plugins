@@ -1,0 +1,14 @@
+# Read the newest five posts of a public feed.
+#   graphrt run rss-reader/example.yaml --plugins .
+version: "1"
+name: rss-reader-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: feed, type: rss-reader.read_feed, url: "https://github.blog/feed/", max_items: 5 }
+    - id: answer
+      type: answer
+      answer: "{{#feed.data.feed.title#}} ({{#feed.data.feed.format#}}): {{#feed.data.items#}}"
+  edges:
+    - { source: start, target: feed }
+    - { source: feed, target: answer }

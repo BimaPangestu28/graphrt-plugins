@@ -1,0 +1,17 @@
+# List an allowed directory and read the start of one file in it.
+#   mkdir -p ~/graphrt-files && echo "hello" > ~/graphrt-files/notes.txt
+#   LOCAL_FILES_ALLOWED_DIRS=~/graphrt-files graphrt run local-files/example.yaml --plugins .
+version: "1"
+name: local-files-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: listing, type: local-files.list_directory, path: "." }
+    - { id: notes, type: local-files.read_file, path: notes.txt, max_bytes: 4096 }
+    - id: answer
+      type: answer
+      answer: "{{#listing.data.path#}} has {{#listing.data.entries#}}; notes.txt (truncated: {{#notes.data.truncated#}}): {{#notes.data.content#}}"
+  edges:
+    - { source: start, target: listing }
+    - { source: listing, target: notes }
+    - { source: notes, target: answer }

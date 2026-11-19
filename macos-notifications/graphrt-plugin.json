@@ -1,0 +1,128 @@
+{
+  "name": "macos-notifications",
+  "version": "0.1.0",
+  "description": "Local macOS notifications (title, subtitle, message, system sound) via osascript with a constant script and the text as separate arguments; agent calls rate limited",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "MACOS_NOTIFICATIONS_TOOL_RATE_LIMIT"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 30000,
+    "max_concurrency": 2
+  },
+  "nodes": [
+    {
+      "kind": "macos-notifications.notify",
+      "title": "Post a notification",
+      "description": "Shows a local macOS notification (title, optional subtitle, message, optional system sound) on this Mac; agent calls are rate limited",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Notification text (control characters removed, at most 1000 characters)"
+          },
+          "notification_title": {
+            "type": "string",
+            "description": "Title (default \"graphrt\", at most 120 characters)"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Subtitle (at most 120 characters)"
+          },
+          "sound": {
+            "type": "string",
+            "enum": [
+              "Basso",
+              "Blow",
+              "Bottle",
+              "Frog",
+              "Funk",
+              "Glass",
+              "Hero",
+              "Morse",
+              "Ping",
+              "Pop",
+              "Purr",
+              "Sosumi",
+              "Submarine",
+              "Tink"
+            ],
+            "description": "macOS system sound to play"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "notify",
+      "description": "Shows a local macOS notification (title, optional subtitle, message, optional system sound) on this Mac; agent calls are rate limited",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Notification text (control characters removed, at most 1000 characters)"
+          },
+          "notification_title": {
+            "type": "string",
+            "description": "Title (default \"graphrt\", at most 120 characters)"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Subtitle (at most 120 characters)"
+          },
+          "sound": {
+            "type": "string",
+            "enum": [
+              "Basso",
+              "Blow",
+              "Bottle",
+              "Frog",
+              "Funk",
+              "Glass",
+              "Hero",
+              "Morse",
+              "Ping",
+              "Pop",
+              "Purr",
+              "Sosumi",
+              "Submarine",
+              "Tink"
+            ],
+            "description": "macOS system sound to play"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 /**
- * Google OAuth access-token handling for youtube-api.
+ * Google OAuth access-token handling for youtube-api. This file is identical in the
+ * youtube-api and youtube-transcript plugins; keep the copies in step.
  *
  * A run authenticates with either a ready access token (YOUTUBE_ACCESS_TOKEN or
  * a node's `access_token`) or the refresh trio YOUTUBE_REFRESH_TOKEN +

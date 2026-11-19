@@ -20,7 +20,8 @@
  * name (link() never replaces an existing file) and the staging copy removed.
  *
  * This file is identical in the ffmpeg, image-tools, pdf-tools, excel-csv,
- * ocr-tesseract and qr-code plugins; keep the copies in step.
+ * ocr-tesseract, qr-code, local-files and sftp plugins; keep the copies in
+ * step.
  */
 import { constants as fileConstants, promises as defaultFileSystem } from "node:fs";
 import { randomBytes } from "node:crypto";

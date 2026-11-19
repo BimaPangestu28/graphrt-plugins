@@ -1,0 +1,518 @@
+{
+  "name": "local-files",
+  "version": "0.1.0",
+  "description": "Local files in allowed directories: list, stat, read (text or base64, capped), search by name or content, and staged writes that never overwrite unless a node asks; deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "LOCAL_FILES_ALLOWED_DIRS",
+      "LOCAL_FILES_TOOL_ALLOW_WRITES",
+      "LOCAL_FILES_MAX_READ_BYTES",
+      "LOCAL_FILES_MAX_WRITE_BYTES",
+      "LOCAL_FILES_MAX_SEARCH_FILES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "local-files.list_allowed_directories",
+      "title": "List allowed directories",
+      "description": "Lists the directories (LOCAL_FILES_ALLOWED_DIRS) this plugin may read and write, as real paths, and whether each exists",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "local-files.stat",
+      "title": "Stat a path",
+      "description": "Describes a file or directory inside the allowed directories (type, size, times, permission bits, hard links) without opening it; files with more than one hard link are refused",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path, ~/..., or a path relative to the first allowed directory; must stay inside LOCAL_FILES_ALLOWED_DIRS"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "local-files.read_file",
+      "title": "Read a file",
+      "description": "Reads a regular file inside the allowed directories as UTF-8 text or base64, up to max_bytes from offset; `truncated` and `next_offset` say when more remains",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path, ~/..., or a path relative to the first allowed directory; must stay inside LOCAL_FILES_ALLOWED_DIRS"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "utf8 for text (refused when the bytes are not valid UTF-8), base64 for binary files"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Byte offset to start at (use next_offset from a truncated read)"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 262144,
+            "description": "Most bytes to read (default 256 KiB; never more than LOCAL_FILES_MAX_READ_BYTES)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "local-files.list_directory",
+      "title": "List a directory",
+      "description": "Lists a directory inside the allowed directories (name, type, size, modified time), optionally recursing up to max_depth; symlinks are shown, never followed",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory to start in (default: the first allowed directory); must stay inside LOCAL_FILES_ALLOWED_DIRS",
+            "default": "."
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 1,
+            "description": "1 lists only the directory itself; larger values recurse"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most entries to return; `truncated` says when there were more"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "local-files.search_files",
+      "title": "Search files",
+      "description": "Finds files inside the allowed directories by name glob (* and ?) and/or by a plain-text substring in their content (no regular expressions); bounded by depth, entries scanned, matches per file and results",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory to start in (default: the first allowed directory); must stay inside LOCAL_FILES_ALLOWED_DIRS",
+            "default": "."
+          },
+          "name_pattern": {
+            "type": "string",
+            "description": "File name glob, e.g. *.md (* any characters, ? one character)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Plain text to find inside files, matched per line"
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "default": false,
+            "description": "Match name_pattern and content case exactly"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Search names starting with a dot too"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 10,
+            "description": "How deep to recurse (1 = only the directory itself)"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Most matches to return; `truncated` says when the search stopped early"
+          },
+          "max_matches_per_file": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10,
+            "description": "Most matching lines reported per file; `files_with_more_matches` counts files that had more"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "local-files.write_file",
+      "title": "Write a file",
+      "description": "Writes UTF-8 text or base64 bytes to a new file inside the allowed directories (staged, then published atomically). Existing files are never replaced unless a workflow node passes overwrite. Agents need LOCAL_FILES_TOOL_ALLOW_WRITES=1",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path, ~/..., or a path relative to the first allowed directory; must stay inside LOCAL_FILES_ALLOWED_DIRS"
+          },
+          "content": {
+            "type": "string",
+            "description": "Text, or base64 when encoding is base64 (must not be empty)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "How `content` is encoded"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace an existing regular file (workflow nodes only)"
+          },
+          "create_parents": {
+            "type": "boolean",
+            "default": false,
+            "description": "Create missing parent directories inside the allowed directories"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "local-files.delete_path",
+      "title": "Delete a file or empty directory",
+      "description": "Deletes one file, symlink (the link itself) or empty directory inside the allowed directories; never recursive, never an allowed directory itself (workflow nodes only)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path, ~/..., or a path relative to the first allowed directory; must stay inside LOCAL_FILES_ALLOWED_DIRS"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_allowed_directories",
+      "description": "Lists the directories (LOCAL_FILES_ALLOWED_DIRS) this plugin may read and write, as real paths, and whether each exists",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "stat",
+      "description": "Describes a file or directory inside the allowed directories (type, size, times, permission bits, hard links) without opening it; files with more than one hard link are refused",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path, ~/..., or a path relative to the first allowed directory; must stay inside LOCAL_FILES_ALLOWED_DIRS"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "read_file",
+      "description": "Reads a regular file inside the allowed directories as UTF-8 text or base64, up to max_bytes from offset; `truncated` and `next_offset` say when more remains",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path, ~/..., or a path relative to the first allowed directory; must stay inside LOCAL_FILES_ALLOWED_DIRS"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "utf8 for text (refused when the bytes are not valid UTF-8), base64 for binary files"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Byte offset to start at (use next_offset from a truncated read)"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 262144,
+            "description": "Most bytes to read (default 256 KiB; never more than LOCAL_FILES_MAX_READ_BYTES)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "list_directory",
+      "description": "Lists a directory inside the allowed directories (name, type, size, modified time), optionally recursing up to max_depth; symlinks are shown, never followed",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory to start in (default: the first allowed directory); must stay inside LOCAL_FILES_ALLOWED_DIRS",
+            "default": "."
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 1,
+            "description": "1 lists only the directory itself; larger values recurse"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most entries to return; `truncated` says when there were more"
+          }
+        }
+      }
+    },
+    {
+      "name": "search_files",
+      "description": "Finds files inside the allowed directories by name glob (* and ?) and/or by a plain-text substring in their content (no regular expressions); bounded by depth, entries scanned, matches per file and results",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory to start in (default: the first allowed directory); must stay inside LOCAL_FILES_ALLOWED_DIRS",
+            "default": "."
+          },
+          "name_pattern": {
+            "type": "string",
+            "description": "File name glob, e.g. *.md (* any characters, ? one character)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Plain text to find inside files, matched per line"
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "default": false,
+            "description": "Match name_pattern and content case exactly"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Search names starting with a dot too"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 10,
+            "description": "How deep to recurse (1 = only the directory itself)"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Most matches to return; `truncated` says when the search stopped early"
+          },
+          "max_matches_per_file": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10,
+            "description": "Most matching lines reported per file; `files_with_more_matches` counts files that had more"
+          }
+        }
+      }
+    },
+    {
+      "name": "write_file",
+      "description": "Writes UTF-8 text or base64 bytes to a new file inside the allowed directories (staged, then published atomically). Existing files are never replaced unless a workflow node passes overwrite. Agents need LOCAL_FILES_TOOL_ALLOW_WRITES=1",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path, ~/..., or a path relative to the first allowed directory; must stay inside LOCAL_FILES_ALLOWED_DIRS"
+          },
+          "content": {
+            "type": "string",
+            "description": "Text, or base64 when encoding is base64 (must not be empty)"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf8",
+              "base64"
+            ],
+            "default": "utf8",
+            "description": "How `content` is encoded"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace an existing regular file (workflow nodes only)"
+          },
+          "create_parents": {
+            "type": "boolean",
+            "default": false,
+            "description": "Create missing parent directories inside the allowed directories"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ]
+      }
+    }
+  ]
+}
