@@ -1,0 +1,798 @@
+{
+  "name": "gemini",
+  "version": "0.1.0",
+  "description": "Google Gemini API: generateContent (non-streaming), countTokens, embeddings, models and files",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GEMINI_API_KEY",
+      "GEMINI_UPLOAD_DIR",
+      "GEMINI_TOOL_ALLOW_URL_CONTEXT"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "gemini.generate_content",
+      "title": "Generate content",
+      "description": "Ask Gemini (not streamed); the text is in candidates[0].content.parts[].text. Check candidates[0].finishReason and promptFeedback.blockReason (urlContext from agents only when GEMINI_TOOL_ALLOW_URL_CONTEXT=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-2.5-flash"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"parts\":[{\"text\":\"Hi\"}]}]; files as {\"fileData\":{\"fileUri\":...,\"mimeType\":...}}",
+            "items": {
+              "type": "object"
+            }
+          },
+          "system_instruction": {
+            "type": "object",
+            "description": "{\"parts\":[{\"text\":\"You are ...\"}]}"
+          },
+          "generation_config": {
+            "type": "object",
+            "description": "{\"maxOutputTokens\":..,\"temperature\":..,\"responseMimeType\":\"application/json\",\"responseSchema\":{..},\"thinkingConfig\":{..}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tools, e.g. [{\"functionDeclarations\":[..]}] or [{\"googleSearch\":{}}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tool_config": {
+            "type": "object",
+            "description": "Function calling mode"
+          },
+          "safety_settings": {
+            "type": "array",
+            "description": "[{category, threshold}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cached_content": {
+            "type": "string",
+            "description": "cachedContents/... to use as a prefix"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.count_tokens",
+      "title": "Count tokens",
+      "description": "Count the tokens of contents for a model (free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-2.5-flash"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"parts\":[{\"text\":\"Hi\"}]}]; files as {\"fileData\":{\"fileUri\":...,\"mimeType\":...}}",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.embed_content",
+      "title": "Embed content",
+      "description": "Embed one text; the vector is in embedding.values",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-embedding-001"
+          },
+          "content": {
+            "type": "object",
+            "description": "{\"parts\":[{\"text\":\"...\"}]}"
+          },
+          "task_type": {
+            "type": "string",
+            "description": "What the embedding is for",
+            "enum": [
+              "SEMANTIC_SIMILARITY",
+              "CLASSIFICATION",
+              "CLUSTERING",
+              "RETRIEVAL_DOCUMENT",
+              "RETRIEVAL_QUERY",
+              "QUESTION_ANSWERING",
+              "FACT_VERIFICATION",
+              "CODE_RETRIEVAL_QUERY"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "Document title (RETRIEVAL_DOCUMENT only)"
+          },
+          "output_dimensionality": {
+            "type": "integer",
+            "description": "Shorter vectors, e.g. 768",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.batch_embed_contents",
+      "title": "Embed many texts",
+      "description": "Embed up to 100 texts in one call; embeddings[i].values belongs to requests[i]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-embedding-001"
+          },
+          "requests": {
+            "type": "array",
+            "description": "Each {\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":\"...\"}]},\"taskType\":...}",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "requests"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.list_models",
+      "title": "List models",
+      "description": "List Gemini models with their token limits and supportedGenerationMethods",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.get_model",
+      "title": "Get model",
+      "description": "Get one model's token limits, defaults and supported methods",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-2.5-flash"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.list_files",
+      "title": "List files",
+      "description": "List files uploaded with upload_file (kept 48 hours)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.get_file",
+      "title": "Get file",
+      "description": "Get a file's metadata and state (PROCESSING, ACTIVE, FAILED); use it in prompts once ACTIVE",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id: the part after \"files/\" in the file name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.delete_file",
+      "title": "Delete file",
+      "description": "Delete an uploaded file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id: the part after \"files/\" in the file name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.api_request",
+      "title": "Gemini API request",
+      "description": "Call any Gemini API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gemini.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file (PDF, image, audio, video, text; max 100 MB here) for use in prompts as {\"fileData\":{\"fileUri\": file.uri, \"mimeType\": ...}}; files are kept 48 hours",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "An https URL, or an absolute path inside GEMINI_UPLOAD_DIR"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Name shown in list_files (default: the file name)"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Media type when the file's own is wrong or unknown, e.g. text/markdown"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "generate_content",
+      "description": "Ask Gemini (not streamed); the text is in candidates[0].content.parts[].text. Check candidates[0].finishReason and promptFeedback.blockReason (urlContext from agents only when GEMINI_TOOL_ALLOW_URL_CONTEXT=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-2.5-flash"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"parts\":[{\"text\":\"Hi\"}]}]; files as {\"fileData\":{\"fileUri\":...,\"mimeType\":...}}",
+            "items": {
+              "type": "object"
+            }
+          },
+          "system_instruction": {
+            "type": "object",
+            "description": "{\"parts\":[{\"text\":\"You are ...\"}]}"
+          },
+          "generation_config": {
+            "type": "object",
+            "description": "{\"maxOutputTokens\":..,\"temperature\":..,\"responseMimeType\":\"application/json\",\"responseSchema\":{..},\"thinkingConfig\":{..}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tools, e.g. [{\"functionDeclarations\":[..]}] or [{\"googleSearch\":{}}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tool_config": {
+            "type": "object",
+            "description": "Function calling mode"
+          },
+          "safety_settings": {
+            "type": "array",
+            "description": "[{category, threshold}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cached_content": {
+            "type": "string",
+            "description": "cachedContents/... to use as a prefix"
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      }
+    },
+    {
+      "name": "count_tokens",
+      "description": "Count the tokens of contents for a model (free)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-2.5-flash"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"parts\":[{\"text\":\"Hi\"}]}]; files as {\"fileData\":{\"fileUri\":...,\"mimeType\":...}}",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      }
+    },
+    {
+      "name": "embed_content",
+      "description": "Embed one text; the vector is in embedding.values",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-embedding-001"
+          },
+          "content": {
+            "type": "object",
+            "description": "{\"parts\":[{\"text\":\"...\"}]}"
+          },
+          "task_type": {
+            "type": "string",
+            "description": "What the embedding is for",
+            "enum": [
+              "SEMANTIC_SIMILARITY",
+              "CLASSIFICATION",
+              "CLUSTERING",
+              "RETRIEVAL_DOCUMENT",
+              "RETRIEVAL_QUERY",
+              "QUESTION_ANSWERING",
+              "FACT_VERIFICATION",
+              "CODE_RETRIEVAL_QUERY"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "Document title (RETRIEVAL_DOCUMENT only)"
+          },
+          "output_dimensionality": {
+            "type": "integer",
+            "description": "Shorter vectors, e.g. 768",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "model",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "batch_embed_contents",
+      "description": "Embed up to 100 texts in one call; embeddings[i].values belongs to requests[i]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-embedding-001"
+          },
+          "requests": {
+            "type": "array",
+            "description": "Each {\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":\"...\"}]},\"taskType\":...}",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "model",
+          "requests"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List Gemini models with their token limits and supportedGenerationMethods",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "Get one model's token limits, defaults and supported methods",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-2.5-flash"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "List files uploaded with upload_file (kept 48 hours)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_file",
+      "description": "Get a file's metadata and state (PROCESSING, ACTIVE, FAILED); use it in prompts once ACTIVE",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id: the part after \"files/\" in the file name"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Gemini API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file (PDF, image, audio, video, text; max 100 MB here) for use in prompts as {\"fileData\":{\"fileUri\": file.uri, \"mimeType\": ...}}; files are kept 48 hours",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "An https URL, or an absolute path inside GEMINI_UPLOAD_DIR"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Name shown in list_files (default: the file name)"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Media type when the file's own is wrong or unknown, e.g. text/markdown"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    }
+  ]
+}

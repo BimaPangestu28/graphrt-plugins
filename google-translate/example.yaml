@@ -1,0 +1,12 @@
+# List the languages Google Translate supports, named in Indonesian. Read-only and free.
+#   GOOGLE_TRANSLATE_API_KEY=... graphrt run google-translate/example.yaml --plugins .
+version: "1"
+name: google-translate-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: languages, type: google-translate.list_languages, display_language: id }
+    - { id: answer, type: answer, answer: "Languages: {{#languages.data#}}" }
+  edges:
+    - { source: start, target: languages }
+    - { source: languages, target: answer }

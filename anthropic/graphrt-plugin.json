@@ -1,0 +1,1000 @@
+{
+  "name": "anthropic",
+  "version": "0.1.0",
+  "description": "Anthropic Claude API: messages (non-streaming), token counting, models, files and message batches",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_TOOL_ALLOW_BATCH",
+      "ANTHROPIC_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "anthropic.create_message",
+      "title": "Create message",
+      "description": "Ask Claude (not streamed); the reply text is in content[] blocks of type text. Check stop_reason (end_turn, max_tokens, refusal, tool_use)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. claude-opus-5-5, claude-sonnet-5-5 or claude-haiku-5-5",
+            "default": "claude-opus-5-5"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Cap on output tokens (non-streaming: keep it at most about 16000)",
+            "minimum": 1,
+            "maximum": 32000,
+            "default": 16000
+          },
+          "messages": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "system": {
+            "type": "string",
+            "description": "System prompt"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tool definitions ({name, description, input_schema})",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tool_choice": {
+            "type": "object",
+            "description": "{\"type\":\"auto\"} (forced tool choice is refused by the newest models)"
+          },
+          "thinking": {
+            "type": "object",
+            "description": "{\"type\":\"adaptive\"} (default on current models)"
+          },
+          "output_config": {
+            "type": "object",
+            "description": "{\"effort\":\"low\"|\"medium\"|\"high\"|\"xhigh\"|\"max\"} and/or {\"format\":{\"type\":\"json_schema\",\"schema\":{...}}}"
+          },
+          "stop_sequences": {
+            "type": "array",
+            "description": "Custom stop sequences",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "{\"user_id\": \"...\"} (an opaque id, no personal data)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.count_tokens",
+      "title": "Count tokens",
+      "description": "Count the input tokens a message request would use (free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. claude-opus-5-5, claude-sonnet-5-5 or claude-haiku-5-5",
+            "default": "claude-opus-5-5"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "system": {
+            "type": "string",
+            "description": "System prompt"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tool definitions ({name, description, input_schema})",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tool_choice": {
+            "type": "object",
+            "description": "{\"type\":\"auto\"} (forced tool choice is refused by the newest models)"
+          },
+          "thinking": {
+            "type": "object",
+            "description": "{\"type\":\"adaptive\"} (default on current models)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.list_models",
+      "title": "List models",
+      "description": "List available Claude models, newest first, with max_input_tokens, max_tokens and capabilities",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.get_model",
+      "title": "Get model",
+      "description": "Get one model's context window, output cap and capabilities",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model id or alias"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.create_message_batch",
+      "title": "Create message batch",
+      "description": "Queue up to 100,000 Messages requests at 50% of the price; results within 24 h (poll get_message_batch) (as an agent tool only when ANTHROPIC_TOOL_ALLOW_BATCH=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "description": "Requests, each {\"custom_id\":\"a\",\"params\":{\"model\":\"...\",\"max_tokens\":1024,\"messages\":[...]}}",
+            "maxItems": 100000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "requests"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.get_message_batch",
+      "title": "Get message batch",
+      "description": "Get a batch's processing_status (in_progress, canceling, ended) and request_counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Message batch id (msgbatch_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.list_message_batches",
+      "title": "List message batches",
+      "description": "List message batches, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.cancel_message_batch",
+      "title": "Cancel message batch",
+      "description": "Cancel a batch that is still processing (finished requests are still billed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Message batch id (msgbatch_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.delete_message_batch",
+      "title": "Delete message batch",
+      "description": "Delete an ended batch and its results",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Message batch id (msgbatch_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file (PDF, text, image) to reference in messages as {\"type\":\"document\",\"source\":{\"type\":\"file\",\"file_id\":...}}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File to upload (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.list_files",
+      "title": "List files",
+      "description": "List uploaded files, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.get_file",
+      "title": "Get file",
+      "description": "Get an uploaded file's metadata",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.delete_file",
+      "title": "Delete file",
+      "description": "Delete an uploaded file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.api_request",
+      "title": "Claude API request",
+      "description": "Call any Claude API endpoint that has no dedicated operation, e.g. path \"/v1/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "anthropic.get_message_batch_results",
+      "title": "Get message batch results",
+      "description": "Results of an ended message batch as a list of {custom_id, result: {type: succeeded|errored|canceled|expired, message|error}} in any order; filter with custom_ids or result_type and page with offset (agents see 100 at a time)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Message batch id (msgbatch_...); processing_status must be ended"
+          },
+          "result_type": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "errored",
+              "canceled",
+              "expired"
+            ],
+            "description": "Only results of this type"
+          },
+          "custom_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Only results with these custom_ids"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Skip this many matching results (file order), e.g. 100 for the second page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_message",
+      "description": "Ask Claude (not streamed); the reply text is in content[] blocks of type text. Check stop_reason (end_turn, max_tokens, refusal, tool_use)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. claude-opus-5-5, claude-sonnet-5-5 or claude-haiku-5-5",
+            "default": "claude-opus-5-5"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Cap on output tokens (non-streaming: keep it at most about 16000)",
+            "minimum": 1,
+            "maximum": 32000,
+            "default": 16000
+          },
+          "messages": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "system": {
+            "type": "string",
+            "description": "System prompt"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tool definitions ({name, description, input_schema})",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tool_choice": {
+            "type": "object",
+            "description": "{\"type\":\"auto\"} (forced tool choice is refused by the newest models)"
+          },
+          "thinking": {
+            "type": "object",
+            "description": "{\"type\":\"adaptive\"} (default on current models)"
+          },
+          "output_config": {
+            "type": "object",
+            "description": "{\"effort\":\"low\"|\"medium\"|\"high\"|\"xhigh\"|\"max\"} and/or {\"format\":{\"type\":\"json_schema\",\"schema\":{...}}}"
+          },
+          "stop_sequences": {
+            "type": "array",
+            "description": "Custom stop sequences",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "{\"user_id\": \"...\"} (an opaque id, no personal data)"
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "count_tokens",
+      "description": "Count the input tokens a message request would use (free)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. claude-opus-5-5, claude-sonnet-5-5 or claude-haiku-5-5",
+            "default": "claude-opus-5-5"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Conversation, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "system": {
+            "type": "string",
+            "description": "System prompt"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tool definitions ({name, description, input_schema})",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tool_choice": {
+            "type": "object",
+            "description": "{\"type\":\"auto\"} (forced tool choice is refused by the newest models)"
+          },
+          "thinking": {
+            "type": "object",
+            "description": "{\"type\":\"adaptive\"} (default on current models)"
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List available Claude models, newest first, with max_input_tokens, max_tokens and capabilities",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "Get one model's context window, output cap and capabilities",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model id or alias"
+          }
+        },
+        "required": [
+          "model_id"
+        ]
+      }
+    },
+    {
+      "name": "create_message_batch",
+      "description": "Queue up to 100,000 Messages requests at 50% of the price; results within 24 h (poll get_message_batch) (as an agent tool only when ANTHROPIC_TOOL_ALLOW_BATCH=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "description": "Requests, each {\"custom_id\":\"a\",\"params\":{\"model\":\"...\",\"max_tokens\":1024,\"messages\":[...]}}",
+            "maxItems": 100000,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "requests"
+        ]
+      }
+    },
+    {
+      "name": "get_message_batch",
+      "description": "Get a batch's processing_status (in_progress, canceling, ended) and request_counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Message batch id (msgbatch_...)"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      }
+    },
+    {
+      "name": "list_message_batches",
+      "description": "List message batches, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file (PDF, text, image) to reference in messages as {\"type\":\"document\",\"source\":{\"type\":\"file\",\"file_id\":...}}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File to upload (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "List uploaded files, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_file",
+      "description": "Get an uploaded file's metadata",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (file_...)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Claude API endpoint that has no dedicated operation, e.g. path \"/v1/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "get_message_batch_results",
+      "description": "Results of an ended message batch as a list of {custom_id, result: {type: succeeded|errored|canceled|expired, message|error}} in any order; filter with custom_ids or result_type and page with offset (agents see 100 at a time)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "description": "Message batch id (msgbatch_...); processing_status must be ended"
+          },
+          "result_type": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "errored",
+              "canceled",
+              "expired"
+            ],
+            "description": "Only results of this type"
+          },
+          "custom_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Only results with these custom_ids"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Skip this many matching results (file order), e.g. 100 for the second page"
+          }
+        },
+        "required": [
+          "batch_id"
+        ]
+      }
+    }
+  ]
+}

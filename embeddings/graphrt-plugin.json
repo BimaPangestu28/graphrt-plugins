@@ -1,0 +1,224 @@
+{
+  "name": "embeddings",
+  "version": "0.1.0",
+  "description": "Provider-agnostic text embeddings (OpenAI, Mistral, Gemini, Voyage, Ollama or any OpenAI-compatible host) and similarity ranking",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "EMBEDDINGS_API_KEY",
+      "EMBEDDINGS_PROVIDER",
+      "EMBEDDINGS_BASE_URL",
+      "EMBEDDINGS_MODEL",
+      "EMBEDDINGS_BATCH_SIZE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "embeddings.embed_texts",
+      "title": "Embed texts",
+      "description": "Embed texts with the configured provider; data[] holds {index, embedding} with index pointing into input",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "Embedding model (default: EMBEDDINGS_MODEL, else the provider's default)"
+          },
+          "dimensions": {
+            "type": "integer",
+            "description": "Shorter vectors: OpenAI, Gemini and Ollama name it dimensions",
+            "minimum": 1
+          },
+          "output_dimension": {
+            "type": "integer",
+            "description": "Shorter vectors: Voyage and Mistral name it output_dimension",
+            "minimum": 1
+          },
+          "input_type": {
+            "type": "string",
+            "description": "Voyage only: embed as a search query or a document",
+            "enum": [
+              "query",
+              "document"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "embeddings.rank_by_similarity",
+      "title": "Rank by similarity",
+      "description": "Semantic search over a short list: embeds the query and documents and returns the top_k most similar documents with cosine scores",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What to search for"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 999,
+            "description": "Texts to rank (at most 999)"
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 5,
+            "description": "How many matches to return"
+          },
+          "model": {
+            "type": "string",
+            "description": "Embedding model (default: EMBEDDINGS_MODEL, else the provider's default)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query",
+          "documents"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "embed_texts",
+      "description": "Embed texts with the configured provider; data[] holds {index, embedding} with index pointing into input",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "Embedding model (default: EMBEDDINGS_MODEL, else the provider's default)"
+          },
+          "dimensions": {
+            "type": "integer",
+            "description": "Shorter vectors: OpenAI, Gemini and Ollama name it dimensions",
+            "minimum": 1
+          },
+          "output_dimension": {
+            "type": "integer",
+            "description": "Shorter vectors: Voyage and Mistral name it output_dimension",
+            "minimum": 1
+          },
+          "input_type": {
+            "type": "string",
+            "description": "Voyage only: embed as a search query or a document",
+            "enum": [
+              "query",
+              "document"
+            ]
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "rank_by_similarity",
+      "description": "Semantic search over a short list: embeds the query and documents and returns the top_k most similar documents with cosine scores",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What to search for"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 999,
+            "description": "Texts to rank (at most 999)"
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 5,
+            "description": "How many matches to return"
+          },
+          "model": {
+            "type": "string",
+            "description": "Embedding model (default: EMBEDDINGS_MODEL, else the provider's default)"
+          }
+        },
+        "required": [
+          "query",
+          "documents"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-deepl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: DeepL API: translate and rephrase text, translate documents, usage, languages and glossaries",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,1390 @@
+{
+  "name": "mistral",
+  "version": "0.1.0",
+  "description": "Mistral AI API: chat and FIM completions (non-streaming), embeddings, moderation, OCR, models, files and batch jobs",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MISTRAL_API_KEY",
+      "MISTRAL_UPLOAD_DIR",
+      "MISTRAL_OUTPUT_DIR",
+      "MISTRAL_TOOL_ALLOW_BATCH"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "mistral.create_chat_completion",
+      "title": "Create chat completion",
+      "description": "Generate a chat completion (not streamed); the answer is in choices[0].message.content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. mistral-small-latest, mistral-medium-latest or mistral-large-latest"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 1.5
+          },
+          "response_format": {
+            "type": "object",
+            "description": "{\"type\":\"json_object\"} or {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions",
+            "items": {
+              "type": "object"
+            }
+          },
+          "safe_prompt": {
+            "type": "boolean",
+            "description": "Prepend Mistral's safety system prompt"
+          },
+          "random_seed": {
+            "type": "integer",
+            "description": "Seed for deterministic sampling"
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.create_fim_completion",
+      "title": "Fill in the middle (code)",
+      "description": "Complete code between a prompt and an optional suffix with Codestral; the code is in choices[0].message.content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "FIM model",
+            "default": "codestral-latest"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Code before the gap"
+          },
+          "suffix": {
+            "type": "string",
+            "description": "Code after the gap"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens",
+            "minimum": 1
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.create_embeddings",
+      "title": "Create embeddings",
+      "description": "Embed texts as vectors; data[i].embedding belongs to input[i]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "mistral-embed (text) or codestral-embed (code)",
+            "default": "mistral-embed"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "items": {
+              "type": "string"
+            }
+          },
+          "output_dimension": {
+            "type": "integer",
+            "description": "Vector size (codestral-embed only)",
+            "minimum": 1
+          },
+          "output_dtype": {
+            "type": "string",
+            "description": "Vector number type (codestral-embed only)",
+            "enum": [
+              "float",
+              "int8",
+              "uint8",
+              "binary",
+              "ubinary"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.moderate_text",
+      "title": "Moderate text",
+      "description": "Classify texts against Mistral's moderation categories; results[i].categories and category_scores",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Moderation model",
+            "default": "mistral-moderation-latest"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to classify",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.moderate_chat",
+      "title": "Moderate conversation",
+      "description": "Classify the last message of a conversation in its context",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Moderation model",
+            "default": "mistral-moderation-latest"
+          },
+          "input": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"...\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.ocr_document",
+      "title": "OCR document",
+      "description": "Read a PDF or image into markdown per page (pages[].markdown), with optional structured annotation",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "OCR model",
+            "default": "mistral-ocr-latest"
+          },
+          "document": {
+            "type": "object",
+            "description": "{\"type\":\"document_url\",\"document_url\":\"https://.../a.pdf\"}, {\"type\":\"image_url\",\"image_url\":\"https://...\"} or {\"type\":\"file\",\"file_id\":\"...\"}"
+          },
+          "pages": {
+            "type": "array",
+            "description": "Zero-based page numbers (default all)",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "include_image_base64": {
+            "type": "boolean",
+            "description": "Return the extracted images as base64 (large)",
+            "default": false
+          },
+          "image_limit": {
+            "type": "integer",
+            "description": "Maximum images to extract",
+            "minimum": 0
+          },
+          "table_format": {
+            "type": "string",
+            "description": "Table output format",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "extract_header": {
+            "type": "boolean",
+            "description": "Move page headers into a header field"
+          },
+          "extract_footer": {
+            "type": "boolean",
+            "description": "Move page footers into a footer field"
+          },
+          "document_annotation_format": {
+            "type": "object",
+            "description": "Structured output for the whole document, e.g. {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "document_annotation_prompt": {
+            "type": "string",
+            "description": "Instructions for the document annotation"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "document"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.list_models",
+      "title": "List models",
+      "description": "List models available to the API key",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.get_model",
+      "title": "Get model",
+      "description": "Get one model's capabilities, context length and aliases",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.list_files",
+      "title": "List files",
+      "description": "List uploaded files",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "description": "Only files with this purpose",
+            "enum": [
+              "fine-tune",
+              "batch",
+              "ocr"
+            ]
+          },
+          "search": {
+            "type": "string",
+            "description": "Search file names"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file (batch .jsonl, a document for OCR, fine-tuning data) and get its id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File to upload (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "What the file is for",
+            "enum": [
+              "fine-tune",
+              "batch",
+              "ocr"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file",
+          "purpose"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.get_file",
+      "title": "Get file",
+      "description": "Get an uploaded file's metadata",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (a UUID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.download_file_content",
+      "title": "Download file content",
+      "description": "Save a file's content (e.g. a batch job's output_file) into $MISTRAL_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (a UUID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.delete_file",
+      "title": "Delete file",
+      "description": "Delete an uploaded file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (a UUID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.create_batch_job",
+      "title": "Create batch job",
+      "description": "Start a batch job over uploaded .jsonl files or inline requests (half price); poll it with get_batch_job (as an agent tool only when MISTRAL_TOOL_ALLOW_BATCH=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint every request calls",
+            "enum": [
+              "/v1/chat/completions",
+              "/v1/embeddings",
+              "/v1/fim/completions",
+              "/v1/moderations",
+              "/v1/chat/moderations",
+              "/v1/ocr"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "Model for every request"
+          },
+          "input_files": {
+            "type": "array",
+            "description": "File ids of .jsonl inputs, lines like {\"custom_id\":\"0\",\"body\":{...}}",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requests": {
+            "type": "array",
+            "description": "Inline requests instead of files, each {\"custom_id\":\"0\",\"body\":{...}}",
+            "items": {
+              "type": "object"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "String key/value pairs"
+          },
+          "timeout_hours": {
+            "type": "integer",
+            "description": "Give up after this many hours (default 24)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.get_batch_job",
+      "title": "Get batch job",
+      "description": "Get a batch job's status, counts and output_file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "description": "Batch job id (a UUID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.list_batch_jobs",
+      "title": "List batch jobs",
+      "description": "List batch jobs, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "array",
+            "description": "Only jobs with these statuses",
+            "items": {
+              "type": "string",
+              "enum": [
+                "QUEUED",
+                "RUNNING",
+                "SUCCESS",
+                "FAILED",
+                "TIMEOUT_EXCEEDED",
+                "CANCELLATION_REQUESTED",
+                "CANCELLED"
+              ]
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.cancel_batch_job",
+      "title": "Cancel batch job",
+      "description": "Request cancellation of a batch job (finished requests are still billed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "description": "Batch job id (a UUID)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mistral.api_request",
+      "title": "Mistral AI API request",
+      "description": "Call any Mistral AI API endpoint that has no dedicated operation, e.g. path \"/v1/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_chat_completion",
+      "description": "Generate a chat completion (not streamed); the answer is in choices[0].message.content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id, e.g. mistral-small-latest, mistral-medium-latest or mistral-large-latest"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"Hi\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 1.5
+          },
+          "response_format": {
+            "type": "object",
+            "description": "{\"type\":\"json_object\"} or {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "tools": {
+            "type": "array",
+            "description": "Function tool definitions",
+            "items": {
+              "type": "object"
+            }
+          },
+          "safe_prompt": {
+            "type": "boolean",
+            "description": "Prepend Mistral's safety system prompt"
+          },
+          "random_seed": {
+            "type": "integer",
+            "description": "Seed for deterministic sampling"
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "create_fim_completion",
+      "description": "Complete code between a prompt and an optional suffix with Codestral; the code is in choices[0].message.content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "FIM model",
+            "default": "codestral-latest"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Code before the gap"
+          },
+          "suffix": {
+            "type": "string",
+            "description": "Code after the gap"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Cap on generated tokens",
+            "minimum": 1
+          },
+          "stop": {
+            "type": "array",
+            "description": "Stop sequences",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "create_embeddings",
+      "description": "Embed texts as vectors; data[i].embedding belongs to input[i]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "mistral-embed (text) or codestral-embed (code)",
+            "default": "mistral-embed"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to embed",
+            "items": {
+              "type": "string"
+            }
+          },
+          "output_dimension": {
+            "type": "integer",
+            "description": "Vector size (codestral-embed only)",
+            "minimum": 1
+          },
+          "output_dtype": {
+            "type": "string",
+            "description": "Vector number type (codestral-embed only)",
+            "enum": [
+              "float",
+              "int8",
+              "uint8",
+              "binary",
+              "ubinary"
+            ]
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "moderate_text",
+      "description": "Classify texts against Mistral's moderation categories; results[i].categories and category_scores",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Moderation model",
+            "default": "mistral-moderation-latest"
+          },
+          "input": {
+            "type": "array",
+            "description": "Texts to classify",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "moderate_chat",
+      "description": "Classify the last message of a conversation in its context",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Moderation model",
+            "default": "mistral-moderation-latest"
+          },
+          "input": {
+            "type": "array",
+            "description": "Messages, e.g. [{\"role\":\"user\",\"content\":\"...\"}]",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "ocr_document",
+      "description": "Read a PDF or image into markdown per page (pages[].markdown), with optional structured annotation",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "OCR model",
+            "default": "mistral-ocr-latest"
+          },
+          "document": {
+            "type": "object",
+            "description": "{\"type\":\"document_url\",\"document_url\":\"https://.../a.pdf\"}, {\"type\":\"image_url\",\"image_url\":\"https://...\"} or {\"type\":\"file\",\"file_id\":\"...\"}"
+          },
+          "pages": {
+            "type": "array",
+            "description": "Zero-based page numbers (default all)",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "include_image_base64": {
+            "type": "boolean",
+            "description": "Return the extracted images as base64 (large)",
+            "default": false
+          },
+          "image_limit": {
+            "type": "integer",
+            "description": "Maximum images to extract",
+            "minimum": 0
+          },
+          "table_format": {
+            "type": "string",
+            "description": "Table output format",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "extract_header": {
+            "type": "boolean",
+            "description": "Move page headers into a header field"
+          },
+          "extract_footer": {
+            "type": "boolean",
+            "description": "Move page footers into a footer field"
+          },
+          "document_annotation_format": {
+            "type": "object",
+            "description": "Structured output for the whole document, e.g. {\"type\":\"json_schema\",\"json_schema\":{...}}"
+          },
+          "document_annotation_prompt": {
+            "type": "string",
+            "description": "Instructions for the document annotation"
+          }
+        },
+        "required": [
+          "document"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List models available to the API key",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "Get one model's capabilities, context length and aliases",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model id"
+          }
+        },
+        "required": [
+          "model_id"
+        ]
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "List uploaded files",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "description": "Only files with this purpose",
+            "enum": [
+              "fine-tune",
+              "batch",
+              "ocr"
+            ]
+          },
+          "search": {
+            "type": "string",
+            "description": "Search file names"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file (batch .jsonl, a document for OCR, fine-tuning data) and get its id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File to upload (max 100 MB here) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "What the file is for",
+            "enum": [
+              "fine-tune",
+              "batch",
+              "ocr"
+            ]
+          }
+        },
+        "required": [
+          "file",
+          "purpose"
+        ]
+      }
+    },
+    {
+      "name": "get_file",
+      "description": "Get an uploaded file's metadata",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (a UUID)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "download_file_content",
+      "description": "Save a file's content (e.g. a batch job's output_file) into $MISTRAL_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id (a UUID)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "create_batch_job",
+      "description": "Start a batch job over uploaded .jsonl files or inline requests (half price); poll it with get_batch_job (as an agent tool only when MISTRAL_TOOL_ALLOW_BATCH=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint every request calls",
+            "enum": [
+              "/v1/chat/completions",
+              "/v1/embeddings",
+              "/v1/fim/completions",
+              "/v1/moderations",
+              "/v1/chat/moderations",
+              "/v1/ocr"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "Model for every request"
+          },
+          "input_files": {
+            "type": "array",
+            "description": "File ids of .jsonl inputs, lines like {\"custom_id\":\"0\",\"body\":{...}}",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requests": {
+            "type": "array",
+            "description": "Inline requests instead of files, each {\"custom_id\":\"0\",\"body\":{...}}",
+            "items": {
+              "type": "object"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "String key/value pairs"
+          },
+          "timeout_hours": {
+            "type": "integer",
+            "description": "Give up after this many hours (default 24)",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
+      }
+    },
+    {
+      "name": "get_batch_job",
+      "description": "Get a batch job's status, counts and output_file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "description": "Batch job id (a UUID)"
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
+      "name": "list_batch_jobs",
+      "description": "List batch jobs, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "array",
+            "description": "Only jobs with these statuses",
+            "items": {
+              "type": "string",
+              "enum": [
+                "QUEUED",
+                "RUNNING",
+                "SUCCESS",
+                "FAILED",
+                "TIMEOUT_EXCEEDED",
+                "CANCELLATION_REQUESTED",
+                "CANCELLED"
+              ]
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Mistral AI API endpoint that has no dedicated operation, e.g. path \"/v1/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

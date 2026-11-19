@@ -1,0 +1,20 @@
+# Rank three FAQ entries by similarity to a question. No writes; costs a few embedding tokens
+# (free with EMBEDDINGS_PROVIDER=ollama).
+#   EMBEDDINGS_PROVIDER=openai EMBEDDINGS_API_KEY=sk-... graphrt run embeddings/example.yaml --plugins .
+version: "1"
+name: embeddings-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: rank
+      type: embeddings.rank_by_similarity
+      query: How do I get my money back?
+      documents:
+        - Orders ship within two business days.
+        - You can request a refund within 30 days of delivery.
+        - Our support team answers within 24 hours.
+      top_k: 2
+    - { id: answer, type: answer, answer: "Best matches: {{#rank.data.matches#}}" }
+  edges:
+    - { source: start, target: rank }
+    - { source: rank, target: answer }

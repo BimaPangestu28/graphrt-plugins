@@ -1,0 +1,15 @@
+# Describe a public sample image with Vision labels. Nothing is stored; the first 1,000 units a month are free.
+#   GOOGLE_VISION_API_KEY=... graphrt run google-vision/example.yaml --plugins .
+version: "1"
+name: google-vision-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: labels
+      type: google-vision.detect_labels
+      image: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/330px-Cat03.jpg
+      max_results: 5
+    - { id: answer, type: answer, answer: "Labels: {{#labels.data#}}" }
+  edges:
+    - { source: start, target: labels }
+    - { source: labels, target: answer }
