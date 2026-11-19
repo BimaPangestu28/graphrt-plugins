@@ -1,0 +1,656 @@
+{
+  "name": "resend",
+  "version": "0.1.0",
+  "description": "Resend: send email (idempotent retries; agent sends need an opt-in and an optional recipient allowlist), batch sends, sent emails, scheduling and domains",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "RESEND_API_KEY",
+      "RESEND_TOOL_RECIPIENT_ALLOWLIST",
+      "RESEND_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "resend.send_email",
+      "title": "Send email",
+      "description": "Send an email (html/text or a template), now or scheduled; returns the email id (as an agent tool only when RESEND_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Sender on a verified domain, e.g. \"Acme <news@example.com>\""
+          },
+          "to": {
+            "type": "array",
+            "description": "Recipient addresses (max 50), e.g. [\"ada@example.com\"] (plain addresses)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "description": "Cc addresses",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "description": "Bcc addresses",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "reply_to": {
+            "type": "array",
+            "description": "Reply-To addresses",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (may come from the template)"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body (generated from html when omitted)"
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Published template id or alias (instead of html/text)"
+          },
+          "template_variables": {
+            "type": "object",
+            "description": "Template variables, e.g. {PRODUCT: \"Acme\"}"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Send later: ISO 8601 or natural language such as \"in 1 hour\""
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags [{name, value}] (ASCII letters, digits, _ and -), e.g. [{\"name\": \"category\", \"value\": \"welcome\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "topic_id": {
+            "type": "string",
+            "description": "Topic id; contacts who opted out of the topic are skipped"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.send_batch_emails",
+      "title": "Send batch",
+      "description": "Send up to 100 emails in one call (no attachments or scheduling); recipients are not checked",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "emails": {
+            "type": "array",
+            "description": "send_email bodies: [{from, to, subject, html|text}, ...]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "emails"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.get_email",
+      "title": "Get email",
+      "description": "One sent email with its html/text, recipients, last_event and scheduled_at (agent tools get html/text omitted)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "Email id (from send_email or list_emails)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.list_emails",
+      "title": "List emails",
+      "description": "Emails your team sent, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.reschedule_email",
+      "title": "Reschedule email",
+      "description": "Change the send time of a scheduled email (as an agent tool only when RESEND_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "Email id (from send_email or list_emails)"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "New send time, ISO 8601 or natural language"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email_id",
+          "scheduled_at"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.cancel_email",
+      "title": "Cancel scheduled email",
+      "description": "Cancel a scheduled email before it is sent",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "Email id (from send_email or list_emails)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.list_domains",
+      "title": "List domains",
+      "description": "Sending domains with status, region and capabilities",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.get_domain",
+      "title": "Get domain",
+      "description": "One domain with its verification status and the DNS records to publish",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "description": "Domain id (from list_domains)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "resend.api_request",
+      "title": "Resend API request",
+      "description": "Call any Resend API endpoint that has no dedicated operation, e.g. path \"/audiences\". Only the API's own host is allowed. Agent tools may only read paths under /domains, /audiences, /contacts, /broadcasts, /templates, /topics, /segments.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/audiences\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "send_email",
+      "description": "Send an email (html/text or a template), now or scheduled; returns the email id (as an agent tool only when RESEND_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Sender on a verified domain, e.g. \"Acme <news@example.com>\""
+          },
+          "to": {
+            "type": "array",
+            "description": "Recipient addresses (max 50), e.g. [\"ada@example.com\"] (plain addresses)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "description": "Cc addresses",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "description": "Bcc addresses",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "reply_to": {
+            "type": "array",
+            "description": "Reply-To addresses",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (may come from the template)"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body (generated from html when omitted)"
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Published template id or alias (instead of html/text)"
+          },
+          "template_variables": {
+            "type": "object",
+            "description": "Template variables, e.g. {PRODUCT: \"Acme\"}"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Send later: ISO 8601 or natural language such as \"in 1 hour\""
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags [{name, value}] (ASCII letters, digits, _ and -), e.g. [{\"name\": \"category\", \"value\": \"welcome\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "topic_id": {
+            "type": "string",
+            "description": "Topic id; contacts who opted out of the topic are skipped"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "get_email",
+      "description": "One sent email with its html/text, recipients, last_event and scheduled_at (agent tools get html/text omitted)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "Email id (from send_email or list_emails)"
+          }
+        },
+        "required": [
+          "email_id"
+        ]
+      }
+    },
+    {
+      "name": "list_emails",
+      "description": "Emails your team sent, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "reschedule_email",
+      "description": "Change the send time of a scheduled email (as an agent tool only when RESEND_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email_id": {
+            "type": "string",
+            "description": "Email id (from send_email or list_emails)"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "New send time, ISO 8601 or natural language"
+          }
+        },
+        "required": [
+          "email_id",
+          "scheduled_at"
+        ]
+      }
+    },
+    {
+      "name": "list_domains",
+      "description": "Sending domains with status, region and capabilities",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_domain",
+      "description": "One domain with its verification status and the DNS records to publish",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain_id": {
+            "type": "string",
+            "description": "Domain id (from list_domains)"
+          }
+        },
+        "required": [
+          "domain_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Resend API endpoint that has no dedicated operation, e.g. path \"/audiences\". Only the API's own host is allowed. Agent tools may only read paths under /domains, /audiences, /contacts, /broadcasts, /templates, /topics, /segments.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/audiences\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

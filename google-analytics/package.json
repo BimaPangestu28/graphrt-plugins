@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-google-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Google Analytics 4 Data API reports and Admin API accounts, properties and data streams (read-only)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

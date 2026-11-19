@@ -1,0 +1,14 @@
+# List your newest forms and the latest responses of the first one. Read-only.
+#   TYPEFORM_TOKEN=tfp_... graphrt run typeform/example.yaml --plugins .
+version: "1"
+name: typeform-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: forms, type: typeform.list_forms, sort_by: last_updated_at, order_by: desc, limit: 5 }
+    - { id: answers, type: typeform.list_responses, form_id: "{{#forms.data.0.id#}}", limit: 10 }
+    - { id: answer, type: answer, answer: "{{#forms.data.0.title#}}: {{#answers.data#}}" }
+  edges:
+    - { source: start, target: forms }
+    - { source: forms, target: answers }
+    - { source: answers, target: answer }

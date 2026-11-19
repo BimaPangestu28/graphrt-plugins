@@ -1,0 +1,15 @@
+# List the ten newest accounts and the remaining daily API requests. Read-only.
+#   SALESFORCE_INSTANCE_URL=https://acme.my.salesforce.com SALESFORCE_CLIENT_ID=... SALESFORCE_CLIENT_SECRET=... \
+#     SALESFORCE_REFRESH_TOKEN=... graphrt run salesforce/example.yaml --plugins .
+version: "1"
+name: salesforce-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: accounts, type: salesforce.query, soql: "SELECT Id, Name, Industry FROM Account ORDER BY CreatedDate DESC LIMIT 10" }
+    - { id: limits, type: salesforce.get_limits }
+    - { id: answer, type: answer, answer: "Accounts: {{#accounts.data.records#}} | API requests left: {{#limits.data.DailyApiRequests.Remaining#}}" }
+  edges:
+    - { source: start, target: accounts }
+    - { source: accounts, target: limits }
+    - { source: limits, target: answer }

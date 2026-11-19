@@ -1,0 +1,1030 @@
+{
+  "name": "sendgrid",
+  "version": "0.1.0",
+  "description": "Twilio SendGrid: send email (simple fields or dynamic templates; agent sends need an opt-in and an optional recipient allowlist), templates, stats and suppression lists",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SENDGRID_API_KEY",
+      "SENDGRID_REGION",
+      "SENDGRID_TOOL_RECIPIENT_ALLOWLIST",
+      "SENDGRID_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "sendgrid.send_mail",
+      "title": "Send email",
+      "description": "Send an email (text/html or a dynamic template) to one set of recipients; accepted with 202 and no body (as an agent tool only when SENDGRID_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Sender address; must be a verified Sender Identity or on an authenticated domain"
+          },
+          "from_name": {
+            "type": "string",
+            "description": "Sender display name"
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"] (plain addresses, no display names)"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Bcc addresses"
+          },
+          "reply_to": {
+            "type": "string",
+            "description": "Reply-To address"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (required unless template_id is a dynamic template with its own subject)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body"
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Template id; d-... for dynamic templates (then subject/text/html come from the template)"
+          },
+          "dynamic_template_data": {
+            "type": "object",
+            "description": "Handlebars data for a dynamic template, e.g. {first_name: \"Ada\"}"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "description": "Up to 10 categories for stats"
+          },
+          "send_at": {
+            "type": "integer",
+            "description": "Unix time to send at (at most 72 hours ahead)"
+          },
+          "asm_group_id": {
+            "type": "integer",
+            "description": "Unsubscribe group id (list_unsubscribe_groups) for the unsubscribe link"
+          },
+          "sandbox_mode": {
+            "type": "boolean",
+            "description": "Validate the request without sending (nothing is delivered)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.send_mail_raw",
+      "title": "Send email (raw body)",
+      "description": "Send a full mail/send body (many personalizations, attachments, tracking settings); recipients are not checked",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "object",
+            "description": "The mail/send JSON body: {personalizations, from, subject, content, ...}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.list_templates",
+      "title": "List templates",
+      "description": "Transactional templates (dynamic by default) with their versions",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "generations": {
+            "type": "string",
+            "description": "Template generations to list",
+            "enum": [
+              "legacy",
+              "dynamic",
+              "legacy,dynamic"
+            ],
+            "default": "dynamic"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.get_template",
+      "title": "Get template",
+      "description": "One template with all its versions (subject, html and plain content, active flag)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "description": "Template id, e.g. d-0123..."
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.get_global_stats",
+      "title": "Email stats",
+      "description": "Account-wide counts per day/week/month: requests, delivered, opens, clicks, bounces, spam reports, unsubscribes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day, YYYY-MM-DD (default today)"
+          },
+          "aggregated_by": {
+            "type": "string",
+            "description": "Grouping (default day)",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "start_date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.list_bounces",
+      "title": "List bounces",
+      "description": "Addresses on the bounce list, with the bounce reason and SMTP status",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.list_blocks",
+      "title": "List blocks",
+      "description": "Addresses whose receiving server blocked a message, with the reason",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.list_spam_reports",
+      "title": "List spam reports",
+      "description": "Addresses that marked a message as spam",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.list_invalid_emails",
+      "title": "List invalid emails",
+      "description": "Addresses SendGrid found invalid, with the reason",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.list_global_unsubscribes",
+      "title": "List global unsubscribes",
+      "description": "Addresses that unsubscribed from all email",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.list_unsubscribe_groups",
+      "title": "List unsubscribe groups",
+      "description": "Unsubscribe (suppression) groups with their unsubscribe counts; ids for send_mail asm_group_id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sendgrid.api_request",
+      "title": "SendGrid v3 API request",
+      "description": "Call any SendGrid v3 API endpoint that has no dedicated operation, e.g. path \"/categories\". Only the API's own host is allowed. Agent tools may only read paths under /templates, /stats, /categories, /suppression, /asm, /messages, /verified_senders, /whitelabel/domains, /geo/stats, /devices/stats, /clients/stats, /mailbox_providers/stats, /browsers/stats.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/categories\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "send_mail",
+      "description": "Send an email (text/html or a dynamic template) to one set of recipients; accepted with 202 and no body (as an agent tool only when SENDGRID_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Sender address; must be a verified Sender Identity or on an authenticated domain"
+          },
+          "from_name": {
+            "type": "string",
+            "description": "Sender display name"
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"] (plain addresses, no display names)"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "description": "Bcc addresses"
+          },
+          "reply_to": {
+            "type": "string",
+            "description": "Reply-To address"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (required unless template_id is a dynamic template with its own subject)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body"
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Template id; d-... for dynamic templates (then subject/text/html come from the template)"
+          },
+          "dynamic_template_data": {
+            "type": "object",
+            "description": "Handlebars data for a dynamic template, e.g. {first_name: \"Ada\"}"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "description": "Up to 10 categories for stats"
+          },
+          "send_at": {
+            "type": "integer",
+            "description": "Unix time to send at (at most 72 hours ahead)"
+          },
+          "asm_group_id": {
+            "type": "integer",
+            "description": "Unsubscribe group id (list_unsubscribe_groups) for the unsubscribe link"
+          },
+          "sandbox_mode": {
+            "type": "boolean",
+            "description": "Validate the request without sending (nothing is delivered)"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "list_templates",
+      "description": "Transactional templates (dynamic by default) with their versions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "generations": {
+            "type": "string",
+            "description": "Template generations to list",
+            "enum": [
+              "legacy",
+              "dynamic",
+              "legacy,dynamic"
+            ],
+            "default": "dynamic"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_template",
+      "description": "One template with all its versions (subject, html and plain content, active flag)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "description": "Template id, e.g. d-0123..."
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      }
+    },
+    {
+      "name": "get_global_stats",
+      "description": "Account-wide counts per day/week/month: requests, delivered, opens, clicks, bounces, spam reports, unsubscribes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day, YYYY-MM-DD (default today)"
+          },
+          "aggregated_by": {
+            "type": "string",
+            "description": "Grouping (default day)",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ]
+          }
+        },
+        "required": [
+          "start_date"
+        ]
+      }
+    },
+    {
+      "name": "list_bounces",
+      "description": "Addresses on the bounce list, with the bounce reason and SMTP status",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_blocks",
+      "description": "Addresses whose receiving server blocked a message, with the reason",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_spam_reports",
+      "description": "Addresses that marked a message as spam",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_invalid_emails",
+      "description": "Addresses SendGrid found invalid, with the reason",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_global_unsubscribes",
+      "description": "Addresses that unsubscribed from all email",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Only entries created at or after this Unix time",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Only entries created at or before this Unix time",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "description": "Only addresses starting with this text, e.g. ada@ (use %25 as a wildcard)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_unsubscribe_groups",
+      "description": "Unsubscribe (suppression) groups with their unsubscribe counts; ids for send_mail asm_group_id",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any SendGrid v3 API endpoint that has no dedicated operation, e.g. path \"/categories\". Only the API's own host is allowed. Agent tools may only read paths under /templates, /stats, /categories, /suppression, /asm, /messages, /verified_senders, /whitelabel/domains, /geo/stats, /devices/stats, /clients/stats, /mailbox_providers/stats, /browsers/stats.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/categories\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

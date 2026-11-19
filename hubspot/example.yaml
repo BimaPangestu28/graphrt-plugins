@@ -1,0 +1,18 @@
+# Find the newest leads in HubSpot. Read-only.
+#   HUBSPOT_ACCESS_TOKEN=pat-... graphrt run hubspot/example.yaml --plugins .
+version: "1"
+name: hubspot-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: leads
+      type: hubspot.search_objects
+      object_type: contacts
+      filter_groups: [{ filters: [{ propertyName: lifecyclestage, operator: EQ, value: lead }] }]
+      sorts: [{ propertyName: createdate, direction: DESCENDING }]
+      properties: [email, firstname, lastname, createdate]
+      limit: 5
+    - { id: answer, type: answer, answer: "Newest leads: {{#leads.data#}}" }
+  edges:
+    - { source: start, target: leads }
+    - { source: leads, target: answer }

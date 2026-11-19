@@ -1,0 +1,14 @@
+# Show the plan's remaining credits and the three newest contacts. Read-only.
+#   BREVO_API_KEY=xkeysib-... graphrt run brevo/example.yaml --plugins .
+version: "1"
+name: brevo-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: account, type: brevo.get_account }
+    - { id: contacts, type: brevo.list_contacts, limit: 3 }
+    - { id: answer, type: answer, answer: "{{#account.data.email#}} plan {{#account.data.plan#}} | newest contacts: {{#contacts.data#}}" }
+  edges:
+    - { source: start, target: account }
+    - { source: account, target: contacts }
+    - { source: contacts, target: answer }

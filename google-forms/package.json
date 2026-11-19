@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-google-forms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Google Forms API (forms, responses, batch updates, publish settings, watches)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,14 @@
+# List the 5 most recently updated open deals and the pipelines. Read-only.
+#   PIPEDRIVE_API_TOKEN=... [PIPEDRIVE_COMPANY_DOMAIN=acme] graphrt run pipedrive/example.yaml --plugins .
+version: "1"
+name: pipedrive-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: deals, type: pipedrive.list_deals, status: open, sort_by: update_time, sort_direction: desc, limit: 5 }
+    - { id: pipelines, type: pipedrive.list_pipelines }
+    - { id: answer, type: answer, answer: "Recent open deals: {{#deals.data#}} | pipelines: {{#pipelines.data#}}" }
+  edges:
+    - { source: start, target: deals }
+    - { source: deals, target: pipelines }
+    - { source: pipelines, target: answer }

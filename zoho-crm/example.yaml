@@ -1,0 +1,19 @@
+# List the ten most recently modified leads. Read-only.
+#   ZOHO_CLIENT_ID=... ZOHO_CLIENT_SECRET=... ZOHO_REFRESH_TOKEN=... ZOHO_DATA_CENTER=us \
+#     graphrt run zoho-crm/example.yaml --plugins .
+version: "1"
+name: zoho-crm-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: leads
+      type: zoho-crm.list_records
+      module: Leads
+      fields: [Last_Name, Email, Company, Lead_Status]
+      sort_by: Modified_Time
+      sort_order: desc
+      limit: 10
+    - { id: answer, type: answer, answer: "Leads: {{#leads.data#}}" }
+  edges:
+    - { source: start, target: leads }
+    - { source: leads, target: answer }

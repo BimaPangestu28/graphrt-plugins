@@ -1,0 +1,3774 @@
+{
+  "name": "pipedrive",
+  "version": "0.1.0",
+  "description": "Pipedrive CRM (API v2/v1, API token): persons, organizations, deals and activities (list, get, search, create, update), pipelines, stages and notes; deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "PIPEDRIVE_API_TOKEN",
+      "PIPEDRIVE_COMPANY_DOMAIN",
+      "PIPEDRIVE_TOOL_API_EXTRA_PATHS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "pipedrive.list_persons",
+      "title": "List persons",
+      "description": "Persons, filtered and sorted, with cursor pagination",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only persons of this organization",
+            "minimum": 1
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Only persons linked to this deal",
+            "minimum": 1
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. open_deals_count, next_activity_id, marketing_status",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.get_person",
+      "title": "Get person",
+      "description": "One person by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "person_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.create_person",
+      "title": "Create person",
+      "description": "Create a person",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name",
+            "minLength": 1
+          },
+          "emails": {
+            "type": "array",
+            "description": "Email addresses, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "phones": {
+            "type": "array",
+            "description": "Phone numbers, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.update_person",
+      "title": "Update person",
+      "description": "Change fields of a person (only the given fields)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "emails": {
+            "type": "array",
+            "description": "Email addresses, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "phones": {
+            "type": "array",
+            "description": "Phone numbers, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "person_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.delete_person",
+      "title": "Delete person",
+      "description": "Mark a person deleted (removed for good after 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "person_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.search_persons",
+      "title": "Search persons",
+      "description": "Find persons by text; each item is {result_score, item}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "Search text (at least 2 characters, or 1 with exact_match)",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to search: custom_fields, email, notes, phone, name",
+            "items": {
+              "type": "string",
+              "enum": [
+                "custom_fields",
+                "email",
+                "notes",
+                "phone",
+                "name"
+              ]
+            }
+          },
+          "exact_match": {
+            "type": "boolean",
+            "description": "Only full, case-insensitive matches"
+          },
+          "organization_id": {
+            "type": "integer",
+            "description": "Only persons of this organization",
+            "minimum": 1
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. person.picture",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "term"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.list_organizations",
+      "title": "List organizations",
+      "description": "Organizations, filtered and sorted, with cursor pagination",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. open_deals_count, people_count, next_activity_id",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.get_organization",
+      "title": "Get organization",
+      "description": "One organization by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.create_organization",
+      "title": "Create organization",
+      "description": "Create a organization",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "address": {
+            "type": "object",
+            "description": "Address object, e.g. {\"value\": \"Jl. Sudirman 1, Jakarta\"} (or country, locality, postal_code, ...)"
+          },
+          "website": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "integer",
+            "description": "Industry option id (an integer, see the organization fields)"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.update_organization",
+      "title": "Update organization",
+      "description": "Change fields of a organization (only the given fields)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "address": {
+            "type": "object",
+            "description": "Address object, e.g. {\"value\": \"Jl. Sudirman 1, Jakarta\"} (or country, locality, postal_code, ...)"
+          },
+          "website": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "integer",
+            "description": "Industry option id (an integer, see the organization fields)"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.delete_organization",
+      "title": "Delete organization",
+      "description": "Mark a organization deleted (removed for good after 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.search_organizations",
+      "title": "Search organizations",
+      "description": "Find organizations by text; each item is {result_score, item}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "Search text (at least 2 characters, or 1 with exact_match)",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to search: address, custom_fields, notes, name",
+            "items": {
+              "type": "string",
+              "enum": [
+                "address",
+                "custom_fields",
+                "notes",
+                "name"
+              ]
+            }
+          },
+          "exact_match": {
+            "type": "boolean",
+            "description": "Only full, case-insensitive matches"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "term"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.list_deals",
+      "title": "List deals",
+      "description": "Deals, filtered and sorted, with cursor pagination",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only deals of this person",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only deals of this organization",
+            "minimum": 1
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Only deals in this pipeline",
+            "minimum": 1
+          },
+          "stage_id": {
+            "type": "integer",
+            "description": "Only deals in this stage",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "Default: all but deleted",
+            "enum": [
+              "open",
+              "won",
+              "lost",
+              "deleted"
+            ]
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. products_count, next_activity_id, last_incoming_mail_time",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.get_deal",
+      "title": "Get deal",
+      "description": "One deal by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.create_deal",
+      "title": "Create deal",
+      "description": "Create a deal",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_title": {
+            "type": "string",
+            "description": "Deal title",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number",
+            "description": "Deal value",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the company currency)"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Contact person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)",
+            "minimum": 1
+          },
+          "stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_stages)",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "won",
+              "lost"
+            ]
+          },
+          "expected_close_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "probability": {
+            "type": "number",
+            "description": "Success probability in percent",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lost_reason": {
+            "type": "string",
+            "description": "Only with status lost"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "deal_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.update_deal",
+      "title": "Update deal",
+      "description": "Change fields of a deal (only the given fields)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "deal_title": {
+            "type": "string",
+            "description": "Deal title",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number",
+            "description": "Deal value",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the company currency)"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Contact person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)",
+            "minimum": 1
+          },
+          "stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_stages)",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "won",
+              "lost"
+            ]
+          },
+          "expected_close_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "probability": {
+            "type": "number",
+            "description": "Success probability in percent",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lost_reason": {
+            "type": "string",
+            "description": "Only with status lost"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.delete_deal",
+      "title": "Delete deal",
+      "description": "Mark a deal deleted (removed for good after 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.search_deals",
+      "title": "Search deals",
+      "description": "Find deals by text; each item is {result_score, item}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "Search text (at least 2 characters, or 1 with exact_match)",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to search: custom_fields, notes, title",
+            "items": {
+              "type": "string",
+              "enum": [
+                "custom_fields",
+                "notes",
+                "title"
+              ]
+            }
+          },
+          "exact_match": {
+            "type": "boolean",
+            "description": "Only full, case-insensitive matches"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only deals of this person",
+            "minimum": 1
+          },
+          "organization_id": {
+            "type": "integer",
+            "description": "Only deals of this organization",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "won",
+              "lost"
+            ]
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. deal.cc_email",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "term"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.list_activities",
+      "title": "List activities",
+      "description": "Activitys, filtered and sorted, with cursor pagination",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time",
+              "due_date"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Only activities of this deal",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Only activities of this lead"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only activities whose primary participant is this person",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only activities of this organization",
+            "minimum": 1
+          },
+          "done": {
+            "type": "boolean",
+            "description": "true: done only, false: open only"
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. attendees",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.get_activity",
+      "title": "Get activity",
+      "description": "One activity by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "activity_id": {
+            "type": "integer",
+            "description": "Activity id",
+            "minimum": 1
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. attendees",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "activity_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.create_activity",
+      "title": "Create activity",
+      "description": "Create a activity",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Activity subject"
+          },
+          "activity_type": {
+            "type": "string",
+            "description": "Activity type key, e.g. call, meeting, task, deadline, email, lunch"
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "participants": {
+            "type": "array",
+            "description": "Linked persons, e.g. [{\"person_id\": 5, \"primary\": true}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "due_time": {
+            "type": "string",
+            "description": "HH:MM (UTC)"
+          },
+          "duration": {
+            "type": "string",
+            "description": "HH:MM"
+          },
+          "busy": {
+            "type": "boolean"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (HTML allowed)"
+          },
+          "public_description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.update_activity",
+      "title": "Update activity",
+      "description": "Change fields of a activity (only the given fields)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "activity_id": {
+            "type": "integer",
+            "description": "Activity id",
+            "minimum": 1
+          },
+          "subject": {
+            "type": "string",
+            "description": "Activity subject"
+          },
+          "activity_type": {
+            "type": "string",
+            "description": "Activity type key, e.g. call, meeting, task, deadline, email, lunch"
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "participants": {
+            "type": "array",
+            "description": "Linked persons, e.g. [{\"person_id\": 5, \"primary\": true}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "due_time": {
+            "type": "string",
+            "description": "HH:MM (UTC)"
+          },
+          "duration": {
+            "type": "string",
+            "description": "HH:MM"
+          },
+          "busy": {
+            "type": "boolean"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (HTML allowed)"
+          },
+          "public_description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "activity_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.delete_activity",
+      "title": "Delete activity",
+      "description": "Mark a activity deleted (removed for good after 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "activity_id": {
+            "type": "integer",
+            "description": "Activity id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "activity_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.list_pipelines",
+      "title": "List pipelines",
+      "description": "Sales pipelines (ids for deals)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.list_stages",
+      "title": "List stages",
+      "description": "Pipeline stages in order (ids for deals)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Only stages of this pipeline",
+            "minimum": 1
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time",
+              "order_nr"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.list_notes",
+      "title": "List notes",
+      "description": "Notes, optionally of one deal, person, organization or lead (API v1, offset pagination)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "Only notes of this deal",
+            "minimum": 1
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only notes of this person",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only notes of this organization",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Only notes of this lead"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "Only notes by this user",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "description": "e.g. add_time DESC"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.get_note",
+      "title": "Get note",
+      "description": "One note by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "Note id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.create_note",
+      "title": "Add note",
+      "description": "Add a note to a deal, person, organization or lead (at least one link is needed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Note text (HTML allowed)",
+            "minLength": 1
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "pinned_to_deal_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the deal",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_person_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the person",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_organization_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the organization",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.update_note",
+      "title": "Update note",
+      "description": "Change a note's text, links or pins",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "Note id",
+            "minimum": 1
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "pinned_to_deal_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the deal",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_person_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the person",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_organization_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the organization",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.delete_note",
+      "title": "Delete note",
+      "description": "Delete a note",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "Note id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.get_current_user",
+      "title": "Current user",
+      "description": "The token's user and company (ids for owner_id, company_domain)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pipedrive.api_request",
+      "title": "Pipedrive API request",
+      "description": "Call any Pipedrive API endpoint that has no dedicated operation, e.g. path \"/v1/dealFields\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/dealFields\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_persons",
+      "description": "Persons, filtered and sorted, with cursor pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only persons of this organization",
+            "minimum": 1
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Only persons linked to this deal",
+            "minimum": 1
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. open_deals_count, next_activity_id, marketing_status",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_person",
+      "description": "One person by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "person_id"
+        ]
+      }
+    },
+    {
+      "name": "create_person",
+      "description": "Create a person",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name",
+            "minLength": 1
+          },
+          "emails": {
+            "type": "array",
+            "description": "Email addresses, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "phones": {
+            "type": "array",
+            "description": "Phone numbers, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_person",
+      "description": "Change fields of a person (only the given fields)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "emails": {
+            "type": "array",
+            "description": "Email addresses, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "phones": {
+            "type": "array",
+            "description": "Phone numbers, e.g. [{\"value\": \"...\", \"primary\": true, \"label\": \"work\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          }
+        },
+        "required": [
+          "person_id"
+        ]
+      }
+    },
+    {
+      "name": "search_persons",
+      "description": "Find persons by text; each item is {result_score, item}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "Search text (at least 2 characters, or 1 with exact_match)",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to search: custom_fields, email, notes, phone, name",
+            "items": {
+              "type": "string",
+              "enum": [
+                "custom_fields",
+                "email",
+                "notes",
+                "phone",
+                "name"
+              ]
+            }
+          },
+          "exact_match": {
+            "type": "boolean",
+            "description": "Only full, case-insensitive matches"
+          },
+          "organization_id": {
+            "type": "integer",
+            "description": "Only persons of this organization",
+            "minimum": 1
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. person.picture",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          }
+        },
+        "required": [
+          "term"
+        ]
+      }
+    },
+    {
+      "name": "list_organizations",
+      "description": "Organizations, filtered and sorted, with cursor pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. open_deals_count, people_count, next_activity_id",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_organization",
+      "description": "One organization by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "organization_id"
+        ]
+      }
+    },
+    {
+      "name": "create_organization",
+      "description": "Create a organization",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "address": {
+            "type": "object",
+            "description": "Address object, e.g. {\"value\": \"Jl. Sudirman 1, Jakarta\"} (or country, locality, postal_code, ...)"
+          },
+          "website": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "integer",
+            "description": "Industry option id (an integer, see the organization fields)"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_organization",
+      "description": "Change fields of a organization (only the given fields)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "address": {
+            "type": "object",
+            "description": "Address object, e.g. {\"value\": \"Jl. Sudirman 1, Jakarta\"} (or country, locality, postal_code, ...)"
+          },
+          "website": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "integer",
+            "description": "Industry option id (an integer, see the organization fields)"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          }
+        },
+        "required": [
+          "organization_id"
+        ]
+      }
+    },
+    {
+      "name": "search_organizations",
+      "description": "Find organizations by text; each item is {result_score, item}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "Search text (at least 2 characters, or 1 with exact_match)",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to search: address, custom_fields, notes, name",
+            "items": {
+              "type": "string",
+              "enum": [
+                "address",
+                "custom_fields",
+                "notes",
+                "name"
+              ]
+            }
+          },
+          "exact_match": {
+            "type": "boolean",
+            "description": "Only full, case-insensitive matches"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          }
+        },
+        "required": [
+          "term"
+        ]
+      }
+    },
+    {
+      "name": "list_deals",
+      "description": "Deals, filtered and sorted, with cursor pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only deals of this person",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only deals of this organization",
+            "minimum": 1
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Only deals in this pipeline",
+            "minimum": 1
+          },
+          "stage_id": {
+            "type": "integer",
+            "description": "Only deals in this stage",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "Default: all but deleted",
+            "enum": [
+              "open",
+              "won",
+              "lost",
+              "deleted"
+            ]
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. products_count, next_activity_id, last_incoming_mail_time",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_deal",
+      "description": "One deal by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      }
+    },
+    {
+      "name": "create_deal",
+      "description": "Create a deal",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_title": {
+            "type": "string",
+            "description": "Deal title",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number",
+            "description": "Deal value",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the company currency)"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Contact person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)",
+            "minimum": 1
+          },
+          "stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_stages)",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "won",
+              "lost"
+            ]
+          },
+          "expected_close_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "probability": {
+            "type": "number",
+            "description": "Success probability in percent",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lost_reason": {
+            "type": "string",
+            "description": "Only with status lost"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          }
+        },
+        "required": [
+          "deal_title"
+        ]
+      }
+    },
+    {
+      "name": "update_deal",
+      "description": "Change fields of a deal (only the given fields)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "deal_title": {
+            "type": "string",
+            "description": "Deal title",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number",
+            "description": "Deal value",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the company currency)"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Contact person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)",
+            "minimum": 1
+          },
+          "stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_stages)",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "won",
+              "lost"
+            ]
+          },
+          "expected_close_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "probability": {
+            "type": "number",
+            "description": "Success probability in percent",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lost_reason": {
+            "type": "string",
+            "description": "Only with status lost"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the token's user)",
+            "minimum": 1
+          },
+          "visible_to": {
+            "type": "integer",
+            "description": "Visibility: 1 owner only, 3 owner's group, 5 group and sub-groups, 7 whole company",
+            "enum": [
+              1,
+              3,
+              5,
+              7
+            ]
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field key (40-char hash); null clears a value"
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      }
+    },
+    {
+      "name": "search_deals",
+      "description": "Find deals by text; each item is {result_score, item}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "Search text (at least 2 characters, or 1 with exact_match)",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to search: custom_fields, notes, title",
+            "items": {
+              "type": "string",
+              "enum": [
+                "custom_fields",
+                "notes",
+                "title"
+              ]
+            }
+          },
+          "exact_match": {
+            "type": "boolean",
+            "description": "Only full, case-insensitive matches"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only deals of this person",
+            "minimum": 1
+          },
+          "organization_id": {
+            "type": "integer",
+            "description": "Only deals of this organization",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "won",
+              "lost"
+            ]
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. deal.cc_email",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          }
+        },
+        "required": [
+          "term"
+        ]
+      }
+    },
+    {
+      "name": "list_activities",
+      "description": "Activitys, filtered and sorted, with cursor pagination",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "description": "Saved filter id; overrides the other filters",
+            "minimum": 1
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these ids (up to 100)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Only records owned by this user",
+            "minimum": 1
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-01-01T00:00:00Z"
+          },
+          "updated_until": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Default id",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time",
+              "due_date"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field keys to return (max 15)",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Only activities of this deal",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Only activities of this lead"
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only activities whose primary participant is this person",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only activities of this organization",
+            "minimum": 1
+          },
+          "done": {
+            "type": "boolean",
+            "description": "true: done only, false: open only"
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. attendees",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_activity",
+      "description": "One activity by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "activity_id": {
+            "type": "integer",
+            "description": "Activity id",
+            "minimum": 1
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Extra fields, e.g. attendees",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "activity_id"
+        ]
+      }
+    },
+    {
+      "name": "create_activity",
+      "description": "Create a activity",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Activity subject"
+          },
+          "activity_type": {
+            "type": "string",
+            "description": "Activity type key, e.g. call, meeting, task, deadline, email, lunch"
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "participants": {
+            "type": "array",
+            "description": "Linked persons, e.g. [{\"person_id\": 5, \"primary\": true}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "due_time": {
+            "type": "string",
+            "description": "HH:MM (UTC)"
+          },
+          "duration": {
+            "type": "string",
+            "description": "HH:MM"
+          },
+          "busy": {
+            "type": "boolean"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (HTML allowed)"
+          },
+          "public_description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id",
+            "minimum": 1
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "update_activity",
+      "description": "Change fields of a activity (only the given fields)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "activity_id": {
+            "type": "integer",
+            "description": "Activity id",
+            "minimum": 1
+          },
+          "subject": {
+            "type": "string",
+            "description": "Activity subject"
+          },
+          "activity_type": {
+            "type": "string",
+            "description": "Activity type key, e.g. call, meeting, task, deadline, email, lunch"
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "participants": {
+            "type": "array",
+            "description": "Linked persons, e.g. [{\"person_id\": 5, \"primary\": true}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "due_time": {
+            "type": "string",
+            "description": "HH:MM (UTC)"
+          },
+          "duration": {
+            "type": "string",
+            "description": "HH:MM"
+          },
+          "busy": {
+            "type": "boolean"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (HTML allowed)"
+          },
+          "public_description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Owner user id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "activity_id"
+        ]
+      }
+    },
+    {
+      "name": "list_pipelines",
+      "description": "Sales pipelines (ids for deals)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_stages",
+      "description": "Pipeline stages in order (ids for deals)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Only stages of this pipeline",
+            "minimum": 1
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "update_time",
+              "add_time",
+              "order_nr"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Default asc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_notes",
+      "description": "Notes, optionally of one deal, person, organization or lead (API v1, offset pagination)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "Only notes of this deal",
+            "minimum": 1
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Only notes of this person",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Only notes of this organization",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Only notes of this lead"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "Only notes by this user",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "description": "e.g. add_time DESC"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "RFC 3339 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_note",
+      "description": "One note by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "Note id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      }
+    },
+    {
+      "name": "create_note",
+      "description": "Add a note to a deal, person, organization or lead (at least one link is needed)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Note text (HTML allowed)",
+            "minLength": 1
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "pinned_to_deal_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the deal",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_person_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the person",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_organization_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the organization",
+            "enum": [
+              0,
+              1
+            ]
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "update_note",
+      "description": "Change a note's text, links or pins",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "Note id",
+            "minimum": 1
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deal_id": {
+            "type": "integer",
+            "description": "Deal id",
+            "minimum": 1
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "Person id",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "integer",
+            "description": "Organization id",
+            "minimum": 1
+          },
+          "lead_id": {
+            "type": "string",
+            "description": "Lead id (UUID)"
+          },
+          "pinned_to_deal_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the deal",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_person_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the person",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "pinned_to_organization_flag": {
+            "type": "integer",
+            "description": "1 pins the note to the organization",
+            "enum": [
+              0,
+              1
+            ]
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      }
+    },
+    {
+      "name": "get_current_user",
+      "description": "The token's user and company (ids for owner_id, company_domain)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Pipedrive API endpoint that has no dedicated operation, e.g. path \"/v1/dealFields\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/dealFields\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

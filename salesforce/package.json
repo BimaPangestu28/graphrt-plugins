@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-salesforce",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Salesforce REST API: SOQL, SOSL, sObject records, describe and limits",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

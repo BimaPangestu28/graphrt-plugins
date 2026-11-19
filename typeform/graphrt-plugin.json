@@ -1,0 +1,784 @@
+{
+  "name": "typeform",
+  "version": "0.1.0",
+  "description": "Typeform: list and read forms, responses (with filters and paging), insights and workspaces; form creation behind an opt-in, deletes node only (US and EU data centers)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TYPEFORM_TOKEN",
+      "TYPEFORM_BASE_URL",
+      "TYPEFORM_TOOL_ALLOW_CREATE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "typeform.get_me",
+      "title": "Account",
+      "description": "The account of the token (alias, email, language)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.list_forms",
+      "title": "List forms",
+      "description": "Forms the token can access, with ids, titles and links (newest first unless sorted)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Only forms whose title contains this text"
+          },
+          "workspace_id": {
+            "type": "string",
+            "description": "Only forms in this workspace"
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "last_updated_at"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.get_form",
+      "title": "Get form",
+      "description": "A form's definition: fields (questions with id and ref), logic, settings, and _links.responses (whose host shows the data center)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.create_form",
+      "title": "Create form",
+      "description": "Create a form from a Create API form definition ({title, fields, settings, ...}) (as an agent tool only when TYPEFORM_TOOL_ALLOW_CREATE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form": {
+            "type": "object",
+            "description": "Form definition, e.g. {\"title\": \"Feedback\", \"fields\": [{\"title\": \"Your name?\", \"type\": \"short_text\"}], \"settings\": {\"is_public\": false}}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.delete_form",
+      "title": "Delete form",
+      "description": "Delete a form and all its responses permanently",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.list_responses",
+      "title": "List responses",
+      "description": "Submitted responses, newest first (answers keyed by field id/ref); next_cursor pages to older ones. Responses of the last ~30 minutes may be missing",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          },
+          "since": {
+            "type": "string",
+            "description": "From this time (inclusive): ISO 8601 UTC like 2026-11-01T00:00:00 or a Unix timestamp"
+          },
+          "until": {
+            "type": "string",
+            "description": "Up to this time (inclusive), same formats"
+          },
+          "after": {
+            "type": "string",
+            "description": "Only responses submitted after the response with this token"
+          },
+          "included_response_ids": {
+            "type": "array",
+            "description": "Only these response ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "excluded_response_ids": {
+            "type": "array",
+            "description": "Leave out these response ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "response_type": {
+            "type": "array",
+            "description": "started, partial and/or completed (default completed)",
+            "maxItems": 3,
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "string",
+            "description": "Exact phrase in answers, hidden fields or variables"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only return answers of these field ids",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "answered_fields": {
+            "type": "array",
+            "description": "Only responses that answered at least one of these field ids",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.delete_responses",
+      "title": "Delete responses",
+      "description": "Delete responses by id (up to 1000; deletion is queued, unknown ids are ignored)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          },
+          "included_response_ids": {
+            "type": "array",
+            "description": "Response ids to delete",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id",
+          "included_response_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.get_insights_summary",
+      "title": "Form insights",
+      "description": "Form and per-question insights: visits, responses, completion rate, average time (plan-dependent)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.list_workspaces",
+      "title": "List workspaces",
+      "description": "Workspaces the token can access, with form counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Only workspaces whose name contains this text"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.get_workspace",
+      "title": "Get workspace",
+      "description": "One workspace with its members and forms link",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "workspace_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "typeform.api_request",
+      "title": "Typeform API request",
+      "description": "Call any Typeform API endpoint that has no dedicated operation, e.g. path \"/forms/<id>/messages\". Only the API's own host is allowed. Agent tools may only read /me, /forms, /forms/{id}, /forms/{id}/responses, /forms/{id}/messages, /workspaces, /themes, /images and /insights/{id}/summary.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/forms/<id>/messages\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "The account of the token (alias, email, language)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_forms",
+      "description": "Forms the token can access, with ids, titles and links (newest first unless sorted)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Only forms whose title contains this text"
+          },
+          "workspace_id": {
+            "type": "string",
+            "description": "Only forms in this workspace"
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "last_updated_at"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_form",
+      "description": "A form's definition: fields (questions with id and ref), logic, settings, and _links.responses (whose host shows the data center)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      }
+    },
+    {
+      "name": "create_form",
+      "description": "Create a form from a Create API form definition ({title, fields, settings, ...}) (as an agent tool only when TYPEFORM_TOOL_ALLOW_CREATE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form": {
+            "type": "object",
+            "description": "Form definition, e.g. {\"title\": \"Feedback\", \"fields\": [{\"title\": \"Your name?\", \"type\": \"short_text\"}], \"settings\": {\"is_public\": false}}"
+          }
+        },
+        "required": [
+          "form"
+        ]
+      }
+    },
+    {
+      "name": "list_responses",
+      "description": "Submitted responses, newest first (answers keyed by field id/ref); next_cursor pages to older ones. Responses of the last ~30 minutes may be missing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          },
+          "since": {
+            "type": "string",
+            "description": "From this time (inclusive): ISO 8601 UTC like 2026-11-01T00:00:00 or a Unix timestamp"
+          },
+          "until": {
+            "type": "string",
+            "description": "Up to this time (inclusive), same formats"
+          },
+          "after": {
+            "type": "string",
+            "description": "Only responses submitted after the response with this token"
+          },
+          "included_response_ids": {
+            "type": "array",
+            "description": "Only these response ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "excluded_response_ids": {
+            "type": "array",
+            "description": "Leave out these response ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "response_type": {
+            "type": "array",
+            "description": "started, partial and/or completed (default completed)",
+            "maxItems": 3,
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "string",
+            "description": "Exact phrase in answers, hidden fields or variables"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only return answers of these field ids",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "answered_fields": {
+            "type": "array",
+            "description": "Only responses that answered at least one of these field ids",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      }
+    },
+    {
+      "name": "get_insights_summary",
+      "description": "Form and per-question insights: visits, responses, completion rate, average time (plan-dependent)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id, e.g. u6nXL7 (the last part of the form URL)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      }
+    },
+    {
+      "name": "list_workspaces",
+      "description": "Workspaces the token can access, with form counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Only workspaces whose name contains this text"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_workspace",
+      "description": "One workspace with its members and forms link",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workspace_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Typeform API endpoint that has no dedicated operation, e.g. path \"/forms/<id>/messages\". Only the API's own host is allowed. Agent tools may only read /me, /forms, /forms/{id}, /forms/{id}/responses, /forms/{id}/messages, /workspaces, /themes, /images and /insights/{id}/summary.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/forms/<id>/messages\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-zoho-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Zoho CRM API v8: records, search, COQL and metadata",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
