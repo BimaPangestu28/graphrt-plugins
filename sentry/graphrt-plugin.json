@@ -1,0 +1,1285 @@
+{
+  "name": "sentry",
+  "version": "0.1.0",
+  "description": "Sentry: organizations, projects, issues (list, get, resolve, ignore, assign), events with stack traces and releases",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SENTRY_AUTH_TOKEN",
+      "SENTRY_REGION",
+      "SENTRY_TOOL_ALLOW_WRITE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "sentry.list_organizations",
+      "title": "List organizations",
+      "description": "Organizations the token can access (slug for other calls)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "boolean",
+            "description": "Only organizations you own"
+          },
+          "query": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.list_projects",
+      "title": "List projects",
+      "description": "Projects of an organization",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "query": {
+            "type": "string",
+            "description": "Filter by name or slug"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.list_releases",
+      "title": "List releases",
+      "description": "Releases of an organization, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project id"
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "string",
+            "description": "Version starts with"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.list_issues",
+      "title": "List issues",
+      "description": "Issues of an organization; query uses Sentry search syntax, default \"is:unresolved\"",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "query": {
+            "type": "string",
+            "description": "e.g. \"is:unresolved level:error assigned:me\"; \"\" for all",
+            "default": "is:unresolved"
+          },
+          "project": {
+            "type": "array",
+            "description": "Project ids or slugs",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "stats_period": {
+            "type": "string",
+            "description": "Time window, e.g. 24h, 14d (default 14d for issues)"
+          },
+          "sort": {
+            "type": "string",
+            "description": "date = last seen (default)",
+            "enum": [
+              "date",
+              "freq",
+              "inbox",
+              "new",
+              "recommended",
+              "trends",
+              "user"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.get_issue",
+      "title": "Get issue",
+      "description": "One issue: title, culprit, level, status, counts, first/last seen, assignee",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.list_issue_events",
+      "title": "List issue events",
+      "description": "Events of an issue, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "full": {
+            "type": "boolean",
+            "description": "Include the full event body (stack traces)"
+          },
+          "query": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "stats_period": {
+            "type": "string",
+            "description": "Time window, e.g. 24h, 14d (default 14d for issues)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.get_issue_event",
+      "title": "Get issue event",
+      "description": "One event of an issue with stack trace, breadcrumbs, tags and context (use latest for the newest)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (32 hex), or \"latest\", \"oldest\", \"recommended\""
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id",
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.list_project_events",
+      "title": "List project events",
+      "description": "Recent error events of a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project slug or id"
+          },
+          "full": {
+            "type": "boolean"
+          },
+          "stats_period": {
+            "type": "string",
+            "description": "Time window, e.g. 24h, 14d (default 14d for issues)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "project"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.get_project_event",
+      "title": "Get project event",
+      "description": "One event by id within a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project slug or id"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (32 hex)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "project",
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.update_issue",
+      "title": "Update issue",
+      "description": "Change an issue's status, assignee, priority, bookmark or seen flag (as an agent tool only when SENTRY_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "resolvedInNextRelease",
+              "unresolved",
+              "ignored"
+            ]
+          },
+          "assigned_to": {
+            "type": "string",
+            "description": "user:<id>, team:<id>, a username or email; \"\" to unassign"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "has_seen": {
+            "type": "boolean"
+          },
+          "is_bookmarked": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.resolve_issue",
+      "title": "Resolve issue",
+      "description": "Mark an issue resolved now, in the next release, or in a given release (as an agent tool only when SENTRY_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "in_next_release": {
+            "type": "boolean",
+            "description": "Resolve in the next release"
+          },
+          "in_release": {
+            "type": "string",
+            "description": "Release version, or \"latest\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.ignore_issue",
+      "title": "Ignore (archive) issue",
+      "description": "Archive an issue: forever, until it escalates, for some minutes, or until it reaches a count (as an agent tool only when SENTRY_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "substatus": {
+            "type": "string",
+            "description": "How long to archive (Sentry picks when omitted)",
+            "enum": [
+              "archived_until_escalating",
+              "archived_until_condition_met",
+              "archived_forever"
+            ]
+          },
+          "ignore_duration": {
+            "type": "integer",
+            "description": "Minutes to ignore (use with archived_until_condition_met)",
+            "minimum": 1
+          },
+          "ignore_count": {
+            "type": "integer",
+            "description": "Unarchive after this many more events",
+            "minimum": 1
+          },
+          "ignore_window": {
+            "type": "integer",
+            "description": "Minutes for ignore_count",
+            "minimum": 1
+          },
+          "ignore_user_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ignore_user_window": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.delete_issue",
+      "title": "Delete issue",
+      "description": "Delete an issue and its events",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "sentry.api_request",
+      "title": "Sentry API request",
+      "description": "Call any Sentry API endpoint that has no dedicated operation, e.g. path \"/organizations/acme/stats_v2/\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/organizations/acme/stats_v2/\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_organizations",
+      "description": "Organizations the token can access (slug for other calls)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "boolean",
+            "description": "Only organizations you own"
+          },
+          "query": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "Projects of an organization",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "query": {
+            "type": "string",
+            "description": "Filter by name or slug"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "organization"
+        ]
+      }
+    },
+    {
+      "name": "list_releases",
+      "description": "Releases of an organization, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project id"
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "string",
+            "description": "Version starts with"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "organization"
+        ]
+      }
+    },
+    {
+      "name": "list_issues",
+      "description": "Issues of an organization; query uses Sentry search syntax, default \"is:unresolved\"",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "query": {
+            "type": "string",
+            "description": "e.g. \"is:unresolved level:error assigned:me\"; \"\" for all",
+            "default": "is:unresolved"
+          },
+          "project": {
+            "type": "array",
+            "description": "Project ids or slugs",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "stats_period": {
+            "type": "string",
+            "description": "Time window, e.g. 24h, 14d (default 14d for issues)"
+          },
+          "sort": {
+            "type": "string",
+            "description": "date = last seen (default)",
+            "enum": [
+              "date",
+              "freq",
+              "inbox",
+              "new",
+              "recommended",
+              "trends",
+              "user"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": [
+          "organization"
+        ]
+      }
+    },
+    {
+      "name": "get_issue",
+      "description": "One issue: title, culprit, level, status, counts, first/last seen, assignee",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "list_issue_events",
+      "description": "Events of an issue, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "full": {
+            "type": "boolean",
+            "description": "Include the full event body (stack traces)"
+          },
+          "query": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "stats_period": {
+            "type": "string",
+            "description": "Time window, e.g. 24h, 14d (default 14d for issues)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "get_issue_event",
+      "description": "One event of an issue with stack trace, breadcrumbs, tags and context (use latest for the newest)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (32 hex), or \"latest\", \"oldest\", \"recommended\""
+          },
+          "environment": {
+            "type": "array",
+            "description": "Only these environments",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id",
+          "event_id"
+        ]
+      }
+    },
+    {
+      "name": "list_project_events",
+      "description": "Recent error events of a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project slug or id"
+          },
+          "full": {
+            "type": "boolean"
+          },
+          "stats_period": {
+            "type": "string",
+            "description": "Time window, e.g. 24h, 14d (default 14d for issues)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "organization",
+          "project"
+        ]
+      }
+    },
+    {
+      "name": "get_project_event",
+      "description": "One event by id within a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project slug or id"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Event id (32 hex)"
+          }
+        },
+        "required": [
+          "organization",
+          "project",
+          "event_id"
+        ]
+      }
+    },
+    {
+      "name": "update_issue",
+      "description": "Change an issue's status, assignee, priority, bookmark or seen flag (as an agent tool only when SENTRY_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "resolvedInNextRelease",
+              "unresolved",
+              "ignored"
+            ]
+          },
+          "assigned_to": {
+            "type": "string",
+            "description": "user:<id>, team:<id>, a username or email; \"\" to unassign"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "has_seen": {
+            "type": "boolean"
+          },
+          "is_bookmarked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "resolve_issue",
+      "description": "Mark an issue resolved now, in the next release, or in a given release (as an agent tool only when SENTRY_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "in_next_release": {
+            "type": "boolean",
+            "description": "Resolve in the next release"
+          },
+          "in_release": {
+            "type": "string",
+            "description": "Release version, or \"latest\""
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "ignore_issue",
+      "description": "Archive an issue: forever, until it escalates, for some minutes, or until it reaches a count (as an agent tool only when SENTRY_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization slug or id"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (numeric, from list_issues)"
+          },
+          "substatus": {
+            "type": "string",
+            "description": "How long to archive (Sentry picks when omitted)",
+            "enum": [
+              "archived_until_escalating",
+              "archived_until_condition_met",
+              "archived_forever"
+            ]
+          },
+          "ignore_duration": {
+            "type": "integer",
+            "description": "Minutes to ignore (use with archived_until_condition_met)",
+            "minimum": 1
+          },
+          "ignore_count": {
+            "type": "integer",
+            "description": "Unarchive after this many more events",
+            "minimum": 1
+          },
+          "ignore_window": {
+            "type": "integer",
+            "description": "Minutes for ignore_count",
+            "minimum": 1
+          },
+          "ignore_user_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ignore_user_window": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "organization",
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Sentry API endpoint that has no dedicated operation, e.g. path \"/organizations/acme/stats_v2/\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/organizations/acme/stats_v2/\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1226 @@
+{
+  "name": "linear",
+  "version": "0.1.0",
+  "description": "Linear GraphQL API: issues (list, search, create, update), comments, projects, teams, workflow states and users",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "LINEAR_API_KEY",
+      "LINEAR_TOOL_ALLOW_WRITE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "linear.get_viewer",
+      "title": "Current user",
+      "description": "The user the API key belongs to and their workspace; a cheap way to check the key",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.list_teams",
+      "title": "List teams",
+      "description": "Teams in the workspace (id and key for issues)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "include_archived": {
+            "type": "boolean",
+            "description": "Include archived items"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.get_team",
+      "title": "Get team",
+      "description": "One team with its workflow states (state ids for issues) and members",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.list_workflow_states",
+      "title": "List workflow states",
+      "description": "Workflow states (Backlog, Todo, In Progress, Done...) of all teams, or filtered",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "WorkflowStateFilter, e.g. {\"team\": {\"key\": {\"eq\": \"ENG\"}}}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.list_users",
+      "title": "List users",
+      "description": "Users of the workspace (ids for assignees)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "UserFilter, e.g. {\"email\": {\"eq\": \"ana@acme.com\"}}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.list_issues",
+      "title": "List issues",
+      "description": "Issues, optionally filtered with an IssueFilter, e.g. {\"team\": {\"key\": {\"eq\": \"ENG\"}}, \"state\": {\"type\": {\"nin\": [\"completed\", \"canceled\"]}}}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "IssueFilter object"
+          },
+          "include_archived": {
+            "type": "boolean",
+            "description": "Include archived items"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort order (newest first)",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.search_issues",
+      "title": "Search issues",
+      "description": "Full-text search of issues by title and description (optionally comments)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "minLength": 1
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Only this team"
+          },
+          "include_comments": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "term"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.get_issue",
+      "title": "Get issue",
+      "description": "One issue with description, parent, sub-issues and its latest 50 comments",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id or identifier, e.g. ENG-123"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.create_issue",
+      "title": "Create issue",
+      "description": "Create an issue in a team (as an agent tool only when LINEAR_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (see list_teams)"
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "assignee_id": {
+            "type": "string",
+            "description": "User id"
+          },
+          "state_id": {
+            "type": "string",
+            "description": "Workflow state id (see get_team)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "0 none, 1 urgent, 2 high, 3 medium, 4 low",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "estimate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent issue id (sub-issue)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "issue_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.update_issue",
+      "title": "Update issue",
+      "description": "Change an issue's title, description, state, assignee, priority, project, labels, due date or estimate (as an agent tool only when LINEAR_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id or identifier, e.g. ENG-123"
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "assignee_id": {
+            "type": "string",
+            "description": "User id"
+          },
+          "state_id": {
+            "type": "string",
+            "description": "Workflow state id (see get_team)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "0 none, 1 urgent, 2 high, 3 medium, 4 low",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "estimate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent issue id (sub-issue)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.delete_issue",
+      "title": "Delete issue",
+      "description": "Move an issue to the trash (restorable for a while in Linear, then deleted)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id or identifier, e.g. ENG-123"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.list_comments",
+      "title": "List issue comments",
+      "description": "Comments on an issue, oldest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id or identifier, e.g. ENG-123"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.create_comment",
+      "title": "Comment on issue",
+      "description": "Add a Markdown comment to an issue (as an agent tool only when LINEAR_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (UUID; use get_issue to resolve an identifier)"
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_id",
+          "body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.list_projects",
+      "title": "List projects",
+      "description": "Projects with status, progress, dates, lead and teams",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "ProjectFilter object"
+          },
+          "include_archived": {
+            "type": "boolean",
+            "description": "Include archived items"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort order (newest first)",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.get_project",
+      "title": "Get project",
+      "description": "One project with its first 100 issues",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "linear.api_request",
+      "title": "Linear GraphQL API request",
+      "description": "Call any Linear GraphQL API endpoint that has no dedicated operation, e.g. path \"/graphql\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/graphql\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_viewer",
+      "description": "The user the API key belongs to and their workspace; a cheap way to check the key",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_teams",
+      "description": "Teams in the workspace (id and key for issues)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "include_archived": {
+            "type": "boolean",
+            "description": "Include archived items"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_team",
+      "description": "One team with its workflow states (state ids for issues) and members",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    {
+      "name": "list_workflow_states",
+      "description": "Workflow states (Backlog, Todo, In Progress, Done...) of all teams, or filtered",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "WorkflowStateFilter, e.g. {\"team\": {\"key\": {\"eq\": \"ENG\"}}}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_users",
+      "description": "Users of the workspace (ids for assignees)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "UserFilter, e.g. {\"email\": {\"eq\": \"ana@acme.com\"}}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_issues",
+      "description": "Issues, optionally filtered with an IssueFilter, e.g. {\"team\": {\"key\": {\"eq\": \"ENG\"}}, \"state\": {\"type\": {\"nin\": [\"completed\", \"canceled\"]}}}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "IssueFilter object"
+          },
+          "include_archived": {
+            "type": "boolean",
+            "description": "Include archived items"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort order (newest first)",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "search_issues",
+      "description": "Full-text search of issues by title and description (optionally comments)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "minLength": 1
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Only this team"
+          },
+          "include_comments": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": [
+          "term"
+        ]
+      }
+    },
+    {
+      "name": "get_issue",
+      "description": "One issue with description, parent, sub-issues and its latest 50 comments",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id or identifier, e.g. ENG-123"
+          }
+        },
+        "required": [
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "create_issue",
+      "description": "Create an issue in a team (as an agent tool only when LINEAR_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (see list_teams)"
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "assignee_id": {
+            "type": "string",
+            "description": "User id"
+          },
+          "state_id": {
+            "type": "string",
+            "description": "Workflow state id (see get_team)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "0 none, 1 urgent, 2 high, 3 medium, 4 low",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "estimate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent issue id (sub-issue)"
+          }
+        },
+        "required": [
+          "team_id",
+          "issue_title"
+        ]
+      }
+    },
+    {
+      "name": "update_issue",
+      "description": "Change an issue's title, description, state, assignee, priority, project, labels, due date or estimate (as an agent tool only when LINEAR_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id or identifier, e.g. ENG-123"
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "assignee_id": {
+            "type": "string",
+            "description": "User id"
+          },
+          "state_id": {
+            "type": "string",
+            "description": "Workflow state id (see get_team)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "0 none, 1 urgent, 2 high, 3 medium, 4 low",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "estimate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent issue id (sub-issue)"
+          }
+        },
+        "required": [
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "list_comments",
+      "description": "Comments on an issue, oldest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id or identifier, e.g. ENG-123"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": [
+          "issue_id"
+        ]
+      }
+    },
+    {
+      "name": "create_comment",
+      "description": "Add a Markdown comment to an issue (as an agent tool only when LINEAR_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "Issue id (UUID; use get_issue to resolve an identifier)"
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "issue_id",
+          "body"
+        ]
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "Projects with status, progress, dates, lead and teams",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "description": "ProjectFilter object"
+          },
+          "include_archived": {
+            "type": "boolean",
+            "description": "Include archived items"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort order (newest first)",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_project",
+      "description": "One project with its first 100 issues",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Linear GraphQL API endpoint that has no dedicated operation, e.g. path \"/graphql\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/graphql\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

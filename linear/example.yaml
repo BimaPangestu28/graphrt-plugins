@@ -1,0 +1,18 @@
+# Who am I, and what are the latest open issues? Read-only.
+#   LINEAR_API_KEY=lin_api_... graphrt run linear/example.yaml --plugins .
+version: "1"
+name: linear-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: linear.get_viewer }
+    - id: open_issues
+      type: linear.list_issues
+      filter: { state: { type: { nin: [completed, canceled] } } }
+      order_by: updatedAt
+      limit: 10
+    - { id: answer, type: answer, answer: "{{#me.data.name#}} @ {{#me.data.organization.name#}}: {{#open_issues.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: open_issues }
+    - { source: open_issues, target: answer }

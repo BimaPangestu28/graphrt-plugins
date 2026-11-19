@@ -1,0 +1,15 @@
+# Read the token's user and the latest pipelines of a public project. Read-only.
+#   GITLAB_TOKEN=... graphrt run gitlab/example.yaml --plugins .
+#   (self-hosted: also set GITLAB_BASE_URL=https://gitlab.example.com)
+version: "1"
+name: gitlab-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: gitlab.get_current_user }
+    - { id: pipelines, type: gitlab.list_pipelines, project_id: gitlab-org/gitlab-runner, ref: main, limit: 3 }
+    - { id: answer, type: answer, answer: "Hello {{#me.data.username#}}; latest gitlab-runner pipelines: {{#pipelines.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: pipelines }
+    - { source: pipelines, target: answer }

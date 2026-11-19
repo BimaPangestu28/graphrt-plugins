@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-github",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: GitHub REST API (repos, issues, pull requests, contents, search, releases, Actions, notifications)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

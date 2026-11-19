@@ -1,0 +1,2555 @@
+{
+  "name": "gitlab",
+  "version": "0.1.0",
+  "description": "GitLab REST API v4 (gitlab.com or self-hosted): projects, issues, merge requests, pipelines and repository files",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GITLAB_TOKEN",
+      "GITLAB_BASE_URL",
+      "GITLAB_TOOL_ALLOWED_PROJECTS",
+      "GITLAB_TOOL_API_EXTRA_PATHS",
+      "GITLAB_TOOL_ALLOW_WRITE",
+      "GITLAB_TOOL_ALLOW_CI"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "gitlab.get_current_user",
+      "title": "Current user",
+      "description": "The user the token belongs to; a cheap way to check the token",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_projects",
+      "title": "List projects",
+      "description": "Projects visible to the token (member projects by default)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "membership": {
+            "type": "boolean",
+            "description": "Only projects you are a member of",
+            "default": true
+          },
+          "search": {
+            "type": "string",
+            "description": "Search in name and path"
+          },
+          "owned": {
+            "type": "boolean"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "internal",
+              "private"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "name",
+              "path",
+              "created_at",
+              "updated_at",
+              "last_activity_at"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "simple": {
+            "type": "boolean",
+            "description": "Return only basic fields (smaller responses)",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.get_project",
+      "title": "Get project",
+      "description": "One project: default branch, visibility, URLs, statistics",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_issues",
+      "title": "List issues",
+      "description": "Issues of a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "opened",
+              "closed",
+              "all"
+            ],
+            "default": "opened"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Only issues with all these labels",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "string",
+            "description": "Search title and description"
+          },
+          "assignee_username": {
+            "type": "string"
+          },
+          "author_username": {
+            "type": "string"
+          },
+          "milestone": {
+            "type": "string",
+            "description": "Milestone title, None or Any"
+          },
+          "updated_after": {
+            "type": "string",
+            "description": "ISO 8601 time"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at",
+              "priority",
+              "due_date",
+              "relative_position",
+              "label_priority",
+              "milestone_due",
+              "popularity",
+              "weight"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.get_issue",
+      "title": "Get issue",
+      "description": "One issue with description, labels, assignees and state",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.create_issue",
+      "title": "Create issue",
+      "description": "Open an issue in a project (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names"
+          },
+          "assignee_ids": {
+            "type": "array",
+            "description": "User ids to assign",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "milestone_id": {
+            "type": "integer"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "confidential": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.update_issue",
+      "title": "Update issue",
+      "description": "Change an issue: title, description, labels, assignees, due date, or close/reopen with state_event (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "state_event": {
+            "type": "string",
+            "enum": [
+              "close",
+              "reopen"
+            ]
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated labels (replaces all labels)"
+          },
+          "add_labels": {
+            "type": "string",
+            "description": "Comma-separated labels to add"
+          },
+          "remove_labels": {
+            "type": "string",
+            "description": "Comma-separated labels to remove"
+          },
+          "assignee_ids": {
+            "type": "array",
+            "description": "User ids (replaces the assignees; [] to unassign)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "milestone_id": {
+            "type": "integer"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.delete_issue",
+      "title": "Delete issue",
+      "description": "Delete an issue permanently (project owners and admins only)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_issue_notes",
+      "title": "List issue comments",
+      "description": "Comments (notes) on an issue, including system notes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.create_issue_note",
+      "title": "Comment on issue",
+      "description": "Add a comment (note) to an issue (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown",
+            "minLength": 1
+          },
+          "internal": {
+            "type": "boolean",
+            "description": "Internal note (visible to members only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid",
+          "body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_merge_requests",
+      "title": "List merge requests",
+      "description": "Merge requests of a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "opened",
+              "closed",
+              "locked",
+              "merged",
+              "all"
+            ],
+            "default": "opened"
+          },
+          "source_branch": {
+            "type": "string"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "string"
+          },
+          "author_username": {
+            "type": "string"
+          },
+          "reviewer_username": {
+            "type": "string"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at",
+              "merged_at",
+              "title"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.get_merge_request",
+      "title": "Get merge request",
+      "description": "One merge request: branches, state, merge status, pipeline, approvals summary",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_merge_request_diffs",
+      "title": "List merge request diffs",
+      "description": "Changed files of a merge request with their diffs",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.create_merge_request",
+      "title": "Create merge request",
+      "description": "Open a merge request from an existing branch (does not push code; prefix the title with \"Draft:\" for a draft) (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "source_branch": {
+            "type": "string"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "mr_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names"
+          },
+          "assignee_ids": {
+            "type": "array",
+            "description": "User ids to assign",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "reviewer_ids": {
+            "type": "array",
+            "description": "User ids to request review from",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "remove_source_branch": {
+            "type": "boolean"
+          },
+          "squash": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "source_branch",
+          "target_branch",
+          "mr_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_merge_request_notes",
+      "title": "List MR comments",
+      "description": "Comments (notes) on a merge request",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.create_merge_request_note",
+      "title": "Comment on merge request",
+      "description": "Add a comment (note) to a merge request (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid",
+          "body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.merge_merge_request",
+      "title": "Merge merge request",
+      "description": "Merge a merge request (pass `sha` to merge only if the head has not moved)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "sha": {
+            "type": "string",
+            "description": "Expected head SHA"
+          },
+          "squash": {
+            "type": "boolean"
+          },
+          "should_remove_source_branch": {
+            "type": "boolean"
+          },
+          "merge_commit_message": {
+            "type": "string"
+          },
+          "auto_merge": {
+            "type": "boolean",
+            "description": "Merge when the pipeline succeeds"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_pipelines",
+      "title": "List pipelines",
+      "description": "CI/CD pipelines of a project, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "waiting_for_resource",
+              "preparing",
+              "pending",
+              "running",
+              "success",
+              "failed",
+              "canceled",
+              "skipped",
+              "manual",
+              "scheduled"
+            ]
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch or tag"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "e.g. push, merge_request_event, schedule, web"
+          },
+          "updated_after": {
+            "type": "string",
+            "description": "ISO 8601 time"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "status",
+              "ref",
+              "updated_at",
+              "user_id"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.get_pipeline",
+      "title": "Get pipeline",
+      "description": "One pipeline: status, ref, sha, duration, coverage",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_pipeline_jobs",
+      "title": "List pipeline jobs",
+      "description": "Jobs of a pipeline with stage, status and failure reason",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          },
+          "scope": {
+            "type": "array",
+            "description": "Job statuses, e.g. failed, success, running",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.retry_pipeline",
+      "title": "Retry pipeline",
+      "description": "Retry the failed or canceled jobs of a pipeline (uses CI minutes) (as an agent tool only when GITLAB_TOOL_ALLOW_CI=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.cancel_pipeline",
+      "title": "Cancel pipeline",
+      "description": "Cancel the running jobs of a pipeline (as an agent tool only when GITLAB_TOOL_ALLOW_CI=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.create_pipeline",
+      "title": "Run pipeline",
+      "description": "Start a new pipeline for a branch or tag (may deploy)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch or tag"
+          },
+          "variables": {
+            "type": "array",
+            "description": "Pipeline variables, e.g. [{\"key\": \"DEPLOY\", \"value\": \"1\"}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "ref"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.get_file",
+      "title": "Get file",
+      "description": "A file at a ref: metadata plus content (base64 in `content`)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "file_path": {
+            "type": "string",
+            "description": "File path in the repository, e.g. src/app.rb"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch, tag or commit SHA"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "file_path",
+          "ref"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.list_repository_tree",
+      "title": "List repository tree",
+      "description": "Files and directories at a path and ref",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "path": {
+            "type": "string",
+            "description": "Directory path (default: root)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch, tag or SHA (default: default branch)"
+          },
+          "recursive": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.create_file",
+      "title": "Commit a new file",
+      "description": "Create a file with a commit",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "file_path": {
+            "type": "string",
+            "description": "File path in the repository, e.g. src/app.rb"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "File content (text, or base64 with encoding=base64)"
+          },
+          "commit_message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "text",
+              "base64"
+            ]
+          },
+          "start_branch": {
+            "type": "string",
+            "description": "Create `branch` from this branch"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "file_path",
+          "branch",
+          "content",
+          "commit_message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.update_file",
+      "title": "Commit a file change",
+      "description": "Replace a file's content with a commit (pass last_commit_id to refuse if it changed meanwhile)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "file_path": {
+            "type": "string",
+            "description": "File path in the repository, e.g. src/app.rb"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "File content (text, or base64 with encoding=base64)"
+          },
+          "commit_message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "text",
+              "base64"
+            ]
+          },
+          "start_branch": {
+            "type": "string",
+            "description": "Create `branch` from this branch"
+          },
+          "last_commit_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id",
+          "file_path",
+          "branch",
+          "content",
+          "commit_message"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gitlab.api_request",
+      "title": "GitLab REST API request",
+      "description": "Call any GitLab REST API endpoint that has no dedicated operation, e.g. path \"/projects/group%2Fproject/repository/branches\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/projects/group%2Fproject/repository/branches\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_current_user",
+      "description": "The user the token belongs to; a cheap way to check the token",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "Projects visible to the token (member projects by default)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "membership": {
+            "type": "boolean",
+            "description": "Only projects you are a member of",
+            "default": true
+          },
+          "search": {
+            "type": "string",
+            "description": "Search in name and path"
+          },
+          "owned": {
+            "type": "boolean"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "internal",
+              "private"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "name",
+              "path",
+              "created_at",
+              "updated_at",
+              "last_activity_at"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "simple": {
+            "type": "boolean",
+            "description": "Return only basic fields (smaller responses)",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_project",
+      "description": "One project: default branch, visibility, URLs, statistics",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "list_issues",
+      "description": "Issues of a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "opened",
+              "closed",
+              "all"
+            ],
+            "default": "opened"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Only issues with all these labels",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "string",
+            "description": "Search title and description"
+          },
+          "assignee_username": {
+            "type": "string"
+          },
+          "author_username": {
+            "type": "string"
+          },
+          "milestone": {
+            "type": "string",
+            "description": "Milestone title, None or Any"
+          },
+          "updated_after": {
+            "type": "string",
+            "description": "ISO 8601 time"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at",
+              "priority",
+              "due_date",
+              "relative_position",
+              "label_priority",
+              "milestone_due",
+              "popularity",
+              "weight"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "get_issue",
+      "description": "One issue with description, labels, assignees and state",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid"
+        ]
+      }
+    },
+    {
+      "name": "create_issue",
+      "description": "Open an issue in a project (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names"
+          },
+          "assignee_ids": {
+            "type": "array",
+            "description": "User ids to assign",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "milestone_id": {
+            "type": "integer"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "confidential": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_title"
+        ]
+      }
+    },
+    {
+      "name": "update_issue",
+      "description": "Change an issue: title, description, labels, assignees, due date, or close/reopen with state_event (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "state_event": {
+            "type": "string",
+            "enum": [
+              "close",
+              "reopen"
+            ]
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated labels (replaces all labels)"
+          },
+          "add_labels": {
+            "type": "string",
+            "description": "Comma-separated labels to add"
+          },
+          "remove_labels": {
+            "type": "string",
+            "description": "Comma-separated labels to remove"
+          },
+          "assignee_ids": {
+            "type": "array",
+            "description": "User ids (replaces the assignees; [] to unassign)",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "milestone_id": {
+            "type": "integer"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid"
+        ]
+      }
+    },
+    {
+      "name": "list_issue_notes",
+      "description": "Comments (notes) on an issue, including system notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid"
+        ]
+      }
+    },
+    {
+      "name": "create_issue_note",
+      "description": "Add a comment (note) to an issue (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "issue_iid": {
+            "type": "integer",
+            "description": "Issue IID (the number shown in the project, #12)",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown",
+            "minLength": 1
+          },
+          "internal": {
+            "type": "boolean",
+            "description": "Internal note (visible to members only)"
+          }
+        },
+        "required": [
+          "project_id",
+          "issue_iid",
+          "body"
+        ]
+      }
+    },
+    {
+      "name": "list_merge_requests",
+      "description": "Merge requests of a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "opened",
+              "closed",
+              "locked",
+              "merged",
+              "all"
+            ],
+            "default": "opened"
+          },
+          "source_branch": {
+            "type": "string"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "string"
+          },
+          "author_username": {
+            "type": "string"
+          },
+          "reviewer_username": {
+            "type": "string"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at",
+              "merged_at",
+              "title"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "get_merge_request",
+      "description": "One merge request: branches, state, merge status, pipeline, approvals summary",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid"
+        ]
+      }
+    },
+    {
+      "name": "list_merge_request_diffs",
+      "description": "Changed files of a merge request with their diffs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid"
+        ]
+      }
+    },
+    {
+      "name": "create_merge_request",
+      "description": "Open a merge request from an existing branch (does not push code; prefix the title with \"Draft:\" for a draft) (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "source_branch": {
+            "type": "string"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "mr_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names"
+          },
+          "assignee_ids": {
+            "type": "array",
+            "description": "User ids to assign",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "reviewer_ids": {
+            "type": "array",
+            "description": "User ids to request review from",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "remove_source_branch": {
+            "type": "boolean"
+          },
+          "squash": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "project_id",
+          "source_branch",
+          "target_branch",
+          "mr_title"
+        ]
+      }
+    },
+    {
+      "name": "list_merge_request_notes",
+      "description": "Comments (notes) on a merge request",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid"
+        ]
+      }
+    },
+    {
+      "name": "create_merge_request_note",
+      "description": "Add a comment (note) to a merge request (as an agent tool only when GITLAB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "merge_request_iid": {
+            "type": "integer",
+            "description": "Merge request IID (!12)",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "project_id",
+          "merge_request_iid",
+          "body"
+        ]
+      }
+    },
+    {
+      "name": "list_pipelines",
+      "description": "CI/CD pipelines of a project, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "waiting_for_resource",
+              "preparing",
+              "pending",
+              "running",
+              "success",
+              "failed",
+              "canceled",
+              "skipped",
+              "manual",
+              "scheduled"
+            ]
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch or tag"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "e.g. push, merge_request_event, schedule, web"
+          },
+          "updated_after": {
+            "type": "string",
+            "description": "ISO 8601 time"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "id",
+              "status",
+              "ref",
+              "updated_at",
+              "user_id"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "get_pipeline",
+      "description": "One pipeline: status, ref, sha, duration, coverage",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      }
+    },
+    {
+      "name": "list_pipeline_jobs",
+      "description": "Jobs of a pipeline with stage, status and failure reason",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          },
+          "scope": {
+            "type": "array",
+            "description": "Job statuses, e.g. failed, success, running",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      }
+    },
+    {
+      "name": "retry_pipeline",
+      "description": "Retry the failed or canceled jobs of a pipeline (uses CI minutes) (as an agent tool only when GITLAB_TOOL_ALLOW_CI=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      }
+    },
+    {
+      "name": "cancel_pipeline",
+      "description": "Cancel the running jobs of a pipeline (as an agent tool only when GITLAB_TOOL_ALLOW_CI=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ]
+      }
+    },
+    {
+      "name": "get_file",
+      "description": "A file at a ref: metadata plus content (base64 in `content`)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "file_path": {
+            "type": "string",
+            "description": "File path in the repository, e.g. src/app.rb"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch, tag or commit SHA"
+          }
+        },
+        "required": [
+          "project_id",
+          "file_path",
+          "ref"
+        ]
+      }
+    },
+    {
+      "name": "list_repository_tree",
+      "description": "Files and directories at a path and ref",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id or full path, e.g. 42 or \"group/sub/project\""
+          },
+          "path": {
+            "type": "string",
+            "description": "Directory path (default: root)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch, tag or SHA (default: default branch)"
+          },
+          "recursive": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any GitLab REST API endpoint that has no dedicated operation, e.g. path \"/projects/group%2Fproject/repository/branches\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/projects/group%2Fproject/repository/branches\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
