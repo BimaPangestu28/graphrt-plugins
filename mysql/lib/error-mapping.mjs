@@ -52,7 +52,7 @@ function mapServerError(error, { isWrite, timeoutMs }) {
   }
   if (RETRYABLE_ERRNOS.has(error.errno)) return new PluginError(`${message}. The statement was rolled back.`, { kind: "api_error", retryable: true });
   const kind = ERRNO_KINDS.get(error.errno);
-  if (kind === "timeout") return new PluginError(`${message} (limit ${timeoutMs ?? "?"} ms; pass a larger timeout_ms or narrow the query)`, { kind });
+  if (kind === "timeout") return new PluginError(`${message} (limit ${timeoutMs ?? "?"} ms; pass a larger statement_timeout_ms or narrow the query)`, { kind });
   if (kind === "rate_limited") return new PluginError(message, { kind, retryable: true });
   if (kind === "network_error") return new PluginError(message, { kind, retryable: !isWrite });
   if (kind) return new PluginError(message, { kind });

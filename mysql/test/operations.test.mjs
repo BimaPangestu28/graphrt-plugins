@@ -41,7 +41,7 @@ test("query: session and transaction are read-only, timeout set, statement prepa
   withRunner(
     { scenario: { statement: { fields: [["id", 8], ["name", 253], ["raw", 253, BINARY_CHARSET], ["ts", 7], ["made", 12]], rows: [["9007199254740993", "kopi", Buffer.from("abc"), "2026-11-19 03:00:00.500", "2026-11-19 10:00:00"]] } } },
     async ({ runOperation, log }) => {
-      const output = await runOperation("query", { sql: "SELECT id, name, raw, ts, made FROM items WHERE name = ?", params: ["kopi"], timeout_ms: 1500 }, AS_TOOL);
+      const output = await runOperation("query", { sql: "SELECT id, name, raw, ts, made FROM items WHERE name = ?", params: ["kopi"], statement_timeout_ms: 1500 }, AS_TOOL);
       assert.deepEqual(statementTexts(log), [
         "SET SESSION TRANSACTION READ ONLY",
         "SET SESSION max_execution_time = ?, time_zone = '+00:00'",
@@ -99,14 +99,14 @@ test("a write or DDL inside query is refused by the server (1792) → permission
 
 test("max_execution_time exceeded (3024) → timeout", () =>
   withRunner({ scenario: { statement: { error: serverError(3024, "HY000", "Query execution was interrupted, maximum statement execution time exceeded") } } }, async ({ runOperation }) => {
-    await assert.rejects(runOperation("query", { sql: "SELECT heavy()", timeout_ms: 250 }, AS_TOOL), { kind: "timeout", message: /250 ms/ });
+    await assert.rejects(runOperation("query", { sql: "SELECT heavy()", statement_timeout_ms: 250 }, AS_TOOL), { kind: "timeout", message: /250 ms/ });
   }));
 
 test("MariaDB: unknown max_execution_time falls back to max_statement_time in seconds", () =>
   withRunner(
     { scenario: { onSimple: (sql) => { if (sql.includes("max_execution_time")) throw serverError(1193, "HY000", "Unknown system variable 'max_execution_time'"); } } },
     async ({ runOperation, log }) => {
-      await runOperation("query", { sql: "SELECT 1", timeout_ms: 2500 }, AS_TOOL);
+      await runOperation("query", { sql: "SELECT 1", statement_timeout_ms: 2500 }, AS_TOOL);
       const fallback = log.statements.find((entry) => entry.sql.includes("max_statement_time"));
       assert.deepEqual(fallback.values, [2.5]);
     },
