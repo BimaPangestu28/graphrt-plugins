@@ -1,0 +1,1355 @@
+{
+  "name": "cloudflare",
+  "version": "0.1.0",
+  "description": "Cloudflare API v4: accounts, zones, DNS records (list, create, update; delete node only), cache purge (node only) and Workers",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "CLOUDFLARE_API_TOKEN",
+      "CLOUDFLARE_TOOL_DNS_ALLOWED_NAMES",
+      "CLOUDFLARE_TOOL_API_EXTRA_PATHS",
+      "CLOUDFLARE_TOOL_ALLOW_WRITE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "cloudflare.verify_token",
+      "title": "Verify API token",
+      "description": "Check that the API token is valid and active (status, expiry)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.verify_account_token",
+      "title": "Verify account API token",
+      "description": "Check that an account-owned API token is valid and active (account tokens fail verify_token)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id that owns the token"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.list_accounts",
+      "title": "List accounts",
+      "description": "Accounts the token can access (ids for Workers)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.list_zones",
+      "title": "List zones",
+      "description": "Zones (domains) the token can access",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Domain name, e.g. example.com"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "initializing",
+              "pending",
+              "active",
+              "moved"
+            ]
+          },
+          "account_id": {
+            "type": "string"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "name",
+              "status",
+              "account.id",
+              "account.name",
+              "plan.id"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.get_zone",
+      "title": "Get zone",
+      "description": "One zone: status, plan, name servers, settings summary",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "zone_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.list_dns_records",
+      "title": "List DNS records",
+      "description": "DNS records of a zone, optionally filtered by type, exact name or content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CAA",
+              "CERT",
+              "CNAME",
+              "DNSKEY",
+              "DS",
+              "HTTPS",
+              "LOC",
+              "MX",
+              "NAPTR",
+              "NS",
+              "OPENPGPKEY",
+              "PTR",
+              "SMIMEA",
+              "SRV",
+              "SSHFP",
+              "SVCB",
+              "TLSA",
+              "TXT",
+              "URI"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Exact record name (FQDN)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Exact record content"
+          },
+          "proxied": {
+            "type": "boolean"
+          },
+          "search": {
+            "type": "string",
+            "description": "Search name, content and comment"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "type",
+              "name",
+              "content",
+              "ttl",
+              "proxied"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "zone_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.get_dns_record",
+      "title": "Get DNS record",
+      "description": "One DNS record",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "DNS record id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "zone_id",
+          "record_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.create_dns_record",
+      "title": "Create DNS record",
+      "description": "Add a DNS record to a zone (changes where traffic goes; agent tools only for names in CLOUDFLARE_TOOL_DNS_ALLOWED_NAMES) (as an agent tool only when CLOUDFLARE_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CAA",
+              "CERT",
+              "CNAME",
+              "DNSKEY",
+              "DS",
+              "HTTPS",
+              "LOC",
+              "MX",
+              "NAPTR",
+              "NS",
+              "OPENPGPKEY",
+              "PTR",
+              "SMIMEA",
+              "SRV",
+              "SSHFP",
+              "SVCB",
+              "TLSA",
+              "TXT",
+              "URI"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Record name, e.g. \"www.example.com\" or \"@\" for the apex",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "description": "Value, e.g. an IPv4 address for A or a hostname for CNAME"
+          },
+          "ttl": {
+            "type": "integer",
+            "description": "Seconds; 1 = automatic",
+            "minimum": 1,
+            "maximum": 86400,
+            "default": 1
+          },
+          "proxied": {
+            "type": "boolean",
+            "description": "Proxy through Cloudflare (A, AAAA, CNAME)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "MX/URI priority",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "comment": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "description": "name:value tags",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "zone_id",
+          "record_type",
+          "name",
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.update_dns_record",
+      "title": "Update DNS record",
+      "description": "Change fields of a DNS record (given fields only; agent tools only for names in CLOUDFLARE_TOOL_DNS_ALLOWED_NAMES) (as an agent tool only when CLOUDFLARE_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "DNS record id"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CAA",
+              "CERT",
+              "CNAME",
+              "DNSKEY",
+              "DS",
+              "HTTPS",
+              "LOC",
+              "MX",
+              "NAPTR",
+              "NS",
+              "OPENPGPKEY",
+              "PTR",
+              "SMIMEA",
+              "SRV",
+              "SSHFP",
+              "SVCB",
+              "TLSA",
+              "TXT",
+              "URI"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Record name, e.g. \"www.example.com\" or \"@\" for the apex",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "description": "Value, e.g. an IPv4 address for A or a hostname for CNAME"
+          },
+          "ttl": {
+            "type": "integer",
+            "description": "Seconds; 1 = automatic",
+            "minimum": 1,
+            "maximum": 86400
+          },
+          "proxied": {
+            "type": "boolean",
+            "description": "Proxy through Cloudflare (A, AAAA, CNAME)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "MX/URI priority",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "comment": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "description": "name:value tags",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "zone_id",
+          "record_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.delete_dns_record",
+      "title": "Delete DNS record",
+      "description": "Delete a DNS record",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "DNS record id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "zone_id",
+          "record_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.purge_cache",
+      "title": "Purge cache",
+      "description": "Purge cached content of a zone: everything, or by URLs, cache tags, hostnames or prefixes (one kind per call)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "purge_everything": {
+            "type": "boolean",
+            "description": "Purge all cached files of the zone"
+          },
+          "files": {
+            "type": "array",
+            "description": "Full URLs to purge",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Cache-Tag values",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "hosts": {
+            "type": "array",
+            "description": "Hostnames",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "prefixes": {
+            "type": "array",
+            "description": "URL prefixes without scheme, e.g. www.example.com/blog",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "zone_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.list_workers",
+      "title": "List Workers",
+      "description": "Worker scripts of an account with created/modified times and handlers",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id (32 hex, from list_accounts)"
+          },
+          "tags": {
+            "type": "string",
+            "description": "Filter by tags, e.g. env:prod"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.get_worker_settings",
+      "title": "Get Worker settings",
+      "description": "Settings of a Worker: bindings (names and types, never secret values), compatibility date and flags, observability",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id (32 hex, from list_accounts)"
+          },
+          "script_name": {
+            "type": "string",
+            "description": "Worker name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "script_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.list_worker_deployments",
+      "title": "List Worker deployments",
+      "description": "Deployments of a Worker (which versions serve traffic, and their split)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id (32 hex, from list_accounts)"
+          },
+          "script_name": {
+            "type": "string",
+            "description": "Worker name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "account_id",
+          "script_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "cloudflare.api_request",
+      "title": "Cloudflare API request",
+      "description": "Call any Cloudflare API endpoint that has no dedicated operation, e.g. path \"/zones/<zone_id>/settings\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/zones/<zone_id>/settings\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "verify_token",
+      "description": "Check that the API token is valid and active (status, expiry)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "verify_account_token",
+      "description": "Check that an account-owned API token is valid and active (account tokens fail verify_token)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id that owns the token"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      }
+    },
+    {
+      "name": "list_accounts",
+      "description": "Accounts the token can access (ids for Workers)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_zones",
+      "description": "Zones (domains) the token can access",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Domain name, e.g. example.com"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "initializing",
+              "pending",
+              "active",
+              "moved"
+            ]
+          },
+          "account_id": {
+            "type": "string"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "name",
+              "status",
+              "account.id",
+              "account.name",
+              "plan.id"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_zone",
+      "description": "One zone: status, plan, name servers, settings summary",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          }
+        },
+        "required": [
+          "zone_id"
+        ]
+      }
+    },
+    {
+      "name": "list_dns_records",
+      "description": "DNS records of a zone, optionally filtered by type, exact name or content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CAA",
+              "CERT",
+              "CNAME",
+              "DNSKEY",
+              "DS",
+              "HTTPS",
+              "LOC",
+              "MX",
+              "NAPTR",
+              "NS",
+              "OPENPGPKEY",
+              "PTR",
+              "SMIMEA",
+              "SRV",
+              "SSHFP",
+              "SVCB",
+              "TLSA",
+              "TXT",
+              "URI"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Exact record name (FQDN)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Exact record content"
+          },
+          "proxied": {
+            "type": "boolean"
+          },
+          "search": {
+            "type": "string",
+            "description": "Search name, content and comment"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "type",
+              "name",
+              "content",
+              "ttl",
+              "proxied"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "zone_id"
+        ]
+      }
+    },
+    {
+      "name": "get_dns_record",
+      "description": "One DNS record",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "DNS record id"
+          }
+        },
+        "required": [
+          "zone_id",
+          "record_id"
+        ]
+      }
+    },
+    {
+      "name": "create_dns_record",
+      "description": "Add a DNS record to a zone (changes where traffic goes; agent tools only for names in CLOUDFLARE_TOOL_DNS_ALLOWED_NAMES) (as an agent tool only when CLOUDFLARE_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CAA",
+              "CERT",
+              "CNAME",
+              "DNSKEY",
+              "DS",
+              "HTTPS",
+              "LOC",
+              "MX",
+              "NAPTR",
+              "NS",
+              "OPENPGPKEY",
+              "PTR",
+              "SMIMEA",
+              "SRV",
+              "SSHFP",
+              "SVCB",
+              "TLSA",
+              "TXT",
+              "URI"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Record name, e.g. \"www.example.com\" or \"@\" for the apex",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "description": "Value, e.g. an IPv4 address for A or a hostname for CNAME"
+          },
+          "ttl": {
+            "type": "integer",
+            "description": "Seconds; 1 = automatic",
+            "minimum": 1,
+            "maximum": 86400,
+            "default": 1
+          },
+          "proxied": {
+            "type": "boolean",
+            "description": "Proxy through Cloudflare (A, AAAA, CNAME)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "MX/URI priority",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "comment": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "description": "name:value tags",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "zone_id",
+          "record_type",
+          "name",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "update_dns_record",
+      "description": "Change fields of a DNS record (given fields only; agent tools only for names in CLOUDFLARE_TOOL_DNS_ALLOWED_NAMES) (as an agent tool only when CLOUDFLARE_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "Zone id (32 hex, from list_zones)"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "DNS record id"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CAA",
+              "CERT",
+              "CNAME",
+              "DNSKEY",
+              "DS",
+              "HTTPS",
+              "LOC",
+              "MX",
+              "NAPTR",
+              "NS",
+              "OPENPGPKEY",
+              "PTR",
+              "SMIMEA",
+              "SRV",
+              "SSHFP",
+              "SVCB",
+              "TLSA",
+              "TXT",
+              "URI"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Record name, e.g. \"www.example.com\" or \"@\" for the apex",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "description": "Value, e.g. an IPv4 address for A or a hostname for CNAME"
+          },
+          "ttl": {
+            "type": "integer",
+            "description": "Seconds; 1 = automatic",
+            "minimum": 1,
+            "maximum": 86400
+          },
+          "proxied": {
+            "type": "boolean",
+            "description": "Proxy through Cloudflare (A, AAAA, CNAME)"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "MX/URI priority",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "comment": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "description": "name:value tags",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "zone_id",
+          "record_id"
+        ]
+      }
+    },
+    {
+      "name": "list_workers",
+      "description": "Worker scripts of an account with created/modified times and handlers",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id (32 hex, from list_accounts)"
+          },
+          "tags": {
+            "type": "string",
+            "description": "Filter by tags, e.g. env:prod"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      }
+    },
+    {
+      "name": "get_worker_settings",
+      "description": "Settings of a Worker: bindings (names and types, never secret values), compatibility date and flags, observability",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id (32 hex, from list_accounts)"
+          },
+          "script_name": {
+            "type": "string",
+            "description": "Worker name"
+          }
+        },
+        "required": [
+          "account_id",
+          "script_name"
+        ]
+      }
+    },
+    {
+      "name": "list_worker_deployments",
+      "description": "Deployments of a Worker (which versions serve traffic, and their split)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "description": "Account id (32 hex, from list_accounts)"
+          },
+          "script_name": {
+            "type": "string",
+            "description": "Worker name"
+          }
+        },
+        "required": [
+          "account_id",
+          "script_name"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Cloudflare API endpoint that has no dedicated operation, e.g. path \"/zones/<zone_id>/settings\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/zones/<zone_id>/settings\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Cloudflare API v4 (zones, DNS records, cache purge, Workers)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,19 @@
+# List your organizations, then the top unresolved issues of the last 24 hours. Read-only.
+#   SENTRY_AUTH_TOKEN=... graphrt run sentry/example.yaml --plugins .      (SENTRY_REGION=de for EU organizations)
+version: "1"
+name: sentry-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: orgs, type: sentry.list_organizations }
+    - id: issues
+      type: sentry.list_issues
+      organization: "{{#orgs.data.0.slug#}}"
+      stats_period: 24h
+      sort: freq
+      limit: 5
+    - { id: answer, type: answer, answer: "{{#orgs.data.0.name#}}: {{#issues.data#}}" }
+  edges:
+    - { source: start, target: orgs }
+    - { source: orgs, target: issues }
+    - { source: issues, target: answer }

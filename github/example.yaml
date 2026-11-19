@@ -1,0 +1,14 @@
+# Read a public repository and its open issues. Read-only.
+#   GITHUB_TOKEN=... graphrt run github/example.yaml --plugins .
+version: "1"
+name: github-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: repo, type: github.get_repo, owner: octocat, repo: Hello-World }
+    - { id: issues, type: github.list_issues, owner: octocat, repo: Hello-World, limit: 5 }
+    - { id: answer, type: answer, answer: "{{#repo.data.full_name#}} ({{#repo.data.stargazers_count#}} stars), latest open issues: {{#issues.data#}}" }
+  edges:
+    - { source: start, target: repo }
+    - { source: repo, target: issues }
+    - { source: issues, target: answer }

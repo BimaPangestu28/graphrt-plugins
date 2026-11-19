@@ -1,0 +1,3157 @@
+{
+  "name": "github",
+  "version": "0.1.0",
+  "description": "GitHub REST API: repositories, issues, pull requests, file contents, code and issue search, releases, Actions runs and notifications",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GITHUB_TOKEN",
+      "GITHUB_TOOL_ALLOWED_REPOS",
+      "GITHUB_TOOL_ALLOW_WRITE",
+      "GITHUB_TOOL_ALLOW_CI"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "github.get_authenticated_user",
+      "title": "Authenticated user",
+      "description": "The user the token belongs to (login, name, plan); a cheap way to check the token",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_my_repos",
+      "title": "List my repositories",
+      "description": "Repositories the authenticated user can access (owned, collaborator, organization member)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "all",
+              "public",
+              "private"
+            ]
+          },
+          "affiliation": {
+            "type": "string",
+            "description": "Comma list of owner, collaborator, organization_member"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "pushed",
+              "full_name"
+            ],
+            "default": "updated"
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_org_repos",
+      "title": "List organization repositories",
+      "description": "Repositories of an organization",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "org": {
+            "type": "string",
+            "description": "Organization login"
+          },
+          "repo_type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "public",
+              "private",
+              "forks",
+              "sources",
+              "member"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "pushed",
+              "full_name"
+            ],
+            "default": "updated"
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "org"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.get_repo",
+      "title": "Get repository",
+      "description": "One repository: description, default branch, visibility, topics, counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.get_contents",
+      "title": "Get file or directory",
+      "description": "A file (content base64-encoded in `content`) or a directory listing at a path in the repository; files over 1 MB come without content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Path in the repository, e.g. src/index.js or docs"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch, tag or commit SHA (default: the default branch)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "file_path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.create_or_update_file",
+      "title": "Commit a file",
+      "description": "Create or replace one file with a commit (content base64-encoded; pass `sha` of the current file to replace it)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Path in the repository"
+          },
+          "message": {
+            "type": "string",
+            "description": "Commit message",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "description": "New file content, base64-encoded"
+          },
+          "sha": {
+            "type": "string",
+            "description": "Blob SHA of the file being replaced (required to update)"
+          },
+          "branch": {
+            "type": "string",
+            "description": "Branch (default: the default branch)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "file_path",
+          "message",
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_issues",
+      "title": "List issues",
+      "description": "Issues of a repository (pull requests are included too and have a `pull_request` key)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "all"
+            ],
+            "default": "open"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Only issues with all these labels",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignee": {
+            "type": "string",
+            "description": "Assignee login, \"none\" or \"*\""
+          },
+          "creator": {
+            "type": "string",
+            "description": "Creator login"
+          },
+          "mentioned": {
+            "type": "string",
+            "description": "Login mentioned in the issue"
+          },
+          "milestone": {
+            "type": "string",
+            "description": "Milestone number, \"none\" or \"*\""
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "comments"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.get_issue",
+      "title": "Get issue",
+      "description": "One issue (or pull request as an issue) with body, labels, assignees and state",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.create_issue",
+      "title": "Create issue",
+      "description": "Open an issue in a repository (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown body"
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Logins to assign",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "milestone": {
+            "type": "integer",
+            "description": "Milestone number"
+          },
+          "issue_type": {
+            "type": "string",
+            "description": "Issue type name (organizations with issue types)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.update_issue",
+      "title": "Update issue",
+      "description": "Change an issue's title, body, state, labels, assignees or milestone (given fields only; labels and assignees are replaced) (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "state_reason": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "not_planned",
+              "duplicate",
+              "reopened"
+            ]
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Logins (replaces the assignees)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names (replaces the labels)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "milestone": {
+            "type": "integer",
+            "description": "Milestone number"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_issue_comments",
+      "title": "List issue comments",
+      "description": "Comments on an issue or pull request conversation, oldest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.create_issue_comment",
+      "title": "Comment on issue or PR",
+      "description": "Add a comment to an issue or a pull request conversation (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number",
+          "body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_pulls",
+      "title": "List pull requests",
+      "description": "Pull requests of a repository",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "all"
+            ],
+            "default": "open"
+          },
+          "head": {
+            "type": "string",
+            "description": "Filter by head as user:branch"
+          },
+          "base": {
+            "type": "string",
+            "description": "Filter by base branch"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "popularity",
+              "long-running"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.get_pull",
+      "title": "Get pull request",
+      "description": "One pull request: head and base, mergeable state, draft, review requests, counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_pull_files",
+      "title": "List pull request files",
+      "description": "Files changed in a pull request, with status, additions, deletions and patch (up to 3000 files)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.create_pull",
+      "title": "Create pull request",
+      "description": "Open a pull request from an existing branch (does not push code) (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pr_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "head": {
+            "type": "string",
+            "description": "Branch with the changes (user:branch for forks)"
+          },
+          "base": {
+            "type": "string",
+            "description": "Branch to merge into"
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown description"
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "maintainer_can_modify": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pr_title",
+          "head",
+          "base"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_pull_review_comments",
+      "title": "List PR review comments",
+      "description": "Review comments on the diff of a pull request (line comments)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.create_pull_review_comment",
+      "title": "Comment on PR diff",
+      "description": "Add a review comment on a line of a pull request's diff, or reply to one with in_reply_to (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "commit_id": {
+            "type": "string",
+            "description": "SHA of the commit to comment on (usually the PR head)"
+          },
+          "path": {
+            "type": "string",
+            "description": "File path relative to the repository root"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Line in the diff to comment on",
+            "minimum": 1
+          },
+          "side": {
+            "type": "string",
+            "description": "RIGHT for added/unchanged lines (default), LEFT for deletions",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "start_line": {
+            "type": "integer",
+            "description": "First line of a multi-line comment",
+            "minimum": 1
+          },
+          "start_side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "in_reply_to": {
+            "type": "integer",
+            "description": "Id of a review comment to reply to (other fields but body are ignored)"
+          },
+          "subject_type": {
+            "type": "string",
+            "enum": [
+              "line",
+              "file"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number",
+          "body",
+          "commit_id",
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.merge_pull",
+      "title": "Merge pull request",
+      "description": "Merge a pull request (pass `sha` to merge only if the head has not moved)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "merge_method": {
+            "type": "string",
+            "enum": [
+              "merge",
+              "squash",
+              "rebase"
+            ]
+          },
+          "commit_title": {
+            "type": "string"
+          },
+          "commit_message": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string",
+            "description": "Expected head SHA"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.search_code",
+      "title": "Search code",
+      "description": "Search code across GitHub, e.g. q \"parseConfig repo:owner/name language:go\" (10 requests a minute)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "GitHub code search query with qualifiers",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "q"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.search_issues",
+      "title": "Search issues and PRs",
+      "description": "Search issues and pull requests, e.g. q \"repo:owner/name is:pr is:open review-requested:@me\"",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Query with qualifiers; include is:issue or is:pr",
+            "minLength": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "comments",
+              "reactions",
+              "created",
+              "updated",
+              "interactions"
+            ]
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "advanced_search": {
+            "type": "boolean",
+            "description": "Use advanced search syntax (AND/OR and parentheses)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "q"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_releases",
+      "title": "List releases",
+      "description": "Releases of a repository, newest first (drafts only with push access)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.get_latest_release",
+      "title": "Latest release",
+      "description": "The latest published, non-prerelease release",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.get_release",
+      "title": "Get release",
+      "description": "One release with notes and assets",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "release_id": {
+            "type": "integer",
+            "description": "Release id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "release_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.create_release",
+      "title": "Create release",
+      "description": "Publish a release (creates the tag from target_commitish when it does not exist; may trigger deploy workflows)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "tag_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_commitish": {
+            "type": "string",
+            "description": "Branch or SHA for a new tag (default: the default branch)"
+          },
+          "name": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "description": "Release notes (Markdown)"
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "prerelease": {
+            "type": "boolean"
+          },
+          "generate_release_notes": {
+            "type": "boolean"
+          },
+          "make_latest": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false",
+              "legacy"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "tag_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.delete_release",
+      "title": "Delete release",
+      "description": "Delete a release (the tag stays)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "release_id": {
+            "type": "integer",
+            "description": "Release id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "release_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_workflow_runs",
+      "title": "List workflow runs",
+      "description": "GitHub Actions runs of a repository, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string",
+            "description": "Trigger event, e.g. push, pull_request"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "action_required",
+              "cancelled",
+              "failure",
+              "neutral",
+              "skipped",
+              "stale",
+              "success",
+              "timed_out",
+              "in_progress",
+              "queued",
+              "requested",
+              "waiting",
+              "pending"
+            ]
+          },
+          "actor": {
+            "type": "string",
+            "description": "Login of the user who triggered the run"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "created": {
+            "type": "string",
+            "description": "Date range, e.g. >=2026-11-01"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.get_workflow_run",
+      "title": "Get workflow run",
+      "description": "One workflow run: status, conclusion, head commit, timing and links",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "run_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.rerun_workflow_run",
+      "title": "Re-run workflow",
+      "description": "Re-run every job of a workflow run (uses Actions minutes; rerun_failed_jobs re-runs only failed ones) (as an agent tool only when GITHUB_TOOL_ALLOW_CI=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run id",
+            "minimum": 1
+          },
+          "enable_debug_logging": {
+            "type": "boolean",
+            "description": "Debug logs (workflow nodes only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "run_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.rerun_failed_jobs",
+      "title": "Re-run failed jobs",
+      "description": "Re-run only the failed jobs of a workflow run (uses Actions minutes) (as an agent tool only when GITHUB_TOOL_ALLOW_CI=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run id",
+            "minimum": 1
+          },
+          "enable_debug_logging": {
+            "type": "boolean",
+            "description": "Debug logs (workflow nodes only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "run_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.list_notifications",
+      "title": "List notifications",
+      "description": "Notification threads of the authenticated user (unread only unless all=true); needs a classic token with notifications scope",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "boolean",
+            "description": "Include read notifications"
+          },
+          "participating": {
+            "type": "boolean",
+            "description": "Only threads you participate in or are mentioned in"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "before": {
+            "type": "string",
+            "description": "Only notifications updated before this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.mark_notification_read",
+      "title": "Mark notification read",
+      "description": "Mark one notification thread as read (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "description": "Thread id from list_notifications"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "thread_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "github.api_request",
+      "title": "GitHub REST API request",
+      "description": "Call any GitHub REST API endpoint that has no dedicated operation, e.g. path \"/repos/octocat/hello-world/branches\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/repos/octocat/hello-world/branches\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_authenticated_user",
+      "description": "The user the token belongs to (login, name, plan); a cheap way to check the token",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_my_repos",
+      "description": "Repositories the authenticated user can access (owned, collaborator, organization member)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "all",
+              "public",
+              "private"
+            ]
+          },
+          "affiliation": {
+            "type": "string",
+            "description": "Comma list of owner, collaborator, organization_member"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "pushed",
+              "full_name"
+            ],
+            "default": "updated"
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_org_repos",
+      "description": "Repositories of an organization",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "org": {
+            "type": "string",
+            "description": "Organization login"
+          },
+          "repo_type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "public",
+              "private",
+              "forks",
+              "sources",
+              "member"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "pushed",
+              "full_name"
+            ],
+            "default": "updated"
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "org"
+        ]
+      }
+    },
+    {
+      "name": "get_repo",
+      "description": "One repository: description, default branch, visibility, topics, counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      }
+    },
+    {
+      "name": "get_contents",
+      "description": "A file (content base64-encoded in `content`) or a directory listing at a path in the repository; files over 1 MB come without content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Path in the repository, e.g. src/index.js or docs"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch, tag or commit SHA (default: the default branch)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "file_path"
+        ]
+      }
+    },
+    {
+      "name": "list_issues",
+      "description": "Issues of a repository (pull requests are included too and have a `pull_request` key)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "all"
+            ],
+            "default": "open"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Only issues with all these labels",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignee": {
+            "type": "string",
+            "description": "Assignee login, \"none\" or \"*\""
+          },
+          "creator": {
+            "type": "string",
+            "description": "Creator login"
+          },
+          "mentioned": {
+            "type": "string",
+            "description": "Login mentioned in the issue"
+          },
+          "milestone": {
+            "type": "string",
+            "description": "Milestone number, \"none\" or \"*\""
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "comments"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      }
+    },
+    {
+      "name": "get_issue",
+      "description": "One issue (or pull request as an issue) with body, labels, assignees and state",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number"
+        ]
+      }
+    },
+    {
+      "name": "create_issue",
+      "description": "Open an issue in a repository (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown body"
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Logins to assign",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "milestone": {
+            "type": "integer",
+            "description": "Milestone number"
+          },
+          "issue_type": {
+            "type": "string",
+            "description": "Issue type name (organizations with issue types)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_title"
+        ]
+      }
+    },
+    {
+      "name": "update_issue",
+      "description": "Change an issue's title, body, state, labels, assignees or milestone (given fields only; labels and assignees are replaced) (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          },
+          "issue_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "state_reason": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "not_planned",
+              "duplicate",
+              "reopened"
+            ]
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Logins (replaces the assignees)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names (replaces the labels)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "milestone": {
+            "type": "integer",
+            "description": "Milestone number"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number"
+        ]
+      }
+    },
+    {
+      "name": "list_issue_comments",
+      "description": "Comments on an issue or pull request conversation, oldest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number"
+        ]
+      }
+    },
+    {
+      "name": "create_issue_comment",
+      "description": "Add a comment to an issue or a pull request conversation (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "issue_number": {
+            "type": "integer",
+            "description": "Issue or pull request number",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "issue_number",
+          "body"
+        ]
+      }
+    },
+    {
+      "name": "list_pulls",
+      "description": "Pull requests of a repository",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "all"
+            ],
+            "default": "open"
+          },
+          "head": {
+            "type": "string",
+            "description": "Filter by head as user:branch"
+          },
+          "base": {
+            "type": "string",
+            "description": "Filter by base branch"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "popularity",
+              "long-running"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      }
+    },
+    {
+      "name": "get_pull",
+      "description": "One pull request: head and base, mergeable state, draft, review requests, counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ]
+      }
+    },
+    {
+      "name": "list_pull_files",
+      "description": "Files changed in a pull request, with status, additions, deletions and patch (up to 3000 files)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ]
+      }
+    },
+    {
+      "name": "create_pull",
+      "description": "Open a pull request from an existing branch (does not push code) (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pr_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "head": {
+            "type": "string",
+            "description": "Branch with the changes (user:branch for forks)"
+          },
+          "base": {
+            "type": "string",
+            "description": "Branch to merge into"
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown description"
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "maintainer_can_modify": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pr_title",
+          "head",
+          "base"
+        ]
+      }
+    },
+    {
+      "name": "list_pull_review_comments",
+      "description": "Review comments on the diff of a pull request (line comments)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ]
+      }
+    },
+    {
+      "name": "create_pull_review_comment",
+      "description": "Add a review comment on a line of a pull request's diff, or reply to one with in_reply_to (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "commit_id": {
+            "type": "string",
+            "description": "SHA of the commit to comment on (usually the PR head)"
+          },
+          "path": {
+            "type": "string",
+            "description": "File path relative to the repository root"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Line in the diff to comment on",
+            "minimum": 1
+          },
+          "side": {
+            "type": "string",
+            "description": "RIGHT for added/unchanged lines (default), LEFT for deletions",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "start_line": {
+            "type": "integer",
+            "description": "First line of a multi-line comment",
+            "minimum": 1
+          },
+          "start_side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "in_reply_to": {
+            "type": "integer",
+            "description": "Id of a review comment to reply to (other fields but body are ignored)"
+          },
+          "subject_type": {
+            "type": "string",
+            "enum": [
+              "line",
+              "file"
+            ]
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number",
+          "body",
+          "commit_id",
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "search_code",
+      "description": "Search code across GitHub, e.g. q \"parseConfig repo:owner/name language:go\" (10 requests a minute)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "GitHub code search query with qualifiers",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "q"
+        ]
+      }
+    },
+    {
+      "name": "search_issues",
+      "description": "Search issues and pull requests, e.g. q \"repo:owner/name is:pr is:open review-requested:@me\"",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Query with qualifiers; include is:issue or is:pr",
+            "minLength": 1
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "comments",
+              "reactions",
+              "created",
+              "updated",
+              "interactions"
+            ]
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "advanced_search": {
+            "type": "boolean",
+            "description": "Use advanced search syntax (AND/OR and parentheses)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "q"
+        ]
+      }
+    },
+    {
+      "name": "list_releases",
+      "description": "Releases of a repository, newest first (drafts only with push access)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      }
+    },
+    {
+      "name": "get_latest_release",
+      "description": "The latest published, non-prerelease release",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      }
+    },
+    {
+      "name": "get_release",
+      "description": "One release with notes and assets",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "release_id": {
+            "type": "integer",
+            "description": "Release id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "release_id"
+        ]
+      }
+    },
+    {
+      "name": "list_workflow_runs",
+      "description": "GitHub Actions runs of a repository, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string",
+            "description": "Trigger event, e.g. push, pull_request"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "action_required",
+              "cancelled",
+              "failure",
+              "neutral",
+              "skipped",
+              "stale",
+              "success",
+              "timed_out",
+              "in_progress",
+              "queued",
+              "requested",
+              "waiting",
+              "pending"
+            ]
+          },
+          "actor": {
+            "type": "string",
+            "description": "Login of the user who triggered the run"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "created": {
+            "type": "string",
+            "description": "Date range, e.g. >=2026-11-01"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ]
+      }
+    },
+    {
+      "name": "get_workflow_run",
+      "description": "One workflow run: status, conclusion, head commit, timing and links",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "run_id"
+        ]
+      }
+    },
+    {
+      "name": "rerun_workflow_run",
+      "description": "Re-run every job of a workflow run (uses Actions minutes; rerun_failed_jobs re-runs only failed ones) (as an agent tool only when GITHUB_TOOL_ALLOW_CI=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run id",
+            "minimum": 1
+          },
+          "enable_debug_logging": {
+            "type": "boolean",
+            "description": "Debug logs (workflow nodes only)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "run_id"
+        ]
+      }
+    },
+    {
+      "name": "rerun_failed_jobs",
+      "description": "Re-run only the failed jobs of a workflow run (uses Actions minutes) (as an agent tool only when GITHUB_TOOL_ALLOW_CI=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (user or organization login)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name without .git"
+          },
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run id",
+            "minimum": 1
+          },
+          "enable_debug_logging": {
+            "type": "boolean",
+            "description": "Debug logs (workflow nodes only)"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "run_id"
+        ]
+      }
+    },
+    {
+      "name": "list_notifications",
+      "description": "Notification threads of the authenticated user (unread only unless all=true); needs a classic token with notifications scope",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "boolean",
+            "description": "Include read notifications"
+          },
+          "participating": {
+            "type": "boolean",
+            "description": "Only threads you participate in or are mentioned in"
+          },
+          "since": {
+            "type": "string",
+            "description": "Only items updated at or after this ISO 8601 time"
+          },
+          "before": {
+            "type": "string",
+            "description": "Only notifications updated before this ISO 8601 time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "mark_notification_read",
+      "description": "Mark one notification thread as read (as an agent tool only when GITHUB_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "description": "Thread id from list_notifications"
+          }
+        },
+        "required": [
+          "thread_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any GitHub REST API endpoint that has no dedicated operation, e.g. path \"/repos/octocat/hello-world/branches\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/repos/octocat/hello-world/branches\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

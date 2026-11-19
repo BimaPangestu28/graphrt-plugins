@@ -1,0 +1,16 @@
+# Check the token, then list the first zone's DNS records. Read-only.
+#   CLOUDFLARE_API_TOKEN=... graphrt run cloudflare/example.yaml --plugins .
+version: "1"
+name: cloudflare-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: token, type: cloudflare.verify_token }
+    - { id: zones, type: cloudflare.list_zones, limit: 5 }
+    - { id: records, type: cloudflare.list_dns_records, zone_id: "{{#zones.data.0.id#}}", limit: 20 }
+    - { id: answer, type: answer, answer: "Token {{#token.data.status#}}; {{#zones.data.0.name#}} records: {{#records.data#}}" }
+  edges:
+    - { source: start, target: token }
+    - { source: token, target: zones }
+    - { source: zones, target: records }
+    - { source: records, target: answer }

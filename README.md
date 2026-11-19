@@ -66,6 +66,13 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [deepl](deepl/) | DeepL API (Free and Pro): translate and rephrase text, translate documents, usage, languages and glossaries (read) | 11 |
 | [google-translate](google-translate/) | Google Cloud Translation Basic (v2) with an API key in a header: translate text, detect language, list languages | 4 |
 | [google-vision](google-vision/) | Google Cloud Vision with an API key: OCR, labels, faces, safe search and any feature mix for an image URL (downloaded by the plugin), `gs://` URI or allowed local file, plus batch pass-throughs for images and one PDF; billed calls never retried | 7 |
+| [github](github/) | GitHub REST API (2026-03-10): repos, issues, pull requests, contents, code/issue search, releases, Actions runs, notifications; agent writes opt-in, merges/commits/releases node only | 33 |
+| [gitlab](gitlab/) | GitLab REST API v4 on gitlab.com or self-hosted (`GITLAB_BASE_URL`): projects, issues, merge requests, pipelines, repository files; agent writes opt-in, merges/commits node only, CI variables never reachable by tools | 28 |
+| [jira](jira/) | Jira Cloud REST API v3: JQL search (enhanced `search/jql`), issues, assign, transitions, comments (plain text converted to ADF), projects and issue types; site validated to `*.atlassian.net`, agent writes opt-in | 16 |
+| [linear](linear/) | Linear GraphQL API with fixed query documents: issues (list with filters, search, create, update), comments, projects, teams, workflow states, users; agent writes opt-in, delete node only | 16 |
+| [sentry](sentry/) | Sentry (sentry.io, us/de region): organizations, projects, releases, issues and events with stack traces; resolve, ignore (archive) and assign are agent opt-in, delete node only | 14 |
+| [vercel](vercel/) | Vercel REST API: deployments (list, inspect, build logs, cancel), projects, domains and DNS config check; environment variables, redeploys and deletes node only, secrets unreachable by agent tools | 21 |
+| [cloudflare](cloudflare/) | Cloudflare API v4: accounts, zones, DNS records (agent create/update only for allowlisted names, delete node only), cache purge (node only), Workers with settings and deployments | 15 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

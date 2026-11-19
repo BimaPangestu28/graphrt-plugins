@@ -1,0 +1,1237 @@
+{
+  "name": "jira",
+  "version": "0.1.0",
+  "description": "Jira Cloud REST API v3: JQL search, issues (create, update, assign, transition), comments, projects and issue types",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "JIRA_API_TOKEN",
+      "JIRA_EMAIL",
+      "JIRA_SITE_URL",
+      "JIRA_TOOL_ALLOW_WRITE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "jira.get_myself",
+      "title": "Current user",
+      "description": "The Atlassian account the credentials belong to; a cheap way to check them",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.search_issues",
+      "title": "Search issues (JQL)",
+      "description": "Search issues with JQL, e.g. \"project = OPS AND statusCategory != Done ORDER BY updated DESC\" (bounded queries only; no total count)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "jql": {
+            "type": "string",
+            "description": "JQL query; must restrict the search, e.g. by project",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return (*all, *navigable or names)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "summary",
+              "status",
+              "assignee",
+              "reporter",
+              "priority",
+              "issuetype",
+              "created",
+              "updated"
+            ]
+          },
+          "expand": {
+            "type": "string",
+            "description": "e.g. renderedFields,names,changelog"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "jql"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.get_issue",
+      "title": "Get issue",
+      "description": "One issue with all fields (description and comments are ADF)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return (default all)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expand": {
+            "type": "string",
+            "description": "e.g. renderedFields,transitions,changelog"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.create_issue",
+      "title": "Create issue",
+      "description": "Create an issue in a project (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_key": {
+            "type": "string",
+            "description": "Project key, e.g. OPS"
+          },
+          "issue_type": {
+            "type": "string",
+            "description": "Issue type name, e.g. Task, Bug, Story"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "object",
+            "description": "Description as an ADF document"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Labels (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority name, e.g. High"
+          },
+          "assignee_account_id": {
+            "type": "string",
+            "description": "Assignee accountId (see find_assignable_users)"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "parent_key": {
+            "type": "string",
+            "description": "Parent issue key (for subtasks and child issues)"
+          },
+          "description_text": {
+            "type": "string",
+            "description": "Plain text for `description` (blank lines separate paragraphs); use `description` for ADF formatting instead"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_key",
+          "issue_type",
+          "summary"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.update_issue",
+      "title": "Update issue",
+      "description": "Change an issue's summary, description, labels, priority, assignee or due date (given fields only) (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "object",
+            "description": "Description as an ADF document"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Labels (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority name, e.g. High"
+          },
+          "assignee_account_id": {
+            "type": "string",
+            "description": "Assignee accountId (see find_assignable_users)"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "notify_users": {
+            "type": "boolean",
+            "description": "Email watchers (default true)"
+          },
+          "description_text": {
+            "type": "string",
+            "description": "Plain text for `description` (blank lines separate paragraphs); use `description` for ADF formatting instead"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.delete_issue",
+      "title": "Delete issue",
+      "description": "Delete an issue permanently",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "delete_subtasks": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.assign_issue",
+      "title": "Assign issue",
+      "description": "Assign an issue to a user by accountId (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Assignee accountId"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key",
+          "account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.list_transitions",
+      "title": "List transitions",
+      "description": "Workflow transitions available for an issue now (id and target status), for transition_issue",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.transition_issue",
+      "title": "Transition issue",
+      "description": "Move an issue through its workflow with a transition id from list_transitions (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "transition_id": {
+            "type": "string"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Resolution name when the screen asks for one, e.g. Done"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key",
+          "transition_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.list_comments",
+      "title": "List comments",
+      "description": "Comments on an issue (bodies are ADF)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created",
+              "-created"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.add_comment",
+      "title": "Comment on issue",
+      "description": "Add a comment to an issue (plain `text` or an ADF `body`) (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "body": {
+            "type": "object",
+            "description": "Comment as an ADF document"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain text for `body` (blank lines separate paragraphs); use `body` for ADF formatting instead"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.list_projects",
+      "title": "List projects",
+      "description": "Projects visible to the user",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Match in key or name"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. key, name, -lastIssueUpdatedTime"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.get_project",
+      "title": "Get project",
+      "description": "One project with its issue types, lead and components",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_key": {
+            "type": "string",
+            "description": "Project key or id, e.g. OPS"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.list_issue_types",
+      "title": "List issue types",
+      "description": "Issue types you can create in a project (names for create_issue)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_key": {
+            "type": "string",
+            "description": "Project key or id, e.g. OPS"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.find_assignable_users",
+      "title": "Find assignable users",
+      "description": "Users who can be assigned in a project or issue (accountId for assignments)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Match in display name or email"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project key (this or issue_key is required)"
+          },
+          "issue_key": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "jira.api_request",
+      "title": "Jira Cloud REST API v3 request",
+      "description": "Call any Jira Cloud REST API v3 endpoint that has no dedicated operation, e.g. path \"/issue/OPS-1/changelog\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/issue/OPS-1/changelog\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_myself",
+      "description": "The Atlassian account the credentials belong to; a cheap way to check them",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "search_issues",
+      "description": "Search issues with JQL, e.g. \"project = OPS AND statusCategory != Done ORDER BY updated DESC\" (bounded queries only; no total count)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "jql": {
+            "type": "string",
+            "description": "JQL query; must restrict the search, e.g. by project",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return (*all, *navigable or names)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "summary",
+              "status",
+              "assignee",
+              "reporter",
+              "priority",
+              "issuetype",
+              "created",
+              "updated"
+            ]
+          },
+          "expand": {
+            "type": "string",
+            "description": "e.g. renderedFields,names,changelog"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "jql"
+        ]
+      }
+    },
+    {
+      "name": "get_issue",
+      "description": "One issue with all fields (description and comments are ADF)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return (default all)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expand": {
+            "type": "string",
+            "description": "e.g. renderedFields,transitions,changelog"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      }
+    },
+    {
+      "name": "create_issue",
+      "description": "Create an issue in a project (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_key": {
+            "type": "string",
+            "description": "Project key, e.g. OPS"
+          },
+          "issue_type": {
+            "type": "string",
+            "description": "Issue type name, e.g. Task, Bug, Story"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "object",
+            "description": "Description as an ADF document"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Labels (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority name, e.g. High"
+          },
+          "assignee_account_id": {
+            "type": "string",
+            "description": "Assignee accountId (see find_assignable_users)"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "parent_key": {
+            "type": "string",
+            "description": "Parent issue key (for subtasks and child issues)"
+          },
+          "description_text": {
+            "type": "string",
+            "description": "Plain text for `description` (blank lines separate paragraphs); use `description` for ADF formatting instead"
+          }
+        },
+        "required": [
+          "project_key",
+          "issue_type",
+          "summary"
+        ]
+      }
+    },
+    {
+      "name": "update_issue",
+      "description": "Change an issue's summary, description, labels, priority, assignee or due date (given fields only) (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "object",
+            "description": "Description as an ADF document"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Labels (replaces all labels)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority name, e.g. High"
+          },
+          "assignee_account_id": {
+            "type": "string",
+            "description": "Assignee accountId (see find_assignable_users)"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "notify_users": {
+            "type": "boolean",
+            "description": "Email watchers (default true)"
+          },
+          "description_text": {
+            "type": "string",
+            "description": "Plain text for `description` (blank lines separate paragraphs); use `description` for ADF formatting instead"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      }
+    },
+    {
+      "name": "assign_issue",
+      "description": "Assign an issue to a user by accountId (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Assignee accountId"
+          }
+        },
+        "required": [
+          "issue_key",
+          "account_id"
+        ]
+      }
+    },
+    {
+      "name": "list_transitions",
+      "description": "Workflow transitions available for an issue now (id and target status), for transition_issue",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      }
+    },
+    {
+      "name": "transition_issue",
+      "description": "Move an issue through its workflow with a transition id from list_transitions (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "transition_id": {
+            "type": "string"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Resolution name when the screen asks for one, e.g. Done"
+          }
+        },
+        "required": [
+          "issue_key",
+          "transition_id"
+        ]
+      }
+    },
+    {
+      "name": "list_comments",
+      "description": "Comments on an issue (bodies are ADF)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "created",
+              "-created"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      }
+    },
+    {
+      "name": "add_comment",
+      "description": "Add a comment to an issue (plain `text` or an ADF `body`) (as an agent tool only when JIRA_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "issue_key": {
+            "type": "string",
+            "description": "Issue key or id, e.g. OPS-12"
+          },
+          "body": {
+            "type": "object",
+            "description": "Comment as an ADF document"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain text for `body` (blank lines separate paragraphs); use `body` for ADF formatting instead"
+          }
+        },
+        "required": [
+          "issue_key"
+        ]
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "Projects visible to the user",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Match in key or name"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. key, name, -lastIssueUpdatedTime"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_project",
+      "description": "One project with its issue types, lead and components",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_key": {
+            "type": "string",
+            "description": "Project key or id, e.g. OPS"
+          }
+        },
+        "required": [
+          "project_key"
+        ]
+      }
+    },
+    {
+      "name": "list_issue_types",
+      "description": "Issue types you can create in a project (names for create_issue)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_key": {
+            "type": "string",
+            "description": "Project key or id, e.g. OPS"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "project_key"
+        ]
+      }
+    },
+    {
+      "name": "find_assignable_users",
+      "description": "Users who can be assigned in a project or issue (accountId for assignments)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Match in display name or email"
+          },
+          "project": {
+            "type": "string",
+            "description": "Project key (this or issue_key is required)"
+          },
+          "issue_key": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Jira Cloud REST API v3 endpoint that has no dedicated operation, e.g. path \"/issue/OPS-1/changelog\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/issue/OPS-1/changelog\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

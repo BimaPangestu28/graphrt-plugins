@@ -1,0 +1,14 @@
+# Who am I, and what are the latest deployments? Read-only.
+#   VERCEL_TOKEN=... graphrt run vercel/example.yaml --plugins .      (VERCEL_TEAM_ID=team_... for a team)
+version: "1"
+name: vercel-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: vercel.get_user }
+    - { id: deployments, type: vercel.list_deployments, limit: 5 }
+    - { id: answer, type: answer, answer: "{{#me.data.username#}}'s latest deployments: {{#deployments.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: deployments }
+    - { source: deployments, target: answer }

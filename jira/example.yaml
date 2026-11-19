@@ -1,0 +1,18 @@
+# Who am I, and which of my issues are still open? Read-only.
+#   JIRA_SITE_URL=https://acme.atlassian.net JIRA_EMAIL=... JIRA_API_TOKEN=... graphrt run jira/example.yaml --plugins .
+version: "1"
+name: jira-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: jira.get_myself }
+    - id: mine
+      type: jira.search_issues
+      jql: "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC"
+      fields: [summary, status, priority, updated]
+      limit: 10
+    - { id: answer, type: answer, answer: "{{#me.data.displayName#}}'s open issues: {{#mine.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: mine }
+    - { source: mine, target: answer }
