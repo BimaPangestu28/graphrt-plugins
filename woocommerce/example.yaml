@@ -1,0 +1,15 @@
+# List the five newest processing orders and the in-stock products of a store. Read-only.
+#   WOOCOMMERCE_SITE_URL=https://shop.example.com WOOCOMMERCE_CONSUMER_KEY=ck_... WOOCOMMERCE_CONSUMER_SECRET=cs_... \
+#     graphrt run woocommerce/example.yaml --plugins .
+version: "1"
+name: woocommerce-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: orders, type: woocommerce.list_orders, status: [processing], limit: 5 }
+    - { id: products, type: woocommerce.list_products, stock_status: instock, limit: 5 }
+    - { id: answer, type: answer, answer: "Processing: {{#orders.data#}} | in stock: {{#products.data#}}" }
+  edges:
+    - { source: start, target: orders }
+    - { source: orders, target: products }
+    - { source: products, target: answer }

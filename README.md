@@ -117,6 +117,13 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [coingecko](coingecko/) | CoinGecko crypto data (public, Demo or Pro key): prices, ranked markets, coin details, market charts, OHLC, search, trending, categories and global stats | 15 |
 | [currency-rates](currency-rates/) | Exchange rates from Frankfurter (ECB and other central banks, no API key): latest, historical, time series, pair rates and amount conversion | 9 |
 | [google-maps-platform](google-maps-platform/) | Google Maps Platform (billed per call; cheap default field masks, never retried after an unknown outcome): Places (New) text and nearby search, details, autocomplete, photos; Geocoding v4; Routes routes and matrices (agent matrices capped) | 9 |
+| [stripe](stripe/) | Stripe API: customers, PaymentIntents, payment links, draft invoices, products and prices, charges, balance, subscriptions; agent PaymentIntents capped by amount and currency, confirm/capture/refund/finalize node only | 35 |
+| [midtrans](midtrans/) | Midtrans (sandbox/production): Snap payment pages (agent use capped by amount) and Core API transaction status; cancel, expire, refund, approve/deny and capture node only | 11 |
+| [xendit](xendit/) | Xendit: invoices (hosted payment pages; agent use capped by amount and currency), payment requests v3, balance, transactions; refunds, payouts and invoice expiry node only | 13 |
+| [paypal](paypal/) | PayPal REST (sandbox/live): orders (agent use capped by amount and currency), captures, refunds, draft invoices, balances and transactions; capture, refunds, invoice sending and payouts node only | 19 |
+| [shopify](shopify/) | Shopify Admin GraphQL (2026-10): shop, products, orders, customers, locations and inventory levels; product writes agent opt-in, inventory adjustments, order edits, refunds and cancellations node only | 15 |
+| [woocommerce](woocommerce/) | WooCommerce REST v3 (https store): products, variations, orders, customers; product updates and on-hold status agent opt-in (no prices, stock, completion, cancels or refunds), refunds node only | 12 |
+| [lazada](lazada/) | Lazada Open Platform (signed, regional gateway): seller, products, orders and order items; price, stock, pack and ready-to-ship node only | 12 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

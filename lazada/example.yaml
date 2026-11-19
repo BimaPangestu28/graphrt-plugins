@@ -1,0 +1,14 @@
+# Read the seller and the five newest pending orders. Read-only.
+#   LAZADA_APP_KEY=... LAZADA_APP_SECRET=... LAZADA_ACCESS_TOKEN=... LAZADA_REGION=id graphrt run lazada/example.yaml --plugins .
+version: "1"
+name: lazada-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: seller, type: lazada.get_seller }
+    - { id: orders, type: lazada.list_orders, created_after: "2026-01-01T00:00:00+07:00", status: pending, limit: 5 }
+    - { id: answer, type: answer, answer: "{{#seller.data.name#}}: {{#orders.data#}}" }
+  edges:
+    - { source: start, target: seller }
+    - { source: seller, target: orders }
+    - { source: orders, target: answer }

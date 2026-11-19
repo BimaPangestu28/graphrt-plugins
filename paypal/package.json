@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-paypal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: PayPal REST API (orders, captures, refunds, invoices, payouts, reporting)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

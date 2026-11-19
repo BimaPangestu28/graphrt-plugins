@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-lazada",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Lazada Open Platform (signed): products, orders, fulfilment, stock and price",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
