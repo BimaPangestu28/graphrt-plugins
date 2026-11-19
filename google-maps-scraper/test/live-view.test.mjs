@@ -97,13 +97,22 @@ test("startLiveView writes at most one frame per interval, keeping the newest", 
   await liveView.stop();
 });
 
+async function waitForFile(filePath, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(filePath)) {
+    if (Date.now() > deadline) throw new Error(`${filePath} was not written within ${timeoutMs} ms`);
+    await sleep(5);
+  }
+}
+
 test("a quiet page keeps its frame file fresh", async () => {
   const directory = createLiveViewDirectory();
   const session = new FakeCdpSession();
   const liveView = await startLiveView(createFakePage(session), { directory, frameName: "page.abc", intervalMs: 10, keepAliveMs: 30 });
   session.paint("frame-1");
-  await sleep(20);
   const framePath = join(directory, "page.abc.jpg");
+  // The frame is written asynchronously; under load 20 ms is not always enough.
+  await waitForFile(framePath);
   const longAgo = new Date(Date.now() - 60000);
   utimesSync(framePath, longAgo, longAgo);
   await sleep(60);
