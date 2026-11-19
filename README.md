@@ -30,6 +30,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [mongodb](mongodb/) | MongoDB: find, count, distinct and aggregate with Extended JSON, list databases and collections, insert/update/replace/delete; agent tools read-only unless opted in, never server-side JavaScript | 14 |
 | [redis](redis/) | Redis: binary-safe strings, hashes, lists, sets, sorted sets, streams, SCAN and publish with an optional key prefix; agent tools read-only unless opted in, a node-only `command` escape hatch with a denylist | 31 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
+| [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).
   The exceptions are node only, so an LLM can never call them: token refresh (tokens never reach an LLM) and
