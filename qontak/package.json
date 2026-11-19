@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-qontak",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Mekari Qontak CRM and omnichannel WhatsApp (contacts, companies, deals, tasks, notes, templates, broadcasts)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

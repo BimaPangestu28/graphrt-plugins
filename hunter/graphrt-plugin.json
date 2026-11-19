@@ -1,0 +1,1778 @@
+{
+  "name": "hunter",
+  "version": "0.1.0",
+  "description": "Hunter.io: domain search, email finder and verifier (credits), email count, enrichment, company discovery, account, leads and leads lists; agent lead writes need an opt-in, deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "HUNTER_API_KEY",
+      "HUNTER_TOOL_ALLOW_LEAD_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "hunter.domain_search",
+      "title": "Domain search",
+      "description": "Email addresses Hunter knows for a domain or company, with names, positions, sources and the email pattern (uses search credits)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain, e.g. stripe.com (takes precedence over company)"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name, when the domain is unknown (less accurate)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Emails to return (default 10, max 100)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Emails to skip",
+            "minimum": 0
+          },
+          "email_type": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "generic"
+            ]
+          },
+          "seniority": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "junior",
+                "senior",
+                "executive"
+              ]
+            }
+          },
+          "department": {
+            "type": "array",
+            "description": "e.g. executive, it, finance, management, sales, legal, support, hr, marketing, communication, education, design, health, operations",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_field": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "full_name",
+                "position",
+                "phone_number"
+              ]
+            }
+          },
+          "verification_status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "valid",
+                "accept_all",
+                "unknown"
+              ]
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.find_email",
+      "title": "Email finder",
+      "description": "The most likely email address of a person at a domain or company, with a confidence score (uses a search credit when an email is found)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain, e.g. stripe.com (takes precedence over company)"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name, when the domain is unknown (less accurate)"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Instead of first_name + last_name"
+          },
+          "linkedin_handle": {
+            "type": "string",
+            "description": "LinkedIn profile handle, instead of the name and domain"
+          },
+          "max_duration": {
+            "type": "integer",
+            "description": "Seconds Hunter may spend (default 10)",
+            "minimum": 3,
+            "maximum": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.verify_email",
+      "title": "Email verifier",
+      "description": "Deliverability of an email address: status valid, invalid, accept_all, webmail, disposable or unknown, with score and checks (uses a verification credit)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.count_emails",
+      "title": "Email count",
+      "description": "How many addresses Hunter has for a domain or company, by type, department and seniority (free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain, e.g. stripe.com (takes precedence over company)"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name, when the domain is unknown (less accurate)"
+          },
+          "email_type": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "generic"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.enrich_person",
+      "title": "Person enrichment",
+      "description": "Profile of the person behind an email address or LinkedIn handle: name, location, employment, social handles (uses 0.2 credit when found)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "linkedin_handle": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.enrich_company",
+      "title": "Company enrichment",
+      "description": "Company profile for a domain: name, industry, size, location, tech, social handles (uses 0.2 credit when found)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "minLength": 3
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.discover_companies",
+      "title": "Discover companies",
+      "description": "Find companies by a natural-language query or filters (location, industry, headcount, technology, ...), with how many emails Hunter has for each (free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural-language search, e.g. \"fintech companies in Jakarta\""
+          },
+          "organization": {
+            "type": "object",
+            "description": "e.g. {\"domain\": [\"stripe.com\"]} or {\"name\": [\"Stripe\"]}"
+          },
+          "headquarters_location": {
+            "type": "object",
+            "description": "e.g. {\"include\": [{\"country\": \"ID\", \"city\": \"Jakarta\"}]}"
+          },
+          "industry": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"Financial Services\"]}"
+          },
+          "headcount": {
+            "type": "array",
+            "description": "e.g. [\"11-50\", \"51-200\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "company_type": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"privately held\"]}"
+          },
+          "technology": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"shopify\"]}"
+          },
+          "keywords": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"payments\"], \"match\": \"any\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Companies to return (max 100)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Companies to skip (paid plans)",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.get_account",
+      "title": "Account",
+      "description": "Plan, reset date and remaining searches, verifications or credits",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.list_leads",
+      "title": "List leads",
+      "description": "Saved leads, optionally filtered by list, email, company, name or country",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "leads_list_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "email": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.get_lead",
+      "title": "Get lead",
+      "description": "One saved lead",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "lead_id": {
+            "type": "integer",
+            "description": "Lead id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "lead_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.create_lead",
+      "title": "Create lead",
+      "description": "Save a lead (an existing email gets the new list memberships instead) (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "minLength": 3
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_position": {
+            "type": "string",
+            "description": "Job title"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_industry": {
+            "type": "string"
+          },
+          "company_size": {
+            "type": "string",
+            "description": "e.g. \"11-50\""
+          },
+          "confidence_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "website": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2, e.g. ID"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "twitter": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "leads_list_id": {
+            "type": "integer",
+            "description": "Add the lead to this list",
+            "minimum": 1
+          },
+          "leads_list_ids": {
+            "type": "array",
+            "description": "Add the lead to these lists",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_attributes": {
+            "type": "object",
+            "description": "Custom attribute values by slug, e.g. {\"segment\": \"retail\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.upsert_lead",
+      "title": "Create or update lead",
+      "description": "Create a lead, or update the lead with the same email (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "minLength": 3
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_position": {
+            "type": "string",
+            "description": "Job title"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_industry": {
+            "type": "string"
+          },
+          "company_size": {
+            "type": "string",
+            "description": "e.g. \"11-50\""
+          },
+          "confidence_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "website": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2, e.g. ID"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "twitter": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "leads_list_id": {
+            "type": "integer",
+            "description": "Add the lead to this list",
+            "minimum": 1
+          },
+          "leads_list_ids": {
+            "type": "array",
+            "description": "Add the lead to these lists",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_attributes": {
+            "type": "object",
+            "description": "Custom attribute values by slug, e.g. {\"segment\": \"retail\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.update_lead",
+      "title": "Update lead",
+      "description": "Change fields of a lead (an empty string clears a custom attribute) (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "lead_id": {
+            "type": "integer",
+            "description": "Lead id",
+            "minimum": 1
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "minLength": 3
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_position": {
+            "type": "string",
+            "description": "Job title"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_industry": {
+            "type": "string"
+          },
+          "company_size": {
+            "type": "string",
+            "description": "e.g. \"11-50\""
+          },
+          "confidence_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "website": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2, e.g. ID"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "twitter": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "leads_list_id": {
+            "type": "integer",
+            "description": "Add the lead to this list",
+            "minimum": 1
+          },
+          "leads_list_ids": {
+            "type": "array",
+            "description": "Add the lead to these lists",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_attributes": {
+            "type": "object",
+            "description": "Custom attribute values by slug, e.g. {\"segment\": \"retail\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "lead_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.delete_lead",
+      "title": "Delete lead",
+      "description": "Delete a lead",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "lead_id": {
+            "type": "integer",
+            "description": "Lead id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "lead_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.list_leads_lists",
+      "title": "List leads lists",
+      "description": "Leads lists with their lead counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.get_leads_list",
+      "title": "Get leads list",
+      "description": "One leads list with a page of its leads",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "Leads list id",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Leads to include (default 20)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.create_leads_list",
+      "title": "Create leads list",
+      "description": "Create a leads list (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "List name (up to 255 characters)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.update_leads_list",
+      "title": "Rename leads list",
+      "description": "Rename a leads list (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "Leads list id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "List name (up to 255 characters)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.delete_leads_list",
+      "title": "Delete leads list",
+      "description": "Delete a leads list",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "Leads list id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hunter.api_request",
+      "title": "Hunter API v2 request",
+      "description": "Call any Hunter API v2 endpoint that has no dedicated operation, e.g. path \"/account\". Only the API's own host is allowed. Agent tools may only read paths under /account, /email-count, /leads, /leads_lists, /leads-lists.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/account\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "domain_search",
+      "description": "Email addresses Hunter knows for a domain or company, with names, positions, sources and the email pattern (uses search credits)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain, e.g. stripe.com (takes precedence over company)"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name, when the domain is unknown (less accurate)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Emails to return (default 10, max 100)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Emails to skip",
+            "minimum": 0
+          },
+          "email_type": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "generic"
+            ]
+          },
+          "seniority": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "junior",
+                "senior",
+                "executive"
+              ]
+            }
+          },
+          "department": {
+            "type": "array",
+            "description": "e.g. executive, it, finance, management, sales, legal, support, hr, marketing, communication, education, design, health, operations",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_field": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "full_name",
+                "position",
+                "phone_number"
+              ]
+            }
+          },
+          "verification_status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "valid",
+                "accept_all",
+                "unknown"
+              ]
+            }
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "find_email",
+      "description": "The most likely email address of a person at a domain or company, with a confidence score (uses a search credit when an email is found)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain, e.g. stripe.com (takes precedence over company)"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name, when the domain is unknown (less accurate)"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Instead of first_name + last_name"
+          },
+          "linkedin_handle": {
+            "type": "string",
+            "description": "LinkedIn profile handle, instead of the name and domain"
+          },
+          "max_duration": {
+            "type": "integer",
+            "description": "Seconds Hunter may spend (default 10)",
+            "minimum": 3,
+            "maximum": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "verify_email",
+      "description": "Deliverability of an email address: status valid, invalid, accept_all, webmail, disposable or unknown, with score and checks (uses a verification credit)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "required": [
+          "email"
+        ]
+      }
+    },
+    {
+      "name": "count_emails",
+      "description": "How many addresses Hunter has for a domain or company, by type, department and seniority (free)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain, e.g. stripe.com (takes precedence over company)"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name, when the domain is unknown (less accurate)"
+          },
+          "email_type": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "generic"
+            ]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "enrich_person",
+      "description": "Profile of the person behind an email address or LinkedIn handle: name, location, employment, social handles (uses 0.2 credit when found)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "linkedin_handle": {
+            "type": "string"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "enrich_company",
+      "description": "Company profile for a domain: name, industry, size, location, tech, social handles (uses 0.2 credit when found)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "discover_companies",
+      "description": "Find companies by a natural-language query or filters (location, industry, headcount, technology, ...), with how many emails Hunter has for each (free)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural-language search, e.g. \"fintech companies in Jakarta\""
+          },
+          "organization": {
+            "type": "object",
+            "description": "e.g. {\"domain\": [\"stripe.com\"]} or {\"name\": [\"Stripe\"]}"
+          },
+          "headquarters_location": {
+            "type": "object",
+            "description": "e.g. {\"include\": [{\"country\": \"ID\", \"city\": \"Jakarta\"}]}"
+          },
+          "industry": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"Financial Services\"]}"
+          },
+          "headcount": {
+            "type": "array",
+            "description": "e.g. [\"11-50\", \"51-200\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "company_type": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"privately held\"]}"
+          },
+          "technology": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"shopify\"]}"
+          },
+          "keywords": {
+            "type": "object",
+            "description": "e.g. {\"include\": [\"payments\"], \"match\": \"any\"}"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Companies to return (max 100)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Companies to skip (paid plans)",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_account",
+      "description": "Plan, reset date and remaining searches, verifications or credits",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_leads",
+      "description": "Saved leads, optionally filtered by list, email, company, name or country",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "leads_list_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "email": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_lead",
+      "description": "One saved lead",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "lead_id": {
+            "type": "integer",
+            "description": "Lead id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "lead_id"
+        ]
+      }
+    },
+    {
+      "name": "create_lead",
+      "description": "Save a lead (an existing email gets the new list memberships instead) (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "minLength": 3
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_position": {
+            "type": "string",
+            "description": "Job title"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_industry": {
+            "type": "string"
+          },
+          "company_size": {
+            "type": "string",
+            "description": "e.g. \"11-50\""
+          },
+          "confidence_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "website": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2, e.g. ID"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "twitter": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "leads_list_id": {
+            "type": "integer",
+            "description": "Add the lead to this list",
+            "minimum": 1
+          },
+          "leads_list_ids": {
+            "type": "array",
+            "description": "Add the lead to these lists",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_attributes": {
+            "type": "object",
+            "description": "Custom attribute values by slug, e.g. {\"segment\": \"retail\"}"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      }
+    },
+    {
+      "name": "upsert_lead",
+      "description": "Create a lead, or update the lead with the same email (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "minLength": 3
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_position": {
+            "type": "string",
+            "description": "Job title"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_industry": {
+            "type": "string"
+          },
+          "company_size": {
+            "type": "string",
+            "description": "e.g. \"11-50\""
+          },
+          "confidence_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "website": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2, e.g. ID"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "twitter": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "leads_list_id": {
+            "type": "integer",
+            "description": "Add the lead to this list",
+            "minimum": 1
+          },
+          "leads_list_ids": {
+            "type": "array",
+            "description": "Add the lead to these lists",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_attributes": {
+            "type": "object",
+            "description": "Custom attribute values by slug, e.g. {\"segment\": \"retail\"}"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      }
+    },
+    {
+      "name": "update_lead",
+      "description": "Change fields of a lead (an empty string clears a custom attribute) (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "lead_id": {
+            "type": "integer",
+            "description": "Lead id",
+            "minimum": 1
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "minLength": 3
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_position": {
+            "type": "string",
+            "description": "Job title"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_industry": {
+            "type": "string"
+          },
+          "company_size": {
+            "type": "string",
+            "description": "e.g. \"11-50\""
+          },
+          "confidence_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "website": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2, e.g. ID"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "twitter": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "leads_list_id": {
+            "type": "integer",
+            "description": "Add the lead to this list",
+            "minimum": 1
+          },
+          "leads_list_ids": {
+            "type": "array",
+            "description": "Add the lead to these lists",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "custom_attributes": {
+            "type": "object",
+            "description": "Custom attribute values by slug, e.g. {\"segment\": \"retail\"}"
+          }
+        },
+        "required": [
+          "lead_id"
+        ]
+      }
+    },
+    {
+      "name": "list_leads_lists",
+      "description": "Leads lists with their lead counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_leads_list",
+      "description": "One leads list with a page of its leads",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "Leads list id",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Leads to include (default 20)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "create_leads_list",
+      "description": "Create a leads list (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "List name (up to 255 characters)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_leads_list",
+      "description": "Rename a leads list (as an agent tool only when HUNTER_TOOL_ALLOW_LEAD_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "Leads list id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "List name (up to 255 characters)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Hunter API v2 endpoint that has no dedicated operation, e.g. path \"/account\". Only the API's own host is allowed. Agent tools may only read paths under /account, /email-count, /leads, /leads_lists, /leads-lists.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/account\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

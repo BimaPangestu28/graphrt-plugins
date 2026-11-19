@@ -1,0 +1,1759 @@
+{
+  "name": "apollo",
+  "version": "0.1.0",
+  "description": "Apollo.io: people and organization search, person and company enrichment (credits), contacts, accounts and sequences; agent bulk enrichment and contact writes need opt-ins, sequence enrolment and webhook enrichment are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "APOLLO_API_KEY",
+      "APOLLO_TOOL_ALLOW_BULK_ENRICHMENT",
+      "APOLLO_TOOL_ALLOW_CONTACT_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "apollo.search_people",
+      "title": "Search people",
+      "description": "People API Search over Apollo's database by title, seniority, location and employer filters (no credits; returns names, titles and employers but no emails or phones; use enrich_person for those)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "person_titles": {
+            "type": "array",
+            "description": "Job titles, e.g. [\"marketing manager\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_similar_titles": {
+            "type": "boolean"
+          },
+          "person_seniorities": {
+            "type": "array",
+            "description": "owner, founder, c_suite, partner, vp, head, director, manager, senior, entry, intern",
+            "items": {
+              "type": "string"
+            }
+          },
+          "person_locations": {
+            "type": "array",
+            "description": "Where people live, e.g. [\"Indonesia\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "q_keywords": {
+            "type": "string",
+            "description": "Keyword filter"
+          },
+          "contact_email_status": {
+            "type": "array",
+            "description": "verified, unverified, likely to engage, unavailable",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_locations": {
+            "type": "array",
+            "description": "HQ locations, e.g. [\"Jakarta, Indonesia\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_not_locations": {
+            "type": "array",
+            "description": "Exclude HQ locations",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_num_employees_ranges": {
+            "type": "array",
+            "description": "Headcount ranges, e.g. [\"11,50\", \"51,200\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_ids": {
+            "type": "array",
+            "description": "Apollo organization ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_industry_tag_ids": {
+            "type": "array",
+            "description": "Industry tag ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "q_organization_domains_list": {
+            "type": "array",
+            "description": "Employer domains (up to 1,000)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revenue_min": {
+            "type": "integer",
+            "description": "Minimum annual revenue (USD)",
+            "minimum": 0
+          },
+          "revenue_max": {
+            "type": "integer",
+            "description": "Maximum annual revenue (USD)",
+            "minimum": 0
+          },
+          "currently_using_any_of_technology_uids": {
+            "type": "array",
+            "description": "Technologies, e.g. [\"salesforce\", \"google_analytics\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.search_organizations",
+      "title": "Search organizations",
+      "description": "Companies in Apollo's database by name, location, headcount, industry, revenue, technology and funding (1 credit per page of up to 100)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q_organization_name": {
+            "type": "string",
+            "description": "Name contains"
+          },
+          "q_organization_keyword_tags": {
+            "type": "array",
+            "description": "Keywords, e.g. [\"fintech\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_locations": {
+            "type": "array",
+            "description": "HQ locations, e.g. [\"Jakarta, Indonesia\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_not_locations": {
+            "type": "array",
+            "description": "Exclude HQ locations",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_num_employees_ranges": {
+            "type": "array",
+            "description": "Headcount ranges, e.g. [\"11,50\", \"51,200\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_ids": {
+            "type": "array",
+            "description": "Apollo organization ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_industry_tag_ids": {
+            "type": "array",
+            "description": "Industry tag ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "q_organization_domains_list": {
+            "type": "array",
+            "description": "Employer domains (up to 1,000)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revenue_min": {
+            "type": "integer",
+            "description": "Minimum annual revenue (USD)",
+            "minimum": 0
+          },
+          "revenue_max": {
+            "type": "integer",
+            "description": "Maximum annual revenue (USD)",
+            "minimum": 0
+          },
+          "currently_using_any_of_technology_uids": {
+            "type": "array",
+            "description": "Technologies, e.g. [\"salesforce\", \"google_analytics\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.enrich_person",
+      "title": "Enrich person",
+      "description": "Match one person (by email, name + employer, LinkedIn URL or id) and return their profile and work email (1 credit when data is found)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Full name, instead of first_name + last_name"
+          },
+          "email": {
+            "type": "string"
+          },
+          "hashed_email": {
+            "type": "string",
+            "description": "MD5 or SHA-256 hash of the email"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Employer domain, e.g. example.com"
+          },
+          "person_id": {
+            "type": "string",
+            "description": "Apollo person id (from search_people)"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "reveal_personal_emails": {
+            "type": "boolean",
+            "description": "Also return personal emails (may cost more credits; not for people in GDPR regions)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.enrich_person_with_callback",
+      "title": "Enrich person (phone or waterfall)",
+      "description": "enrich_person plus phone reveal or waterfall enrichment; Apollo delivers those results to webhook_url (mobile numbers cost 8 credits)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Full name, instead of first_name + last_name"
+          },
+          "email": {
+            "type": "string"
+          },
+          "hashed_email": {
+            "type": "string",
+            "description": "MD5 or SHA-256 hash of the email"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Employer domain, e.g. example.com"
+          },
+          "person_id": {
+            "type": "string",
+            "description": "Apollo person id (from search_people)"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "reveal_personal_emails": {
+            "type": "boolean",
+            "description": "Also return personal emails (may cost more credits; not for people in GDPR regions)"
+          },
+          "reveal_phone_number": {
+            "type": "boolean"
+          },
+          "run_waterfall_email": {
+            "type": "boolean"
+          },
+          "run_waterfall_phone": {
+            "type": "boolean"
+          },
+          "webhook_url": {
+            "type": "string",
+            "description": "Public https URL Apollo POSTs the asynchronous results to"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "webhook_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.bulk_enrich_people",
+      "title": "Bulk enrich people",
+      "description": "Enrich up to 10 people in one call (1 credit per person found) (as an agent tool only when APOLLO_TOOL_ALLOW_BULK_ENRICHMENT=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "details": {
+            "type": "array",
+            "description": "People, e.g. [{\"email\": \"ada@example.com\"}, {\"first_name\": \"Budi\", \"last_name\": \"Santoso\", \"domain\": \"example.co.id\"}]",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            }
+          },
+          "reveal_personal_emails": {
+            "type": "boolean",
+            "description": "Also return personal emails (may cost more credits; not for people in GDPR regions)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "details"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.enrich_organization",
+      "title": "Enrich organization",
+      "description": "Company profile by domain: industry, headcount, revenue, location, funding, technologies (1 credit)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Company domain, e.g. example.com"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Company name, to improve the match"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.bulk_enrich_organizations",
+      "title": "Bulk enrich organizations",
+      "description": "Enrich up to 10 companies in one call (1 credit per company) (as an agent tool only when APOLLO_TOOL_ALLOW_BULK_ENRICHMENT=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "details": {
+            "type": "array",
+            "description": "Companies, e.g. [{\"domain\": \"example.com\"}, {\"name\": \"Example\", \"website\": \"example.co.id\"}]",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "details"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.search_contacts",
+      "title": "Search contacts",
+      "description": "Contacts in your Apollo account by keywords, stage and list",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q_keywords": {
+            "type": "string",
+            "description": "Name, title, company or email"
+          },
+          "contact_stage_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contact_label_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by_field": {
+            "type": "string",
+            "enum": [
+              "contact_last_activity_date",
+              "contact_email_last_opened_at",
+              "contact_email_last_clicked_at",
+              "contact_created_at",
+              "contact_updated_at"
+            ]
+          },
+          "sort_ascending": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.get_contact",
+      "title": "Get contact",
+      "description": "One contact of your Apollo account",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.create_contact",
+      "title": "Create contact",
+      "description": "Add a contact to your Apollo account (run_dedupe: overwrite a matching contact instead of creating a duplicate) (as an agent tool only when APOLLO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Apollo account id to link"
+          },
+          "email": {
+            "type": "string"
+          },
+          "website_url": {
+            "type": "string"
+          },
+          "label_names": {
+            "type": "array",
+            "description": "Lists the contact belongs to (replaces existing lists on update)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contact_stage_id": {
+            "type": "string"
+          },
+          "present_raw_address": {
+            "type": "string",
+            "description": "e.g. \"Jakarta, Indonesia\""
+          },
+          "direct_phone": {
+            "type": "string"
+          },
+          "corporate_phone": {
+            "type": "string"
+          },
+          "mobile_phone": {
+            "type": "string"
+          },
+          "typed_custom_fields": {
+            "type": "object",
+            "description": "Custom field values by field id"
+          },
+          "run_dedupe": {
+            "type": "boolean",
+            "description": "Update the matching contact in place (empty fields clear it)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.update_contact",
+      "title": "Update contact",
+      "description": "Change fields of a contact (as an agent tool only when APOLLO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Apollo account id to link"
+          },
+          "email": {
+            "type": "string"
+          },
+          "website_url": {
+            "type": "string"
+          },
+          "label_names": {
+            "type": "array",
+            "description": "Lists the contact belongs to (replaces existing lists on update)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contact_stage_id": {
+            "type": "string"
+          },
+          "present_raw_address": {
+            "type": "string",
+            "description": "e.g. \"Jakarta, Indonesia\""
+          },
+          "direct_phone": {
+            "type": "string"
+          },
+          "corporate_phone": {
+            "type": "string"
+          },
+          "mobile_phone": {
+            "type": "string"
+          },
+          "typed_custom_fields": {
+            "type": "object",
+            "description": "Custom field values by field id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.list_contact_stages",
+      "title": "Contact stages",
+      "description": "Contact stage ids and names",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.search_accounts",
+      "title": "Search accounts",
+      "description": "Accounts (companies) in your Apollo account by name, stage and list",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q_organization_name": {
+            "type": "string"
+          },
+          "account_stage_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "account_label_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by_field": {
+            "type": "string",
+            "enum": [
+              "account_last_activity_date",
+              "account_created_at",
+              "account_updated_at"
+            ]
+          },
+          "sort_ascending": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.search_sequences",
+      "title": "Search sequences",
+      "description": "Sequences (emailer campaigns) by name",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q_name": {
+            "type": "string",
+            "description": "Name contains"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.list_email_accounts",
+      "title": "Email accounts",
+      "description": "Linked mailboxes (ids for add_contacts_to_sequence)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.add_contacts_to_sequence",
+      "title": "Add contacts to sequence",
+      "description": "Enrol contacts in a sequence; Apollo then emails them on the sequence's schedule from the chosen mailbox",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sequence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contact_ids": {
+            "type": "array",
+            "description": "Contact ids to add",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_names": {
+            "type": "array",
+            "description": "Add every contact in these lists instead",
+            "items": {
+              "type": "string"
+            }
+          },
+          "send_email_from_email_account_id": {
+            "type": "string",
+            "description": "Mailbox id from list_email_accounts"
+          },
+          "sequence_status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused"
+            ]
+          },
+          "sequence_active_in_other_campaigns": {
+            "type": "boolean",
+            "description": "Add contacts that are active in another sequence"
+          },
+          "sequence_unverified_email": {
+            "type": "boolean",
+            "description": "Add contacts with unverified emails"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sequence_id",
+          "send_email_from_email_account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.get_api_usage",
+      "title": "API usage",
+      "description": "Rate-limit usage per endpoint (minute, hour, day); needs a master API key",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "apollo.api_request",
+      "title": "Apollo.io API request",
+      "description": "Call any Apollo.io API endpoint that has no dedicated operation, e.g. path \"/contact_stages\". Only the API's own host is allowed. Agent tools may only read paths under /contacts, /contact_stages, /accounts, /account_stages, /email_accounts, /emailer_campaigns, /labels, /users, /auth/health.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/contact_stages\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_people",
+      "description": "People API Search over Apollo's database by title, seniority, location and employer filters (no credits; returns names, titles and employers but no emails or phones; use enrich_person for those)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "person_titles": {
+            "type": "array",
+            "description": "Job titles, e.g. [\"marketing manager\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_similar_titles": {
+            "type": "boolean"
+          },
+          "person_seniorities": {
+            "type": "array",
+            "description": "owner, founder, c_suite, partner, vp, head, director, manager, senior, entry, intern",
+            "items": {
+              "type": "string"
+            }
+          },
+          "person_locations": {
+            "type": "array",
+            "description": "Where people live, e.g. [\"Indonesia\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "q_keywords": {
+            "type": "string",
+            "description": "Keyword filter"
+          },
+          "contact_email_status": {
+            "type": "array",
+            "description": "verified, unverified, likely to engage, unavailable",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_locations": {
+            "type": "array",
+            "description": "HQ locations, e.g. [\"Jakarta, Indonesia\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_not_locations": {
+            "type": "array",
+            "description": "Exclude HQ locations",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_num_employees_ranges": {
+            "type": "array",
+            "description": "Headcount ranges, e.g. [\"11,50\", \"51,200\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_ids": {
+            "type": "array",
+            "description": "Apollo organization ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_industry_tag_ids": {
+            "type": "array",
+            "description": "Industry tag ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "q_organization_domains_list": {
+            "type": "array",
+            "description": "Employer domains (up to 1,000)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revenue_min": {
+            "type": "integer",
+            "description": "Minimum annual revenue (USD)",
+            "minimum": 0
+          },
+          "revenue_max": {
+            "type": "integer",
+            "description": "Maximum annual revenue (USD)",
+            "minimum": 0
+          },
+          "currently_using_any_of_technology_uids": {
+            "type": "array",
+            "description": "Technologies, e.g. [\"salesforce\", \"google_analytics\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "search_organizations",
+      "description": "Companies in Apollo's database by name, location, headcount, industry, revenue, technology and funding (1 credit per page of up to 100)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q_organization_name": {
+            "type": "string",
+            "description": "Name contains"
+          },
+          "q_organization_keyword_tags": {
+            "type": "array",
+            "description": "Keywords, e.g. [\"fintech\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_locations": {
+            "type": "array",
+            "description": "HQ locations, e.g. [\"Jakarta, Indonesia\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_not_locations": {
+            "type": "array",
+            "description": "Exclude HQ locations",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_num_employees_ranges": {
+            "type": "array",
+            "description": "Headcount ranges, e.g. [\"11,50\", \"51,200\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_ids": {
+            "type": "array",
+            "description": "Apollo organization ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "organization_industry_tag_ids": {
+            "type": "array",
+            "description": "Industry tag ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "q_organization_domains_list": {
+            "type": "array",
+            "description": "Employer domains (up to 1,000)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revenue_min": {
+            "type": "integer",
+            "description": "Minimum annual revenue (USD)",
+            "minimum": 0
+          },
+          "revenue_max": {
+            "type": "integer",
+            "description": "Maximum annual revenue (USD)",
+            "minimum": 0
+          },
+          "currently_using_any_of_technology_uids": {
+            "type": "array",
+            "description": "Technologies, e.g. [\"salesforce\", \"google_analytics\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "enrich_person",
+      "description": "Match one person (by email, name + employer, LinkedIn URL or id) and return their profile and work email (1 credit when data is found)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Full name, instead of first_name + last_name"
+          },
+          "email": {
+            "type": "string"
+          },
+          "hashed_email": {
+            "type": "string",
+            "description": "MD5 or SHA-256 hash of the email"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Employer domain, e.g. example.com"
+          },
+          "person_id": {
+            "type": "string",
+            "description": "Apollo person id (from search_people)"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "reveal_personal_emails": {
+            "type": "boolean",
+            "description": "Also return personal emails (may cost more credits; not for people in GDPR regions)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "bulk_enrich_people",
+      "description": "Enrich up to 10 people in one call (1 credit per person found) (as an agent tool only when APOLLO_TOOL_ALLOW_BULK_ENRICHMENT=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "details": {
+            "type": "array",
+            "description": "People, e.g. [{\"email\": \"ada@example.com\"}, {\"first_name\": \"Budi\", \"last_name\": \"Santoso\", \"domain\": \"example.co.id\"}]",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            }
+          },
+          "reveal_personal_emails": {
+            "type": "boolean",
+            "description": "Also return personal emails (may cost more credits; not for people in GDPR regions)"
+          }
+        },
+        "required": [
+          "details"
+        ]
+      }
+    },
+    {
+      "name": "enrich_organization",
+      "description": "Company profile by domain: industry, headcount, revenue, location, funding, technologies (1 credit)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Company domain, e.g. example.com"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Company name, to improve the match"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "bulk_enrich_organizations",
+      "description": "Enrich up to 10 companies in one call (1 credit per company) (as an agent tool only when APOLLO_TOOL_ALLOW_BULK_ENRICHMENT=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "details": {
+            "type": "array",
+            "description": "Companies, e.g. [{\"domain\": \"example.com\"}, {\"name\": \"Example\", \"website\": \"example.co.id\"}]",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "details"
+        ]
+      }
+    },
+    {
+      "name": "search_contacts",
+      "description": "Contacts in your Apollo account by keywords, stage and list",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q_keywords": {
+            "type": "string",
+            "description": "Name, title, company or email"
+          },
+          "contact_stage_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contact_label_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by_field": {
+            "type": "string",
+            "enum": [
+              "contact_last_activity_date",
+              "contact_email_last_opened_at",
+              "contact_email_last_clicked_at",
+              "contact_created_at",
+              "contact_updated_at"
+            ]
+          },
+          "sort_ascending": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_contact",
+      "description": "One contact of your Apollo account",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      }
+    },
+    {
+      "name": "create_contact",
+      "description": "Add a contact to your Apollo account (run_dedupe: overwrite a matching contact instead of creating a duplicate) (as an agent tool only when APOLLO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Apollo account id to link"
+          },
+          "email": {
+            "type": "string"
+          },
+          "website_url": {
+            "type": "string"
+          },
+          "label_names": {
+            "type": "array",
+            "description": "Lists the contact belongs to (replaces existing lists on update)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contact_stage_id": {
+            "type": "string"
+          },
+          "present_raw_address": {
+            "type": "string",
+            "description": "e.g. \"Jakarta, Indonesia\""
+          },
+          "direct_phone": {
+            "type": "string"
+          },
+          "corporate_phone": {
+            "type": "string"
+          },
+          "mobile_phone": {
+            "type": "string"
+          },
+          "typed_custom_fields": {
+            "type": "object",
+            "description": "Custom field values by field id"
+          },
+          "run_dedupe": {
+            "type": "boolean",
+            "description": "Update the matching contact in place (empty fields clear it)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "update_contact",
+      "description": "Change fields of a contact (as an agent tool only when APOLLO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Apollo account id to link"
+          },
+          "email": {
+            "type": "string"
+          },
+          "website_url": {
+            "type": "string"
+          },
+          "label_names": {
+            "type": "array",
+            "description": "Lists the contact belongs to (replaces existing lists on update)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contact_stage_id": {
+            "type": "string"
+          },
+          "present_raw_address": {
+            "type": "string",
+            "description": "e.g. \"Jakarta, Indonesia\""
+          },
+          "direct_phone": {
+            "type": "string"
+          },
+          "corporate_phone": {
+            "type": "string"
+          },
+          "mobile_phone": {
+            "type": "string"
+          },
+          "typed_custom_fields": {
+            "type": "object",
+            "description": "Custom field values by field id"
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      }
+    },
+    {
+      "name": "list_contact_stages",
+      "description": "Contact stage ids and names",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "search_accounts",
+      "description": "Accounts (companies) in your Apollo account by name, stage and list",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q_organization_name": {
+            "type": "string"
+          },
+          "account_stage_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "account_label_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by_field": {
+            "type": "string",
+            "enum": [
+              "account_last_activity_date",
+              "account_created_at",
+              "account_updated_at"
+            ]
+          },
+          "sort_ascending": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "search_sequences",
+      "description": "Sequences (emailer campaigns) by name",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q_name": {
+            "type": "string",
+            "description": "Name contains"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_email_accounts",
+      "description": "Linked mailboxes (ids for add_contacts_to_sequence)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_api_usage",
+      "description": "Rate-limit usage per endpoint (minute, hour, day); needs a master API key",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Apollo.io API endpoint that has no dedicated operation, e.g. path \"/contact_stages\". Only the API's own host is allowed. Agent tools may only read paths under /contacts, /contact_stages, /accounts, /account_stages, /email_accounts, /emailer_campaigns, /labels, /users, /auth/health.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/contact_stages\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

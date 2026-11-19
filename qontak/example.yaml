@@ -1,0 +1,14 @@
+# Approved WhatsApp templates and deal pipelines of a Qontak account. Read-only.
+#   QONTAK_CLIENT_ID=... QONTAK_CLIENT_SECRET=... graphrt run qontak/example.yaml --plugins .
+version: "1"
+name: qontak-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: templates, type: qontak.list_whatsapp_templates, status: APPROVED, limit: 5 }
+    - { id: pipelines, type: qontak.list_pipelines }
+    - { id: answer, type: answer, answer: "templates: {{#templates.data#}} | pipelines: {{#pipelines.data#}}" }
+  edges:
+    - { source: start, target: templates }
+    - { source: templates, target: pipelines }
+    - { source: pipelines, target: answer }

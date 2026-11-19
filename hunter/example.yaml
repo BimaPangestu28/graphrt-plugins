@@ -1,0 +1,14 @@
+# How many email addresses Hunter knows for a domain, and the account's remaining quota. Free and read-only.
+#   HUNTER_API_KEY=... graphrt run hunter/example.yaml --plugins .
+version: "1"
+name: hunter-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: count, type: hunter.count_emails, domain: stripe.com }
+    - { id: account, type: hunter.get_account }
+    - { id: answer, type: answer, answer: "stripe.com: {{#count.data.data.total#}} emails | quota: {{#account.data.data.requests#}}" }
+  edges:
+    - { source: start, target: count }
+    - { source: count, target: account }
+    - { source: account, target: answer }

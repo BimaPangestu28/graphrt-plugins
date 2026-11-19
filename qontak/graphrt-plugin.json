@@ -1,0 +1,3148 @@
+{
+  "name": "qontak",
+  "version": "0.1.0",
+  "description": "Mekari Qontak: WhatsApp template sends (agent opt-in + E.164 allowlist), templates, channels, rooms and broadcast logs; CRM contacts, companies, deals, tasks, notes and pipelines (agent writes opt-in, deletes node only); Mekari HMAC or bearer tokens",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "QONTAK_CLIENT_SECRET",
+      "QONTAK_CLIENT_ID",
+      "QONTAK_CHAT_TOKEN",
+      "QONTAK_CRM_TOKEN",
+      "QONTAK_AUTH_MODE",
+      "QONTAK_CRM_USER_SSO_ID",
+      "QONTAK_TOOL_RECIPIENT_ALLOWLIST",
+      "QONTAK_TOOL_ALLOW_SEND",
+      "QONTAK_TOOL_ALLOW_CRM_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "qontak.list_whatsapp_templates",
+      "title": "List WhatsApp templates",
+      "description": "Approved and pending WhatsApp message templates (id, name, language, category, status, body)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "e.g. APPROVED"
+          },
+          "query": {
+            "type": "string",
+            "description": "Search by name"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_whatsapp_template",
+      "title": "Get WhatsApp template",
+      "description": "One message template with its components",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "description": "Template id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_integrations",
+      "title": "List channel integrations",
+      "description": "Connected channels (WhatsApp numbers and others); channel_integration_id for sends",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target_channel": {
+            "type": "string",
+            "description": "Channel, e.g. wa or wa_cloud"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_rooms",
+      "title": "List rooms",
+      "description": "Conversation rooms (one per contact and channel) with their last message, status and agents",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search by name or number"
+          },
+          "status": {
+            "type": "string",
+            "description": "e.g. unassigned, assigned, resolved"
+          },
+          "start_date": {
+            "type": "string"
+          },
+          "end_date": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_room",
+      "title": "Get room",
+      "description": "One conversation room",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "room_id": {
+            "type": "string",
+            "description": "Room id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "room_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_room_histories",
+      "title": "Room history",
+      "description": "History entries of a room (assignments, resolutions, sessions)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "room_id": {
+            "type": "string",
+            "description": "Room id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "room_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.send_whatsapp_template",
+      "title": "Send WhatsApp template",
+      "description": "Send an approved WhatsApp template message to one number (a direct broadcast; billed per WhatsApp conversation) (as an agent tool only when QONTAK_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to_number": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "to_name": {
+            "type": "string",
+            "description": "Recipient name (the contact Qontak creates or updates)",
+            "minLength": 1
+          },
+          "message_template_id": {
+            "type": "string",
+            "description": "From list_whatsapp_templates",
+            "minLength": 1
+          },
+          "channel_integration_id": {
+            "type": "string",
+            "description": "From list_integrations",
+            "minLength": 1
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Template language, e.g. id or en",
+            "default": "id"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Template variables, e.g. {\"body\": [{\"key\": \"1\", \"value_text\": \"Budi\", \"value\": \"name\"}], \"header\": {\"format\": \"IMAGE\", \"params\": [{\"key\": \"url\", \"value\": \"https://...\"}]}, \"buttons\": [{\"index\": \"0\", \"type\": \"url\", \"value\": \"abc\"}]}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to_number",
+          "to_name",
+          "message_template_id",
+          "channel_integration_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_whatsapp_broadcasts",
+      "title": "List WhatsApp broadcasts",
+      "description": "Sent broadcasts (direct and bulk) with status counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string"
+          },
+          "end_date": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_whatsapp_broadcast",
+      "title": "Get WhatsApp broadcast",
+      "description": "One broadcast with template and status counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "broadcast_id": {
+            "type": "string",
+            "description": "Broadcast id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "broadcast_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_whatsapp_broadcast_log",
+      "title": "WhatsApp broadcast log",
+      "description": "Per-recipient delivery status of a broadcast (sent, delivered, read, failed with the WhatsApp error)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "broadcast_id": {
+            "type": "string",
+            "description": "Broadcast id",
+            "minLength": 1
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "broadcast_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_contacts",
+      "title": "List contacts",
+      "description": "CRM contacts, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "created_after": {
+            "type": "string",
+            "description": "DD-MM-YYYY"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_contact",
+      "title": "Get contact",
+      "description": "One CRM contact (person)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "integer",
+            "description": "contact (person) id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.create_contact",
+      "title": "Create contact",
+      "description": "Create a CRM contact (person) (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Phone with country code, e.g. 6281234567890"
+          },
+          "crm_status_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_deal_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "date_of_birth": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "first_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.update_contact",
+      "title": "Update contact",
+      "description": "Change fields of a CRM contact (person) (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "integer",
+            "description": "contact (person) id",
+            "minimum": 1
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Phone with country code, e.g. 6281234567890"
+          },
+          "crm_status_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_deal_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "date_of_birth": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.delete_contact",
+      "title": "Delete contact",
+      "description": "Delete a CRM contact (person)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "integer",
+            "description": "contact (person) id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_companies",
+      "title": "List companies",
+      "description": "CRM companies, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_company",
+      "title": "Get company",
+      "description": "One CRM company",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "integer",
+            "description": "company id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "company_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.create_company",
+      "title": "Create company",
+      "description": "Create a CRM company (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "crm_person_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.update_company",
+      "title": "Update company",
+      "description": "Change fields of a CRM company (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "integer",
+            "description": "company id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "crm_person_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "company_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.delete_company",
+      "title": "Delete company",
+      "description": "Delete a CRM company",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "integer",
+            "description": "company id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "company_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_deals",
+      "title": "List deals",
+      "description": "CRM deals, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_deal",
+      "title": "Get deal",
+      "description": "One CRM deal",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "deal id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.create_deal",
+      "title": "Create deal",
+      "description": "Create a CRM deal (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "crm_pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)"
+          },
+          "crm_stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_pipeline_stages)"
+          },
+          "currency": {
+            "type": "string",
+            "description": "e.g. IDR"
+          },
+          "size": {
+            "type": "number",
+            "description": "Deal value"
+          },
+          "closed_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "expired_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_lead_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "crm_priority_id": {
+            "type": "integer"
+          },
+          "crm_lost_reason_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name",
+          "crm_pipeline_id",
+          "crm_stage_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.update_deal",
+      "title": "Update deal",
+      "description": "Change fields of a CRM deal (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "deal id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "crm_pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)"
+          },
+          "crm_stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_pipeline_stages)"
+          },
+          "currency": {
+            "type": "string",
+            "description": "e.g. IDR"
+          },
+          "size": {
+            "type": "number",
+            "description": "Deal value"
+          },
+          "closed_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "expired_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_lead_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "crm_priority_id": {
+            "type": "integer"
+          },
+          "crm_lost_reason_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.delete_deal",
+      "title": "Delete deal",
+      "description": "Delete a CRM deal",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "deal id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_tasks",
+      "title": "List tasks",
+      "description": "CRM tasks, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string"
+          },
+          "crm_task_status_id": {
+            "type": "integer"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_task",
+      "title": "Get task",
+      "description": "One CRM task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "task id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.create_task",
+      "title": "Create task",
+      "description": "Create a CRM task (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_task_status_id": {
+            "type": "integer"
+          },
+          "crm_task_priority_id": {
+            "type": "integer"
+          },
+          "crm_task_category_id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "Assignee user id"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-01T10:00:00.000+07:00"
+          },
+          "reminder_date": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "next_step": {
+            "type": "string"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.update_task",
+      "title": "Update task",
+      "description": "Change fields of a CRM task (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "task id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_task_status_id": {
+            "type": "integer"
+          },
+          "crm_task_priority_id": {
+            "type": "integer"
+          },
+          "crm_task_category_id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "Assignee user id"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-01T10:00:00.000+07:00"
+          },
+          "reminder_date": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "next_step": {
+            "type": "string"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.delete_task",
+      "title": "Delete task",
+      "description": "Delete a CRM task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "task id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_notes",
+      "title": "List notes",
+      "description": "CRM notes, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "crm_lead_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_note",
+      "title": "Get note",
+      "description": "One CRM note",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "note id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.create_note",
+      "title": "Create note",
+      "description": "Create a CRM note (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string"
+          },
+          "note_type": {
+            "type": "string",
+            "description": "Note owner type, e.g. \"Crm::PersonNote\""
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "note"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.update_note",
+      "title": "Update note",
+      "description": "Change fields of a CRM note (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "note id",
+            "minimum": 1
+          },
+          "note": {
+            "type": "string"
+          },
+          "note_type": {
+            "type": "string",
+            "description": "Note owner type, e.g. \"Crm::PersonNote\""
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.delete_note",
+      "title": "Delete note",
+      "description": "Delete a CRM note",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "note id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_pipelines",
+      "title": "List pipelines",
+      "description": "Deal pipelines",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.get_pipeline",
+      "title": "Get pipeline",
+      "description": "One deal pipeline",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "pipeline_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "pipeline_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.list_pipeline_stages",
+      "title": "Pipeline stages",
+      "description": "Stages of a pipeline (crm_stage_id for deals)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "pipeline_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "pipeline_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "qontak.api_request",
+      "title": "Qontak Chat API request",
+      "description": "Call any Qontak Chat API endpoint that has no dedicated operation, e.g. path \"/templates/whatsapp\". Only the API's own host is allowed. Agent tools may only read paths under /templates, /rooms, /broadcasts.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/templates/whatsapp\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_whatsapp_templates",
+      "description": "Approved and pending WhatsApp message templates (id, name, language, category, status, body)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "e.g. APPROVED"
+          },
+          "query": {
+            "type": "string",
+            "description": "Search by name"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_whatsapp_template",
+      "description": "One message template with its components",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "type": "string",
+            "description": "Template id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      }
+    },
+    {
+      "name": "list_integrations",
+      "description": "Connected channels (WhatsApp numbers and others); channel_integration_id for sends",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_channel": {
+            "type": "string",
+            "description": "Channel, e.g. wa or wa_cloud"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_rooms",
+      "description": "Conversation rooms (one per contact and channel) with their last message, status and agents",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search by name or number"
+          },
+          "status": {
+            "type": "string",
+            "description": "e.g. unassigned, assigned, resolved"
+          },
+          "start_date": {
+            "type": "string"
+          },
+          "end_date": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_room",
+      "description": "One conversation room",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room_id": {
+            "type": "string",
+            "description": "Room id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "room_id"
+        ]
+      }
+    },
+    {
+      "name": "list_room_histories",
+      "description": "History entries of a room (assignments, resolutions, sessions)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room_id": {
+            "type": "string",
+            "description": "Room id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "room_id"
+        ]
+      }
+    },
+    {
+      "name": "send_whatsapp_template",
+      "description": "Send an approved WhatsApp template message to one number (a direct broadcast; billed per WhatsApp conversation) (as an agent tool only when QONTAK_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to_number": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "to_name": {
+            "type": "string",
+            "description": "Recipient name (the contact Qontak creates or updates)",
+            "minLength": 1
+          },
+          "message_template_id": {
+            "type": "string",
+            "description": "From list_whatsapp_templates",
+            "minLength": 1
+          },
+          "channel_integration_id": {
+            "type": "string",
+            "description": "From list_integrations",
+            "minLength": 1
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Template language, e.g. id or en",
+            "default": "id"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Template variables, e.g. {\"body\": [{\"key\": \"1\", \"value_text\": \"Budi\", \"value\": \"name\"}], \"header\": {\"format\": \"IMAGE\", \"params\": [{\"key\": \"url\", \"value\": \"https://...\"}]}, \"buttons\": [{\"index\": \"0\", \"type\": \"url\", \"value\": \"abc\"}]}"
+          }
+        },
+        "required": [
+          "to_number",
+          "to_name",
+          "message_template_id",
+          "channel_integration_id"
+        ]
+      }
+    },
+    {
+      "name": "list_whatsapp_broadcasts",
+      "description": "Sent broadcasts (direct and bulk) with status counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string"
+          },
+          "end_date": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_whatsapp_broadcast",
+      "description": "One broadcast with template and status counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "broadcast_id": {
+            "type": "string",
+            "description": "Broadcast id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "broadcast_id"
+        ]
+      }
+    },
+    {
+      "name": "get_whatsapp_broadcast_log",
+      "description": "Per-recipient delivery status of a broadcast (sent, delivered, read, failed with the WhatsApp error)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "broadcast_id": {
+            "type": "string",
+            "description": "Broadcast id",
+            "minLength": 1
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Page offset as Qontak counts it (see meta.pagination)",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "broadcast_id"
+        ]
+      }
+    },
+    {
+      "name": "list_contacts",
+      "description": "CRM contacts, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "created_after": {
+            "type": "string",
+            "description": "DD-MM-YYYY"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_contact",
+      "description": "One CRM contact (person)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "integer",
+            "description": "contact (person) id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      }
+    },
+    {
+      "name": "create_contact",
+      "description": "Create a CRM contact (person) (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Phone with country code, e.g. 6281234567890"
+          },
+          "crm_status_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_deal_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "date_of_birth": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "first_name"
+        ]
+      }
+    },
+    {
+      "name": "update_contact",
+      "description": "Change fields of a CRM contact (person) (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": {
+            "type": "integer",
+            "description": "contact (person) id",
+            "minimum": 1
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "job_title": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Phone with country code, e.g. 6281234567890"
+          },
+          "crm_status_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_deal_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "date_of_birth": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "contact_id"
+        ]
+      }
+    },
+    {
+      "name": "list_companies",
+      "description": "CRM companies, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_company",
+      "description": "One CRM company",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "integer",
+            "description": "company id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "company_id"
+        ]
+      }
+    },
+    {
+      "name": "create_company",
+      "description": "Create a CRM company (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "crm_person_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_company",
+      "description": "Change fields of a CRM company (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "integer",
+            "description": "company id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "crm_person_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "company_id"
+        ]
+      }
+    },
+    {
+      "name": "list_deals",
+      "description": "CRM deals, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_deal",
+      "description": "One CRM deal",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "deal id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      }
+    },
+    {
+      "name": "create_deal",
+      "description": "Create a CRM deal (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "crm_pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)"
+          },
+          "crm_stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_pipeline_stages)"
+          },
+          "currency": {
+            "type": "string",
+            "description": "e.g. IDR"
+          },
+          "size": {
+            "type": "number",
+            "description": "Deal value"
+          },
+          "closed_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "expired_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_lead_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "crm_priority_id": {
+            "type": "integer"
+          },
+          "crm_lost_reason_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "crm_pipeline_id",
+          "crm_stage_id"
+        ]
+      }
+    },
+    {
+      "name": "update_deal",
+      "description": "Change fields of a CRM deal (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": {
+            "type": "integer",
+            "description": "deal id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "crm_pipeline_id": {
+            "type": "integer",
+            "description": "Pipeline id (list_pipelines)"
+          },
+          "crm_stage_id": {
+            "type": "integer",
+            "description": "Stage id (list_pipeline_stages)"
+          },
+          "currency": {
+            "type": "string",
+            "description": "e.g. IDR"
+          },
+          "size": {
+            "type": "number",
+            "description": "Deal value"
+          },
+          "closed_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "expired_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_lead_ids": {
+            "type": "array",
+            "description": "Contact ids to link",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "crm_source_id": {
+            "type": "integer"
+          },
+          "crm_priority_id": {
+            "type": "integer"
+          },
+          "crm_lost_reason_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer",
+            "description": "Owner user id (default: the API user)"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "deal_id"
+        ]
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "CRM tasks, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string"
+          },
+          "crm_task_status_id": {
+            "type": "integer"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "One CRM task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "task id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "create_task",
+      "description": "Create a CRM task (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_task_status_id": {
+            "type": "integer"
+          },
+          "crm_task_priority_id": {
+            "type": "integer"
+          },
+          "crm_task_category_id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "Assignee user id"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-01T10:00:00.000+07:00"
+          },
+          "reminder_date": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "next_step": {
+            "type": "string"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_task",
+      "description": "Change fields of a CRM task (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "task id",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_task_status_id": {
+            "type": "integer"
+          },
+          "crm_task_priority_id": {
+            "type": "integer"
+          },
+          "crm_task_category_id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "Assignee user id"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-01T10:00:00.000+07:00"
+          },
+          "reminder_date": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "next_step": {
+            "type": "string"
+          },
+          "additional_fields": {
+            "type": "array",
+            "description": "Custom fields, e.g. [{\"name\": \"segment\", \"value\": \"retail\"}] (ids from the object's /info)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "list_notes",
+      "description": "CRM notes, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "crm_lead_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_note",
+      "description": "One CRM note",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "note id",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      }
+    },
+    {
+      "name": "create_note",
+      "description": "Create a CRM note (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string"
+          },
+          "note_type": {
+            "type": "string",
+            "description": "Note owner type, e.g. \"Crm::PersonNote\""
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "note"
+        ]
+      }
+    },
+    {
+      "name": "update_note",
+      "description": "Change fields of a CRM note (as an agent tool only when QONTAK_TOOL_ALLOW_CRM_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "integer",
+            "description": "note id",
+            "minimum": 1
+          },
+          "note": {
+            "type": "string"
+          },
+          "note_type": {
+            "type": "string",
+            "description": "Note owner type, e.g. \"Crm::PersonNote\""
+          },
+          "crm_person_id": {
+            "type": "integer",
+            "description": "Contact id"
+          },
+          "crm_deal_id": {
+            "type": "integer"
+          },
+          "crm_company_id": {
+            "type": "integer"
+          },
+          "creator_id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "note_id"
+        ]
+      }
+    },
+    {
+      "name": "list_pipelines",
+      "description": "Deal pipelines",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_pipeline",
+      "description": "One deal pipeline",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pipeline_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "pipeline_id"
+        ]
+      }
+    },
+    {
+      "name": "list_pipeline_stages",
+      "description": "Stages of a pipeline (crm_stage_id for deals)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pipeline_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "pipeline_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Qontak Chat API endpoint that has no dedicated operation, e.g. path \"/templates/whatsapp\". Only the API's own host is allowed. Agent tools may only read paths under /templates, /rooms, /broadcasts.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/templates/whatsapp\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
