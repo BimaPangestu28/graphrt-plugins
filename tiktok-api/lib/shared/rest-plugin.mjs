@@ -360,13 +360,27 @@ function templateToPattern(pathTemplate) {
 
 function assertApiRequestPathAllowed({ source, args, environment }, protectedPaths) {
   if (source !== "tool" || typeof args?.path !== "string") return;
-  const pathname = decodePathname(args.path.split(/[?#]/)[0]);
+  const pathname = normalizeToolPathname(args.path.split(/[?#]/)[0]);
   const blocked = protectedPaths.find((protectedPath) => protectedPath.pathPattern.test(pathname) && !(protectedPath.optInEnv && environment?.[protectedPath.optInEnv] === "1"));
   if (!blocked) return;
   throw new PluginError(`api_request cannot reach the path of \`${blocked.operationName}\` as an agent tool; use that operation or a workflow node`, { kind: "permission_denied" });
 }
 
-function decodePathname(pathname) {
+const MAX_DECODE_ROUNDS = 4;
+
+// Decoded until stable (a server may decode twice) and with repeated slashes collapsed, so "%252F" and "//"
+// cannot hide a protected path. Comparing the decoded form only ever blocks more, never less.
+function normalizeToolPathname(pathname) {
+  let decoded = pathname;
+  for (let round = 0; round < MAX_DECODE_ROUNDS; round += 1) {
+    const next = decodePathnameOnce(decoded);
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded.replace(/[\\/]+/g, "/");
+}
+
+function decodePathnameOnce(pathname) {
   try {
     return decodeURIComponent(pathname);
   } catch {

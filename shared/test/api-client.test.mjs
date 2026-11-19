@@ -352,3 +352,18 @@ test("idempotent: false makes a PUT or DELETE a non-repeatable write: no 5xx ret
   );
   assert.equal(fakeFetch.calls.length, 1);
 });
+
+// Encoded dot segments: the URL parser turns "%2e%2e" into "..", so they must be refused like literal ones.
+for (const encodedDotPath of ["/a/%2e%2e/webhooks", "/a/%2E%2E/webhooks", "/a/.%2e/webhooks", "/a/%2e./webhooks", "/a/%2e/webhooks", "/a/%252e%252e/webhooks", "/a/%5c../webhooks", "/a/%2e%2e"]) {
+  test(`request refuses the encoded dot segment in ${JSON.stringify(encodedDotPath)}`, async () => {
+    const fakeFetch = createFakeFetch([{ body: {} }]);
+    await assert.rejects(createTestClient(fakeFetch).request({ path: encodedDotPath }), (error) => error.kind === "invalid_input");
+    assert.equal(fakeFetch.calls.length, 0);
+  });
+}
+
+test("request still accepts encoded characters that are not dot segments", async () => {
+  const fakeFetch = createFakeFetch([{ body: {} }]);
+  await createTestClient(fakeFetch).request({ path: "/files/a%2Fb/v1.2/%2e%2ex" });
+  assert.equal(fakeFetch.calls[0].url, "https://api.example.com/v1/files/a%2Fb/v1.2/%2e%2ex");
+});
