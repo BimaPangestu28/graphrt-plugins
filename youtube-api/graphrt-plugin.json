@@ -1,6 +1,6 @@
 {
   "name": "youtube-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "YouTube channel, videos, comments and live chat via the official YouTube Data API v3",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -155,10 +155,10 @@
             "type": "string",
             "description": "Video id, e.g. dQw4w9WgXcQ"
           },
-          "title": {
+          "video_title": {
             "type": "string",
             "minLength": 1,
-            "description": "New title (max 100 characters)"
+            "description": "New video title, sent as snippet.title (max 100 characters)"
           },
           "description": {
             "type": "string",
@@ -801,10 +801,10 @@
             "type": "string",
             "description": "Video id, e.g. dQw4w9WgXcQ"
           },
-          "title": {
+          "video_title": {
             "type": "string",
             "minLength": 1,
-            "description": "New title (max 100 characters)"
+            "description": "New video title, sent as snippet.title (max 100 characters)"
           },
           "description": {
             "type": "string",

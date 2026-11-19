@@ -97,5 +97,9 @@ writes cost 50 (`update_video_metadata` also does a 1-unit read first, live chat
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
 
+## Changelog
+### 0.2.0
+- **Breaking:** `update_video_metadata` parameter `title` is now `video_title` (still sent to YouTube as `snippet.title`). graphrt takes `title` from every workflow node, so the old name was silently dropped on nodes; tool calls that passed `title` must use `video_title`.
+
 ## License
 Apache-2.0
