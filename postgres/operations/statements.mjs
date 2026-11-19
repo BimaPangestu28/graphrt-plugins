@@ -14,7 +14,7 @@ const queryOperation = {
     "Runs one parameterised SQL statement in a READ ONLY transaction that is always rolled back, so it cannot change data. Returns rows (objects), fields, row_count and truncated",
   parameters: {
     type: "object",
-    properties: { sql: SQL_PARAMETER, params: PARAMS_PARAMETER, max_rows: MAX_ROWS_PARAMETER, timeout_ms: TIMEOUT_PARAMETER },
+    properties: { sql: SQL_PARAMETER, params: PARAMS_PARAMETER, max_rows: MAX_ROWS_PARAMETER, statement_timeout_ms: TIMEOUT_PARAMETER },
     required: ["sql"],
   },
   run: async ({ client, args, signal, source }) => ({ data: await client.readOnly({ ...buildStatementRequest(args, client.limits, source), signal }) }),
@@ -31,7 +31,7 @@ const executeOperation = {
       sql: SQL_PARAMETER,
       params: PARAMS_PARAMETER,
       max_rows: { ...MAX_ROWS_PARAMETER, description: "Most RETURNING rows to return (default 500, at most 5000)" },
-      timeout_ms: TIMEOUT_PARAMETER,
+      statement_timeout_ms: TIMEOUT_PARAMETER,
       in_transaction: {
         type: "boolean",
         default: true,
@@ -57,7 +57,7 @@ const explainOperation = {
       params: PARAMS_PARAMETER,
       analyze: { type: "boolean", default: false, description: "EXPLAIN ANALYZE: run the statement and report real timings (read-only, rolled back)" },
       format: { type: "string", enum: ["text", "json"], default: "text", description: "Plan as text lines or as PostgreSQL's JSON plan" },
-      timeout_ms: TIMEOUT_PARAMETER,
+      statement_timeout_ms: TIMEOUT_PARAMETER,
     },
     required: ["sql"],
   },

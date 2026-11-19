@@ -53,7 +53,7 @@ function mapSqlStateError(sqlState, error, { isWrite, timeoutMs }) {
 
 function mapCancelledStatement(message, timeoutMs) {
   if (/statement timeout/i.test(message)) {
-    return new PluginError(`${message} (limit ${timeoutMs ?? "?"} ms; pass a larger timeout_ms or narrow the query)`, { kind: "timeout" });
+    return new PluginError(`${message} (limit ${timeoutMs ?? "?"} ms; pass a larger statement_timeout_ms or narrow the query)`, { kind: "timeout" });
   }
   return new PluginError(message, { kind: "cancelled" });
 }

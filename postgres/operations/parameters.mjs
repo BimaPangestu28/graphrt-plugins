@@ -30,7 +30,7 @@ export function buildParamsParameter(placeholderHint) {
 /**
  * Checks the SQL text and parameter values, and resolves row cap and timeout.
  *
- * @param args - Validated operation arguments `{sql, params, max_rows, timeout_ms}` (object)
+ * @param args - Validated operation arguments `{sql, params, max_rows, statement_timeout_ms}` (object)
  * @param limits - Plugin limits `{statementTimeoutMs, maxResultBytes}` (object)
  * @param source - "node" or "tool"; only nodes may raise the timeout above `limits.statementTimeoutMs` (string)
  * @returns `{sql, params, maxRows, maxBytes, timeoutMs, source}` (object)
@@ -45,7 +45,7 @@ export function buildStatementRequest(args, limits, source) {
     params,
     maxRows: args.max_rows ?? DEFAULT_MAX_ROWS,
     maxBytes: limits.maxResultBytes,
-    timeoutMs: resolveTimeoutMs(args.timeout_ms, limits.statementTimeoutMs, source),
+    timeoutMs: resolveTimeoutMs(args.statement_timeout_ms, limits.statementTimeoutMs, source),
     source,
   };
 }

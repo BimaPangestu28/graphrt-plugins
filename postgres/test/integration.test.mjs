@@ -59,7 +59,7 @@ test("real server: write as node, read-only query as tool, caps, timeout and sch
     assert.equal(read.data.truncated, true);
     await assert.rejects(asRole("query", { sql: `DELETE FROM ${names.table}` }, AS_TOOL), { kind: "permission_denied" });
     await assert.rejects(asRole("query", { sql: "SELECT 1; SELECT 2" }, AS_TOOL), { kind: "invalid_input" });
-    await assert.rejects(asRole("query", { sql: "SELECT pg_sleep(2)", timeout_ms: 200 }, AS_TOOL), { kind: "timeout" });
+    await assert.rejects(asRole("query", { sql: "SELECT pg_sleep(2)", statement_timeout_ms: 200 }, AS_TOOL), { kind: "timeout" });
     const description = await asRole("describe_table", { table: names.table }, AS_TOOL);
     assert.deepEqual(description.data.primary_key, ["id"]);
   }));

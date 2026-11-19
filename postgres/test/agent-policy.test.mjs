@@ -11,9 +11,9 @@ test("execute fails closed when the call has no source (neither node nor tool)",
 
 test("POSTGRES_STATEMENT_TIMEOUT_MS is a ceiling for tool calls but not for nodes", () =>
   withRunner({ environment: { POSTGRES_STATEMENT_TIMEOUT_MS: "2000" } }, async ({ runOperation, log }) => {
-    await runOperation("query", { sql: "SELECT 1", timeout_ms: 600000 }, { source: "tool" });
-    await runOperation("query", { sql: "SELECT 1", timeout_ms: 1500 }, { source: "tool" });
-    await runOperation("query", { sql: "SELECT 1", timeout_ms: 600000 }, { source: "node" });
+    await runOperation("query", { sql: "SELECT 1", statement_timeout_ms: 600000 }, { source: "tool" });
+    await runOperation("query", { sql: "SELECT 1", statement_timeout_ms: 1500 }, { source: "tool" });
+    await runOperation("query", { sql: "SELECT 1", statement_timeout_ms: 600000 }, { source: "node" });
     const timeouts = log.queries.filter((entry) => entry.text.includes("'statement_timeout'")).map((entry) => entry.values[0]);
     assert.deepEqual(timeouts, ["2000", "1500", "600000"]);
   }));

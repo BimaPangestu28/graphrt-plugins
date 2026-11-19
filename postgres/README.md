@@ -36,7 +36,7 @@ Without `node_modules/`, every operation fails with `setup_required`.
 | `POSTGRES_URL` | (none) | Connection URL, e.g. `postgres://app:secret@db.example.com:5432/shop?sslmode=verify-full`. Percent-encode special characters in the password. |
 | `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE` | port `5432` | Used when `POSTGRES_URL` is unset. `POSTGRES_HOST` may also be a Unix socket directory. |
 | `POSTGRES_SSLMODE` | `disable` | With the separate parts: `disable`, `require` (TLS without certificate checks) or `verify-full`. With a URL, put `sslmode` in the URL. |
-| `POSTGRES_STATEMENT_TIMEOUT_MS` | `30000` | Default statement timeout (100 to 600000). Nodes may pass any `timeout_ms`; for agent tool calls this value is also the ceiling. |
+| `POSTGRES_STATEMENT_TIMEOUT_MS` | `30000` | Default statement timeout (100 to 600000). Nodes may pass any `statement_timeout_ms`; for agent tool calls this value is also the ceiling. |
 | `POSTGRES_CONNECT_TIMEOUT_MS` | `10000` | Connect timeout |
 | `POSTGRES_MAX_RESULT_BYTES` | `1000000` | Most JSON bytes of returned rows per call (1000 to 8000000) |
 | `POSTGRES_POOL_MAX` | `4` | Connections per pool |
@@ -101,7 +101,7 @@ graphrt run postgres/example.yaml --plugins .
   and the rows collected so far are returned with `truncated_reason: "max_bytes"`.
 - **Timeouts and cancel:**
   - The server-side `statement_timeout` ends long statements (`timeout`). For agent tool calls,
-    `POSTGRES_STATEMENT_TIMEOUT_MS` is a ceiling that `timeout_ms` can only lower.
+    `POSTGRES_STATEMENT_TIMEOUT_MS` is a ceiling that `statement_timeout_ms` can only lower.
   - `client_connection_check_interval` (PostgreSQL 14+; skipped on older servers) is set to 2 s, so a backend
     notices a vanished client.
   - If the server does not answer 5 s past the timeout, or the run is cancelled or a tool deadline passes, the plugin
@@ -138,6 +138,10 @@ POSTGRES_INTEGRATION_URL=postgres://admin:pass@127.0.0.1:5432/scratch node --tes
 ```
 The URL must be a superuser on a throwaway database: the tests create a `graphrt_it_<random>` table and two
 `graphrt_it_*` roles, terminate those roles' backends and drop everything again.
+
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** the `query`, `execute` and `explain` parameter `timeout_ms` is now `statement_timeout_ms`. graphrt takes `timeout_ms` from every workflow node as the node's own run timeout, so the old name never reached the plugin from a node (it limited the whole node instead of the statement); tool calls that passed `timeout_ms` must use `statement_timeout_ms`. A node may still set graphrt's `timeout_ms` alongside it.
 
 ## License
 Apache-2.0
