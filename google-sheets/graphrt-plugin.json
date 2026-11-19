@@ -66,7 +66,7 @@
       "config_schema": {
         "type": "object",
         "properties": {
-          "title": {
+          "spreadsheet_title": {
             "type": "string",
             "minLength": 1,
             "description": "Spreadsheet title"
@@ -93,7 +93,7 @@
           }
         },
         "required": [
-          "title"
+          "spreadsheet_title"
         ]
       },
       "outputs": [
@@ -121,10 +121,10 @@
             "type": "string",
             "description": "Spreadsheet id (the part of the URL between /d/ and /edit) or the full spreadsheet URL"
           },
-          "title": {
+          "sheet_title": {
             "type": "string",
             "minLength": 1,
-            "description": "New sheet title"
+            "description": "New sheet (tab) title"
           },
           "index": {
             "type": "integer",
@@ -150,7 +150,7 @@
         },
         "required": [
           "spreadsheet_id",
-          "title"
+          "sheet_title"
         ]
       },
       "outputs": [
@@ -709,7 +709,7 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "title": {
+          "spreadsheet_title": {
             "type": "string",
             "minLength": 1,
             "description": "Spreadsheet title"
@@ -732,7 +732,7 @@
           }
         },
         "required": [
-          "title"
+          "spreadsheet_title"
         ]
       }
     },
@@ -746,10 +746,10 @@
             "type": "string",
             "description": "Spreadsheet id (the part of the URL between /d/ and /edit) or the full spreadsheet URL"
           },
-          "title": {
+          "sheet_title": {
             "type": "string",
             "minLength": 1,
-            "description": "New sheet title"
+            "description": "New sheet (tab) title"
           },
           "index": {
             "type": "integer",
@@ -771,7 +771,7 @@
         },
         "required": [
           "spreadsheet_id",
-          "title"
+          "sheet_title"
         ]
       }
     },

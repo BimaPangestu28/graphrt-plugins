@@ -8,8 +8,8 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | Operation | Description | Parameters |
 |-----------|-------------|------------|
 | `get_spreadsheet` | Get a spreadsheet's title, URL, locale and its sheets (tabs) with ids and sizes. | **spreadsheet_id** |
-| `create_spreadsheet` | Create a new spreadsheet, optionally with named sheets. With a service account, the file belongs to the service account; share it to see it. | **title**, sheet_titles, locale, time_zone |
-| `add_sheet` | Add a sheet (tab) to a spreadsheet. Fails with invalid_input if a sheet with that title exists. | **spreadsheet_id**, **title**, index, row_count, column_count |
+| `create_spreadsheet` | Create a new spreadsheet, optionally with named sheets. With a service account, the file belongs to the service account; share it to see it. | **spreadsheet_title**, sheet_titles, locale, time_zone |
+| `add_sheet` | Add a sheet (tab) to a spreadsheet. Fails with invalid_input if a sheet with that title exists. | **spreadsheet_id**, **sheet_title**, index, row_count, column_count |
 | `read_range` | Read cell values from a range, e.g. sheet "Orders" with range "A1:D". Empty trailing rows and cells are omitted. | **spreadsheet_id**, sheet, range, major_dimension, value_render_option, date_time_render_option |
 | `batch_read` | Read several ranges in one call. Each range is a full A1 range ('Sheet'!A1:C) or, with `sheet`, cells of that sheet. | **spreadsheet_id**, **ranges**, sheet, major_dimension, value_render_option, date_time_render_option |
 | `append_rows` | Append rows after the last row of the table at `range` (default: the whole sheet). Never retried after an unknown outcome: check with read_range first. | **spreadsheet_id**, sheet, range, **rows**, value_input_option, insert_data_option |

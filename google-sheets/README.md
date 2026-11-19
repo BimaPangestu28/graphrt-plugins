@@ -121,5 +121,9 @@ From the repo root: `npm run sync` after changing `definition.mjs`, `operations/
 `lib/google-token-endpoint.mjs`, `lib/service-account.mjs` and `lib/google-errors.mjs` are kept identical to the
 copies in `google-business-profile-api/`.
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `create_spreadsheet` parameter `title` is now `spreadsheet_title`, and `add_sheet` parameter `title` is now `sheet_title` (both still sent to the Sheets API as `title`). graphrt takes `title` from every workflow node, so the old name could never be set from a node (the required field made the node fail to load); tool calls that passed `title` must use the new names.
+
 ## License
 Apache-2.0
