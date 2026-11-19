@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-sqlite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: parameterised SQLite queries on files in allowed directories, read-only for agents",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,16 @@
+# Read-only check: server version and the tables you can see.
+#   POSTGRES_URL=postgres://user:password@127.0.0.1:5432/mydb graphrt run postgres/example.yaml --plugins .
+version: "1"
+name: postgres-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: version, type: postgres.query, sql: "SELECT current_database() AS db, version() AS version" }
+    - { id: tables, type: postgres.list_tables, max_rows: 20 }
+    - id: answer
+      type: answer
+      answer: "{{#version.data.rows.0.db#}} on {{#version.data.rows.0.version#}}: {{#tables.data.row_count#}} table(s)"
+  edges:
+    - { source: start, target: version }
+    - { source: version, target: tables }
+    - { source: tables, target: answer }

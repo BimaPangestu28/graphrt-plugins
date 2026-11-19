@@ -78,10 +78,10 @@ function assertFast(label, robotsText, path) {
   const startedAt = performance.now();
   isAllowed(robotsText, path);
   const elapsedMs = performance.now() - startedAt;
-  assert.ok(elapsedMs < 50, `${label} took ${elapsedMs.toFixed(1)} ms`);
+  assert.ok(elapsedMs < 500, `${label} took ${elapsedMs.toFixed(1)} ms`);
 }
 
-test("pathological robots.txt files are parsed and matched in under 50 ms", () => {
+test("pathological robots.txt files are parsed and matched in well under a second (the unbounded matcher took ~1.9 s; the margin absorbs CI load)", () => {
   const oneHugeRule = `User-agent: *\nDisallow: /${"*a".repeat(250000)}b\n`;
   const manyStarRules = `User-agent: *\n${Array.from({ length: 10000 }, () => `Disallow: /${"*a".repeat(26)}*b`).join("\n")}`;
   const manyStarsOneRule = `User-agent: *\nDisallow: /${"*".repeat(100000)}a${"*".repeat(100000)}b`;

@@ -1,0 +1,12 @@
+{
+  "name": "graphrt-plugin-mysql",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: parameterised MySQL queries, read-only for agents",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "dependencies": {
+    "mysql2": "3.24.6"
+  }
+}

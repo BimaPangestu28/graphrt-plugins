@@ -1,0 +1,16 @@
+# Read-only check: server version and the tables in the connection's database.
+#   MYSQL_URL=mysql://user:password@127.0.0.1:3306/mydb graphrt run mysql/example.yaml --plugins .
+version: "1"
+name: mysql-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: version, type: mysql.query, sql: "SELECT DATABASE() AS db, VERSION() AS version" }
+    - { id: tables, type: mysql.list_tables, max_rows: 20 }
+    - id: answer
+      type: answer
+      answer: "{{#version.data.rows.0.db#}} on MySQL {{#version.data.rows.0.version#}}: {{#tables.data.row_count#}} table(s)"
+  edges:
+    - { source: start, target: version }
+    - { source: version, target: tables }
+    - { source: tables, target: answer }

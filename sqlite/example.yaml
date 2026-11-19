@@ -1,0 +1,16 @@
+# Read-only look at a SQLite file: its tables and SQLite's version.
+#   SQLITE_ALLOWED_DIRS=~/data SQLITE_PATH=~/data/shop.db graphrt run sqlite/example.yaml --plugins .
+version: "1"
+name: sqlite-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: version, type: sqlite.query, sql: "SELECT sqlite_version() AS version" }
+    - { id: tables, type: sqlite.list_tables, include_views: true }
+    - id: answer
+      type: answer
+      answer: "SQLite {{#version.data.rows.0.version#}}: {{#tables.data.row_count#}} table(s), first: {{#tables.data.tables.0.name#}}"
+  edges:
+    - { source: start, target: version }
+    - { source: version, target: tables }
+    - { source: tables, target: answer }
