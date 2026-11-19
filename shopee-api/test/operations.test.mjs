@@ -84,8 +84,8 @@ const SHOP_API_CASES = [
   ],
   [
     "sellerchat_get_conversation_list",
-    { limit: 10, cursor: "1700000000000000000" },
-    { method: "GET", path: "/api/v2/sellerchat/get_conversation_list", query: { direction: "older", type: "all", page_size: "10", next_timestamp_nano: "1700000000000000000" } },
+    { conversation_type: "unread", limit: 10, cursor: "1700000000000000000" },
+    { method: "GET", path: "/api/v2/sellerchat/get_conversation_list", query: { direction: "older", type: "unread", page_size: "10", next_timestamp_nano: "1700000000000000000" } },
   ],
   [
     "sellerchat_get_message",

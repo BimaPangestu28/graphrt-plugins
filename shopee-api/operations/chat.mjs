@@ -17,13 +17,13 @@ export const chatOperations = [
     parameters: {
       type: "object",
       properties: {
-        type: { type: "string", enum: ["all", "pinned", "unread"], default: "all" },
+        conversation_type: { type: "string", enum: ["all", "pinned", "unread"], default: "all", description: "Which conversations (sent as `type`)" },
         limit: { type: "integer", minimum: 1, maximum: MAX_CHAT_PAGE_SIZE, default: 25, description: "Page size" },
         cursor: { type: "string", description: "next_cursor from a previous call" },
       },
     },
     run: async ({ client, args, signal }) => {
-      const query = { direction: "older", type: args.type, page_size: args.limit, next_timestamp_nano: args.cursor };
+      const query = { direction: "older", type: args.conversation_type, page_size: args.limit, next_timestamp_nano: args.cursor };
       const payload = extractShopeeResponse(await client.shop.request({ path: "/api/v2/sellerchat/get_conversation_list", query, signal }));
       const nextTimestamp = payload?.page_result?.next_cursor?.next_message_time_nano;
       return { data: payload?.conversations ?? [], next_cursor: payload?.page_result?.more && nextTimestamp ? String(nextTimestamp) : null };

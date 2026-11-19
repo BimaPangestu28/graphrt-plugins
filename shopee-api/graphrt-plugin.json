@@ -496,14 +496,15 @@
       "config_schema": {
         "type": "object",
         "properties": {
-          "type": {
+          "conversation_type": {
             "type": "string",
             "enum": [
               "all",
               "pinned",
               "unread"
             ],
-            "default": "all"
+            "default": "all",
+            "description": "Which conversations (sent as `type`)"
           },
           "limit": {
             "type": "integer",
@@ -946,14 +947,15 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "type": {
+          "conversation_type": {
             "type": "string",
             "enum": [
               "all",
               "pinned",
               "unread"
             ],
-            "default": "all"
+            "default": "all",
+            "description": "Which conversations (sent as `type`)"
           },
           "limit": {
             "type": "integer",

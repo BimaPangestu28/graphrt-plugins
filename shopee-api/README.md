@@ -120,5 +120,9 @@ Shopee's message is kept, together with the error code and `request_id` for supp
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `sellerchat_get_conversation_list` parameter `type` is now `conversation_type` (still sent to Shopee as `type`). graphrt takes `type` from every workflow node, so the old name could never be set from a node; tool calls that passed `type` must use `conversation_type`.
+
 ## License
 Apache-2.0
