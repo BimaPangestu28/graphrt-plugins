@@ -1,6 +1,6 @@
 {
   "name": "tiktok-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TikTok profile, videos and Content Posting (Open API), plus comments and DMs (Business API), via the official TikTok APIs",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -233,9 +233,9 @@
             ],
             "default": "direct"
           },
-          "title": {
+          "post_title": {
             "type": "string",
-            "description": "Caption with #hashtags and @mentions (direct only; inbox drafts are captioned in the TikTok app)"
+            "description": "Caption with #hashtags and @mentions, sent as post_info.title (direct only; inbox drafts are captioned in the TikTok app)"
           },
           "privacy_level": {
             "type": "string",
@@ -331,8 +331,9 @@
             ],
             "default": "direct"
           },
-          "title": {
-            "type": "string"
+          "post_title": {
+            "type": "string",
+            "description": "Post title, sent as post_info.title"
           },
           "description": {
             "type": "string",
@@ -1089,9 +1090,9 @@
             ],
             "default": "direct"
           },
-          "title": {
+          "post_title": {
             "type": "string",
-            "description": "Caption with #hashtags and @mentions (direct only; inbox drafts are captioned in the TikTok app)"
+            "description": "Caption with #hashtags and @mentions, sent as post_info.title (direct only; inbox drafts are captioned in the TikTok app)"
           },
           "privacy_level": {
             "type": "string",
@@ -1169,8 +1170,9 @@
             ],
             "default": "direct"
           },
-          "title": {
-            "type": "string"
+          "post_title": {
+            "type": "string",
+            "description": "Post title, sent as post_info.title"
           },
           "description": {
             "type": "string",
