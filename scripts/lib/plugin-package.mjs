@@ -162,17 +162,37 @@ function installProductionDependencies(stagedDirectory) {
     { cwd: stagedDirectory, stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" } },
   );
   if (npmResult.status !== 0) throw new Error(`${stagedDirectory}: npm ci failed (exit ${npmResult.status})`);
-  removeNpmMetadata(join(stagedDirectory, "node_modules"));
+  pruneDependencyExtras(join(stagedDirectory, "node_modules"));
 }
 
-/** Drops `.bin` link directories and caches anywhere under node_modules. */
-function removeNpmMetadata(nodeModulesDirectory) {
+const NPM_METADATA_DIRECTORIES = new Set([".bin", ".cache"]);
+// Dependencies' own test suites (e.g. ssh2's fixture certificates) are never needed at runtime.
+const PACKAGE_TEST_DIRECTORIES = new Set(["test", "tests", "__tests__"]);
+
+/**
+ * Drops what an installed plugin never needs from its node_modules: `.bin` link directories and
+ * caches anywhere, and the test folders at each dependency's package root (not deeper, so a
+ * runtime `lib/test` folder stays).
+ *
+ * @param nodeModulesDirectory - The staged plugin's node_modules (string)
+ */
+export function pruneDependencyExtras(nodeModulesDirectory) {
   if (!existsSync(nodeModulesDirectory)) return;
   for (const entry of readdirSync(nodeModulesDirectory, { withFileTypes: true, recursive: true })) {
-    if (entry.isDirectory() && (entry.name === ".bin" || entry.name === ".cache")) {
-      rmSync(join(entry.parentPath, entry.name), { recursive: true, force: true });
-    }
+    if (!entry.isDirectory()) continue;
+    const isMetadata = NPM_METADATA_DIRECTORIES.has(entry.name);
+    const isPackageTests = PACKAGE_TEST_DIRECTORIES.has(entry.name) && isPackageRoot(nodeModulesDirectory, entry.parentPath);
+    if (isMetadata || isPackageTests) rmSync(join(entry.parentPath, entry.name), { recursive: true, force: true });
   }
+}
+
+// `node_modules/<name>` or `node_modules/@scope/<name>`, also inside nested node_modules folders.
+function isPackageRoot(nodeModulesDirectory, directory) {
+  const segments = relative(nodeModulesDirectory, directory).split(sep);
+  const parentSegment = segments.at(-2);
+  if (segments.length === 1) return !segments[0].startsWith("@");
+  if (parentSegment === "node_modules") return !segments.at(-1).startsWith("@");
+  return parentSegment?.startsWith("@") === true && (segments.length === 2 || segments.at(-3) === "node_modules");
 }
 
 /**

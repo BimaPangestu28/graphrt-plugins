@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import {
+  pruneDependencyExtras,
   assertAllowedPath, buildCatalog, buildCatalogEntry, describeTarballBytes, extractCatalogWarning, findCatalogRegressions, formatSha256Sums,
   isPinnedPath, releaseTagFor, sha256Hex, tarballNameFor, withChecksums,
 } from "../lib/plugin-package.mjs";
@@ -179,4 +181,35 @@ test("flags rebuilt catalogs that drop plugins or change their tarballs", () => 
     "meta-api: size_bytes 10 -> 11",
     "x-api: missing from the rebuilt catalog",
   ]);
+});
+
+test("drops dependencies' own test folders, .bin and caches, but keeps their runtime files", () => {
+  const nodeModules = mkdtempSync(join(tmpdir(), "prune-node-modules-"));
+  const writeFile = (relativePath) => {
+    mkdirSync(dirname(join(nodeModules, relativePath)), { recursive: true });
+    writeFileSync(join(nodeModules, relativePath), "x");
+  };
+  try {
+    for (const relativePath of [
+      "ssh2/test/fixtures/https_cert.pem",
+      "ssh2/tests/a.js",
+      "ssh2/__tests__/b.js",
+      "@scope/pkg/test/c.js",
+      ".bin/ssh2",
+      "ssh2/.cache/d",
+      "ssh2/lib/client.js",
+      "ssh2/lib/test/helper.js",
+      "@scope/pkg/index.js",
+    ]) writeFile(relativePath);
+    pruneDependencyExtras(nodeModules);
+    for (const removed of ["ssh2/test", "ssh2/tests", "ssh2/__tests__", "@scope/pkg/test", ".bin", "ssh2/.cache"]) {
+      assert.equal(existsSync(join(nodeModules, removed)), false, removed);
+    }
+    // Only test folders at a package root go: a runtime "lib/test" folder is kept.
+    for (const kept of ["ssh2/lib/client.js", "ssh2/lib/test/helper.js", "@scope/pkg/index.js"]) {
+      assert.equal(existsSync(join(nodeModules, kept)), true, kept);
+    }
+  } finally {
+    rmSync(nodeModules, { recursive: true, force: true });
+  }
 });
