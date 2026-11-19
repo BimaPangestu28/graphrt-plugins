@@ -1,0 +1,283 @@
+{
+  "name": "file-watcher",
+  "version": "0.1.0",
+  "description": "Notice added, modified and removed files in allowed directories by polling: snapshot to a cursor, list changes since a cursor, or wait (up to 5 minutes) for the next change; bounded, never follows symlinks",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "FILE_WATCHER_ALLOWED_DIRS",
+      "FILE_WATCHER_MAX_ENTRIES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 330000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "file-watcher.snapshot",
+      "title": "Snapshot a directory",
+      "description": "Records the files and directories (type, size, modified time) under a directory inside the allowed directories and returns a cursor for list_changes or wait_for_change",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory inside FILE_WATCHER_ALLOWED_DIRS (absolute, ~/..., or relative to the first one)",
+            "default": "."
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5,
+            "description": "How deep to look (1 = only the directory's own entries)"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "name_pattern": {
+            "type": "string",
+            "description": "Only track entries whose name matches this glob (* and ?), e.g. *.csv; at most 256 characters"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "file-watcher.list_changes",
+      "title": "List changes since a cursor",
+      "description": "Rescans the directory of a cursor and lists what was added, modified or removed since it was taken, with a new cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Cursor from snapshot, list_changes or wait_for_change"
+          },
+          "max_changes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most changes to return; `changes_truncated` says when there were more"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "file-watcher.wait_for_change",
+      "title": "Wait for a change",
+      "description": "Polls a directory (or a cursor's directory) until something is added, modified or removed, or until timeout_seconds (at most 300) pass; returns the changes and a new cursor either way",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory inside FILE_WATCHER_ALLOWED_DIRS (absolute, ~/..., or relative to the first one)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Wait for changes since this cursor (changes already made since it are returned at once); otherwise the wait starts now"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 60,
+            "description": "Longest wait"
+          },
+          "poll_interval_ms": {
+            "type": "integer",
+            "minimum": 250,
+            "maximum": 60000,
+            "default": 2000,
+            "description": "Time between rescans"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5,
+            "description": "How deep to look (1 = only the directory's own entries)"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "name_pattern": {
+            "type": "string",
+            "description": "Only track entries whose name matches this glob (* and ?), e.g. *.csv; at most 256 characters"
+          },
+          "max_changes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most changes to return; `changes_truncated` says when there were more"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "snapshot",
+      "description": "Records the files and directories (type, size, modified time) under a directory inside the allowed directories and returns a cursor for list_changes or wait_for_change",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory inside FILE_WATCHER_ALLOWED_DIRS (absolute, ~/..., or relative to the first one)",
+            "default": "."
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5,
+            "description": "How deep to look (1 = only the directory's own entries)"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "name_pattern": {
+            "type": "string",
+            "description": "Only track entries whose name matches this glob (* and ?), e.g. *.csv; at most 256 characters"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_changes",
+      "description": "Rescans the directory of a cursor and lists what was added, modified or removed since it was taken, with a new cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Cursor from snapshot, list_changes or wait_for_change"
+          },
+          "max_changes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most changes to return; `changes_truncated` says when there were more"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      }
+    },
+    {
+      "name": "wait_for_change",
+      "description": "Polls a directory (or a cursor's directory) until something is added, modified or removed, or until timeout_seconds (at most 300) pass; returns the changes and a new cursor either way",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory inside FILE_WATCHER_ALLOWED_DIRS (absolute, ~/..., or relative to the first one)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Wait for changes since this cursor (changes already made since it are returned at once); otherwise the wait starts now"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 60,
+            "description": "Longest wait"
+          },
+          "poll_interval_ms": {
+            "type": "integer",
+            "minimum": 250,
+            "maximum": 60000,
+            "default": 2000,
+            "description": "Time between rescans"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5,
+            "description": "How deep to look (1 = only the directory's own entries)"
+          },
+          "include_hidden": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include names starting with a dot"
+          },
+          "name_pattern": {
+            "type": "string",
+            "description": "Only track entries whose name matches this glob (* and ?), e.g. *.csv; at most 256 characters"
+          },
+          "max_changes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most changes to return; `changes_truncated` says when there were more"
+          }
+        }
+      }
+    }
+  ]
+}

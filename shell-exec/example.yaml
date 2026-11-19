@@ -1,0 +1,16 @@
+# Run one allowlisted program in an allowed directory (a workflow node, not an agent tool).
+#   mkdir -p ~/graphrt-work
+#   SHELL_EXEC_COMMANDS=/bin/echo SHELL_EXEC_ALLOWED_DIRS=~/graphrt-work \
+#   graphrt run shell-exec/example.yaml --plugins .
+version: "1"
+name: shell-exec-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: hello, type: shell-exec.run_command, command: echo, args: ["hello", "$(not expanded)"], command_timeout_ms: 5000 }
+    - id: answer
+      type: answer
+      answer: "exit {{#hello.data.exit_code#}}: {{#hello.data.stdout#}}"
+  edges:
+    - { source: start, target: hello }
+    - { source: hello, target: answer }

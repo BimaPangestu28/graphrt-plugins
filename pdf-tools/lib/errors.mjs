@@ -1,7 +1,8 @@
 /**
  * PluginError builders for the local file plugins.
  * This file is identical in the ffmpeg, image-tools, pdf-tools, excel-csv,
- * ocr-tesseract and qr-code plugins; keep the copies in step.
+ * ocr-tesseract, qr-code, local-files, sftp, macos-notifications, file-watcher
+ * and shell-exec plugins; keep the copies in step.
  */
 import { PluginError } from "./shared/graphrt-plugin.mjs";
 

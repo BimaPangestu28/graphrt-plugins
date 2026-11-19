@@ -6,7 +6,8 @@
  * to a cap (then the process is killed and the result says `stdoutTruncated`);
  * stderr keeps only its last bytes, for error messages. The program's stdin is
  * closed, and its output never reaches the plugin's own stdout (the protocol).
- * This file is identical in the ffmpeg and ocr-tesseract plugins; keep the copies in step.
+ * This file is identical in the ffmpeg, ocr-tesseract and macos-notifications
+ * plugins; keep the copies in step.
  */
 import { spawn as defaultSpawn } from "node:child_process";
 import { cancelled, operationFailed, setupRequired, timedOut } from "./errors.mjs";

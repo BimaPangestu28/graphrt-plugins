@@ -1,0 +1,247 @@
+{
+  "name": "rss-reader",
+  "version": "0.1.0",
+  "description": "RSS 2.0, RSS 1.0, Atom and JSON Feed: fetch from public https URLs (size-capped) or parse given text into normalised items, with since and item limits; no DTDs or entity expansion",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": [
+      "RSS_READER_MAX_FEED_BYTES",
+      "RSS_READER_TIMEOUT_MS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 60000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "rss-reader.read_feed",
+      "title": "Read a feed",
+      "description": "Fetches an RSS 2.0, RSS 1.0, Atom or JSON Feed from a public https URL and returns the feed and its items in one normalised shape (title, link, dates, author, categories, plain-text summary, enclosures)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Feed URL (https, public host)"
+          },
+          "max_items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50,
+            "description": "Most items to return, in feed order; `truncated` says when there were more"
+          },
+          "since": {
+            "type": "string",
+            "description": "ISO 8601 date-time: keep only items published (or updated) after it; undated items are kept"
+          },
+          "include_content": {
+            "type": "boolean",
+            "default": false,
+            "description": "Add each item's full content (content:encoded, Atom content, content_html/text)"
+          },
+          "content_format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Content as readable plain text or as the feed's HTML (not sanitised)"
+          },
+          "max_content_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 200000,
+            "default": 20000,
+            "description": "Longest content per item; longer content ends in … and has content_truncated"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rss-reader.parse_feed",
+      "title": "Parse feed text",
+      "description": "Parses RSS, Atom or JSON Feed text you already have (e.g. from another node) into the same normalised shape as read_feed, without any network access",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The feed document (XML or JSON text)"
+          },
+          "max_items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50,
+            "description": "Most items to return, in feed order; `truncated` says when there were more"
+          },
+          "since": {
+            "type": "string",
+            "description": "ISO 8601 date-time: keep only items published (or updated) after it; undated items are kept"
+          },
+          "include_content": {
+            "type": "boolean",
+            "default": false,
+            "description": "Add each item's full content (content:encoded, Atom content, content_html/text)"
+          },
+          "content_format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Content as readable plain text or as the feed's HTML (not sanitised)"
+          },
+          "max_content_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 200000,
+            "default": 20000,
+            "description": "Longest content per item; longer content ends in … and has content_truncated"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "read_feed",
+      "description": "Fetches an RSS 2.0, RSS 1.0, Atom or JSON Feed from a public https URL and returns the feed and its items in one normalised shape (title, link, dates, author, categories, plain-text summary, enclosures)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Feed URL (https, public host)"
+          },
+          "max_items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50,
+            "description": "Most items to return, in feed order; `truncated` says when there were more"
+          },
+          "since": {
+            "type": "string",
+            "description": "ISO 8601 date-time: keep only items published (or updated) after it; undated items are kept"
+          },
+          "include_content": {
+            "type": "boolean",
+            "default": false,
+            "description": "Add each item's full content (content:encoded, Atom content, content_html/text)"
+          },
+          "content_format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Content as readable plain text or as the feed's HTML (not sanitised)"
+          },
+          "max_content_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 200000,
+            "default": 20000,
+            "description": "Longest content per item; longer content ends in … and has content_truncated"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "name": "parse_feed",
+      "description": "Parses RSS, Atom or JSON Feed text you already have (e.g. from another node) into the same normalised shape as read_feed, without any network access",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The feed document (XML or JSON text)"
+          },
+          "max_items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50,
+            "description": "Most items to return, in feed order; `truncated` says when there were more"
+          },
+          "since": {
+            "type": "string",
+            "description": "ISO 8601 date-time: keep only items published (or updated) after it; undated items are kept"
+          },
+          "include_content": {
+            "type": "boolean",
+            "default": false,
+            "description": "Add each item's full content (content:encoded, Atom content, content_html/text)"
+          },
+          "content_format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Content as readable plain text or as the feed's HTML (not sanitised)"
+          },
+          "max_content_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 200000,
+            "default": 20000,
+            "description": "Longest content per item; longer content ends in … and has content_truncated"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    }
+  ]
+}

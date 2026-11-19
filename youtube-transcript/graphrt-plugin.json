@@ -1,0 +1,250 @@
+{
+  "name": "youtube-transcript",
+  "version": "0.1.0",
+  "description": "YouTube captions via the official Data API: list a video's caption tracks and download one as timed segments and plain text (videos you can edit), or parse VTT/SRT you already have",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "YOUTUBE_ACCESS_TOKEN",
+      "YOUTUBE_REFRESH_TOKEN",
+      "YOUTUBE_CLIENT_ID",
+      "YOUTUBE_CLIENT_SECRET",
+      "YOUTUBE_TRANSCRIPT_MAX_CAPTION_BYTES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "youtube-transcript.list_caption_tracks",
+      "title": "List caption tracks",
+      "description": "Lists a video's caption tracks (id, language, name, standard or auto-generated, draft, status) with the official YouTube Data API (OAuth; 50 quota units)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video": {
+            "type": "string",
+            "description": "Video id (11 characters) or a youtube.com / youtu.be URL"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-transcript.get_transcript",
+      "title": "Get a transcript",
+      "description": "Downloads a caption track with the official YouTube Data API (captions.download, OAuth, 200 quota units; only for videos the authorised account can edit) and returns timed segments and plain text, or the raw file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "video": {
+            "type": "string",
+            "description": "Video id (11 characters) or a youtube.com / youtu.be URL; required unless caption_id is given"
+          },
+          "language": {
+            "type": "string",
+            "description": "Track language, e.g. en (default: the best published track); standard tracks are preferred over auto-generated ones"
+          },
+          "caption_id": {
+            "type": "string",
+            "description": "A track id from list_caption_tracks; skips the listing (`video` is then not needed and the result's video_id is null, since the track's video is not checked)"
+          },
+          "translate_to": {
+            "type": "string",
+            "description": "Language code for a machine translation by YouTube (tlang)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "segments",
+              "vtt",
+              "srt",
+              "ttml",
+              "sbv"
+            ],
+            "default": "segments",
+            "description": "segments: parsed segments and text; otherwise the caption file as returned"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000000,
+            "default": 200000,
+            "description": "Longest transcript text; longer text is cut and `truncated` is true (segments are cut to match)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "youtube-transcript.parse_captions",
+      "title": "Parse a caption file",
+      "description": "Parses WebVTT or SRT caption text you already have into timed segments and plain transcript text (no network, no credentials)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "WebVTT or SRT file contents (at most YOUTUBE_TRANSCRIPT_MAX_CAPTION_BYTES, default 5 MiB)"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000000,
+            "default": 200000,
+            "description": "Longest transcript text; longer text is cut and `truncated` is true (segments are cut to match)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_caption_tracks",
+      "description": "Lists a video's caption tracks (id, language, name, standard or auto-generated, draft, status) with the official YouTube Data API (OAuth; 50 quota units)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video": {
+            "type": "string",
+            "description": "Video id (11 characters) or a youtube.com / youtu.be URL"
+          }
+        },
+        "required": [
+          "video"
+        ]
+      }
+    },
+    {
+      "name": "get_transcript",
+      "description": "Downloads a caption track with the official YouTube Data API (captions.download, OAuth, 200 quota units; only for videos the authorised account can edit) and returns timed segments and plain text, or the raw file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video": {
+            "type": "string",
+            "description": "Video id (11 characters) or a youtube.com / youtu.be URL; required unless caption_id is given"
+          },
+          "language": {
+            "type": "string",
+            "description": "Track language, e.g. en (default: the best published track); standard tracks are preferred over auto-generated ones"
+          },
+          "caption_id": {
+            "type": "string",
+            "description": "A track id from list_caption_tracks; skips the listing (`video` is then not needed and the result's video_id is null, since the track's video is not checked)"
+          },
+          "translate_to": {
+            "type": "string",
+            "description": "Language code for a machine translation by YouTube (tlang)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "segments",
+              "vtt",
+              "srt",
+              "ttml",
+              "sbv"
+            ],
+            "default": "segments",
+            "description": "segments: parsed segments and text; otherwise the caption file as returned"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000000,
+            "default": 200000,
+            "description": "Longest transcript text; longer text is cut and `truncated` is true (segments are cut to match)"
+          }
+        }
+      }
+    },
+    {
+      "name": "parse_captions",
+      "description": "Parses WebVTT or SRT caption text you already have into timed segments and plain transcript text (no network, no credentials)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "WebVTT or SRT file contents (at most YOUTUBE_TRANSCRIPT_MAX_CAPTION_BYTES, default 5 MiB)"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000000,
+            "default": 200000,
+            "description": "Longest transcript text; longer text is cut and `truncated` is true (segments are cut to match)"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    }
+  ]
+}

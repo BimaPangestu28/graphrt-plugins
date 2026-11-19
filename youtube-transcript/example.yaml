@@ -1,0 +1,16 @@
+# List a video's caption tracks and fetch the English transcript (official API; the account must be able to edit the video).
+#   YOUTUBE_ACCESS_TOKEN=ya29... graphrt run youtube-transcript/example.yaml --plugins .
+version: "1"
+name: youtube-transcript-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: tracks, type: youtube-transcript.list_caption_tracks, video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }
+    - { id: transcript, type: youtube-transcript.get_transcript, video: "dQw4w9WgXcQ", language: en, max_chars: 20000 }
+    - id: answer
+      type: answer
+      answer: "Tracks: {{#tracks.data.tracks#}}. Transcript (truncated: {{#transcript.data.truncated#}}): {{#transcript.data.text#}}"
+  edges:
+    - { source: start, target: tracks }
+    - { source: tracks, target: transcript }
+    - { source: transcript, target: answer }

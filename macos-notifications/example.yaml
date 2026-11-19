@@ -1,0 +1,14 @@
+# Post one local notification on this Mac.
+#   graphrt run macos-notifications/example.yaml --plugins .
+version: "1"
+name: macos-notifications-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: notify, type: macos-notifications.notify, notification_title: graphrt, subtitle: "macos-notifications", message: "Test notification from the plugin example" }
+    - id: answer
+      type: answer
+      answer: "posted: {{#notify.data.posted#}}"
+  edges:
+    - { source: start, target: notify }
+    - { source: notify, target: answer }

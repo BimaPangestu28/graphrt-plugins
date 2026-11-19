@@ -1,0 +1,18 @@
+# List the exchange directory on an SFTP server and download one file.
+#   SFTP_HOST=sftp.example.com SFTP_USERNAME=deploy SFTP_PRIVATE_KEY_PATH=~/.ssh/deploy_ed25519 \
+#   SFTP_HOST_FINGERPRINT=SHA256:... SFTP_ROOT=/home/deploy/exchange SFTP_OUTPUT_DIR=~/sftp-downloads \
+#   graphrt run sftp/example.yaml --plugins .
+version: "1"
+name: sftp-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: listing, type: sftp.list_directory, path: "/" }
+    - { id: fetch, type: sftp.download, path: "/report.csv" }
+    - id: answer
+      type: answer
+      answer: "Remote files: {{#listing.data.entries#}}; saved {{#fetch.data.path#}}"
+  edges:
+    - { source: start, target: listing }
+    - { source: listing, target: fetch }
+    - { source: fetch, target: answer }
