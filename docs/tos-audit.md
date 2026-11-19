@@ -106,8 +106,11 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - Official API v2 only.
   - It honours `x-rate-limit-reset`.
   - Token refresh is node only.
-- **Missing:** posts, replies, likes, reposts and DMs are agent tools with no opt-in or recipient allowlist. A future
-  change should gate tool writes behind `X_TOOL_ALLOW_WRITES`, as slack and discord do.
+  - x-api 0.2.0: agent tools need `X_TOOL_ALLOW_POST=1` for posts, replies, quotes and reposts,
+    `X_TOOL_ALLOW_ENGAGE=1` for likes and hiding replies, and `X_TOOL_ALLOW_DM=1` plus every recipient in
+    `X_TOOL_RECIPIENT_ALLOWLIST` (exact user or conversation ids) for DMs. `delete_post` is node only.
+- **Missing:** the agent opt-ins are **fixed** in x-api 0.2.0. The Automation Rules (no keyword auto-replies, no
+  trend posting) still depend on how the user configures the agent.
 
 ## linkedin-api
 - **Risk: high** (official API, but the terms forbid the use an agent plugin invites).

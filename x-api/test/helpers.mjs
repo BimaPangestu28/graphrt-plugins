@@ -7,6 +7,15 @@ export const TEST_ENVIRONMENT = {
   X_USER_ID: "42",
 };
 
+// Most tests run operations as agent tools, so the runners below add the agent opt-ins to every environment.
+// agent-policy.test.mjs covers the refusals without them.
+const TOOL_OPT_INS = {
+  X_TOOL_ALLOW_POST: "1",
+  X_TOOL_ALLOW_ENGAGE: "1",
+  X_TOOL_ALLOW_DM: "1",
+  X_TOOL_RECIPIENT_ALLOWLIST: "1, 2, 77, 78, 123, 456, 1500, 42-77",
+};
+
 /** A public address, so fake image hosts pass the public-host check without DNS. */
 export const PUBLIC_TEST_ADDRESS = "93.184.216.34";
 
@@ -57,7 +66,7 @@ function prepareTestRun(responses, environment, resolveHostAddresses) {
     return recordingFetch(url, init);
   };
   const testDefinition = { ...pluginDefinition, createClient: (clientOptions) => ({ ...pluginDefinition.createClient(clientOptions), resolveHostAddresses }) };
-  const runOperation = createOperationRunner(testDefinition, environment, { fetchImpl: capturingFetch });
+  const runOperation = createOperationRunner(testDefinition, { ...TOOL_OPT_INS, ...environment }, { fetchImpl: capturingFetch });
   const run = (operationName, args) => {
     // Node-only operations (token refresh) are run the way graphrt runs them: as nodes.
     const isNodeOnly = pluginDefinition.operations.find((operation) => operation.name === operationName)?.nodeOnly;

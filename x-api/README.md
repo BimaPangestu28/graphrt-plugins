@@ -2,10 +2,16 @@
 
 **Status:** beta · **ToS risk:** medium. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
+> **0.2.0 (behaviour change for agents):** agent tools may no longer post, reply, repost, like, hide replies or send
+> DMs by default. Each group needs its own opt-in (`X_TOOL_ALLOW_POST`, `X_TOOL_ALLOW_ENGAGE`, `X_TOOL_ALLOW_DM`), DMs
+> also need the recipient in `X_TOOL_RECIPIENT_ALLOWLIST`, and `delete_post` is node only. Workflow nodes are
+> unchanged. See [Agent policy](#agent-policy).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **X API v2**. It publishes and
 manages posts, reads mentions and replies, likes and reposts, moderates replies, sends direct messages and uploads
-images, all as the user who owns the OAuth 2.0 access token. Every operation is a workflow node and an agent tool.
+images, all as the user who owns the OAuth 2.0 access token. Every operation is a workflow node. Agent tools are
+limited by the [agent policy](#agent-policy).
 
 > **Cost warning: X bills per request.** The X API is pay-per-use. Every read and every write is charged to your
 > developer account, for example about $0.005 per post read, $0.010 per user or DM read, $0.015 per post created
@@ -57,6 +63,10 @@ No `npm install` needed: the plugin has no dependencies.
 | `X_USER_ID` | no | Your numeric user id. If it's unset, operations that need it (likes, reposts, your posts and mentions) call `GET /2/users/me` once per run, which is one extra billed user read. |
 | `X_REFRESH_TOKEN` | no | Default refresh token for `refresh_access_token` |
 | `X_CLIENT_ID` | no | Default OAuth 2.0 client id for `refresh_access_token` |
+| `X_TOOL_ALLOW_POST` | no | `1` lets **agent tools** publish: `create_post` (posts, replies, quotes), `repost`, `undo_repost` |
+| `X_TOOL_ALLOW_ENGAGE` | no | `1` lets agent tools `like_post`, `unlike_post` and `hide_reply` |
+| `X_TOOL_ALLOW_DM` | no | `1` lets agent tools `send_dm` and `create_group_dm`, to recipients in `X_TOOL_RECIPIENT_ALLOWLIST` only |
+| `X_TOOL_RECIPIENT_ALLOWLIST` | with `X_TOOL_ALLOW_DM` | Comma-separated user ids (and, for `send_dm` with `conversation_id`, conversation ids) agent tools may message, matched exactly. Unset refuses every agent DM |
 | `X_CLIENT_SECRET` | no | Client secret for confidential apps, used by `refresh_access_token` (Basic auth). Public PKCE apps leave it unset. |
 
 graphrt starts plugins with a clean environment, and only these variables are passed through. A node can also
@@ -100,12 +110,32 @@ graphrt run x-api/example.yaml --plugins .
   refresh token, because the old one stops working. It isn't exposed as an agent tool, so tokens never reach an
   LLM.
 
+## Agent policy
+X's [Developer Policy](https://docs.x.com/developer-terms/policy) requires explicit consent before sending people
+automated replies or DMs, so agent tools start read-only. Workflow nodes are never limited.
+
+| Operations | As an agent tool |
+|------------|------------------|
+| Reads (`get_me`, users, posts, mentions, search, replies, DM events), `upload_media` | Always |
+| `create_post` (posts, replies, quotes), `repost`, `undo_repost` | Only with `X_TOOL_ALLOW_POST=1` |
+| `like_post`, `unlike_post`, `hide_reply` | Only with `X_TOOL_ALLOW_ENGAGE=1` |
+| `send_dm`, `create_group_dm` | Only with `X_TOOL_ALLOW_DM=1` **and** every recipient in `X_TOOL_RECIPIENT_ALLOWLIST` |
+| `delete_post`, `refresh_access_token` | Never (node only) |
+| `api_request` | GET only |
+
+- The allowlist holds exact ids: user ids for `participant_id` and `participant_ids` (every group member must be
+  listed), and conversation ids for `send_dm` with `conversation_id` (e.g. `42-77`). An unset or empty allowlist
+  refuses every agent DM, so the opt-in alone never lets an agent message strangers.
+- A refused call fails with `permission_denied` and sends no request (and so costs nothing).
+- Even with the opt-ins, X's [Automation Rules](https://help.x.com/en/rules-and-policies/x-automation) still apply:
+  no keyword-triggered auto-replies, no automated posts about trending topics, no bulk or spammy actions.
+
 ## Errors
 | Kind | When |
 |------|------|
 | `invalid_input` | Bad arguments (ids, polls, limits, image URL/type/size), or X `invalid-request` |
 | `auth_error` | Missing, invalid or expired token (HTTP 401, `unsupported-authentication`), or a rejected refresh token |
-| `permission_denied` | Missing scope or access level (`client-forbidden`, `not-authorized-for-resource`), or a DM recipient that can't be messaged |
+| `permission_denied` | Agent tool call without its opt-in or to a DM recipient outside the allowlist ([Agent policy](#agent-policy)); missing scope or access level (`client-forbidden`, `not-authorized-for-resource`), or a DM recipient that can't be messaged |
 | `rate_limited` | HTTP 429, `usage-capped` or `dm-rate-limited`. It's retried automatically only when `x-rate-limit-reset` (or `Retry-After`) is known and within 60 s, since each retry is billed; and `retryAfterMs` tells you when to try again. `usage-capped` (the monthly cap) is never retried |
 | `not_found` | `resource-not-found` (also when X reports it in a 200 response) |
 | `api_error`, `network_error`, `timeout`, `cancelled` | As named |
@@ -115,6 +145,13 @@ Writes (`POST`) are never retried on server or network errors, so a post or DM i
 ## Development
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
+
+## Changelog
+### 0.2.0
+- **Behaviour change for agents:** publishing (`create_post`, `repost`, `undo_repost`) needs `X_TOOL_ALLOW_POST=1`,
+  `like_post`, `unlike_post` and `hide_reply` need `X_TOOL_ALLOW_ENGAGE=1`, and `send_dm` / `create_group_dm` need
+  `X_TOOL_ALLOW_DM=1` plus every recipient in `X_TOOL_RECIPIENT_ALLOWLIST`. `delete_post` is node only. Workflow
+  nodes are unchanged.
 
 ## License
 Apache-2.0

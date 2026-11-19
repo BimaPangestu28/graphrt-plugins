@@ -1,6 +1,6 @@
 {
   "name": "x-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "X (Twitter) posts, replies, likes, reposts, DMs and media via the official X API v2",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -16,7 +16,11 @@
       "X_USER_ID",
       "X_CLIENT_SECRET",
       "X_REFRESH_TOKEN",
-      "X_CLIENT_ID"
+      "X_CLIENT_ID",
+      "X_TOOL_ALLOW_POST",
+      "X_TOOL_ALLOW_DM",
+      "X_TOOL_ALLOW_ENGAGE",
+      "X_TOOL_RECIPIENT_ALLOWLIST"
     ]
   },
   "limits": {
@@ -97,7 +101,7 @@
     {
       "kind": "x-api.create_post",
       "title": "Create X post",
-      "description": "Publish a post (tweet): text, reply, quote, media (ids from upload_media) or a poll.",
+      "description": "Publish a post (tweet): text, reply, quote, media (ids from upload_media) or a poll. (as an agent tool only when X_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -462,7 +466,7 @@
     {
       "kind": "x-api.hide_reply",
       "title": "Hide/unhide X reply",
-      "description": "Hide or unhide a reply to one of the authenticated user's posts.",
+      "description": "Hide or unhide a reply to one of the authenticated user's posts. (as an agent tool only when X_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -501,7 +505,7 @@
     {
       "kind": "x-api.like_post",
       "title": "Like X post",
-      "description": "Like a post as the authenticated user.",
+      "description": "Like a post as the authenticated user. (as an agent tool only when X_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -536,7 +540,7 @@
     {
       "kind": "x-api.unlike_post",
       "title": "Unlike X post",
-      "description": "Remove the authenticated user's like from a post.",
+      "description": "Remove the authenticated user's like from a post. (as an agent tool only when X_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -571,7 +575,7 @@
     {
       "kind": "x-api.repost",
       "title": "Repost X post",
-      "description": "Repost (retweet) a post as the authenticated user.",
+      "description": "Repost (retweet) a post as the authenticated user. (as an agent tool only when X_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -606,7 +610,7 @@
     {
       "kind": "x-api.undo_repost",
       "title": "Undo X repost",
-      "description": "Undo the authenticated user's repost of a post.",
+      "description": "Undo the authenticated user's repost of a post. (as an agent tool only when X_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -753,7 +757,7 @@
     {
       "kind": "x-api.send_dm",
       "title": "Send X DM",
-      "description": "Send a direct message to a user (participant_id) or into an existing conversation (conversation_id).",
+      "description": "Send a direct message to a user (participant_id) or into an existing conversation (conversation_id). (as an agent tool only when X_TOOL_ALLOW_DM=1 and every recipient is in X_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -799,7 +803,7 @@
     {
       "kind": "x-api.create_group_dm",
       "title": "Create X group DM",
-      "description": "Start a group DM conversation with 2-49 other users and send the first message.",
+      "description": "Start a group DM conversation with 2-49 other users and send the first message. (as an agent tool only when X_TOOL_ALLOW_DM=1 and every recipient is in X_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -1015,7 +1019,7 @@
     },
     {
       "name": "create_post",
-      "description": "Publish a post (tweet): text, reply, quote, media (ids from upload_media) or a poll.",
+      "description": "Publish a post (tweet): text, reply, quote, media (ids from upload_media) or a poll. (as an agent tool only when X_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1065,23 +1069,6 @@
             "description": "Who can reply (default: everyone)"
           }
         }
-      }
-    },
-    {
-      "name": "delete_post",
-      "description": "Delete one of the authenticated user's posts.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "post_id": {
-            "type": "string",
-            "pattern": "^[0-9]{1,19}$",
-            "description": "Post id"
-          }
-        },
-        "required": [
-          "post_id"
-        ]
       }
     },
     {
@@ -1254,7 +1241,7 @@
     },
     {
       "name": "hide_reply",
-      "description": "Hide or unhide a reply to one of the authenticated user's posts.",
+      "description": "Hide or unhide a reply to one of the authenticated user's posts. (as an agent tool only when X_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1275,7 +1262,7 @@
     },
     {
       "name": "like_post",
-      "description": "Like a post as the authenticated user.",
+      "description": "Like a post as the authenticated user. (as an agent tool only when X_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1292,7 +1279,7 @@
     },
     {
       "name": "unlike_post",
-      "description": "Remove the authenticated user's like from a post.",
+      "description": "Remove the authenticated user's like from a post. (as an agent tool only when X_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1309,7 +1296,7 @@
     },
     {
       "name": "repost",
-      "description": "Repost (retweet) a post as the authenticated user.",
+      "description": "Repost (retweet) a post as the authenticated user. (as an agent tool only when X_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1326,7 +1313,7 @@
     },
     {
       "name": "undo_repost",
-      "description": "Undo the authenticated user's repost of a post.",
+      "description": "Undo the authenticated user's repost of a post. (as an agent tool only when X_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1419,7 +1406,7 @@
     },
     {
       "name": "send_dm",
-      "description": "Send a direct message to a user (participant_id) or into an existing conversation (conversation_id).",
+      "description": "Send a direct message to a user (participant_id) or into an existing conversation (conversation_id). (as an agent tool only when X_TOOL_ALLOW_DM=1 and every recipient is in X_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1447,7 +1434,7 @@
     },
     {
       "name": "create_group_dm",
-      "description": "Start a group DM conversation with 2-49 other users and send the first message.",
+      "description": "Start a group DM conversation with 2-49 other users and send the first message. (as an agent tool only when X_TOOL_ALLOW_DM=1 and every recipient is in X_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
