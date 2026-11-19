@@ -1,0 +1,12 @@
+# Read the organization's credit balance and tier limits. Read-only, no credits spent.
+#   RUNWAY_API_KEY=key_... graphrt run runway/example.yaml --plugins .
+version: "1"
+name: runway-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: organization, type: runway.get_organization }
+    - { id: answer, type: answer, answer: "Runway credits left: {{#organization.data.creditBalance#}}" }
+  edges:
+    - { source: start, target: organization }
+    - { source: organization, target: answer }

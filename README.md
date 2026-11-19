@@ -44,6 +44,12 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [deepgram](deepgram/) | Deepgram: Nova-3 pre-recorded transcription by URL or file (diarization, summaries, redaction), Aura-2 text to speech saved as audio files, text intelligence, models, balances and request history (paid per minute/character) | 10 |
 | [assemblyai](assemblyai/) | AssemblyAI: upload audio, transcribe and wait (speakers, PII redaction, audio intelligence; US or EU), sentences, paragraphs, subtitles, word search and LLM Gateway prompts (paid per hour; deletes node only) | 12 |
 | [stable-audio](stable-audio/) | Stability AI Stable Audio: music and sound effects from text (2.5, and 3.0 as a job up to 380 s), audio-to-audio and inpainting saved as audio files, credit balance (paid in credits) | 8 |
+| [runway](runway/) | Runway API: image, text and video to video, video upscale and text to image as polled tasks with downloads, task status and credits (paid per credit; cancel/delete node only) | 10 |
+| [luma-ai](luma-ai/) | Luma AI (current Agents API): Ray 3.2 text/image to video, video edit and reframe, uni-1 images as polled jobs with downloads, credits and usage (paid; deletes node only) | 10 |
+| [google-veo](google-veo/) | Google Veo 3.1 GA models on Vertex AI (the Gemini API's Veo previews were shut down): text, image and extend to video as long-running operations, inline video saving, operation status (paid per second; OAuth) | 3 |
+| [replicate-video](replicate-video/) | Replicate predictions for video models (Veo, Kling, Hailuo, Wan, ...): run and wait with long time limits and downloads, prediction status, model discovery (paid per model; cancel and webhooks node only) | 13 |
+| [kling](kling/) | Kling AI (official API): text, image and omni video with Kling 4.0/3.0/2.x as polled tasks with downloads, task queries and resource packages (paid per second; callbacks node only) | 10 |
+| [minimax-video](minimax-video/) | MiniMax video: H3 text/image/reference to video (V2) and Hailuo 2.3 (V1) as polled tasks with downloads, task status and file retrieval (paid; delete and callbacks node only) | 10 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

@@ -1,0 +1,17 @@
+# Check a Veo operation started earlier (generate_video with wait: false). Read-only, nothing is billed.
+#   GOOGLE_CLOUD_PROJECT=my-project GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... GOOGLE_REFRESH_TOKEN=... \
+#     graphrt run google-veo/example.yaml --plugins . \
+#     -i operation_name=projects/my-project/locations/us-central1/publishers/google/models/veo-3.1-generate-001/operations/123
+version: "1"
+name: google-veo-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: operation
+      type: google-veo.get_operation
+      model: veo-3.1-generate-001
+      operation_name: "{{#start.operation_name#}}"
+    - { id: answer, type: answer, answer: "done: {{#operation.data.result.done#}} videos: {{#operation.data.result.response.videos#}}" }
+  edges:
+    - { source: start, target: operation }
+    - { source: operation, target: answer }
