@@ -1,0 +1,25 @@
+# An advertiser's currency and its campaign spend per day for the first half of November 2026. Read-only. Set
+# advertiser_id to one of your ad accounts (the token's authorization response lists them as advertiser_ids).
+#   TIKTOK_ADS_ACCESS_TOKEN=... graphrt run tiktok-ads/example.yaml --plugins .
+version: "1"
+name: tiktok-ads-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: advertiser
+      type: tiktok-ads.get_advertiser_info
+      advertiser_ids: ["7000000000000000001"]
+      fields: [name, currency, timezone, status]
+    - id: report
+      type: tiktok-ads.get_report
+      advertiser_id: "7000000000000000001"
+      data_level: AUCTION_CAMPAIGN
+      dimensions: [campaign_id, stat_time_day]
+      metrics: [spend, impressions, clicks]
+      start_date: "2026-11-01"
+      end_date: "2026-11-15"
+    - { id: answer, type: answer, answer: "Advertiser: {{#advertiser.data#}} | spend: {{#report.data.list#}}" }
+  edges:
+    - { source: start, target: advertiser }
+    - { source: advertiser, target: report }
+    - { source: report, target: answer }

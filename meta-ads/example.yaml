@@ -1,0 +1,19 @@
+# List your ad accounts and the last 7 days of spend of the first one, per campaign. Read-only.
+#   META_ADS_ACCESS_TOKEN=... graphrt run meta-ads/example.yaml --plugins .
+version: "1"
+name: meta-ads-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: accounts, type: meta-ads.list_ad_accounts, limit: 5 }
+    - id: insights
+      type: meta-ads.get_insights
+      object_id: "{{#accounts.data.0.id#}}"
+      level: campaign
+      date_preset: last_7d
+      fields: campaign_name,impressions,clicks,spend
+    - { id: answer, type: answer, answer: "Accounts: {{#accounts.data#}} | last 7 days: {{#insights.data#}}" }
+  edges:
+    - { source: start, target: accounts }
+    - { source: accounts, target: insights }
+    - { source: insights, target: answer }

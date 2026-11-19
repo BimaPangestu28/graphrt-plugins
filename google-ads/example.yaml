@@ -1,0 +1,20 @@
+# List the accounts you can access and the last 7 days of campaign performance of one of them. Read-only. Set
+# customer_id to one of your accounts (list_accessible_customers shows them as customers/<id>).
+#   GOOGLE_REFRESH_TOKEN=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... graphrt run google-ads/example.yaml --plugins .
+version: "1"
+name: google-ads-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: customers, type: google-ads.list_accessible_customers }
+    - id: campaigns
+      type: google-ads.get_campaign_performance
+      customer_id: "123-456-7890"
+      date_range: LAST_7_DAYS
+      metrics: [impressions, clicks, cost_micros, conversions]
+      row_limit: 20
+    - { id: answer, type: answer, answer: "Accounts: {{#customers.data#}} | campaigns: {{#campaigns.data.rows#}}" }
+  edges:
+    - { source: start, target: customers }
+    - { source: customers, target: campaigns }
+    - { source: campaigns, target: answer }
