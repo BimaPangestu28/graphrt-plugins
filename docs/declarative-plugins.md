@@ -122,10 +122,10 @@ export const pluginDefinition = defineRestPlugin({
       description: "Create a task in a project",
       method: "POST",
       path: "/projects/{project_id}/tasks",
-      // write: "read" (GET/HEAD only) | "idempotent" (PUT/DELETE, or a POST that only reads) | "unsafe" (creates or sends).
-      // Every non-GET operation must declare it. "unsafe" requests are never retried after a 5xx or network error,
-      // and their errors say "outcome unknown ... check before retrying" plus checkHint (unless an
-      // idempotency key makes the retry safe, see below).
+      // write: "read" (GET/HEAD only) | "idempotent" (PUT/DELETE, or a free POST that only reads) | "unsafe" (creates,
+      // sends, or costs money). Every non-GET operation must declare it. "unsafe" requests are never retried after
+      // a 5xx or network error, and their errors say "outcome unknown ... check before retrying" plus checkHint
+      // (unless an idempotency key makes the retry safe, see below). Paid calls are "unsafe": see "Paid calls".
       write: "unsafe",
       checkHint: "list_tasks for the project and look for the title",
       params: {
@@ -206,6 +206,8 @@ export const pluginDefinition = defineRestPlugin({
   - `text`: one body param; a string is sent as is (`text/plain; charset=utf-8` unless `contentType`), an array as
     NDJSON (one JSON value per line, e.g. Elasticsearch `_bulk` with `contentType: "application/x-ndjson"`).
   - `multipart`: body params become fields; params with `file: true` are files (see below).
+  - `file`: one body param with `file: true` is the whole raw body (Deepgram `/v1/listen`, AssemblyAI `/v2/upload`),
+    sent with the file's media type unless `contentType` is set; other params go in the query or headers.
 - **Constants:** `constants: {query, body, headers}` adds fixed values (a GraphQL query, `stream: false`,
   `Accept`, `OpenAI-Beta`). They are applied after the params, cannot collide with a param of the same name, and
   `body` keys may be dotted paths.
@@ -215,15 +217,40 @@ export const pluginDefinition = defineRestPlugin({
 - **GET bodies:** Node's fetch refuses any body on GET/HEAD, so body params on GET are rejected at load. Use POST
   with `write: "idempotent"` for search endpoints that accept it (Elasticsearch `_search`, Notion `query`).
 
-### Multipart file inputs
+### File inputs (multipart and raw file bodies)
 ```js
-{ name: "transcribe", method: "POST", write: "idempotent", bodyMode: "multipart", path: "/audio/transcriptions",
+// A paid transcription: "unsafe" (see "Paid calls"), so a timeout is never retried into a second bill.
+{ name: "transcribe", method: "POST", write: "unsafe", checkHint: "list recent requests in the usage dashboard",
+  bodyMode: "multipart", path: "/audio/transcriptions", timeoutMs: 170000,
   multipart: { fileDirEnv: "OPENAI_UPLOAD_DIR", maxFileBytes: 25 * 1024 * 1024 },
   params: { file: { in: "body", type: "string", file: true, required: true }, model: { in: "body", type: "string", default: "whisper-1" } } }
+
+// The file is the raw body; the rest are query params.
+{ name: "transcribe_file", method: "POST", write: "unsafe", bodyMode: "file", path: "/v1/listen", timeoutMs: 280000,
+  fileBody: { fileDirEnv: "DEEPGRAM_UPLOAD_DIR", maxFileBytes: 200 * 1024 * 1024 },   // contentType: "..." to override
+  params: { file: { in: "body", type: "string", file: true, required: true }, model: { in: "query", type: "string" } } }
 ```
-A file argument is an https URL (downloaded with the public-https checks and the size cap) or an absolute local
-path. Local paths only work when `$fileDirEnv` names a directory. Both sides are resolved with realpath (symlinks
-cannot leave it), and the target must be a regular file within `maxFileBytes` (default 25 MB).
+- **Input:** a file argument is an https URL (downloaded with the public-https checks and the size cap, without the
+  credential) or an absolute local path. Local paths only work when `$fileDirEnv` names a directory. Both sides are
+  resolved with realpath (symlinks cannot leave it), and the target must be a regular file (FIFOs and devices are
+  refused without opening them) within `maxFileBytes` (default 25 MB). The file is read into memory.
+- **Order:** params are validated and placed (path, query, headers) before the file is read or downloaded, so a bad
+  argument never costs a download.
+- **One budget for file inputs and the request:** every file input (multipart and raw file bodies, local or
+  https) and the request share one budget that starts with the call and ends at `limits.timeout_ms` minus 10 s.
+  - The request needs `minRequestMs` (default: its own `timeoutMs`, or the plugin's, or 30 s). Downloads get the
+    time left minus that, so a slow input URL cannot push the request past the host timeout.
+  - The request gets its `timeoutMs`, capped by the time left. When less than `minRequestMs` is left it is not
+    started: a non-retryable `timeout` error says nothing was sent.
+  - At load, `minRequestMs` must leave time for the inputs (below `limits.timeout_ms` minus 10 s). Size
+    `limits.timeout_ms` as request timeout + the time large inputs need to download + 10 s, or lower
+    `minRequestMs`.
+  - Hand-written operations use the same budget: `createTransferBudget({totalMs, minRequestMs, maxRequestMs})`
+    and `readFileInputWithinBudget(reference, options, budget)` from `transfer-budget.mjs`, then pass
+    `budget.requestTimeoutMs()` as the request's `timeoutMs`.
+  - Retries of idempotent uploads get the request timeout again, so keep large paid uploads "unsafe".
+- Everything else is the normal path: credential redaction, error mapping, the unknown-outcome note and checkHint
+  for unsafe writes, and tool output truncation.
 
 ### Pagination styles (`response`)
 | Style | Fields | API examples |
@@ -236,7 +263,7 @@ cannot leave it), and the target must be a regular file within `maxFileBytes` (d
 | Offset | `offsetPagination: {offsetParam, limitParam?, totalPath?}` | Airtable-style, SQL APIs |
 
 `maxLimit`/`defaultLimit` bound the generated `limit`. `paramsIn` ("query" or "body") defaults to query for GET and
-body otherwise. Body pagination is refused at load on GET and with raw, text and multipart bodies. Next-page URLs
+body otherwise. Body pagination is refused at load on GET and with raw, text, multipart and file bodies. Next-page URLs
 (Link and next URL) must be on the base URL's origin and under its path, and they are redacted. With query auth,
 the credential is set again when the cursor is followed.
 
@@ -245,6 +272,9 @@ the credential is set again when the cursor is followed.
   (the create response holds the status URL, e.g. Replicate `urls.get`, fal `status_url`).
 - `job.result` (`{path}` or `{urlPath}`, e.g. fal `response_url`) fetches the result after the job is done, and
   `resultPath` then reads from that response.
+- Without `job.result`, `result` is read from the finished status response: the value at `resultPath`, or the
+  whole body when there is no `resultPath` (e.g. Stability's finished poll body `{audio, seed, finish_reason}`,
+  with `download.saveTo.base64Paths: ["audio"]`). Do not add a `job.result` request just to re-fetch it.
 - URLs from responses must be https on the base URL's host or a host in `job.allowedHosts`. The credential is sent
   to them, so list only the API's own hosts.
 - One deadline covers the create request, polling, the result fetch and downloads: it starts with the call and is
@@ -364,8 +394,9 @@ describeRestPluginContract(pluginDefinition, {
 });
 ```
 - **Case format:** repeated query or form keys compare as arrays (`{tags: ["a", "b"]}`). `multipart` compares field
-  values, and file fields by file name. Use `https://files.contract.example/<name>` for file args; the harness
-  serves it.
+  values (the first value of a repeated field), and file fields by file name. Use
+  `https://files.contract.example/<name>` for file args; the harness serves it. A bodyMode "file" request is
+  `file: true` or `file: {contentType}`: the body must be the served file's bytes.
 - **Generated tests:**
   - request shape and credential placement, and optional `expect.data`;
   - missing required params, and `..` and `../../x` in path params;
@@ -377,7 +408,10 @@ describeRestPluginContract(pluginDefinition, {
   - limit/cursor mapping and `next_cursor` for every pagination style, including URL cursors refused outside the
     base URL;
   - jobs that finish, fail and time out;
-  - downloads saved into the output directory.
+  - downloads saved into the output directory;
+  - every file param: local files refused without the upload directory env, a file inside it uploaded and files
+    outside it, symlinks out of it and relative paths refused, FIFOs and files over the cap refused, non-https URLs
+    refused, and (raw file bodies) the credential redacted from the upload response.
 - Add plugin-specific tests next to it for anything the spec cannot express.
 
 ## Checklist for a new plugin
@@ -394,6 +428,14 @@ describeRestPluginContract(pluginDefinition, {
 - Paid generation is allowed for tools by default; state the price in the README.
 - Never mark a write `idempotent` unless repeating it is harmless (PUT of the same document, DELETE that tolerates
   404, POST search). Prefer `idempotencyKeyHeader` where the API supports it (Stripe, Square, Adyen).
+
+### Paid calls
+Paid calls (text to speech, transcription, image/audio/video generation, LLM completions, per-request billed APIs)
+are `write: "unsafe"` with a `checkHint` that says where to see whether the call was billed (history, usage or
+request logs, balance). The shared client retries `idempotent` requests after timeouts, network errors and 5xx, and
+a timeout is exactly when the provider most likely did the work and billed it, so an "idempotent" paid call can be
+charged two or three times. Two exceptions: the API supports an idempotency key (`idempotencyKeyHeader`, then the
+retry is deduplicated), or the call is free (an upload to the provider's own storage, a free search).
 
 ## Escape hatches
 - `auth: { type: "custom", env, authorize }` for unusual headers and request signing.

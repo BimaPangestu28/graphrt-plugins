@@ -1,0 +1,14 @@
+# Show the ElevenLabs subscription usage and the first premade voices. Read-only (no characters are spent).
+#   ELEVENLABS_API_KEY=... graphrt run elevenlabs/example.yaml --plugins .
+version: "1"
+name: elevenlabs-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: subscription, type: elevenlabs.get_subscription }
+    - { id: voices, type: elevenlabs.list_voices, category: premade, limit: 5 }
+    - { id: answer, type: answer, answer: "Characters used: {{#subscription.data.character_count#}} of {{#subscription.data.character_limit#}} | voices: {{#voices.data#}}" }
+  edges:
+    - { source: start, target: subscription }
+    - { source: subscription, target: voices }
+    - { source: voices, target: answer }

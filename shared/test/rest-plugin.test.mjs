@@ -34,7 +34,7 @@ async function rejectsDemo(operationName, args, responses, matcher, options) {
 test("defineRestPlugin returns a normal plugin definition: manifest, nodes, tools and api_request", () => {
   const manifest = buildManifest(demoDefinition);
   assert.equal(manifest.name, "demo-api");
-  assert.deepEqual(manifest.permissions, { network: true, secrets: true, env: ["DEMO_TOKEN", "DEMO_TOOL_ALLOW_SEARCH", "DEMO_OUTPUT_DIR"] });
+  assert.deepEqual(manifest.permissions, { network: true, secrets: true, env: ["DEMO_TOKEN", "DEMO_TOOL_ALLOW_SEARCH", "DEMO_OUTPUT_DIR", "DEMO_UPLOAD_DIR"] });
   const nodeKinds = manifest.nodes.map((node) => node.kind);
   assert.ok(nodeKinds.includes("demo-api.delete_item"));
   assert.ok(nodeKinds.includes("demo-api.api_request"));

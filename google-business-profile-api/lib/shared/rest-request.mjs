@@ -2,13 +2,18 @@
  * Turns validated operation arguments into a shared-client request for a declarative REST operation:
  * path params (one encoded segment each, `{+name}` keeps slashes), query params with array styles, header params
  * (CR/LF refused), constants, the generated `limit`/`cursor` under the API's own names, and a body encoded here
- * (JSON, form, raw, text, multipart) so a custom signer sees the exact bytes.
+ * (JSON, form, raw, text, multipart, file) so a custom signer sees the exact bytes.
+ *
+ * File inputs (multipart files and bodyMode "file") share one budget with the request that carries them
+ * (`context.transferBudget`, transfer-budget.mjs): downloads get the time left minus what the request needs, and
+ * the request gets its own timeout capped by the time left, or is refused when too little is left.
  */
 import { PluginError } from "./graphrt-plugin.mjs";
 import { writePath } from "./object-path.mjs";
 import { pathSegment } from "./path.mjs";
 import { appendQueryString, appendQueryValue, encodeFormBody, encodeTextBody, flattenFormValue } from "./rest-encoding.mjs";
 import { readFileInput } from "./rest-files.mjs";
+import { readFileInputWithinBudget } from "./transfer-budget.mjs";
 import { READ_METHODS } from "./rest-spec-helpers.mjs";
 
 const IDEMPOTENT_FLAGS = { read: undefined, idempotent: true, unsafe: false };
@@ -20,9 +25,11 @@ const JSON_TYPE = "application/json";
  *
  * @param operation - Normalized operation spec (object)
  * @param args - Arguments validated against the operation's schema (object)
- * @param context - `{baseUrl, environment, fetchImpl, resolveHostAddresses, signal, idempotencyKey?: {header, value}}` (object)
+ * @param context - `{baseUrl, environment, fetchImpl, resolveHostAddresses, signal, transferBudget?, idempotencyKey?: {header, value}}`;
+ *   `transferBudget` (createTransferBudget) bounds file downloads and the request that sends them (object)
  * @returns `{method, path, headers, body?, idempotent, timeoutMs?}` for client.requestWithHeaders (Promise<object>)
  * @throws PluginError kind `invalid_input` - Bad path value, header value or cursor; file inputs that are refused
+ * @throws PluginError kind `timeout` (not retryable) - Too little of the budget is left for the request; nothing was sent
  */
 export async function buildRestRequest(operation, args, context) {
   const parts = { queryEntries: [], headers: {}, body: {} };
@@ -39,6 +46,7 @@ export async function buildRestRequest(operation, args, context) {
   }
   await attachBody(operation, args, parts, request, context);
   if (operation.timeoutMs) request.timeoutMs = operation.timeoutMs;
+  if (hasFileParams(operation) && context.transferBudget) request.timeoutMs = context.transferBudget.requestTimeoutMs();
   return request;
 }
 
@@ -149,6 +157,7 @@ async function attachBody(operation, args, parts, request, context) {
     form: () => setBody(request, encodeFormBody(parts.body, operation.formArrays), "application/x-www-form-urlencoded"),
     text: () => args[bodyParamNames[0]] !== undefined && setBody(request, encodeTextBody(args[bodyParamNames[0]]), operation.contentType ?? "text/plain; charset=utf-8"),
     multipart: async () => (request.body = await buildMultipartBody(operation, args, parts.body, context)),
+    file: async () => attachFileBody(operation, args, request, context),
   };
   await encoders[operation.bodyMode]();
 }
@@ -158,13 +167,37 @@ function setBody(request, encodedBody, contentType) {
   request.headers["content-type"] = contentType;
 }
 
+/**
+ * Whether an operation has file inputs (`file: true` params).
+ *
+ * @param operation - Operation spec (object)
+ * @returns True when a param has `file: true` (boolean)
+ */
+export function hasFileParams(operation) {
+  return Object.values(operation.params ?? {}).some((paramSpec) => paramSpec.file === true);
+}
+
+function readOperationFile(operation, paramName, fileReference, context) {
+  const settings = operation.bodyMode === "file" ? operation.fileBody : operation.multipart;
+  const fileOptions = { ...context, paramName, fileDirEnv: settings?.fileDirEnv, maxBytes: settings?.maxFileBytes };
+  return context.transferBudget ? readFileInputWithinBudget(fileReference, fileOptions, context.transferBudget) : readFileInput(String(fileReference), fileOptions);
+}
+
+// The file is the whole body, sent with its media type (by extension, or the download's) unless contentType is set.
+async function attachFileBody(operation, args, request, context) {
+  const [paramName] = Object.entries(operation.params).find(([, paramSpec]) => paramSpec.file === true);
+  if (args[paramName] === undefined) return;
+  const fileInput = await readOperationFile(operation, paramName, args[paramName], context);
+  setBody(request, fileInput.bytes, operation.contentType ?? fileInput.contentType);
+}
+
 // fetch sets the multipart content type (with its boundary) itself.
 async function buildMultipartBody(operation, args, body, context) {
   const formData = new FormData();
   const formEntries = [];
   for (const [paramName, paramSpec] of Object.entries(operation.params)) {
     if (paramSpec.in !== "body" || !paramSpec.file || args[paramName] === undefined) continue;
-    const fileInput = await readFileInput(String(args[paramName]), { ...context, paramName, fileDirEnv: operation.multipart?.fileDirEnv, maxBytes: operation.multipart?.maxFileBytes });
+    const fileInput = await readOperationFile(operation, paramName, args[paramName], context);
     formData.append(paramSpec.wireName ?? paramName, new Blob([fileInput.bytes], { type: fileInput.contentType }), fileInput.fileName);
     delete body[paramSpec.wireName ?? paramName];
   }

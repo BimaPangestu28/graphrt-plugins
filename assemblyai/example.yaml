@@ -1,0 +1,12 @@
+# List the five newest AssemblyAI transcripts. Read-only and free.
+#   ASSEMBLYAI_API_KEY=... graphrt run assemblyai/example.yaml --plugins .
+version: "1"
+name: assemblyai-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: transcripts, type: assemblyai.list_transcripts, limit: 5 }
+    - { id: answer, type: answer, answer: "Recent transcripts: {{#transcripts.data#}}" }
+  edges:
+    - { source: start, target: transcripts }
+    - { source: transcripts, target: answer }

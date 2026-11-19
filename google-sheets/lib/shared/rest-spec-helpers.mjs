@@ -6,7 +6,7 @@
 export const PARAM_LOCATIONS = ["path", "query", "body", "header"];
 export const PARAM_TYPES = ["string", "integer", "number", "boolean", "array", "object"];
 export const WRITE_CLASSES = ["read", "idempotent", "unsafe"];
-export const BODY_MODES = ["json", "form", "raw", "text", "multipart"];
+export const BODY_MODES = ["json", "form", "raw", "text", "multipart", "file"];
 export const QUERY_ARRAY_STYLES = ["comma", "repeat", "brackets"];
 export const FORM_ARRAY_STYLES = ["brackets", "repeat", "indexed"];
 export const ERROR_KINDS = ["invalid_input", "auth_error", "permission_denied", "not_found", "rate_limited", "api_error", "network_error", "timeout"];
@@ -19,6 +19,8 @@ export const HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 export const DEFAULT_HOST_TIMEOUT_MS = 120000;
 /** A request may use the host timeout minus the tool-deadline margin (operations.mjs). */
 export const REQUEST_TIMEOUT_MARGIN_MS = 10000;
+/** The shared client's default per-attempt timeout (api-client.mjs). */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 /** A job must report its timeout (with the job id) before the tool deadline. */
 export const JOB_TIMEOUT_MARGIN_MS = 15000;
 export const MIN_JOB_BUDGET_MS = 5000;

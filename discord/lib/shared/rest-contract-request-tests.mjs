@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { writePath } from "./object-path.mjs";
-import { FAKE_CREDENTIAL, isMultiSegmentParam, runContractOperation, successResponses } from "./rest-contract-context.mjs";
+import { CONTRACT_FILE_TEXT, FAKE_CREDENTIAL, isMultiSegmentParam, runContractOperation, successResponses } from "./rest-contract-context.mjs";
 
 const serverFailure = () => ({ status: 503, headers: { "retry-after": "0" }, body: { message: "temporarily unavailable" } });
 const CONTRACT_ERROR_MESSAGE = "contract error message";
@@ -68,6 +68,7 @@ async function assertRequestShape(contract, call, expected) {
   if (expected.form !== undefined) assert.deepEqual(groupEntries([...new URLSearchParams(call.body ?? "")]), expected.form, "form body");
   if (expected.text !== undefined) assert.equal(call.body, expected.text, "text body");
   if (expected.multipart !== undefined) await assertMultipart(call.formData, expected.multipart);
+  if (expected.file !== undefined) assertFileBody(call, expected.file);
   if (expected.body === "absent" || ["GET", "HEAD"].includes(expected.method)) assert.equal(call.body ?? call.formData, undefined, "no body");
   for (const [headerName, headerValue] of Object.entries(expected.headers ?? {})) assert.equal(call.headers[headerName.toLowerCase()], headerValue, `header ${headerName}`);
 }
@@ -90,6 +91,12 @@ async function assertMultipart(formData, expectedFields) {
     const fieldValue = formData.get(fieldName);
     assert.equal(fieldValue instanceof Blob ? fieldValue.name : fieldValue, expectedValue, `multipart field ${fieldName} (files compare by name)`);
   }
+}
+
+// `file: true` or `{contentType}`: the body is the bytes of the case's contract file URL.
+function assertFileBody(call, expectedFile) {
+  assert.equal(Buffer.from(call.rawBody ?? []).toString(), CONTRACT_FILE_TEXT, "file body: pass https://files.contract.example/<name> as the file arg");
+  if (expectedFile?.contentType !== undefined) assert.equal(call.headers["content-type"], expectedFile.contentType, "file body content-type");
 }
 
 function assertAuthPlacement(contract, operation, call) {

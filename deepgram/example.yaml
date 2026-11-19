@@ -1,0 +1,14 @@
+# List the Deepgram projects of the key and the speech models. Read-only and free.
+#   DEEPGRAM_API_KEY=... graphrt run deepgram/example.yaml --plugins .
+version: "1"
+name: deepgram-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: projects, type: deepgram.list_projects }
+    - { id: models, type: deepgram.list_models }
+    - { id: answer, type: answer, answer: "Projects: {{#projects.data#}} | TTS models: {{#models.data.tts#}}" }
+  edges:
+    - { source: start, target: projects }
+    - { source: projects, target: models }
+    - { source: models, target: answer }

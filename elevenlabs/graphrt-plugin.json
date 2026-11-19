@@ -1,0 +1,1182 @@
+{
+  "name": "elevenlabs",
+  "version": "0.1.0",
+  "description": "ElevenLabs: text to speech and sound effects saved as audio files, speech to text, voices, models, history and usage",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ELEVENLABS_API_KEY",
+      "ELEVENLABS_OUTPUT_DIR",
+      "ELEVENLABS_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 450000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "elevenlabs.text_to_speech",
+      "title": "Text to speech",
+      "description": "Convert text to speech with a voice and save the audio file in ELEVENLABS_OUTPUT_DIR (billed per character)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "voice_id": {
+            "type": "string",
+            "description": "Voice id from list_voices, e.g. JBFqnCBsd6RMkjVDRZzb"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text to speak",
+            "minLength": 1
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Model id from list_models (API default eleven_multilingual_v2), e.g. eleven_flash_v2_5, eleven_v3"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "ISO 639-1 language code to enforce, for models that support it"
+          },
+          "voice_settings": {
+            "type": "object",
+            "description": "Overrides the voice's settings: {stability 0-1, similarity_boost 0-1, style, use_speaker_boost, speed}"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed for best-effort deterministic output",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "previous_text": {
+            "type": "string",
+            "description": "Text before this one, for continuity when splitting long text"
+          },
+          "next_text": {
+            "type": "string",
+            "description": "Text after this one, for continuity when splitting long text"
+          },
+          "apply_text_normalization": {
+            "type": "string",
+            "description": "Spell out numbers and abbreviations (default auto)",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format codec_samplerate_bitrate (API default mp3_44100_128; 192 kbps MP3 and 44.1 kHz PCM need Creator/Pro plans)",
+            "enum": [
+              "mp3_22050_32",
+              "mp3_24000_48",
+              "mp3_44100_32",
+              "mp3_44100_64",
+              "mp3_44100_96",
+              "mp3_44100_128",
+              "mp3_44100_192",
+              "pcm_8000",
+              "pcm_16000",
+              "pcm_22050",
+              "pcm_24000",
+              "pcm_32000",
+              "pcm_44100",
+              "pcm_48000",
+              "wav_8000",
+              "wav_16000",
+              "wav_22050",
+              "wav_24000",
+              "wav_32000",
+              "wav_44100",
+              "wav_48000",
+              "opus_48000_32",
+              "opus_48000_64",
+              "opus_48000_96",
+              "opus_48000_128",
+              "opus_48000_192",
+              "ulaw_8000",
+              "alaw_8000"
+            ]
+          },
+          "enable_logging": {
+            "type": "boolean",
+            "description": "false enables zero retention mode (enterprise only): no history item is kept"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "voice_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.generate_sound_effect",
+      "title": "Generate sound effect",
+      "description": "Generate a sound effect from a text description and save the audio file in ELEVENLABS_OUTPUT_DIR (billed per generation)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Description of the sound, e.g. 'glass shattering on concrete'",
+            "minLength": 1
+          },
+          "duration_seconds": {
+            "type": "number",
+            "description": "Length in seconds (default: chosen from the prompt)",
+            "minimum": 0.5,
+            "maximum": 30
+          },
+          "prompt_influence": {
+            "type": "number",
+            "description": "How closely to follow the prompt (default 0.3)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "loop": {
+            "type": "boolean",
+            "description": "Make a seamless loop (eleven_text_to_sound_v2 only)"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Model (API default eleven_text_to_sound_v2)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format codec_samplerate_bitrate (API default mp3_44100_128; 192 kbps MP3 and 44.1 kHz PCM need Creator/Pro plans)",
+            "enum": [
+              "mp3_22050_32",
+              "mp3_24000_48",
+              "mp3_44100_32",
+              "mp3_44100_64",
+              "mp3_44100_96",
+              "mp3_44100_128",
+              "mp3_44100_192",
+              "pcm_8000",
+              "pcm_16000",
+              "pcm_22050",
+              "pcm_24000",
+              "pcm_32000",
+              "pcm_44100",
+              "pcm_48000",
+              "wav_8000",
+              "wav_16000",
+              "wav_22050",
+              "wav_24000",
+              "wav_32000",
+              "wav_44100",
+              "wav_48000",
+              "opus_48000_32",
+              "opus_48000_64",
+              "opus_48000_96",
+              "opus_48000_128",
+              "opus_48000_192",
+              "ulaw_8000",
+              "alaw_8000"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.speech_to_text",
+      "title": "Speech to text",
+      "description": "Transcribe an audio or video file (exactly one of file: an https URL or a file inside ELEVENLABS_UPLOAD_DIR, or source_url) with word timestamps, speaker diarization and audio-event tags (billed per hour of audio)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Transcription model, e.g. scribe_v2",
+            "default": "scribe_v2"
+          },
+          "file": {
+            "type": "string",
+            "description": "Audio or video file to upload (up to 100 MB here); or use source_url (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "https URL of the media that ElevenLabs fetches itself (also YouTube/TikTok links); instead of file"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "ISO 639-1/639-3 language code; detected when omitted"
+          },
+          "tag_audio_events": {
+            "type": "boolean",
+            "description": "Tag events like (laughter) (default true)"
+          },
+          "num_speakers": {
+            "type": "integer",
+            "description": "Maximum number of speakers",
+            "minimum": 1,
+            "maximum": 32
+          },
+          "timestamps_granularity": {
+            "type": "string",
+            "description": "Timestamp detail (default word)",
+            "enum": [
+              "none",
+              "word",
+              "character"
+            ]
+          },
+          "diarize": {
+            "type": "boolean",
+            "description": "Label which speaker is talking (default false)"
+          },
+          "keyterms": {
+            "type": "array",
+            "description": "Words or phrases to bias recognition towards",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "enable_logging": {
+            "type": "boolean",
+            "description": "false enables zero retention mode (enterprise only): no history item is kept"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.list_voices",
+      "title": "List voices",
+      "description": "Search and list the voices available to the account (premade, cloned, generated, library), with ids, labels and preview URLs",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Search name, description, labels and category"
+          },
+          "voice_type": {
+            "type": "string",
+            "description": "Filter by voice type",
+            "enum": [
+              "personal",
+              "community",
+              "default",
+              "workspace",
+              "non-default",
+              "non-community",
+              "saved"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "description": "Filter by category",
+            "enum": [
+              "premade",
+              "cloned",
+              "generated",
+              "professional"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "description": "Sort field",
+            "enum": [
+              "created_at_unix",
+              "name"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "include_total_count": {
+            "type": "boolean",
+            "description": "Include total_count (default true; false is faster)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.get_voice",
+      "title": "Get voice",
+      "description": "Get one voice: name, category, labels, description, preview URL, samples and settings",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "voice_id": {
+            "type": "string",
+            "description": "Voice id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "voice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.list_models",
+      "title": "List models",
+      "description": "List the models (TTS, speech to speech) with their languages, capabilities, character limits and cost factor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.list_history",
+      "title": "List history",
+      "description": "List generated speech items (newest first) with text, voice, model and character counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "voice_id": {
+            "type": "string",
+            "description": "Only items made with this voice"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Only items made with this model"
+          },
+          "search": {
+            "type": "string",
+            "description": "Search the text"
+          },
+          "source": {
+            "type": "string",
+            "description": "Only items from this source",
+            "enum": [
+              "TTS",
+              "STS",
+              "Flows"
+            ]
+          },
+          "date_after_unix": {
+            "type": "integer",
+            "description": "Only items created after this Unix time"
+          },
+          "date_before_unix": {
+            "type": "integer",
+            "description": "Only items created before this Unix time"
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Sort by creation time (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.get_history_audio",
+      "title": "Download history audio",
+      "description": "Download the audio of a history item into ELEVENLABS_OUTPUT_DIR (free: no new generation)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "history_item_id": {
+            "type": "string",
+            "description": "History item id from list_history"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "history_item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.get_subscription",
+      "title": "Get subscription",
+      "description": "Subscription tier, characters used and limit, reset time, voice slots and cloning access",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.clone_voice",
+      "title": "Clone voice",
+      "description": "Create an instant voice clone from an audio sample (https URL or a file inside ELEVENLABS_UPLOAD_DIR); you must have the speaker's consent",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Voice name",
+            "minLength": 1
+          },
+          "sample": {
+            "type": "string",
+            "description": "Audio sample of the speaker (1-2 minutes of clean speech works best) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Voice description"
+          },
+          "labels": {
+            "type": "string",
+            "description": "Labels as a JSON object string, e.g. {\"accent\":\"british\"}"
+          },
+          "remove_background_noise": {
+            "type": "boolean",
+            "description": "Remove background noise from the sample (default false)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name",
+          "sample"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.delete_voice",
+      "title": "Delete voice",
+      "description": "Delete a voice permanently",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "voice_id": {
+            "type": "string",
+            "description": "Voice id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "voice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "elevenlabs.api_request",
+      "title": "ElevenLabs API request",
+      "description": "Call any ElevenLabs API endpoint that has no dedicated operation, e.g. path \"/v1/user/subscription\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/user/subscription\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "text_to_speech",
+      "description": "Convert text to speech with a voice and save the audio file in ELEVENLABS_OUTPUT_DIR (billed per character)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "voice_id": {
+            "type": "string",
+            "description": "Voice id from list_voices, e.g. JBFqnCBsd6RMkjVDRZzb"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text to speak",
+            "minLength": 1
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Model id from list_models (API default eleven_multilingual_v2), e.g. eleven_flash_v2_5, eleven_v3"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "ISO 639-1 language code to enforce, for models that support it"
+          },
+          "voice_settings": {
+            "type": "object",
+            "description": "Overrides the voice's settings: {stability 0-1, similarity_boost 0-1, style, use_speaker_boost, speed}"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed for best-effort deterministic output",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "previous_text": {
+            "type": "string",
+            "description": "Text before this one, for continuity when splitting long text"
+          },
+          "next_text": {
+            "type": "string",
+            "description": "Text after this one, for continuity when splitting long text"
+          },
+          "apply_text_normalization": {
+            "type": "string",
+            "description": "Spell out numbers and abbreviations (default auto)",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format codec_samplerate_bitrate (API default mp3_44100_128; 192 kbps MP3 and 44.1 kHz PCM need Creator/Pro plans)",
+            "enum": [
+              "mp3_22050_32",
+              "mp3_24000_48",
+              "mp3_44100_32",
+              "mp3_44100_64",
+              "mp3_44100_96",
+              "mp3_44100_128",
+              "mp3_44100_192",
+              "pcm_8000",
+              "pcm_16000",
+              "pcm_22050",
+              "pcm_24000",
+              "pcm_32000",
+              "pcm_44100",
+              "pcm_48000",
+              "wav_8000",
+              "wav_16000",
+              "wav_22050",
+              "wav_24000",
+              "wav_32000",
+              "wav_44100",
+              "wav_48000",
+              "opus_48000_32",
+              "opus_48000_64",
+              "opus_48000_96",
+              "opus_48000_128",
+              "opus_48000_192",
+              "ulaw_8000",
+              "alaw_8000"
+            ]
+          },
+          "enable_logging": {
+            "type": "boolean",
+            "description": "false enables zero retention mode (enterprise only): no history item is kept"
+          }
+        },
+        "required": [
+          "voice_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "generate_sound_effect",
+      "description": "Generate a sound effect from a text description and save the audio file in ELEVENLABS_OUTPUT_DIR (billed per generation)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Description of the sound, e.g. 'glass shattering on concrete'",
+            "minLength": 1
+          },
+          "duration_seconds": {
+            "type": "number",
+            "description": "Length in seconds (default: chosen from the prompt)",
+            "minimum": 0.5,
+            "maximum": 30
+          },
+          "prompt_influence": {
+            "type": "number",
+            "description": "How closely to follow the prompt (default 0.3)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "loop": {
+            "type": "boolean",
+            "description": "Make a seamless loop (eleven_text_to_sound_v2 only)"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Model (API default eleven_text_to_sound_v2)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format codec_samplerate_bitrate (API default mp3_44100_128; 192 kbps MP3 and 44.1 kHz PCM need Creator/Pro plans)",
+            "enum": [
+              "mp3_22050_32",
+              "mp3_24000_48",
+              "mp3_44100_32",
+              "mp3_44100_64",
+              "mp3_44100_96",
+              "mp3_44100_128",
+              "mp3_44100_192",
+              "pcm_8000",
+              "pcm_16000",
+              "pcm_22050",
+              "pcm_24000",
+              "pcm_32000",
+              "pcm_44100",
+              "pcm_48000",
+              "wav_8000",
+              "wav_16000",
+              "wav_22050",
+              "wav_24000",
+              "wav_32000",
+              "wav_44100",
+              "wav_48000",
+              "opus_48000_32",
+              "opus_48000_64",
+              "opus_48000_96",
+              "opus_48000_128",
+              "opus_48000_192",
+              "ulaw_8000",
+              "alaw_8000"
+            ]
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "speech_to_text",
+      "description": "Transcribe an audio or video file (exactly one of file: an https URL or a file inside ELEVENLABS_UPLOAD_DIR, or source_url) with word timestamps, speaker diarization and audio-event tags (billed per hour of audio)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Transcription model, e.g. scribe_v2",
+            "default": "scribe_v2"
+          },
+          "file": {
+            "type": "string",
+            "description": "Audio or video file to upload (up to 100 MB here); or use source_url (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "https URL of the media that ElevenLabs fetches itself (also YouTube/TikTok links); instead of file"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "ISO 639-1/639-3 language code; detected when omitted"
+          },
+          "tag_audio_events": {
+            "type": "boolean",
+            "description": "Tag events like (laughter) (default true)"
+          },
+          "num_speakers": {
+            "type": "integer",
+            "description": "Maximum number of speakers",
+            "minimum": 1,
+            "maximum": 32
+          },
+          "timestamps_granularity": {
+            "type": "string",
+            "description": "Timestamp detail (default word)",
+            "enum": [
+              "none",
+              "word",
+              "character"
+            ]
+          },
+          "diarize": {
+            "type": "boolean",
+            "description": "Label which speaker is talking (default false)"
+          },
+          "keyterms": {
+            "type": "array",
+            "description": "Words or phrases to bias recognition towards",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "enable_logging": {
+            "type": "boolean",
+            "description": "false enables zero retention mode (enterprise only): no history item is kept"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_voices",
+      "description": "Search and list the voices available to the account (premade, cloned, generated, library), with ids, labels and preview URLs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Search name, description, labels and category"
+          },
+          "voice_type": {
+            "type": "string",
+            "description": "Filter by voice type",
+            "enum": [
+              "personal",
+              "community",
+              "default",
+              "workspace",
+              "non-default",
+              "non-community",
+              "saved"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "description": "Filter by category",
+            "enum": [
+              "premade",
+              "cloned",
+              "generated",
+              "professional"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "description": "Sort field",
+            "enum": [
+              "created_at_unix",
+              "name"
+            ]
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "include_total_count": {
+            "type": "boolean",
+            "description": "Include total_count (default true; false is faster)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_voice",
+      "description": "Get one voice: name, category, labels, description, preview URL, samples and settings",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "voice_id": {
+            "type": "string",
+            "description": "Voice id"
+          }
+        },
+        "required": [
+          "voice_id"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List the models (TTS, speech to speech) with their languages, capabilities, character limits and cost factor",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_history",
+      "description": "List generated speech items (newest first) with text, voice, model and character counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "voice_id": {
+            "type": "string",
+            "description": "Only items made with this voice"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Only items made with this model"
+          },
+          "search": {
+            "type": "string",
+            "description": "Search the text"
+          },
+          "source": {
+            "type": "string",
+            "description": "Only items from this source",
+            "enum": [
+              "TTS",
+              "STS",
+              "Flows"
+            ]
+          },
+          "date_after_unix": {
+            "type": "integer",
+            "description": "Only items created after this Unix time"
+          },
+          "date_before_unix": {
+            "type": "integer",
+            "description": "Only items created before this Unix time"
+          },
+          "sort_direction": {
+            "type": "string",
+            "description": "Sort by creation time (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_history_audio",
+      "description": "Download the audio of a history item into ELEVENLABS_OUTPUT_DIR (free: no new generation)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "history_item_id": {
+            "type": "string",
+            "description": "History item id from list_history"
+          }
+        },
+        "required": [
+          "history_item_id"
+        ]
+      }
+    },
+    {
+      "name": "get_subscription",
+      "description": "Subscription tier, characters used and limit, reset time, voice slots and cloning access",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any ElevenLabs API endpoint that has no dedicated operation, e.g. path \"/v1/user/subscription\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/user/subscription\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

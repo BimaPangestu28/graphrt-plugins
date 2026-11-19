@@ -36,6 +36,14 @@ test("the generated contract covers every promised behaviour", () => {
     "generate_image job: failed",
     "generate_image job: timeout",
     "generate_image saves result URLs into $DEMO_OUTPUT_DIR",
+    "render_audio saves base64 fields into $DEMO_OUTPUT_DIR",
+    "upload_blob sends POST https://api.example.com/v1/blobs with the credential in place",
+    "upload_blob (unsafe) is never retried after a 5xx",
+    "upload_blob refuses a local `file` when $DEMO_UPLOAD_DIR is unset",
+    "upload_blob uploads a local `file` inside $DEMO_UPLOAD_DIR and refuses one outside it or through a symlink",
+    "upload_blob refuses a FIFO and a `file` over 4096 bytes",
+    "upload_blob refuses a non-https `file` URL",
+    "upload_blob redacts a credential echoed in the upload response",
   ];
   for (const expectedFragment of expectedFragments) assert.ok(testNames.includes(expectedFragment), `missing generated test: ${expectedFragment}`);
 });
@@ -68,6 +76,7 @@ for (const [variant, failingTest] of [
   ["wrong-json", "send_message sends POST"],
   ["wrong-query", "list_cursor sends GET"],
   ["wrong-data", "get_item sends GET"],
+  ["wrong-file", "upload_blob sends POST"],
 ]) {
   test(`the generated contract fails for a ${variant} case`, () => {
     const fixtureRun = runFixtureVariant(variant);

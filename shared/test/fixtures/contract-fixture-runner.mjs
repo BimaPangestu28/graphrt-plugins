@@ -25,6 +25,9 @@ const variants = {
   "wrong-data": () => {
     operations.get_item.expect.data = { id: "other" };
   },
+  "wrong-file": () => {
+    operations.upload_blob.request.file = { contentType: "audio/wav" };
+  },
   "missing-query": () => {
     delete operations.list_links.request.query;
   },

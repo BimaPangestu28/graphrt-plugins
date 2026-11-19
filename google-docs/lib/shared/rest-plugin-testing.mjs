@@ -8,7 +8,8 @@
  * kindByCode, okPath, errorPath); no retry of unsafe writes after a 5xx with the unknown-outcome note and
  * checkHint (or a retry with the same Idempotency-Key); retries for reads and idempotent writes; nodeOnly and
  * `toolPolicy` refusals; `api_request` POST refused for tools; limit/cursor pagination for every style; jobs that
- * finish, fail and time out; and downloads into the output directory.
+ * finish, fail and time out; downloads into the output directory; and file inputs (allowlist, symlinks, FIFOs,
+ * size cap, non-https URLs, redaction of raw upload responses).
  *
  * Only tests import this module (it imports node:test). The case format is in docs/declarative-plugins.md.
  */
@@ -16,6 +17,7 @@ import { after, describe, test } from "node:test";
 import { rmSync } from "node:fs";
 import { createContractContext } from "./rest-contract-context.mjs";
 import { buildFlowTests } from "./rest-contract-flow-tests.mjs";
+import { buildFileInputTests } from "./rest-contract-file-tests.mjs";
 import { buildRequestTests } from "./rest-contract-request-tests.mjs";
 
 export { CONTRACT_FILE_HOST } from "./rest-contract-context.mjs";
@@ -26,9 +28,9 @@ export { CONTRACT_FILE_HOST } from "./rest-contract-context.mjs";
  * @param pluginDefinition - Definition returned by defineRestPlugin (object)
  * @param cases - Contract cases (object)
  * @param cases.operations - `{operationName: {args, request, response?, expect?: {data}}}` where request is
- *   `{method, url, query, json | form | text | multipart | body: "absent", headers?}`: `url` is the literal
+ *   `{method, url, query, json | form | text | multipart | file | body: "absent", headers?}`: `url` is the literal
  *   origin + path (no query), `query` the exact query (auth param excluded; repeated keys as arrays) or "absent";
- *   non-GET requests name their body exactly (object)
+ *   non-GET requests name their body exactly; `file: true | {contentType}` checks a bodyMode "file" body (object)
  * @param cases.environment - Extra env for every run; fake credentials are filled in by default (object, optional)
  * @param cases.checkAuth - `(call, credential) => void`, required for `custom` auth (function)
  * @returns Nothing; tests are registered with node:test
@@ -65,5 +67,5 @@ export function listContractTestNames(pluginDefinition, cases) {
 }
 
 function buildContractTests(contract) {
-  return [...buildRequestTests(contract), ...buildFlowTests(contract)];
+  return [...buildRequestTests(contract), ...buildFlowTests(contract), ...buildFileInputTests(contract)];
 }

@@ -39,6 +39,11 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [gmail-api](gmail-api/) | Gmail API: search and read messages and threads, labels, drafts, attachments, and send with safely built MIME (OAuth or service account); agent sends need an opt-in and an optional recipient allowlist | 18 |
 | [google-docs](google-docs/) | Google Docs: read documents (with tabs), create, insert text, replace text for templates, raw batch updates behind an opt-in (OAuth or service account) | 6 |
 | [google-drive](google-drive/) | Google Drive: search (escaped queries) and list files, export and download to a directory, upload, folders, copy, rename/move, shared drives; sharing, trash and delete are node only (OAuth or service account) | 17 |
+| [elevenlabs](elevenlabs/) | ElevenLabs: text to speech and sound effects saved as audio files, Scribe speech to text, voices, models, history and usage (paid per character/minute; cloning and deletes node only) | 12 |
+| [openai-audio](openai-audio/) | OpenAI audio: text to speech saved as audio files, transcription (gpt-4o-transcribe, diarize, whisper-1) and translation to English from URLs or an allowlisted folder (paid per minute/character) | 5 |
+| [deepgram](deepgram/) | Deepgram: Nova-3 pre-recorded transcription by URL or file (diarization, summaries, redaction), Aura-2 text to speech saved as audio files, text intelligence, models, balances and request history (paid per minute/character) | 10 |
+| [assemblyai](assemblyai/) | AssemblyAI: upload audio, transcribe and wait (speakers, PII redaction, audio intelligence; US or EU), sentences, paragraphs, subtitles, word search and LLM Gateway prompts (paid per hour; deletes node only) | 12 |
+| [stable-audio](stable-audio/) | Stability AI Stable Audio: music and sound effects from text (2.5, and 3.0 as a job up to 380 s), audio-to-audio and inpainting saved as audio files, credit balance (paid in credits) | 8 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

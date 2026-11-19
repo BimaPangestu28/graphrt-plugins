@@ -1,0 +1,977 @@
+{
+  "name": "assemblyai",
+  "version": "0.1.0",
+  "description": "AssemblyAI: upload audio, transcribe with speakers, PII redaction and audio intelligence, subtitles and word search, and LLM Gateway prompts",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ASSEMBLYAI_API_KEY",
+      "ASSEMBLYAI_REGION",
+      "ASSEMBLYAI_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 900000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "assemblyai.upload_file",
+      "title": "Upload file",
+      "description": "Upload a local audio/video file (inside ASSEMBLYAI_UPLOAD_DIR) or an https URL to AssemblyAI; returns an upload_url for transcribe",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio or video file, up to 200 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.transcribe",
+      "title": "Transcribe audio",
+      "description": "Start a transcription and wait for it (wait: false returns the id at once; billed per hour of audio plus enabled features)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "audio_url": {
+            "type": "string",
+            "description": "Public URL of the audio/video, or the upload_url from upload_file",
+            "minLength": 1
+          },
+          "speech_models": {
+            "type": "array",
+            "description": "Models in priority order, e.g. [\"assemblyai-stt-3-7\", \"universal-2\"] (default assemblyai-stt-3-7)",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language code, e.g. en, id; detected automatically when omitted"
+          },
+          "language_detection": {
+            "type": "boolean",
+            "description": "Detect the language (do not combine with language_code)"
+          },
+          "punctuate": {
+            "type": "boolean",
+            "description": "Add punctuation (default true)"
+          },
+          "format_text": {
+            "type": "boolean",
+            "description": "Format text: casing, numbers (default true)"
+          },
+          "speaker_labels": {
+            "type": "boolean",
+            "description": "Label speakers (diarization)"
+          },
+          "speakers_expected": {
+            "type": "integer",
+            "description": "Expected number of speakers (with speaker_labels)",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "multichannel": {
+            "type": "boolean",
+            "description": "Transcribe each channel separately"
+          },
+          "keyterms_prompt": {
+            "type": "array",
+            "description": "Domain words or phrases to boost (up to 1000 on stt-3-7, 200 on universal-2)",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Free-text context to guide the transcription (assemblyai-stt-3-7 only)"
+          },
+          "sentiment_analysis": {
+            "type": "boolean",
+            "description": "Sentiment per sentence"
+          },
+          "entity_detection": {
+            "type": "boolean",
+            "description": "Detect named entities"
+          },
+          "iab_categories": {
+            "type": "boolean",
+            "description": "Topic detection (IAB categories)"
+          },
+          "auto_highlights": {
+            "type": "boolean",
+            "description": "Key phrases"
+          },
+          "content_safety": {
+            "type": "boolean",
+            "description": "Content moderation labels"
+          },
+          "redact_pii": {
+            "type": "boolean",
+            "description": "Redact PII in the text (needs redact_pii_policies)"
+          },
+          "redact_pii_policies": {
+            "type": "array",
+            "description": "PII types to redact, e.g. person_name, phone_number, email_address, credit_card_number",
+            "maxItems": 60,
+            "items": {
+              "type": "string"
+            }
+          },
+          "redact_pii_sub": {
+            "type": "string",
+            "description": "How redacted PII is replaced (default hash)",
+            "enum": [
+              "hash",
+              "entity_name"
+            ]
+          },
+          "audio_start_from": {
+            "type": "integer",
+            "description": "Start transcribing at this millisecond",
+            "minimum": 0
+          },
+          "audio_end_at": {
+            "type": "integer",
+            "description": "Stop transcribing at this millisecond",
+            "minimum": 0
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "audio_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.get_transcript",
+      "title": "Get transcript",
+      "description": "Get a transcript: status (queued, processing, completed, error), text, words, utterances and feature results",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "transcript_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.list_transcripts",
+      "title": "List transcripts",
+      "description": "List transcripts of the last 30 days, newest first (id, status, audio_url, created)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Only transcripts with this status",
+            "enum": [
+              "queued",
+              "processing",
+              "completed",
+              "error"
+            ]
+          },
+          "created_on": {
+            "type": "string",
+            "description": "Only transcripts created on this date (YYYY-MM-DD)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.get_sentences",
+      "title": "Get sentences",
+      "description": "A completed transcript split into sentences with timings, confidence and speaker",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "transcript_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.get_paragraphs",
+      "title": "Get paragraphs",
+      "description": "A completed transcript split into paragraphs with timings and confidence",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "transcript_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.get_subtitles",
+      "title": "Get subtitles",
+      "description": "Export a completed transcript as SRT or WebVTT subtitles (returned as {text})",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "subtitle_format": {
+            "type": "string",
+            "description": "srt or vtt",
+            "enum": [
+              "srt",
+              "vtt"
+            ]
+          },
+          "chars_per_caption": {
+            "type": "integer",
+            "description": "Maximum characters per caption",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "transcript_id",
+          "subtitle_format"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.search_words",
+      "title": "Search words",
+      "description": "Find words or phrases in a completed transcript, with counts and timestamps",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "words": {
+            "type": "array",
+            "description": "Words or phrases (up to 5 words each)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "transcript_id",
+          "words"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.delete_transcript",
+      "title": "Delete transcript",
+      "description": "Permanently delete a transcript's text and data (the record stays, redacted)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "transcript_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.create_chat_completion",
+      "title": "LLM Gateway chat",
+      "description": "Ask an LLM through AssemblyAI's LLM Gateway (successor of LeMUR), e.g. to summarize a transcript's text (billed per token)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id from list_llm_models"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Chat messages: [{\"role\": \"user\", \"content\": \"...\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "description": "A single prompt, instead of messages"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Maximum output tokens (default 1000)",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.list_llm_models",
+      "title": "List LLM Gateway models",
+      "description": "List the models available through the LLM Gateway",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "assemblyai.api_request",
+      "title": "AssemblyAI API request",
+      "description": "Call any AssemblyAI API endpoint that has no dedicated operation, e.g. path \"/v2/transcript\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/transcript\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "upload_file",
+      "description": "Upload a local audio/video file (inside ASSEMBLYAI_UPLOAD_DIR) or an https URL to AssemblyAI; returns an upload_url for transcribe",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio or video file, up to 200 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "transcribe",
+      "description": "Start a transcription and wait for it (wait: false returns the id at once; billed per hour of audio plus enabled features)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "audio_url": {
+            "type": "string",
+            "description": "Public URL of the audio/video, or the upload_url from upload_file",
+            "minLength": 1
+          },
+          "speech_models": {
+            "type": "array",
+            "description": "Models in priority order, e.g. [\"assemblyai-stt-3-7\", \"universal-2\"] (default assemblyai-stt-3-7)",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language code, e.g. en, id; detected automatically when omitted"
+          },
+          "language_detection": {
+            "type": "boolean",
+            "description": "Detect the language (do not combine with language_code)"
+          },
+          "punctuate": {
+            "type": "boolean",
+            "description": "Add punctuation (default true)"
+          },
+          "format_text": {
+            "type": "boolean",
+            "description": "Format text: casing, numbers (default true)"
+          },
+          "speaker_labels": {
+            "type": "boolean",
+            "description": "Label speakers (diarization)"
+          },
+          "speakers_expected": {
+            "type": "integer",
+            "description": "Expected number of speakers (with speaker_labels)",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "multichannel": {
+            "type": "boolean",
+            "description": "Transcribe each channel separately"
+          },
+          "keyterms_prompt": {
+            "type": "array",
+            "description": "Domain words or phrases to boost (up to 1000 on stt-3-7, 200 on universal-2)",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Free-text context to guide the transcription (assemblyai-stt-3-7 only)"
+          },
+          "sentiment_analysis": {
+            "type": "boolean",
+            "description": "Sentiment per sentence"
+          },
+          "entity_detection": {
+            "type": "boolean",
+            "description": "Detect named entities"
+          },
+          "iab_categories": {
+            "type": "boolean",
+            "description": "Topic detection (IAB categories)"
+          },
+          "auto_highlights": {
+            "type": "boolean",
+            "description": "Key phrases"
+          },
+          "content_safety": {
+            "type": "boolean",
+            "description": "Content moderation labels"
+          },
+          "redact_pii": {
+            "type": "boolean",
+            "description": "Redact PII in the text (needs redact_pii_policies)"
+          },
+          "redact_pii_policies": {
+            "type": "array",
+            "description": "PII types to redact, e.g. person_name, phone_number, email_address, credit_card_number",
+            "maxItems": 60,
+            "items": {
+              "type": "string"
+            }
+          },
+          "redact_pii_sub": {
+            "type": "string",
+            "description": "How redacted PII is replaced (default hash)",
+            "enum": [
+              "hash",
+              "entity_name"
+            ]
+          },
+          "audio_start_from": {
+            "type": "integer",
+            "description": "Start transcribing at this millisecond",
+            "minimum": 0
+          },
+          "audio_end_at": {
+            "type": "integer",
+            "description": "Stop transcribing at this millisecond",
+            "minimum": 0
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "audio_url"
+        ]
+      }
+    },
+    {
+      "name": "get_transcript",
+      "description": "Get a transcript: status (queued, processing, completed, error), text, words, utterances and feature results",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          }
+        },
+        "required": [
+          "transcript_id"
+        ]
+      }
+    },
+    {
+      "name": "list_transcripts",
+      "description": "List transcripts of the last 30 days, newest first (id, status, audio_url, created)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Only transcripts with this status",
+            "enum": [
+              "queued",
+              "processing",
+              "completed",
+              "error"
+            ]
+          },
+          "created_on": {
+            "type": "string",
+            "description": "Only transcripts created on this date (YYYY-MM-DD)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_sentences",
+      "description": "A completed transcript split into sentences with timings, confidence and speaker",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          }
+        },
+        "required": [
+          "transcript_id"
+        ]
+      }
+    },
+    {
+      "name": "get_paragraphs",
+      "description": "A completed transcript split into paragraphs with timings and confidence",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          }
+        },
+        "required": [
+          "transcript_id"
+        ]
+      }
+    },
+    {
+      "name": "get_subtitles",
+      "description": "Export a completed transcript as SRT or WebVTT subtitles (returned as {text})",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "subtitle_format": {
+            "type": "string",
+            "description": "srt or vtt",
+            "enum": [
+              "srt",
+              "vtt"
+            ]
+          },
+          "chars_per_caption": {
+            "type": "integer",
+            "description": "Maximum characters per caption",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "transcript_id",
+          "subtitle_format"
+        ]
+      }
+    },
+    {
+      "name": "search_words",
+      "description": "Find words or phrases in a completed transcript, with counts and timestamps",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transcript_id": {
+            "type": "string",
+            "description": "Transcript id"
+          },
+          "words": {
+            "type": "array",
+            "description": "Words or phrases (up to 5 words each)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "transcript_id",
+          "words"
+        ]
+      }
+    },
+    {
+      "name": "create_chat_completion",
+      "description": "Ask an LLM through AssemblyAI's LLM Gateway (successor of LeMUR), e.g. to summarize a transcript's text (billed per token)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id from list_llm_models"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Chat messages: [{\"role\": \"user\", \"content\": \"...\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "description": "A single prompt, instead of messages"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Maximum output tokens (default 1000)",
+            "minimum": 1
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature",
+            "minimum": 0,
+            "maximum": 2
+          }
+        },
+        "required": [
+          "model"
+        ]
+      }
+    },
+    {
+      "name": "list_llm_models",
+      "description": "List the models available through the LLM Gateway",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any AssemblyAI API endpoint that has no dedicated operation, e.g. path \"/v2/transcript\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/transcript\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
