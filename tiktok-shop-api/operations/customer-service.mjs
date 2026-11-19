@@ -62,7 +62,7 @@ export const customerServiceOperations = [
       type: "object",
       properties: {
         conversation_id: CONVERSATION_ID_PROPERTY,
-        type: { type: "string", enum: MESSAGE_TYPES, default: "TEXT" },
+        message_type: { type: "string", enum: MESSAGE_TYPES, default: "TEXT", description: "Message type (sent as `type`)" },
         text: { type: "string", description: `Message text for TEXT (max ${MAX_TEXT_LENGTH} characters)` },
         content: { type: "object", description: "Message content for other types, e.g. {\"order_id\": \"580874485811283206\"}" },
       },
@@ -70,7 +70,7 @@ export const customerServiceOperations = [
     },
     run: async ({ client, args, signal }) => {
       const path = `/customer_service/202606/conversations/${pathSegment(requireNumericId("conversation_id", args.conversation_id))}/messages`;
-      const json = { type: args.type, content: JSON.stringify(buildMessageContent(args)) };
+      const json = { type: args.message_type, content: JSON.stringify(buildMessageContent(args)) };
       const body = await client.shop.request({ method: "POST", path, json, signal });
       return { data: body?.data ?? {} };
     },
@@ -85,12 +85,12 @@ export const customerServiceOperations = [
  * @throws PluginError kind `invalid_input` - When TEXT has no or too long text, or another type has no content
  */
 export function buildMessageContent(args) {
-  if (args.type === "TEXT") {
+  if (args.message_type === "TEXT") {
     const text = args.text ?? args.content?.content;
     if (typeof text !== "string" || text.trim() === "") rejectInput("TEXT messages need `text`");
     if (text.length > MAX_TEXT_LENGTH) rejectInput(`\`text\` must have at most ${MAX_TEXT_LENGTH} characters`);
     return { content: text };
   }
-  if (!args.content || Object.keys(args.content).length === 0) rejectInput(`${args.type} messages need \`content\``);
+  if (!args.content || Object.keys(args.content).length === 0) rejectInput(`${args.message_type} messages need \`content\``);
   return args.content;
 }

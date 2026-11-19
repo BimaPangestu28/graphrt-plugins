@@ -710,7 +710,7 @@
             "minLength": 1,
             "description": "Conversation id from get_conversations"
           },
-          "type": {
+          "message_type": {
             "type": "string",
             "enum": [
               "TEXT",
@@ -722,7 +722,8 @@
               "COUPON_CARD",
               "VIDEO"
             ],
-            "default": "TEXT"
+            "default": "TEXT",
+            "description": "Message type (sent as `type`)"
           },
           "text": {
             "type": "string",
@@ -1221,7 +1222,7 @@
             "minLength": 1,
             "description": "Conversation id from get_conversations"
           },
-          "type": {
+          "message_type": {
             "type": "string",
             "enum": [
               "TEXT",
@@ -1233,7 +1234,8 @@
               "COUPON_CARD",
               "VIDEO"
             ],
-            "default": "TEXT"
+            "default": "TEXT",
+            "description": "Message type (sent as `type`)"
           },
           "text": {
             "type": "string",

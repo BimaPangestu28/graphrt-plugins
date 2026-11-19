@@ -36,7 +36,7 @@ const INVALID_INPUT_CASES = [
   ["get_conversations", { limit: 21 }, /<= 20/],
   ["send_message", { conversation_id: "1" }, /text/],
   ["send_message", { conversation_id: "1", text: "x".repeat(2001) }, /2000/],
-  ["send_message", { conversation_id: "1", type: "PRODUCT_CARD" }, /content/],
+  ["send_message", { conversation_id: "1", message_type: "PRODUCT_CARD" }, /content/],
   ["send_message", { conversation_id: "conv/../x", text: "hi" }, /conversation_id/],
 ];
 

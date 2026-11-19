@@ -81,7 +81,7 @@ const OPERATION_CASES = [
   ],
   [
     "send_message",
-    { conversation_id: CONVERSATION_ID, type: "ORDER_CARD", content: { order_id: "580874485811283206" } },
+    { conversation_id: CONVERSATION_ID, message_type: "ORDER_CARD", content: { order_id: "580874485811283206" } },
     { method: "POST", path: `/customer_service/202606/conversations/${CONVERSATION_ID}/messages`, json: { type: "ORDER_CARD", content: '{"order_id":"580874485811283206"}' } },
   ],
   ["api_request", { path: "/logistics/202309/warehouses" }, { method: "GET", path: "/logistics/202309/warehouses" }],
