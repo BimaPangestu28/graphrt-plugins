@@ -1,0 +1,610 @@
+{
+  "name": "vonage",
+  "version": "0.1.0",
+  "description": "Vonage: send SMS and WhatsApp (text, image, templates, custom) through the Messages API, Number Insight and balance; agent sends need an opt-in and an E.164 recipient allowlist",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "VONAGE_API_SECRET",
+      "VONAGE_API_KEY",
+      "VONAGE_TOOL_RECIPIENT_ALLOWLIST",
+      "VONAGE_MESSAGES_REGION",
+      "VONAGE_TOOL_ALLOW_INSIGHT",
+      "VONAGE_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "vonage.number_insight",
+      "title": "Number Insight",
+      "description": "Number Insight v1: basic (format, country; free), standard (+ carrier, ported) or advanced (+ validity, reachability, roaming); standard and advanced are billed per request (as agent tools only when VONAGE_TOOL_ALLOW_INSIGHT=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Insight level",
+            "enum": [
+              "basic",
+              "standard",
+              "advanced"
+            ]
+          },
+          "number": {
+            "type": "string",
+            "description": "Number in international format (or national with country)"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country for a national number, e.g. ID"
+          },
+          "cnam": {
+            "type": "boolean",
+            "description": "Caller name for US numbers (standard/advanced; extra charge)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "level",
+          "number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "vonage.get_balance",
+      "title": "Account balance",
+      "description": "Account balance in EUR and whether auto-reload is on",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "vonage.send_sms",
+      "title": "Send SMS",
+      "description": "Send an SMS (paid per segment; Vonage answers 202 with message_uuid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Sender: your Vonage number in E.164 or an alphanumeric sender id where allowed"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (up to 3200 characters)",
+            "minLength": 1
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "description": "Give up delivery after this many seconds",
+            "minimum": 20,
+            "maximum": 604800
+          },
+          "encoding_type": {
+            "type": "string",
+            "description": "Default auto",
+            "enum": [
+              "text",
+              "unicode",
+              "auto"
+            ]
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "vonage.send_whatsapp_text",
+      "title": "Send WhatsApp text",
+      "description": "Send a WhatsApp text (only inside the 24-hour customer care window; paid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (up to 4096 characters)",
+            "minLength": 1
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "vonage.send_whatsapp_image",
+      "title": "Send WhatsApp image",
+      "description": "Send a WhatsApp image from a public URL (inside the 24-hour window; paid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public https URL of a JPG or PNG"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "image_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "vonage.send_whatsapp_template",
+      "title": "Send WhatsApp template",
+      "description": "Send an approved WhatsApp message template, also outside the 24-hour window (paid per template category) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "template_name": {
+            "type": "string",
+            "description": "Template name, e.g. \"namespace:order_update\" or \"order_update\""
+          },
+          "template_parameters": {
+            "type": "array",
+            "description": "Values for {{1}}, {{2}}, ... in order",
+            "maxItems": 30,
+            "items": {
+              "type": "string"
+            }
+          },
+          "locale": {
+            "type": "string",
+            "description": "Template language, e.g. en, en_GB, id",
+            "default": "en"
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "template_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "vonage.send_whatsapp_custom",
+      "title": "Send WhatsApp custom",
+      "description": "Send any WhatsApp Cloud API message object (media/interactive templates, buttons, lists) as `custom` (paid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "custom": {
+            "type": "object",
+            "description": "WhatsApp message object, e.g. {\"type\": \"template\", \"template\": {...}}"
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "custom"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "number_insight",
+      "description": "Number Insight v1: basic (format, country; free), standard (+ carrier, ported) or advanced (+ validity, reachability, roaming); standard and advanced are billed per request (as agent tools only when VONAGE_TOOL_ALLOW_INSIGHT=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Insight level",
+            "enum": [
+              "basic",
+              "standard",
+              "advanced"
+            ]
+          },
+          "number": {
+            "type": "string",
+            "description": "Number in international format (or national with country)"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country for a national number, e.g. ID"
+          },
+          "cnam": {
+            "type": "boolean",
+            "description": "Caller name for US numbers (standard/advanced; extra charge)"
+          }
+        },
+        "required": [
+          "level",
+          "number"
+        ]
+      }
+    },
+    {
+      "name": "get_balance",
+      "description": "Account balance in EUR and whether auto-reload is on",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "send_sms",
+      "description": "Send an SMS (paid per segment; Vonage answers 202 with message_uuid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Sender: your Vonage number in E.164 or an alphanumeric sender id where allowed"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (up to 3200 characters)",
+            "minLength": 1
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "description": "Give up delivery after this many seconds",
+            "minimum": 20,
+            "maximum": 604800
+          },
+          "encoding_type": {
+            "type": "string",
+            "description": "Default auto",
+            "enum": [
+              "text",
+              "unicode",
+              "auto"
+            ]
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "send_whatsapp_text",
+      "description": "Send a WhatsApp text (only inside the 24-hour customer care window; paid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (up to 4096 characters)",
+            "minLength": 1
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "send_whatsapp_image",
+      "description": "Send a WhatsApp image from a public URL (inside the 24-hour window; paid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public https URL of a JPG or PNG"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "image_url"
+        ]
+      }
+    },
+    {
+      "name": "send_whatsapp_template",
+      "description": "Send an approved WhatsApp message template, also outside the 24-hour window (paid per template category) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "template_name": {
+            "type": "string",
+            "description": "Template name, e.g. \"namespace:order_update\" or \"order_update\""
+          },
+          "template_parameters": {
+            "type": "array",
+            "description": "Values for {{1}}, {{2}}, ... in order",
+            "maxItems": 30,
+            "items": {
+              "type": "string"
+            }
+          },
+          "locale": {
+            "type": "string",
+            "description": "Template language, e.g. en, en_GB, id",
+            "default": "en"
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "template_name"
+        ]
+      }
+    },
+    {
+      "name": "send_whatsapp_custom",
+      "description": "Send any WhatsApp Cloud API message object (media/interactive templates, buttons, lists) as `custom` (paid) (as an agent tool only when VONAGE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp Business number, E.164 with +"
+          },
+          "custom": {
+            "type": "object",
+            "description": "WhatsApp message object, e.g. {\"type\": \"template\", \"template\": {...}}"
+          },
+          "client_ref": {
+            "type": "string",
+            "description": "Your reference (up to 100 characters), echoed in status webhooks"
+          }
+        },
+        "required": [
+          "to",
+          "from",
+          "custom"
+        ]
+      }
+    }
+  ]
+}

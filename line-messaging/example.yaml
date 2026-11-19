@@ -1,0 +1,16 @@
+# Show the bot's name and this month's message quota. Read-only, nothing is sent.
+#   LINE_CHANNEL_ACCESS_TOKEN=... graphrt run line-messaging/example.yaml --plugins .
+version: "1"
+name: line-messaging-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: bot, type: line-messaging.get_bot_info }
+    - { id: quota, type: line-messaging.get_quota }
+    - { id: used, type: line-messaging.get_quota_consumption }
+    - { id: answer, type: answer, answer: "{{#bot.data.displayName#}}: {{#used.data.totalUsage#}} of {{#quota.data.value#}} ({{#quota.data.type#}}) messages used this month" }
+  edges:
+    - { source: start, target: bot }
+    - { source: bot, target: quota }
+    - { source: quota, target: used }
+    - { source: used, target: answer }

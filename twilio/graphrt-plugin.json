@@ -1,0 +1,966 @@
+{
+  "name": "twilio",
+  "version": "0.1.0",
+  "description": "Twilio: send SMS and WhatsApp, list and read messages and calls, place calls (node only), Lookup v2 and balance; agent sends need an opt-in and a recipient allowlist",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TWILIO_AUTH_TOKEN",
+      "TWILIO_ACCOUNT_SID",
+      "TWILIO_TOOL_RECIPIENT_ALLOWLIST",
+      "TWILIO_TOOL_ALLOW_LOOKUP",
+      "TWILIO_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "twilio.lookup_phone_number",
+      "title": "Lookup number",
+      "description": "Free Lookup v2: validate and format a phone number (valid, E.164, national format, country)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "Number in E.164 (e.g. \"+6281234567890\") or national format with country_code"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO country for a national-format number, e.g. ID"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "phone_number"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.lookup_phone_number_data",
+      "title": "Lookup number data",
+      "description": "Paid Lookup v2 data packages: line type, caller name, SIM swap, call forwarding, line status, reassigned number, SMS pumping risk (billed per package) (as an agent tool only when TWILIO_TOOL_ALLOW_LOOKUP=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "Number in E.164 (e.g. \"+6281234567890\") or national format with country_code"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Data packages to buy",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "enum": [
+                "line_type_intelligence",
+                "caller_name",
+                "sim_swap",
+                "call_forwarding",
+                "line_status",
+                "reassigned_number",
+                "sms_pumping_risk",
+                "phone_number_quality_score"
+              ]
+            }
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO country for a national-format number, e.g. ID"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "phone_number",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.get_balance",
+      "title": "Account balance",
+      "description": "Current account balance and its currency",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.send_sms",
+      "title": "Send SMS",
+      "description": "Send an SMS or MMS (paid per segment; Twilio answers with the queued message) (as an agent tool only when TWILIO_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 format with +, e.g. \"+6281234567890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 1600 characters)"
+          },
+          "messaging_service_sid": {
+            "type": "string",
+            "description": "Send through a Messaging Service (MG...) instead of `from`"
+          },
+          "media_urls": {
+            "type": "array",
+            "description": "Public https URLs of media to attach (MMS / WhatsApp)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_sid": {
+            "type": "string",
+            "description": "Content template (HX...), e.g. an approved WhatsApp template"
+          },
+          "content_variables": {
+            "type": "string",
+            "description": "Template variables as a JSON string, e.g. {\"1\":\"Ada\"}"
+          },
+          "validity_period_seconds": {
+            "type": "integer",
+            "description": "Drop the message if not sent within this many seconds",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "from": {
+            "type": "string",
+            "description": "Your Twilio number in E.164, a short code or an alphanumeric sender id (or use messaging_service_sid)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.send_whatsapp",
+      "title": "Send WhatsApp",
+      "description": "Send a WhatsApp message (free-form inside the 24-hour window, otherwise use content_sid with an approved template; paid) (as an agent tool only when TWILIO_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 format with +, e.g. \"+6281234567890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 1600 characters)"
+          },
+          "messaging_service_sid": {
+            "type": "string",
+            "description": "Send through a Messaging Service (MG...) instead of `from`"
+          },
+          "media_urls": {
+            "type": "array",
+            "description": "Public https URLs of media to attach (MMS / WhatsApp)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_sid": {
+            "type": "string",
+            "description": "Content template (HX...), e.g. an approved WhatsApp template"
+          },
+          "content_variables": {
+            "type": "string",
+            "description": "Template variables as a JSON string, e.g. {\"1\":\"Ada\"}"
+          },
+          "validity_period_seconds": {
+            "type": "integer",
+            "description": "Drop the message if not sent within this many seconds",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp-enabled Twilio number in E.164, e.g. \"+14155238886\" (or use messaging_service_sid)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.list_messages",
+      "title": "List messages",
+      "description": "Messages sent and received by the account, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Only messages to this number (whatsapp:+... for WhatsApp)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Only messages from this number"
+          },
+          "date_sent": {
+            "type": "string",
+            "description": "Sent on this day, YYYY-MM-DD (UTC)"
+          },
+          "date_sent_before": {
+            "type": "string",
+            "description": "Sent before this day, YYYY-MM-DD"
+          },
+          "date_sent_after": {
+            "type": "string",
+            "description": "Sent after this day, YYYY-MM-DD"
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "Items per page (max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.get_message",
+      "title": "Get message",
+      "description": "One message with its status, price and error code",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_sid": {
+            "type": "string",
+            "description": "Message SID (SM... or MM...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_sid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.delete_message",
+      "title": "Delete message",
+      "description": "Delete a message record from the account logs",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_sid": {
+            "type": "string",
+            "description": "Message SID"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_sid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.list_calls",
+      "title": "List calls",
+      "description": "Voice calls of the account, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Only calls to this number"
+          },
+          "from": {
+            "type": "string",
+            "description": "Only calls from this number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "ringing",
+              "in-progress",
+              "canceled",
+              "completed",
+              "failed",
+              "busy",
+              "no-answer"
+            ]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Started on this day, YYYY-MM-DD (UTC)"
+          },
+          "start_time_before": {
+            "type": "string",
+            "description": "Started before this day, YYYY-MM-DD"
+          },
+          "start_time_after": {
+            "type": "string",
+            "description": "Started after this day, YYYY-MM-DD"
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "Items per page (max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.get_call",
+      "title": "Get call",
+      "description": "One call with its status, duration and price",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "call_sid": {
+            "type": "string",
+            "description": "Call SID (CA...)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "call_sid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.create_call",
+      "title": "Create call",
+      "description": "Place an outbound voice call that runs TwiML from `url`, inline `twiml` or an application (paid per minute)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Number to call, E.164 with +"
+          },
+          "from": {
+            "type": "string",
+            "description": "Your Twilio number, E.164"
+          },
+          "twiml_url": {
+            "type": "string",
+            "description": "URL Twilio fetches the call's TwiML from"
+          },
+          "twiml": {
+            "type": "string",
+            "description": "Inline TwiML, e.g. \"<Response><Say>Hello</Say></Response>\""
+          },
+          "application_sid": {
+            "type": "string",
+            "description": "TwiML App (AP...) to run instead of url/twiml"
+          },
+          "ring_timeout_seconds": {
+            "type": "integer",
+            "description": "Seconds to let it ring (default 60)",
+            "minimum": 5,
+            "maximum": 600
+          },
+          "record": {
+            "type": "boolean",
+            "description": "Record the call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "from"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "twilio.api_request",
+      "title": "Twilio REST API (2010-04-01 account resources) request",
+      "description": "Call any Twilio REST API (2010-04-01 account resources) endpoint that has no dedicated operation, e.g. path \"/Recordings.json\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/Recordings.json\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "lookup_phone_number",
+      "description": "Free Lookup v2: validate and format a phone number (valid, E.164, national format, country)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "Number in E.164 (e.g. \"+6281234567890\") or national format with country_code"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO country for a national-format number, e.g. ID"
+          }
+        },
+        "required": [
+          "phone_number"
+        ]
+      }
+    },
+    {
+      "name": "lookup_phone_number_data",
+      "description": "Paid Lookup v2 data packages: line type, caller name, SIM swap, call forwarding, line status, reassigned number, SMS pumping risk (billed per package) (as an agent tool only when TWILIO_TOOL_ALLOW_LOOKUP=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "Number in E.164 (e.g. \"+6281234567890\") or national format with country_code"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Data packages to buy",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "enum": [
+                "line_type_intelligence",
+                "caller_name",
+                "sim_swap",
+                "call_forwarding",
+                "line_status",
+                "reassigned_number",
+                "sms_pumping_risk",
+                "phone_number_quality_score"
+              ]
+            }
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO country for a national-format number, e.g. ID"
+          }
+        },
+        "required": [
+          "phone_number",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "get_balance",
+      "description": "Current account balance and its currency",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "send_sms",
+      "description": "Send an SMS or MMS (paid per segment; Twilio answers with the queued message) (as an agent tool only when TWILIO_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 format with +, e.g. \"+6281234567890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 1600 characters)"
+          },
+          "messaging_service_sid": {
+            "type": "string",
+            "description": "Send through a Messaging Service (MG...) instead of `from`"
+          },
+          "media_urls": {
+            "type": "array",
+            "description": "Public https URLs of media to attach (MMS / WhatsApp)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_sid": {
+            "type": "string",
+            "description": "Content template (HX...), e.g. an approved WhatsApp template"
+          },
+          "content_variables": {
+            "type": "string",
+            "description": "Template variables as a JSON string, e.g. {\"1\":\"Ada\"}"
+          },
+          "validity_period_seconds": {
+            "type": "integer",
+            "description": "Drop the message if not sent within this many seconds",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "from": {
+            "type": "string",
+            "description": "Your Twilio number in E.164, a short code or an alphanumeric sender id (or use messaging_service_sid)"
+          }
+        },
+        "required": [
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "send_whatsapp",
+      "description": "Send a WhatsApp message (free-form inside the 24-hour window, otherwise use content_sid with an approved template; paid) (as an agent tool only when TWILIO_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in E.164 format with +, e.g. \"+6281234567890\""
+          },
+          "body": {
+            "type": "string",
+            "description": "Message text (up to 1600 characters)"
+          },
+          "messaging_service_sid": {
+            "type": "string",
+            "description": "Send through a Messaging Service (MG...) instead of `from`"
+          },
+          "media_urls": {
+            "type": "array",
+            "description": "Public https URLs of media to attach (MMS / WhatsApp)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_sid": {
+            "type": "string",
+            "description": "Content template (HX...), e.g. an approved WhatsApp template"
+          },
+          "content_variables": {
+            "type": "string",
+            "description": "Template variables as a JSON string, e.g. {\"1\":\"Ada\"}"
+          },
+          "validity_period_seconds": {
+            "type": "integer",
+            "description": "Drop the message if not sent within this many seconds",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "from": {
+            "type": "string",
+            "description": "Your WhatsApp-enabled Twilio number in E.164, e.g. \"+14155238886\" (or use messaging_service_sid)"
+          }
+        },
+        "required": [
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "list_messages",
+      "description": "Messages sent and received by the account, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Only messages to this number (whatsapp:+... for WhatsApp)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Only messages from this number"
+          },
+          "date_sent": {
+            "type": "string",
+            "description": "Sent on this day, YYYY-MM-DD (UTC)"
+          },
+          "date_sent_before": {
+            "type": "string",
+            "description": "Sent before this day, YYYY-MM-DD"
+          },
+          "date_sent_after": {
+            "type": "string",
+            "description": "Sent after this day, YYYY-MM-DD"
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "Items per page (max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_message",
+      "description": "One message with its status, price and error code",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_sid": {
+            "type": "string",
+            "description": "Message SID (SM... or MM...)"
+          }
+        },
+        "required": [
+          "message_sid"
+        ]
+      }
+    },
+    {
+      "name": "list_calls",
+      "description": "Voice calls of the account, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Only calls to this number"
+          },
+          "from": {
+            "type": "string",
+            "description": "Only calls from this number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "ringing",
+              "in-progress",
+              "canceled",
+              "completed",
+              "failed",
+              "busy",
+              "no-answer"
+            ]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Started on this day, YYYY-MM-DD (UTC)"
+          },
+          "start_time_before": {
+            "type": "string",
+            "description": "Started before this day, YYYY-MM-DD"
+          },
+          "start_time_after": {
+            "type": "string",
+            "description": "Started after this day, YYYY-MM-DD"
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "Items per page (max 1000)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_call",
+      "description": "One call with its status, duration and price",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "call_sid": {
+            "type": "string",
+            "description": "Call SID (CA...)"
+          }
+        },
+        "required": [
+          "call_sid"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Twilio REST API (2010-04-01 account resources) endpoint that has no dedicated operation, e.g. path \"/Recordings.json\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/Recordings.json\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

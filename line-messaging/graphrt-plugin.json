@@ -1,0 +1,938 @@
+{
+  "name": "line-messaging",
+  "version": "0.1.0",
+  "description": "LINE Messaging API: push and reply messages, multicast and broadcast (node only), profiles, followers, groups and quota; agent pushes need an opt-in and a recipient id allowlist",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "LINE_CHANNEL_ACCESS_TOKEN",
+      "LINE_TOOL_RECIPIENT_ALLOWLIST",
+      "LINE_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "line-messaging.get_bot_info",
+      "title": "Bot info",
+      "description": "The bot's user id, basic id, display name, picture and chat mode",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.get_profile",
+      "title": "User profile",
+      "description": "Display name, picture, status message and language of a user who added the bot",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id (U + 32 hex characters, from webhook events)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.list_followers",
+      "title": "Follower ids",
+      "description": "User ids of the bot's friends (verified or premium accounts only)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 300
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.get_group_summary",
+      "title": "Group summary",
+      "description": "Name and picture of a group the bot is in",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "description": "Group id (C + 32 hex characters)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "group_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.get_group_member_count",
+      "title": "Group member count",
+      "description": "Number of users in a group",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "description": "Group id (C + 32 hex characters)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "group_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.get_group_member_profile",
+      "title": "Group member profile",
+      "description": "Profile of a member of a group the bot is in",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "description": "Group id (C + 32 hex characters)"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "User id (U + 32 hex characters, from webhook events)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "group_id",
+          "user_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.get_quota",
+      "title": "Message quota",
+      "description": "This month's message limit (type none means unlimited)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.get_quota_consumption",
+      "title": "Quota used",
+      "description": "Messages sent this month that count toward the quota",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.get_push_message_count",
+      "title": "Push messages sent",
+      "description": "Number of push messages sent on a day (status ready, unready or out_of_service)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Day in yyyyMMdd, UTC+9, e.g. 20261119"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.validate_push_messages",
+      "title": "Validate messages",
+      "description": "Check message objects for a push without sending them (free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.push_message",
+      "title": "Push message",
+      "description": "Send up to 5 messages to one user, group or room at any time (counts toward the monthly quota) (as an agent tool only when LINE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "User, group or room id (U/C/R + 32 hex characters)"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "notification_disabled": {
+            "type": "boolean",
+            "description": "Send without a push notification"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.reply_message",
+      "title": "Reply",
+      "description": "Reply to a webhook event with its reply token (one use, valid for a short time; replies are free) (as an agent tool only when LINE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "reply_token": {
+            "type": "string",
+            "description": "replyToken from the webhook event",
+            "minLength": 1
+          },
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "notification_disabled": {
+            "type": "boolean",
+            "description": "Send without a push notification"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "reply_token",
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.multicast_message",
+      "title": "Multicast",
+      "description": "Send the same messages to up to 500 user ids (each recipient counts toward the quota)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "description": "User ids",
+            "maxItems": 500,
+            "items": {
+              "type": "string"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "notification_disabled": {
+            "type": "boolean",
+            "description": "Send without a push notification"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.broadcast_message",
+      "title": "Broadcast",
+      "description": "Send messages to every friend of the bot (each recipient counts toward the quota)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "notification_disabled": {
+            "type": "boolean",
+            "description": "Send without a push notification"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.show_loading_animation",
+      "title": "Loading animation",
+      "description": "Show a typing/loading indicator in a one-on-one chat while the bot prepares a reply",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "User id of the chat"
+          },
+          "loading_seconds": {
+            "type": "integer",
+            "description": "Seconds (multiple of 5, default 20)",
+            "enum": [
+              5,
+              10,
+              15,
+              20,
+              25,
+              30,
+              35,
+              40,
+              45,
+              50,
+              55,
+              60
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "line-messaging.api_request",
+      "title": "LINE Messaging API request",
+      "description": "Call any LINE Messaging API endpoint that has no dedicated operation, e.g. path \"/v2/bot/info\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/bot/info\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_bot_info",
+      "description": "The bot's user id, basic id, display name, picture and chat mode",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_profile",
+      "description": "Display name, picture, status message and language of a user who added the bot",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id (U + 32 hex characters, from webhook events)"
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      }
+    },
+    {
+      "name": "list_followers",
+      "description": "User ids of the bot's friends (verified or premium accounts only)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 300
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_group_summary",
+      "description": "Name and picture of a group the bot is in",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "description": "Group id (C + 32 hex characters)"
+          }
+        },
+        "required": [
+          "group_id"
+        ]
+      }
+    },
+    {
+      "name": "get_group_member_count",
+      "description": "Number of users in a group",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "description": "Group id (C + 32 hex characters)"
+          }
+        },
+        "required": [
+          "group_id"
+        ]
+      }
+    },
+    {
+      "name": "get_group_member_profile",
+      "description": "Profile of a member of a group the bot is in",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "description": "Group id (C + 32 hex characters)"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "User id (U + 32 hex characters, from webhook events)"
+          }
+        },
+        "required": [
+          "group_id",
+          "user_id"
+        ]
+      }
+    },
+    {
+      "name": "get_quota",
+      "description": "This month's message limit (type none means unlimited)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_quota_consumption",
+      "description": "Messages sent this month that count toward the quota",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_push_message_count",
+      "description": "Number of push messages sent on a day (status ready, unready or out_of_service)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Day in yyyyMMdd, UTC+9, e.g. 20261119"
+          }
+        },
+        "required": [
+          "date"
+        ]
+      }
+    },
+    {
+      "name": "validate_push_messages",
+      "description": "Check message objects for a push without sending them (free)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "push_message",
+      "description": "Send up to 5 messages to one user, group or room at any time (counts toward the monthly quota) (as an agent tool only when LINE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "User, group or room id (U/C/R + 32 hex characters)"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "notification_disabled": {
+            "type": "boolean",
+            "description": "Send without a push notification"
+          }
+        },
+        "required": [
+          "to",
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "reply_message",
+      "description": "Reply to a webhook event with its reply token (one use, valid for a short time; replies are free) (as an agent tool only when LINE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reply_token": {
+            "type": "string",
+            "description": "replyToken from the webhook event",
+            "minLength": 1
+          },
+          "messages": {
+            "type": "array",
+            "description": "Up to 5 LINE message objects, e.g. [{\"type\": \"text\", \"text\": \"Hello\"}] (text, sticker, image, video, audio, location, imagemap, template, flex)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "notification_disabled": {
+            "type": "boolean",
+            "description": "Send without a push notification"
+          }
+        },
+        "required": [
+          "reply_token",
+          "messages"
+        ]
+      }
+    },
+    {
+      "name": "show_loading_animation",
+      "description": "Show a typing/loading indicator in a one-on-one chat while the bot prepares a reply",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "User id of the chat"
+          },
+          "loading_seconds": {
+            "type": "integer",
+            "description": "Seconds (multiple of 5, default 20)",
+            "enum": [
+              5,
+              10,
+              15,
+              20,
+              25,
+              30,
+              35,
+              40,
+              45,
+              50,
+              55,
+              60
+            ]
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any LINE Messaging API endpoint that has no dedicated operation, e.g. path \"/v2/bot/info\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/bot/info\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

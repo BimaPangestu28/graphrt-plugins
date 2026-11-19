@@ -1,0 +1,421 @@
+{
+  "name": "fonnte",
+  "version": "0.1.0",
+  "description": "Fonnte WhatsApp gateway (Indonesia): send messages and files, validate numbers, device status and groups; agent sends need an opt-in and an E.164 recipient allowlist",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "FONNTE_TOKEN",
+      "FONNTE_TOOL_RECIPIENT_ALLOWLIST",
+      "FONNTE_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "fonnte.get_device",
+      "title": "Device profile",
+      "description": "The device's number, connection status (connect/disconnect), package, remaining quota and expiry",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fonnte.validate_numbers",
+      "title": "Validate numbers",
+      "description": "Check which numbers are registered on WhatsApp (needs a connected device)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "numbers": {
+            "type": "array",
+            "description": "E.164 numbers with +, e.g. [\"+6281234567890\"]",
+            "maxItems": 500,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "numbers"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fonnte.list_whatsapp_groups",
+      "title": "List groups",
+      "description": "WhatsApp groups of the device as last fetched (id ...@g.us and name)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fonnte.send_message",
+      "title": "Send message",
+      "description": "Send a WhatsApp message (text, or a file with caption) to one number; returns message ids and process status (as an agent tool only when FONNTE_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "message": {
+            "type": "string",
+            "description": "Text (up to 60000 characters); the caption when file_url is set"
+          },
+          "file_url": {
+            "type": "string",
+            "description": "Public URL of an image, video, audio or document to send (paid packages only)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name shown to the recipient (documents and audio)"
+          },
+          "schedule": {
+            "type": "integer",
+            "description": "Unix timestamp (seconds) to send at",
+            "minimum": 0
+          },
+          "typing": {
+            "type": "boolean",
+            "description": "Show a typing indicator first"
+          },
+          "connect_only": {
+            "type": "boolean",
+            "description": "true (Fonnte default): refuse when the device is disconnected; false: queue"
+          },
+          "preview": {
+            "type": "boolean",
+            "description": "Link preview (default true)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "target"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fonnte.send_group_message",
+      "title": "Send group message",
+      "description": "Send a WhatsApp message to a group the device is in (id from list_whatsapp_groups)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "description": "Group id, e.g. 120363000000000000@g.us"
+          },
+          "message": {
+            "type": "string",
+            "description": "Text (up to 60000 characters); the caption when file_url is set"
+          },
+          "file_url": {
+            "type": "string",
+            "description": "Public URL of an image, video, audio or document to send (paid packages only)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name shown to the recipient (documents and audio)"
+          },
+          "schedule": {
+            "type": "integer",
+            "description": "Unix timestamp (seconds) to send at",
+            "minimum": 0
+          },
+          "typing": {
+            "type": "boolean",
+            "description": "Show a typing indicator first"
+          },
+          "connect_only": {
+            "type": "boolean",
+            "description": "true (Fonnte default): refuse when the device is disconnected; false: queue"
+          },
+          "preview": {
+            "type": "boolean",
+            "description": "Link preview (default true)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "group_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fonnte.delete_message",
+      "title": "Delete message",
+      "description": "Delete a pending or scheduled message (not one that is processing)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id from send_message"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fonnte.fetch_whatsapp_groups",
+      "title": "Refresh groups",
+      "description": "Re-fetch the device's group list from WhatsApp (Fonnte: call rarely, abuse can get the number banned)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fonnte.disconnect_device",
+      "title": "Disconnect device",
+      "description": "Log the WhatsApp number out of Fonnte (re-linking needs a QR scan)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_device",
+      "description": "The device's number, connection status (connect/disconnect), package, remaining quota and expiry",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "validate_numbers",
+      "description": "Check which numbers are registered on WhatsApp (needs a connected device)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "numbers": {
+            "type": "array",
+            "description": "E.164 numbers with +, e.g. [\"+6281234567890\"]",
+            "maxItems": 500,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "numbers"
+        ]
+      }
+    },
+    {
+      "name": "list_whatsapp_groups",
+      "description": "WhatsApp groups of the device as last fetched (id ...@g.us and name)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send a WhatsApp message (text, or a file with caption) to one number; returns message ids and process status (as an agent tool only when FONNTE_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Recipient in E.164 with +, e.g. \"+6281234567890\""
+          },
+          "message": {
+            "type": "string",
+            "description": "Text (up to 60000 characters); the caption when file_url is set"
+          },
+          "file_url": {
+            "type": "string",
+            "description": "Public URL of an image, video, audio or document to send (paid packages only)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name shown to the recipient (documents and audio)"
+          },
+          "schedule": {
+            "type": "integer",
+            "description": "Unix timestamp (seconds) to send at",
+            "minimum": 0
+          },
+          "typing": {
+            "type": "boolean",
+            "description": "Show a typing indicator first"
+          },
+          "connect_only": {
+            "type": "boolean",
+            "description": "true (Fonnte default): refuse when the device is disconnected; false: queue"
+          },
+          "preview": {
+            "type": "boolean",
+            "description": "Link preview (default true)"
+          }
+        },
+        "required": [
+          "target"
+        ]
+      }
+    }
+  ]
+}

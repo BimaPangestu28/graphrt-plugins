@@ -1,0 +1,14 @@
+# Show the device's connection status and quota, then today's sent messages. Read-only, nothing is sent.
+#   WABLAS_DOMAIN=pati.wablas.com WABLAS_TOKEN=... WABLAS_SECRET_KEY=... graphrt run wablas/example.yaml --plugins .
+version: "1"
+name: wablas-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: device, type: wablas.get_device_info }
+    - { id: reports, type: wablas.list_message_reports, status: sent, limit: 5 }
+    - { id: answer, type: answer, answer: "Device {{#device.data.name#}} is {{#device.data.status#}} (quota {{#device.data.quota#}}); recent: {{#reports.data#}}" }
+  edges:
+    - { source: start, target: device }
+    - { source: device, target: reports }
+    - { source: reports, target: answer }
