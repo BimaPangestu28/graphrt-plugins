@@ -1,0 +1,12 @@
+# List the Kling resource packages bought in 2026 and what is left of them. Read-only and free to call.
+#   KLING_API_KEY=... graphrt run kling/example.yaml --plugins .
+version: "1"
+name: kling-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: packages, type: kling.get_account_costs, start_time: 1767225600000, end_time: 1798761600000 }
+    - { id: answer, type: answer, answer: "Kling resource packages: {{#packages.data.data.resource_pack_subscribe_infos#}}" }
+  edges:
+    - { source: start, target: packages }
+    - { source: packages, target: answer }

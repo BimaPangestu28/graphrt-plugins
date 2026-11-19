@@ -1,0 +1,1100 @@
+{
+  "name": "kling",
+  "version": "0.1.0",
+  "description": "Kling AI (official API): text, image and omni video with Kling 4.0/3.0/2.x as polled tasks with downloads, task queries and resource packages",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "KLING_API_KEY",
+      "KLING_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 900000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "kling.text_to_video",
+      "title": "Text to video",
+      "description": "Generate a video from a prompt with a Kling model (paid per second; waits for the task and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-turbo, kling-3.0, kling-2.6, kling-2.5-turbo"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Scene, characters, actions, camera movement and style",
+            "minLength": 1
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Frame aspect ratio (21:9, 4:3 and 3:4 only on Kling 4.0 models)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "9:16",
+              "1:1",
+              "4:3",
+              "3:4"
+            ]
+          },
+          "multi_shot": {
+            "type": "boolean",
+            "description": "Multi-shot video (kling-3.0)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.image_to_video",
+      "title": "Image to video",
+      "description": "Animate first/middle/last frame images with a prompt (paid per second; waits and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-turbo, kling-3.0, kling-2.6, kling-2.5-turbo"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Inputs in order, e.g. [{\"type\":\"prompt\",\"text\":\"...\"},{\"type\":\"first_frame\",\"url\":\"https://...\"},{\"type\":\"last_frame\",\"url\":\"https://...\"}] (jpg/png up to 30 MB)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.omni_video",
+      "title": "Omni video",
+      "description": "Generate a video from a prompt plus reference images, videos or elements (paid per second; waits and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-omni, kling-o1"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Prompt and references, e.g. [{\"type\":\"prompt\",\"text\":\"...\"},{\"type\":\"image\",\"url\":\"https://...\"}]; see the Kling omni docs for reference types",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Frame aspect ratio, or adaptive (default) to follow the prompt and references",
+            "enum": [
+              "21:9",
+              "16:9",
+              "9:16",
+              "1:1",
+              "4:3",
+              "3:4",
+              "adaptive"
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.text_to_video_with_callback",
+      "title": "Text to video (callback)",
+      "description": "Generate a video from a prompt with a Kling model (paid per second; waits for the task and saves the video); Kling also notifies callback_url on status changes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-turbo, kling-3.0, kling-2.6, kling-2.5-turbo"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Scene, characters, actions, camera movement and style",
+            "minLength": 1
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Frame aspect ratio (21:9, 4:3 and 3:4 only on Kling 4.0 models)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "9:16",
+              "1:1",
+              "4:3",
+              "3:4"
+            ]
+          },
+          "multi_shot": {
+            "type": "boolean",
+            "description": "Multi-shot video (kling-3.0)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL Kling notifies when the task status changes",
+            "minLength": 1
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "prompt",
+          "callback_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.image_to_video_with_callback",
+      "title": "Image to video (callback)",
+      "description": "Animate first/middle/last frame images with a prompt (paid per second; waits and saves the video); Kling also notifies callback_url on status changes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-turbo, kling-3.0, kling-2.6, kling-2.5-turbo"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Inputs in order, e.g. [{\"type\":\"prompt\",\"text\":\"...\"},{\"type\":\"first_frame\",\"url\":\"https://...\"},{\"type\":\"last_frame\",\"url\":\"https://...\"}] (jpg/png up to 30 MB)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL Kling notifies when the task status changes",
+            "minLength": 1
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "contents",
+          "callback_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.omni_video_with_callback",
+      "title": "Omni video (callback)",
+      "description": "Generate a video from a prompt plus reference images, videos or elements (paid per second; waits and saves the video); Kling also notifies callback_url on status changes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-omni, kling-o1"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Prompt and references, e.g. [{\"type\":\"prompt\",\"text\":\"...\"},{\"type\":\"image\",\"url\":\"https://...\"}]; see the Kling omni docs for reference types",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Frame aspect ratio, or adaptive (default) to follow the prompt and references",
+            "enum": [
+              "21:9",
+              "16:9",
+              "9:16",
+              "1:1",
+              "4:3",
+              "3:4",
+              "adaptive"
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL Kling notifies when the task status changes",
+            "minLength": 1
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "contents",
+          "callback_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.get_tasks",
+      "title": "Get tasks",
+      "description": "Status (submitted, processing, succeeded, failed), outputs, usage and billing of tasks by id; saves the outputs of finished ones",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_ids": {
+            "type": "array",
+            "description": "Task ids from a generation call",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "external_task_ids": {
+            "type": "array",
+            "description": "Or your external_task_id values (not both)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.list_tasks",
+      "title": "List tasks",
+      "description": "Tasks created in a time window (default the last 30 days), optionally filtered by status or product type",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "description": "Unix time in ms (default end_time - 30 days)"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "Unix time in ms (default now)"
+          },
+          "filters": {
+            "type": "array",
+            "description": "e.g. [{\"key\":\"status\",\"values\":[\"succeeded\"]},{\"key\":\"product_type\",\"values\":[\"video\"]}]",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.get_account_costs",
+      "title": "Resource packages",
+      "description": "Resource packages bought in a time window with their remaining quantity (free to call; at most 1 call per second)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Unix time in ms",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Unix time in ms",
+            "minimum": 0
+          },
+          "resource_pack_name": {
+            "type": "string",
+            "description": "Only this resource package"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "start_time",
+          "end_time"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "kling.api_request",
+      "title": "Kling AI API request",
+      "description": "Call any Kling AI API endpoint that has no dedicated operation, e.g. path \"/tasks\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/tasks\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "text_to_video",
+      "description": "Generate a video from a prompt with a Kling model (paid per second; waits for the task and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-turbo, kling-3.0, kling-2.6, kling-2.5-turbo"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Scene, characters, actions, camera movement and style",
+            "minLength": 1
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Frame aspect ratio (21:9, 4:3 and 3:4 only on Kling 4.0 models)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "9:16",
+              "1:1",
+              "4:3",
+              "3:4"
+            ]
+          },
+          "multi_shot": {
+            "type": "boolean",
+            "description": "Multi-shot video (kling-3.0)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "model",
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "image_to_video",
+      "description": "Animate first/middle/last frame images with a prompt (paid per second; waits and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-turbo, kling-3.0, kling-2.6, kling-2.5-turbo"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Inputs in order, e.g. [{\"type\":\"prompt\",\"text\":\"...\"},{\"type\":\"first_frame\",\"url\":\"https://...\"},{\"type\":\"last_frame\",\"url\":\"https://...\"}] (jpg/png up to 30 MB)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      }
+    },
+    {
+      "name": "omni_video",
+      "description": "Generate a video from a prompt plus reference images, videos or elements (paid per second; waits and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model in the path, e.g. kling-4.0, kling-4.0-flash, kling-3.0-omni, kling-o1"
+          },
+          "contents": {
+            "type": "array",
+            "description": "Prompt and references, e.g. [{\"type\":\"prompt\",\"text\":\"...\"},{\"type\":\"image\",\"url\":\"https://...\"}]; see the Kling omni docs for reference types",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Frame aspect ratio, or adaptive (default) to follow the prompt and references",
+            "enum": [
+              "21:9",
+              "16:9",
+              "9:16",
+              "1:1",
+              "4:3",
+              "3:4",
+              "adaptive"
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Output resolution (4k only on kling-3.0 models; kling-4.0-flash is 720p only)",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds (kling-4.0: 3–30, kling-4.0-flash: 3–20, 3.0 models: 3–15, 2.x: 5 or 10)",
+            "minimum": 3,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "string",
+            "description": "Native audio for kling-3.0 and kling-2.6 (costs more); Kling 4.0 decides from the prompt",
+            "enum": [
+              "native",
+              "off"
+            ]
+          },
+          "external_task_id": {
+            "type": "string",
+            "description": "Your own unique task id; lets you find the task again with get_tasks"
+          },
+          "watermark": {
+            "type": "boolean",
+            "description": "Also produce a watermarked copy"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "model",
+          "contents"
+        ]
+      }
+    },
+    {
+      "name": "get_tasks",
+      "description": "Status (submitted, processing, succeeded, failed), outputs, usage and billing of tasks by id; saves the outputs of finished ones",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_ids": {
+            "type": "array",
+            "description": "Task ids from a generation call",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "external_task_ids": {
+            "type": "array",
+            "description": "Or your external_task_id values (not both)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "Tasks created in a time window (default the last 30 days), optionally filtered by status or product type",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "description": "Unix time in ms (default end_time - 30 days)"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "Unix time in ms (default now)"
+          },
+          "filters": {
+            "type": "array",
+            "description": "e.g. [{\"key\":\"status\",\"values\":[\"succeeded\"]},{\"key\":\"product_type\",\"values\":[\"video\"]}]",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_account_costs",
+      "description": "Resource packages bought in a time window with their remaining quantity (free to call; at most 1 call per second)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "integer",
+            "description": "Unix time in ms",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "integer",
+            "description": "Unix time in ms",
+            "minimum": 0
+          },
+          "resource_pack_name": {
+            "type": "string",
+            "description": "Only this resource package"
+          }
+        },
+        "required": [
+          "start_time",
+          "end_time"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Kling AI API endpoint that has no dedicated operation, e.g. path \"/tasks\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/tasks\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

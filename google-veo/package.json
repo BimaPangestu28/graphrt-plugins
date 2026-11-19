@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-google-veo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Google Veo video generation on Vertex AI",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

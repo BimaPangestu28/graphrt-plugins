@@ -1,0 +1,459 @@
+{
+  "name": "google-veo",
+  "version": "0.1.0",
+  "description": "Google Veo 3.1 on Vertex AI: text, image (first/last frame) and extend to video as long-running operations, with inline video saving",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLOUD_PROJECT",
+      "GOOGLE_CLOUD_LOCATION",
+      "GOOGLE_VEO_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 900000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-veo.generate_video",
+      "title": "Generate video",
+      "description": "Generate a Veo 3.1 video from text, a first/last frame or a video to extend (paid per second; waits for the operation and saves inline videos)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "default": "veo-3.1-generate-001",
+            "description": "veo-3.1-generate-001, veo-3.1-fast-generate-001 or veo-3.1-lite-generate-001 (preview)"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the video shows; dialogue in quotes, sounds described in words"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What the video must not show"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "enum": [
+              "16:9",
+              "9:16"
+            ],
+            "description": "Default 16:9"
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ],
+            "description": "Default 720p (4k only on veo-3.1-generate-001)"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "enum": [
+              4,
+              6,
+              8
+            ],
+            "description": "Default 8"
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "description": "Generate audio (default true; costs more)"
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "description": "Videos to generate (1–4), each billed"
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "description": "Seed for repeatable results"
+          },
+          "person_generation": {
+            "type": "string",
+            "enum": [
+              "allow_adult",
+              "disallow"
+            ],
+            "description": "allow_adult (default) or disallow (no people or faces)"
+          },
+          "enhance_prompt": {
+            "type": "boolean",
+            "description": "Let Veo rewrite the prompt (default true)"
+          },
+          "compression_quality": {
+            "type": "string",
+            "enum": [
+              "optimized",
+              "lossless"
+            ],
+            "description": "Default optimized"
+          },
+          "resize_mode": {
+            "type": "string",
+            "enum": [
+              "pad",
+              "crop"
+            ],
+            "description": "How an input image is fitted (default pad)"
+          },
+          "storage_uri": {
+            "type": "string",
+            "description": "gs://bucket/folder for the output (required for 4k or sample_count > 1); without it one video comes back inline (base64) and is saved to GOOGLE_VEO_OUTPUT_DIR"
+          },
+          "image_gcs_uri": {
+            "type": "string",
+            "description": "First frame in Cloud Storage, gs://... (image to video)"
+          },
+          "image_base64": {
+            "type": "string",
+            "description": "Or the first frame as base64 bytes"
+          },
+          "image_mime_type": {
+            "type": "string",
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ],
+            "description": "MIME type of the first and last frame images"
+          },
+          "last_frame_gcs_uri": {
+            "type": "string",
+            "description": "Last frame in Cloud Storage, gs://..."
+          },
+          "video_gcs_uri": {
+            "type": "string",
+            "description": "A Veo video (gs://..., mp4) to extend"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the video (default true); false returns the operation name at once for get_operation"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-veo.get_operation",
+      "title": "Get operation",
+      "description": "State of a Veo operation (done, error, videos as gs:// URIs or inline bytes); saves inline videos of a finished one into GOOGLE_VEO_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model that started the operation, e.g. veo-3.1-generate-001"
+          },
+          "operation_name": {
+            "type": "string",
+            "description": "Full operation name from generate_video (projects/.../operations/...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model",
+          "operation_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-veo.api_request",
+      "title": "Vertex AI Veo API request",
+      "description": "Call any Vertex AI Veo API endpoint that has no dedicated operation, e.g. path \"/publishers/google/models/veo-3.1-generate-001\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/publishers/google/models/veo-3.1-generate-001\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "generate_video",
+      "description": "Generate a Veo 3.1 video from text, a first/last frame or a video to extend (paid per second; waits for the operation and saves inline videos)",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "default": "veo-3.1-generate-001",
+            "description": "veo-3.1-generate-001, veo-3.1-fast-generate-001 or veo-3.1-lite-generate-001 (preview)"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the video shows; dialogue in quotes, sounds described in words"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What the video must not show"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "enum": [
+              "16:9",
+              "9:16"
+            ],
+            "description": "Default 16:9"
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "720p",
+              "1080p",
+              "4k"
+            ],
+            "description": "Default 720p (4k only on veo-3.1-generate-001)"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "enum": [
+              4,
+              6,
+              8
+            ],
+            "description": "Default 8"
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "description": "Generate audio (default true; costs more)"
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "description": "Videos to generate (1–4), each billed"
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "description": "Seed for repeatable results"
+          },
+          "person_generation": {
+            "type": "string",
+            "enum": [
+              "allow_adult",
+              "disallow"
+            ],
+            "description": "allow_adult (default) or disallow (no people or faces)"
+          },
+          "enhance_prompt": {
+            "type": "boolean",
+            "description": "Let Veo rewrite the prompt (default true)"
+          },
+          "compression_quality": {
+            "type": "string",
+            "enum": [
+              "optimized",
+              "lossless"
+            ],
+            "description": "Default optimized"
+          },
+          "resize_mode": {
+            "type": "string",
+            "enum": [
+              "pad",
+              "crop"
+            ],
+            "description": "How an input image is fitted (default pad)"
+          },
+          "storage_uri": {
+            "type": "string",
+            "description": "gs://bucket/folder for the output (required for 4k or sample_count > 1); without it one video comes back inline (base64) and is saved to GOOGLE_VEO_OUTPUT_DIR"
+          },
+          "image_gcs_uri": {
+            "type": "string",
+            "description": "First frame in Cloud Storage, gs://... (image to video)"
+          },
+          "image_base64": {
+            "type": "string",
+            "description": "Or the first frame as base64 bytes"
+          },
+          "image_mime_type": {
+            "type": "string",
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ],
+            "description": "MIME type of the first and last frame images"
+          },
+          "last_frame_gcs_uri": {
+            "type": "string",
+            "description": "Last frame in Cloud Storage, gs://..."
+          },
+          "video_gcs_uri": {
+            "type": "string",
+            "description": "A Veo video (gs://..., mp4) to extend"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the video (default true); false returns the operation name at once for get_operation"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_operation",
+      "description": "State of a Veo operation (done, error, videos as gs:// URIs or inline bytes); saves inline videos of a finished one into GOOGLE_VEO_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model that started the operation, e.g. veo-3.1-generate-001"
+          },
+          "operation_name": {
+            "type": "string",
+            "description": "Full operation name from generate_video (projects/.../operations/...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "model",
+          "operation_name"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Vertex AI Veo API endpoint that has no dedicated operation, e.g. path \"/publishers/google/models/veo-3.1-generate-001\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/publishers/google/models/veo-3.1-generate-001\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

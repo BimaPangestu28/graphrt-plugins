@@ -1,0 +1,12 @@
+# List the models in Replicate's text-to-video collection. Read-only, nothing is billed.
+#   REPLICATE_API_TOKEN=r8_... graphrt run replicate-video/example.yaml --plugins .
+version: "1"
+name: replicate-video-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: collection, type: replicate-video.get_collection, collection_slug: text-to-video }
+    - { id: answer, type: answer, answer: "{{#collection.data.name#}}: {{#collection.data.description#}}" }
+  edges:
+    - { source: start, target: collection }
+    - { source: collection, target: answer }

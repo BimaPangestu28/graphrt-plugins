@@ -1,0 +1,884 @@
+{
+  "name": "minimax-video",
+  "version": "0.1.0",
+  "description": "MiniMax video: H3 text/image/reference to video (V2) and Hailuo 2.3 (V1) as polled tasks with downloads, task status and file retrieval",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MINIMAX_API_KEY",
+      "MINIMAX_REGION",
+      "MINIMAX_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 900000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "minimax-video.generate_video",
+      "title": "Generate video (H3)",
+      "description": "Text, image (first/last frame) or reference to video with MiniMax-H3 models (paid per second; waits and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "H3 variant (2K only on MiniMax-H3)",
+            "enum": [
+              "MiniMax-H3",
+              "MiniMax-H3-Highspeed",
+              "MiniMax-H3-Lite",
+              "MiniMax-H3-Max"
+            ],
+            "default": "MiniMax-H3"
+          },
+          "content": {
+            "type": "array",
+            "description": "One text item plus optional media, e.g. [{\"type\":\"text\",\"text\":\"...\"}] or add {\"type\":\"image_url\",\"image_url\":{\"url\":\"https://...\"},\"role\":\"first_frame\"} (roles: first_frame, last_frame, reference_image, reference_video, reference_audio)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "resolution": {
+            "type": "string",
+            "description": "MiniMax-H3: 768P or 2K; other variants: 480P or 768P",
+            "enum": [
+              "480P",
+              "768P",
+              "2K"
+            ],
+            "default": "768P"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds, 4–15 (MiniMax-H3-Max: 5–15)",
+            "minimum": 4,
+            "maximum": 15,
+            "default": 5
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Required for text to video (not adaptive); image to video always uses the image's ratio",
+            "enum": [
+              "adaptive",
+              "21:9",
+              "16:9",
+              "4:3",
+              "1:1",
+              "3:4",
+              "9:16"
+            ]
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "description": "Include audio (default true)"
+          },
+          "prompt_expansion_mode": {
+            "type": "string",
+            "description": "MiniMax-H3-Max only",
+            "enum": [
+              "disabled",
+              "balanced",
+              "quality"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.generate_video_with_callback",
+      "title": "Generate video (H3) with callback",
+      "description": "Text, image (first/last frame) or reference to video with MiniMax-H3 models (paid per second; waits and saves the video); MiniMax also POSTs status changes to callback_url (it must echo the challenge first)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "H3 variant (2K only on MiniMax-H3)",
+            "enum": [
+              "MiniMax-H3",
+              "MiniMax-H3-Highspeed",
+              "MiniMax-H3-Lite",
+              "MiniMax-H3-Max"
+            ],
+            "default": "MiniMax-H3"
+          },
+          "content": {
+            "type": "array",
+            "description": "One text item plus optional media, e.g. [{\"type\":\"text\",\"text\":\"...\"}] or add {\"type\":\"image_url\",\"image_url\":{\"url\":\"https://...\"},\"role\":\"first_frame\"} (roles: first_frame, last_frame, reference_image, reference_video, reference_audio)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "resolution": {
+            "type": "string",
+            "description": "MiniMax-H3: 768P or 2K; other variants: 480P or 768P",
+            "enum": [
+              "480P",
+              "768P",
+              "2K"
+            ],
+            "default": "768P"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds, 4–15 (MiniMax-H3-Max: 5–15)",
+            "minimum": 4,
+            "maximum": 15,
+            "default": 5
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Required for text to video (not adaptive); image to video always uses the image's ratio",
+            "enum": [
+              "adaptive",
+              "21:9",
+              "16:9",
+              "4:3",
+              "1:1",
+              "3:4",
+              "9:16"
+            ]
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "description": "Include audio (default true)"
+          },
+          "prompt_expansion_mode": {
+            "type": "string",
+            "description": "MiniMax-H3-Max only",
+            "enum": [
+              "disabled",
+              "balanced",
+              "quality"
+            ]
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL MiniMax notifies on status changes",
+            "minLength": 1
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "content",
+          "callback_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.get_task",
+      "title": "Get task (H3)",
+      "description": "Status (queued, running, succeeded, failed, cancelled), error, usage and video URL of a V2 task from the last 7 days; saves the video of a succeeded task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id from generate_video"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.list_tasks",
+      "title": "List tasks (H3)",
+      "description": "V2 tasks from the last 7 days, newest first, filtered by status, model or task type",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Only tasks in this status",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "Only tasks of this model, e.g. MiniMax-H3"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.delete_task",
+      "title": "Cancel or delete task (H3)",
+      "description": "Cancel a queued V2 task, or delete a finished task's record and video",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.generate_hailuo_video",
+      "title": "Generate video (Hailuo)",
+      "description": "Text, image or first+last frame to video with Hailuo 2.3 / 02 (paid per video; waits and returns the file_id for retrieve_file)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "MiniMax-Hailuo-2.3, MiniMax-Hailuo-2.3-Fast (image to video), MiniMax-Hailuo-02 (also first+last frame)",
+            "default": "MiniMax-Hailuo-2.3"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What the video shows (up to 2000 characters); camera moves as [Pan left], [Zoom in], ... (required without an image)"
+          },
+          "first_frame_image": {
+            "type": "string",
+            "description": "First frame: public image URL or data URL (image to video)"
+          },
+          "last_frame_image": {
+            "type": "string",
+            "description": "Last frame (MiniMax-Hailuo-02)"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "6 or 10 seconds (10 s only at 768P)",
+            "enum": [
+              6,
+              10
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Default 768P for Hailuo 2.3 / 02",
+            "enum": [
+              "512P",
+              "720P",
+              "768P",
+              "1080P"
+            ]
+          },
+          "prompt_optimizer": {
+            "type": "boolean",
+            "description": "Let MiniMax rewrite the prompt (default true)"
+          },
+          "fast_pretreatment": {
+            "type": "boolean",
+            "description": "Shorter prompt optimization"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.generate_hailuo_video_with_callback",
+      "title": "Generate video (Hailuo) with callback",
+      "description": "Text, image or first+last frame to video with Hailuo 2.3 / 02 (paid per video; waits and returns the file_id for retrieve_file); MiniMax also POSTs status changes to callback_url (it must echo the challenge first)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "MiniMax-Hailuo-2.3, MiniMax-Hailuo-2.3-Fast (image to video), MiniMax-Hailuo-02 (also first+last frame)",
+            "default": "MiniMax-Hailuo-2.3"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What the video shows (up to 2000 characters); camera moves as [Pan left], [Zoom in], ... (required without an image)"
+          },
+          "first_frame_image": {
+            "type": "string",
+            "description": "First frame: public image URL or data URL (image to video)"
+          },
+          "last_frame_image": {
+            "type": "string",
+            "description": "Last frame (MiniMax-Hailuo-02)"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "6 or 10 seconds (10 s only at 768P)",
+            "enum": [
+              6,
+              10
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Default 768P for Hailuo 2.3 / 02",
+            "enum": [
+              "512P",
+              "720P",
+              "768P",
+              "1080P"
+            ]
+          },
+          "prompt_optimizer": {
+            "type": "boolean",
+            "description": "Let MiniMax rewrite the prompt (default true)"
+          },
+          "fast_pretreatment": {
+            "type": "boolean",
+            "description": "Shorter prompt optimization"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL MiniMax notifies on status changes",
+            "minLength": 1
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "callback_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.get_hailuo_task",
+      "title": "Get task (Hailuo)",
+      "description": "Status (Preparing, Queueing, Processing, Success, Fail) and file_id of a V1 Hailuo task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id from generate_hailuo_video"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.retrieve_file",
+      "title": "Retrieve file",
+      "description": "Download URL (valid about 1 hour) and details of a generated file, e.g. a Hailuo video's file_id; saves the file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id, e.g. the result of generate_hailuo_video"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "minimax-video.api_request",
+      "title": "MiniMax API request",
+      "description": "Call any MiniMax API endpoint that has no dedicated operation, e.g. path \"/v2/query/video_generation\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/query/video_generation\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "generate_video",
+      "description": "Text, image (first/last frame) or reference to video with MiniMax-H3 models (paid per second; waits and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "H3 variant (2K only on MiniMax-H3)",
+            "enum": [
+              "MiniMax-H3",
+              "MiniMax-H3-Highspeed",
+              "MiniMax-H3-Lite",
+              "MiniMax-H3-Max"
+            ],
+            "default": "MiniMax-H3"
+          },
+          "content": {
+            "type": "array",
+            "description": "One text item plus optional media, e.g. [{\"type\":\"text\",\"text\":\"...\"}] or add {\"type\":\"image_url\",\"image_url\":{\"url\":\"https://...\"},\"role\":\"first_frame\"} (roles: first_frame, last_frame, reference_image, reference_video, reference_audio)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "resolution": {
+            "type": "string",
+            "description": "MiniMax-H3: 768P or 2K; other variants: 480P or 768P",
+            "enum": [
+              "480P",
+              "768P",
+              "2K"
+            ],
+            "default": "768P"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds, 4–15 (MiniMax-H3-Max: 5–15)",
+            "minimum": 4,
+            "maximum": 15,
+            "default": 5
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Required for text to video (not adaptive); image to video always uses the image's ratio",
+            "enum": [
+              "adaptive",
+              "21:9",
+              "16:9",
+              "4:3",
+              "1:1",
+              "3:4",
+              "9:16"
+            ]
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "description": "Include audio (default true)"
+          },
+          "prompt_expansion_mode": {
+            "type": "string",
+            "description": "MiniMax-H3-Max only",
+            "enum": [
+              "disabled",
+              "balanced",
+              "quality"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "Status (queued, running, succeeded, failed, cancelled), error, usage and video URL of a V2 task from the last 7 days; saves the video of a succeeded task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id from generate_video"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "V2 tasks from the last 7 days, newest first, filtered by status, model or task type",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Only tasks in this status",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "Only tasks of this model, e.g. MiniMax-H3"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "generate_hailuo_video",
+      "description": "Text, image or first+last frame to video with Hailuo 2.3 / 02 (paid per video; waits and returns the file_id for retrieve_file)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "MiniMax-Hailuo-2.3, MiniMax-Hailuo-2.3-Fast (image to video), MiniMax-Hailuo-02 (also first+last frame)",
+            "default": "MiniMax-Hailuo-2.3"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What the video shows (up to 2000 characters); camera moves as [Pan left], [Zoom in], ... (required without an image)"
+          },
+          "first_frame_image": {
+            "type": "string",
+            "description": "First frame: public image URL or data URL (image to video)"
+          },
+          "last_frame_image": {
+            "type": "string",
+            "description": "Last frame (MiniMax-Hailuo-02)"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "6 or 10 seconds (10 s only at 768P)",
+            "enum": [
+              6,
+              10
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Default 768P for Hailuo 2.3 / 02",
+            "enum": [
+              "512P",
+              "720P",
+              "768P",
+              "1080P"
+            ]
+          },
+          "prompt_optimizer": {
+            "type": "boolean",
+            "description": "Let MiniMax rewrite the prompt (default true)"
+          },
+          "fast_pretreatment": {
+            "type": "boolean",
+            "description": "Shorter prompt optimization"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_hailuo_task",
+      "description": "Status (Preparing, Queueing, Processing, Success, Fail) and file_id of a V1 Hailuo task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id from generate_hailuo_video"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "retrieve_file",
+      "description": "Download URL (valid about 1 hour) and details of a generated file, e.g. a Hailuo video's file_id; saves the file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File id, e.g. the result of generate_hailuo_video"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any MiniMax API endpoint that has no dedicated operation, e.g. path \"/v2/query/video_generation\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/query/video_generation\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

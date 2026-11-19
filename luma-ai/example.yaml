@@ -1,0 +1,12 @@
+# Read the Luma team's credit balance. Read-only, no credits spent.
+#   LUMA_API_KEY=... graphrt run luma-ai/example.yaml --plugins .
+version: "1"
+name: luma-ai-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: credits, type: luma-ai.get_credits }
+    - { id: answer, type: answer, answer: "Luma credits left: {{#credits.data.balance_credits#}}" }
+  edges:
+    - { source: start, target: credits }
+    - { source: credits, target: answer }

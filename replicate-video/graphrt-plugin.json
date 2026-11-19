@@ -1,0 +1,848 @@
+{
+  "name": "replicate-video",
+  "version": "0.1.0",
+  "description": "Replicate predictions for video models (Veo, Kling, Hailuo, Wan, ...): run and wait with downloads, prediction status, model discovery",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "REPLICATE_API_TOKEN",
+      "REPLICATE_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 900000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "replicate-video.run_model",
+      "title": "Run model",
+      "description": "Run an official or latest-version model by owner/name, e.g. google/veo-3 or kwaivgi/kling-v2.1 (paid; waits and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_owner": {
+            "type": "string",
+            "description": "Model owner, e.g. google"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Model name, e.g. veo-3"
+          },
+          "input": {
+            "type": "object",
+            "description": "The model's input object, e.g. {\"prompt\": \"...\", \"duration\": 5}; see the model's API tab or get_model"
+          },
+          "cancel_after": {
+            "type": "string",
+            "description": "Cancel automatically after this long, e.g. 20m (stops runaway billing)"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_owner",
+          "model_name",
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.run_version",
+      "title": "Run model version",
+      "description": "Run a specific model version (64-character version id, or owner/name:version) (paid; waits and saves the output)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Version id, or owner/name:version_id",
+            "minLength": 1
+          },
+          "input": {
+            "type": "object",
+            "description": "The model's input object, e.g. {\"prompt\": \"...\", \"duration\": 5}; see the model's API tab or get_model"
+          },
+          "cancel_after": {
+            "type": "string",
+            "description": "Cancel automatically after this long, e.g. 20m (stops runaway billing)"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "version",
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.run_model_with_webhook",
+      "title": "Run model (webhook)",
+      "description": "Run an official or latest-version model by owner/name, e.g. google/veo-3 or kwaivgi/kling-v2.1 (paid; waits and saves the video); Replicate also POSTs the prediction to webhook on every update",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_owner": {
+            "type": "string",
+            "description": "Model owner, e.g. google"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Model name, e.g. veo-3"
+          },
+          "input": {
+            "type": "object",
+            "description": "The model's input object, e.g. {\"prompt\": \"...\", \"duration\": 5}; see the model's API tab or get_model"
+          },
+          "cancel_after": {
+            "type": "string",
+            "description": "Cancel automatically after this long, e.g. 20m (stops runaway billing)"
+          },
+          "webhook": {
+            "type": "string",
+            "description": "https URL that receives the prediction when it changes",
+            "minLength": 1
+          },
+          "webhook_events_filter": {
+            "type": "array",
+            "description": "Events that trigger the webhook (default all)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "start",
+                "output",
+                "logs",
+                "completed"
+              ]
+            }
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_owner",
+          "model_name",
+          "input",
+          "webhook"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.run_version_with_webhook",
+      "title": "Run model version (webhook)",
+      "description": "Run a specific model version (64-character version id, or owner/name:version) (paid; waits and saves the output); Replicate also POSTs the prediction to webhook on every update",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Version id, or owner/name:version_id",
+            "minLength": 1
+          },
+          "input": {
+            "type": "object",
+            "description": "The model's input object, e.g. {\"prompt\": \"...\", \"duration\": 5}; see the model's API tab or get_model"
+          },
+          "cancel_after": {
+            "type": "string",
+            "description": "Cancel automatically after this long, e.g. 20m (stops runaway billing)"
+          },
+          "webhook": {
+            "type": "string",
+            "description": "https URL that receives the prediction when it changes",
+            "minLength": 1
+          },
+          "webhook_events_filter": {
+            "type": "array",
+            "description": "Events that trigger the webhook (default all)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "start",
+                "output",
+                "logs",
+                "completed"
+              ]
+            }
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "version",
+          "input",
+          "webhook"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.get_prediction",
+      "title": "Get prediction",
+      "description": "Status (starting, processing, succeeded, failed, canceled, aborted), logs, metrics and output of a prediction; saves the output when it succeeded",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prediction_id": {
+            "type": "string",
+            "description": "Prediction id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prediction_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.cancel_prediction",
+      "title": "Cancel prediction",
+      "description": "Cancel a running prediction (its partial cost is still billed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prediction_id": {
+            "type": "string",
+            "description": "Prediction id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prediction_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.list_predictions",
+      "title": "List predictions",
+      "description": "Predictions made with the API token's account, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "created_after": {
+            "type": "string",
+            "description": "ISO 8601 date-time"
+          },
+          "created_before": {
+            "type": "string",
+            "description": "ISO 8601 date-time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.get_model",
+      "title": "Get model",
+      "description": "A model's description, run count, default example and latest version (with its input/output schema)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_owner": {
+            "type": "string",
+            "description": "Model owner, e.g. minimax"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Model name, e.g. hailuo-02"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_owner",
+          "model_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.list_model_versions",
+      "title": "List model versions",
+      "description": "A model's versions, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_owner": {
+            "type": "string",
+            "description": "Model owner, e.g. minimax"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Model name, e.g. hailuo-02"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_owner",
+          "model_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.get_collection",
+      "title": "Get collection",
+      "description": "Models in a Replicate collection, e.g. text-to-video or image-to-video",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_slug": {
+            "type": "string",
+            "description": "Collection slug, e.g. text-to-video"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_slug"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.search_models",
+      "title": "Search models",
+      "description": "Search public models, collections and docs, e.g. \"lip sync video\"",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text",
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum models to return",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.get_account",
+      "title": "Account",
+      "description": "The account (user or organization) that owns the API token",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "replicate-video.api_request",
+      "title": "Replicate HTTP API request",
+      "description": "Call any Replicate HTTP API endpoint that has no dedicated operation, e.g. path \"/account\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/account\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "run_model",
+      "description": "Run an official or latest-version model by owner/name, e.g. google/veo-3 or kwaivgi/kling-v2.1 (paid; waits and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_owner": {
+            "type": "string",
+            "description": "Model owner, e.g. google"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Model name, e.g. veo-3"
+          },
+          "input": {
+            "type": "object",
+            "description": "The model's input object, e.g. {\"prompt\": \"...\", \"duration\": 5}; see the model's API tab or get_model"
+          },
+          "cancel_after": {
+            "type": "string",
+            "description": "Cancel automatically after this long, e.g. 20m (stops runaway billing)"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "model_owner",
+          "model_name",
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "run_version",
+      "description": "Run a specific model version (64-character version id, or owner/name:version) (paid; waits and saves the output)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Version id, or owner/name:version_id",
+            "minLength": 1
+          },
+          "input": {
+            "type": "object",
+            "description": "The model's input object, e.g. {\"prompt\": \"...\", \"duration\": 5}; see the model's API tab or get_model"
+          },
+          "cancel_after": {
+            "type": "string",
+            "description": "Cancel automatically after this long, e.g. 20m (stops runaway billing)"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "version",
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "get_prediction",
+      "description": "Status (starting, processing, succeeded, failed, canceled, aborted), logs, metrics and output of a prediction; saves the output when it succeeded",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prediction_id": {
+            "type": "string",
+            "description": "Prediction id"
+          }
+        },
+        "required": [
+          "prediction_id"
+        ]
+      }
+    },
+    {
+      "name": "list_predictions",
+      "description": "Predictions made with the API token's account, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "created_after": {
+            "type": "string",
+            "description": "ISO 8601 date-time"
+          },
+          "created_before": {
+            "type": "string",
+            "description": "ISO 8601 date-time"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "A model's description, run count, default example and latest version (with its input/output schema)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_owner": {
+            "type": "string",
+            "description": "Model owner, e.g. minimax"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Model name, e.g. hailuo-02"
+          }
+        },
+        "required": [
+          "model_owner",
+          "model_name"
+        ]
+      }
+    },
+    {
+      "name": "list_model_versions",
+      "description": "A model's versions, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_owner": {
+            "type": "string",
+            "description": "Model owner, e.g. minimax"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Model name, e.g. hailuo-02"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "model_owner",
+          "model_name"
+        ]
+      }
+    },
+    {
+      "name": "get_collection",
+      "description": "Models in a Replicate collection, e.g. text-to-video or image-to-video",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_slug": {
+            "type": "string",
+            "description": "Collection slug, e.g. text-to-video"
+          }
+        },
+        "required": [
+          "collection_slug"
+        ]
+      }
+    },
+    {
+      "name": "search_models",
+      "description": "Search public models, collections and docs, e.g. \"lip sync video\"",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text",
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum models to return",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "get_account",
+      "description": "The account (user or organization) that owns the API token",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Replicate HTTP API endpoint that has no dedicated operation, e.g. path \"/account\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/account\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

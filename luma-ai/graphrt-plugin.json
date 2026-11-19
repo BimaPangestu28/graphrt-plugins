@@ -1,0 +1,1046 @@
+{
+  "name": "luma-ai",
+  "version": "0.1.0",
+  "description": "Luma AI (Agents API): Ray 3.2 text/image to video, video edit and reframe, uni-1 images as polled jobs with downloads, credits and usage",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "LUMA_API_KEY",
+      "LUMA_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 900000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "luma-ai.generate_video",
+      "title": "Generate video",
+      "description": "Text to video or image to video with Ray 3.2 (paid; waits for the generation and saves the MP4)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What the video should show: scene, action, camera",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Video model (ray-3.2)",
+            "default": "ray-3.2"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "360p is a cheap draft tier",
+            "enum": [
+              "360p",
+              "540p",
+              "720p",
+              "1080p"
+            ]
+          },
+          "hdr": {
+            "type": "boolean",
+            "description": "HDR video (720p/1080p, 5 s only; doubles the price)"
+          },
+          "duration": {
+            "type": "string",
+            "description": "Clip length (default 5s)",
+            "enum": [
+              "5s",
+              "10s"
+            ]
+          },
+          "loop": {
+            "type": "boolean",
+            "description": "Seamless loop (not with 10s, hdr or an end frame)"
+          },
+          "start_frame_url": {
+            "type": "string",
+            "description": "Public image URL for the first frame (image to video)"
+          },
+          "end_frame_url": {
+            "type": "string",
+            "description": "Public image URL for the last frame"
+          },
+          "extend_generation_id": {
+            "type": "string",
+            "description": "Extend this completed video generation (single-keyframe extend)"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Output aspect ratio (video: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9 ...)",
+            "enum": [
+              "3:1",
+              "2:1",
+              "21:9",
+              "16:9",
+              "4:3",
+              "3:2",
+              "1:1",
+              "4:5",
+              "3:4",
+              "2:3",
+              "9:16",
+              "1:2",
+              "1:3"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.edit_video",
+      "title": "Edit video",
+      "description": "Restyle or edit an existing video (up to 18 s) under a new prompt with Ray 3.2 (paid; waits and saves the MP4)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "How the edited video should look",
+            "minLength": 1
+          },
+          "source_generation_id": {
+            "type": "string",
+            "description": "A completed Luma video generation to edit"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "Or a public video URL (set source_media_type too)"
+          },
+          "source_media_type": {
+            "type": "string",
+            "description": "MIME type of source_url, e.g. video/mp4"
+          },
+          "strength": {
+            "type": "string",
+            "description": "How much the edit preserves (adhere) or reimagines the source",
+            "enum": [
+              "adhere_1",
+              "adhere_2",
+              "adhere_3",
+              "flex_1",
+              "flex_2",
+              "flex_3",
+              "reimagine_1",
+              "reimagine_2",
+              "reimagine_3"
+            ]
+          },
+          "auto_controls": {
+            "type": "boolean",
+            "description": "Let the model derive the conditioning from the source (recommended)"
+          },
+          "model": {
+            "type": "string",
+            "description": "Video model (ray-3.2)",
+            "default": "ray-3.2"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "360p is a cheap draft tier",
+            "enum": [
+              "360p",
+              "540p",
+              "720p",
+              "1080p"
+            ]
+          },
+          "hdr": {
+            "type": "boolean",
+            "description": "HDR video (720p/1080p, 5 s only; doubles the price)"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.reframe_video",
+      "title": "Reframe video",
+      "description": "Reframe an existing video to another aspect ratio, generating the new areas (paid per second; waits and saves the MP4)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Target aspect ratio, e.g. 9:16",
+            "enum": [
+              "3:1",
+              "2:1",
+              "21:9",
+              "16:9",
+              "4:3",
+              "3:2",
+              "1:1",
+              "4:5",
+              "3:4",
+              "2:3",
+              "9:16",
+              "1:2",
+              "1:3"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Optional guidance for the generated areas"
+          },
+          "source_generation_id": {
+            "type": "string",
+            "description": "A completed Luma video generation to reframe"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "Or a public video URL (set source_media_type too)"
+          },
+          "source_media_type": {
+            "type": "string",
+            "description": "MIME type of source_url, e.g. video/mp4"
+          },
+          "model": {
+            "type": "string",
+            "description": "Video model (ray-3.2)",
+            "default": "ray-3.2"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "360p is a cheap draft tier",
+            "enum": [
+              "360p",
+              "540p",
+              "720p",
+              "1080p"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "aspect_ratio"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.generate_image",
+      "title": "Generate image",
+      "description": "Generate a 2K image with uni-1 or uni-1-max, optionally from reference images (paid; waits and saves the image)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What the image should show",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "uni-1 (14 credits) or uni-1-max (34 credits)",
+            "enum": [
+              "uni-1",
+              "uni-1-max"
+            ],
+            "default": "uni-1"
+          },
+          "image_ref": {
+            "type": "array",
+            "description": "Up to 9 references: [{url} or {generation_id} or {data, media_type}]",
+            "maxItems": 9,
+            "items": {
+              "type": "object"
+            }
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Image format",
+            "enum": [
+              "png",
+              "jpeg"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Output aspect ratio (video: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9 ...)",
+            "enum": [
+              "3:1",
+              "2:1",
+              "21:9",
+              "16:9",
+              "4:3",
+              "3:2",
+              "1:1",
+              "4:5",
+              "3:4",
+              "2:3",
+              "9:16",
+              "1:2",
+              "1:3"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.get_generation",
+      "title": "Get generation",
+      "description": "State of a generation (queued, processing, completed, failed) with failure_code, usage and fresh output URLs; saves the output of a completed one",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "Generation id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.delete_generation",
+      "title": "Delete generation",
+      "description": "Request deletion of a finished generation and its outputs; returns a deletion task to poll with get_deletion",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "Generation id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.get_deletion",
+      "title": "Get deletion",
+      "description": "State of a deletion task (completed means the content was removed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Deletion task id from delete_generation"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.get_credits",
+      "title": "Credit balance",
+      "description": "The team's credit balance (less credits held for running generations)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.get_usage",
+      "title": "Usage",
+      "description": "Settled credit spend for the billing period or a window of up to 92 days, optionally grouped",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "group_by": {
+            "type": "string",
+            "description": "Omit for the summary",
+            "enum": [
+              "model",
+              "user",
+              "session",
+              "api_key",
+              "tenant_id",
+              "metadata"
+            ]
+          },
+          "start": {
+            "type": "string",
+            "description": "ISO-8601 start (inclusive); required with end"
+          },
+          "end": {
+            "type": "string",
+            "description": "ISO-8601 end (exclusive), default now"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "luma-ai.api_request",
+      "title": "Luma Agents API request",
+      "description": "Call any Luma Agents API endpoint that has no dedicated operation, e.g. path \"/credits\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/credits\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "generate_video",
+      "description": "Text to video or image to video with Ray 3.2 (paid; waits for the generation and saves the MP4)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What the video should show: scene, action, camera",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Video model (ray-3.2)",
+            "default": "ray-3.2"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "360p is a cheap draft tier",
+            "enum": [
+              "360p",
+              "540p",
+              "720p",
+              "1080p"
+            ]
+          },
+          "hdr": {
+            "type": "boolean",
+            "description": "HDR video (720p/1080p, 5 s only; doubles the price)"
+          },
+          "duration": {
+            "type": "string",
+            "description": "Clip length (default 5s)",
+            "enum": [
+              "5s",
+              "10s"
+            ]
+          },
+          "loop": {
+            "type": "boolean",
+            "description": "Seamless loop (not with 10s, hdr or an end frame)"
+          },
+          "start_frame_url": {
+            "type": "string",
+            "description": "Public image URL for the first frame (image to video)"
+          },
+          "end_frame_url": {
+            "type": "string",
+            "description": "Public image URL for the last frame"
+          },
+          "extend_generation_id": {
+            "type": "string",
+            "description": "Extend this completed video generation (single-keyframe extend)"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Output aspect ratio (video: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9 ...)",
+            "enum": [
+              "3:1",
+              "2:1",
+              "21:9",
+              "16:9",
+              "4:3",
+              "3:2",
+              "1:1",
+              "4:5",
+              "3:4",
+              "2:3",
+              "9:16",
+              "1:2",
+              "1:3"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "edit_video",
+      "description": "Restyle or edit an existing video (up to 18 s) under a new prompt with Ray 3.2 (paid; waits and saves the MP4)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "How the edited video should look",
+            "minLength": 1
+          },
+          "source_generation_id": {
+            "type": "string",
+            "description": "A completed Luma video generation to edit"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "Or a public video URL (set source_media_type too)"
+          },
+          "source_media_type": {
+            "type": "string",
+            "description": "MIME type of source_url, e.g. video/mp4"
+          },
+          "strength": {
+            "type": "string",
+            "description": "How much the edit preserves (adhere) or reimagines the source",
+            "enum": [
+              "adhere_1",
+              "adhere_2",
+              "adhere_3",
+              "flex_1",
+              "flex_2",
+              "flex_3",
+              "reimagine_1",
+              "reimagine_2",
+              "reimagine_3"
+            ]
+          },
+          "auto_controls": {
+            "type": "boolean",
+            "description": "Let the model derive the conditioning from the source (recommended)"
+          },
+          "model": {
+            "type": "string",
+            "description": "Video model (ray-3.2)",
+            "default": "ray-3.2"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "360p is a cheap draft tier",
+            "enum": [
+              "360p",
+              "540p",
+              "720p",
+              "1080p"
+            ]
+          },
+          "hdr": {
+            "type": "boolean",
+            "description": "HDR video (720p/1080p, 5 s only; doubles the price)"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "reframe_video",
+      "description": "Reframe an existing video to another aspect ratio, generating the new areas (paid per second; waits and saves the MP4)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Target aspect ratio, e.g. 9:16",
+            "enum": [
+              "3:1",
+              "2:1",
+              "21:9",
+              "16:9",
+              "4:3",
+              "3:2",
+              "1:1",
+              "4:5",
+              "3:4",
+              "2:3",
+              "9:16",
+              "1:2",
+              "1:3"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Optional guidance for the generated areas"
+          },
+          "source_generation_id": {
+            "type": "string",
+            "description": "A completed Luma video generation to reframe"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "Or a public video URL (set source_media_type too)"
+          },
+          "source_media_type": {
+            "type": "string",
+            "description": "MIME type of source_url, e.g. video/mp4"
+          },
+          "model": {
+            "type": "string",
+            "description": "Video model (ray-3.2)",
+            "default": "ray-3.2"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "360p is a cheap draft tier",
+            "enum": [
+              "360p",
+              "540p",
+              "720p",
+              "1080p"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "aspect_ratio"
+        ]
+      }
+    },
+    {
+      "name": "generate_image",
+      "description": "Generate a 2K image with uni-1 or uni-1-max, optionally from reference images (paid; waits and saves the image)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What the image should show",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "uni-1 (14 credits) or uni-1-max (34 credits)",
+            "enum": [
+              "uni-1",
+              "uni-1-max"
+            ],
+            "default": "uni-1"
+          },
+          "image_ref": {
+            "type": "array",
+            "description": "Up to 9 references: [{url} or {generation_id} or {data, media_type}]",
+            "maxItems": 9,
+            "items": {
+              "type": "object"
+            }
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Image format",
+            "enum": [
+              "png",
+              "jpeg"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Output aspect ratio (video: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9 ...)",
+            "enum": [
+              "3:1",
+              "2:1",
+              "21:9",
+              "16:9",
+              "4:3",
+              "3:2",
+              "1:1",
+              "4:5",
+              "3:4",
+              "2:3",
+              "9:16",
+              "1:2",
+              "1:3"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Your end user's stable opaque id (no personal data), for abuse attribution and usage breakdowns"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "get_generation",
+      "description": "State of a generation (queued, processing, completed, failed) with failure_code, usage and fresh output URLs; saves the output of a completed one",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "Generation id"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      }
+    },
+    {
+      "name": "get_deletion",
+      "description": "State of a deletion task (completed means the content was removed)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Deletion task id from delete_generation"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "get_credits",
+      "description": "The team's credit balance (less credits held for running generations)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_usage",
+      "description": "Settled credit spend for the billing period or a window of up to 92 days, optionally grouped",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "group_by": {
+            "type": "string",
+            "description": "Omit for the summary",
+            "enum": [
+              "model",
+              "user",
+              "session",
+              "api_key",
+              "tenant_id",
+              "metadata"
+            ]
+          },
+          "start": {
+            "type": "string",
+            "description": "ISO-8601 start (inclusive); required with end"
+          },
+          "end": {
+            "type": "string",
+            "description": "ISO-8601 end (exclusive), default now"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Luma Agents API endpoint that has no dedicated operation, e.g. path \"/credits\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/credits\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

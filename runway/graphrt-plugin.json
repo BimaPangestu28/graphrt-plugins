@@ -1,0 +1,968 @@
+{
+  "name": "runway",
+  "version": "0.1.0",
+  "description": "Runway API: image/text/video to video, video upscale and text to image as polled tasks (paid per credit), task status and credits",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "RUNWAY_API_KEY",
+      "RUNWAY_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 900000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "runway.image_to_video",
+      "title": "Image to video",
+      "description": "Animate an image into a video with a Runway model (paid; waits for the task and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway model id, e.g. gen4.5 (12 credits/s), gen4_turbo (5 credits/s, image only), veo3.1, veo3.1_fast, kling3.0_pro, seedance2, hailuo3",
+            "default": "gen4.5"
+          },
+          "prompt_image": {
+            "type": "string",
+            "description": "First frame: an https URL, a runway:// upload URI or a data: URI (up to 5 MB)",
+            "minLength": 1
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What should happen in the video (required by gen4.5)",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1280:720 or 720:1280. Required by gen4.5, gen4_turbo and veo3.1; omit it for models that do not take it (e.g. h3_max)"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds of video (gen4.5: 2–10, required; veo3.1: 4, 6 or 8; kling models up to 15)",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "boolean",
+            "description": "Generate audio (veo3.1, kling, seedance, hailuo models; affects price)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What should not appear (veo3.1 models)",
+            "minLength": 1
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Container/encoding: mp4 (default), prores, png_sequence, ... (gen4.5)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt_image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.text_to_video",
+      "title": "Text to video",
+      "description": "Generate a video from a text prompt with a Runway model (paid; waits for the task and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway model id, e.g. gen4.5 (12 credits/s), gen4_turbo (5 credits/s, image only), veo3.1, veo3.1_fast, kling3.0_pro, seedance2, hailuo3",
+            "default": "gen4.5"
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What should appear in the video",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1280:720 or 720:1280. Required by gen4.5, gen4_turbo and veo3.1; omit it for models that do not take it (e.g. h3_max)"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds of video (gen4.5: 2–10, required; veo3.1: 4, 6 or 8; kling models up to 15)",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "boolean",
+            "description": "Generate audio (veo3.1, kling, seedance, hailuo models; affects price)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What should not appear (veo3.1 models)",
+            "minLength": 1
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Container/encoding: mp4 (default), prores, png_sequence, ... (gen4.5)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt_text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.video_to_video",
+      "title": "Video to video",
+      "description": "Edit or restyle an input video (up to 30 s) with a prompt, e.g. with aleph2 (paid; waits and saves the video); give video_uri or prompt_video as the model expects",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway model id, e.g. aleph2 (28 credits/s, 56 minimum)",
+            "default": "aleph2"
+          },
+          "video_uri": {
+            "type": "string",
+            "description": "Input video for aleph2, gemini_omni_flash* and kling_4*: an https URL, a runway:// upload URI or a data: URI",
+            "minLength": 1
+          },
+          "prompt_video": {
+            "type": "string",
+            "description": "Input video for seedance2*, hailuo3* and klingO3* models (instead of video_uri)",
+            "minLength": 1
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What the edited video should show",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1280:720"
+          },
+          "keyframes": {
+            "type": "array",
+            "description": "Guidance images: [{uri, seconds} or {uri, at}] (aleph2)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.video_upscale",
+      "title": "Upscale video",
+      "description": "Upscale a video (up to 30 s) to 720p–4K, or raise its frame rate (paid; waits and saves the video)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "magnific_video_upscaler_creative or enhance_frame_rate",
+            "default": "magnific_video_upscaler_creative"
+          },
+          "video_uri": {
+            "type": "string",
+            "description": "Video to upscale: an https URL, a runway:// upload URI or a data: URI",
+            "minLength": 1
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Target resolution (default 2k; magnific_video_upscaler_creative)",
+            "enum": [
+              "720p",
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "creativity": {
+            "type": "integer",
+            "description": "AI detail added, 0 (faithful) to 100",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "target_framerate": {
+            "type": "string",
+            "description": "Output frame rate for enhance_frame_rate, e.g. 30, 60, 29_97"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "video_uri"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.text_to_image",
+      "title": "Text to image",
+      "description": "Generate an image from a prompt and optional reference images (paid; waits and saves the image)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway image model, e.g. gen4_image (5–8 credits), gen4_image_turbo (2 credits, needs reference_images)",
+            "default": "gen4_image"
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What the image should show; reference tags as @tag",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1920:1080 or 1024:1024 (required by most image models; optional for ideogram and vector models)"
+          },
+          "reference_images": {
+            "type": "array",
+            "description": "Up to 3 references: [{uri, tag?}]",
+            "maxItems": 3,
+            "items": {
+              "type": "object"
+            }
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt_text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.get_task",
+      "title": "Get task",
+      "description": "Status of a Runway task (PENDING, THROTTLED, RUNNING, SUCCEEDED, FAILED, CANCELLED); saves the output of a finished task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id from a generation call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.cancel_task",
+      "title": "Cancel or delete task",
+      "description": "Cancel a running task, or delete a finished one and its output",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.get_organization",
+      "title": "Organization",
+      "description": "Credit balance, tier limits and per-model usage of the API key's organization",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.query_usage",
+      "title": "Credit usage",
+      "description": "Credits used per model per day (UTC) between start_date and before_date",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, default 30 days ago"
+          },
+          "before_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, exclusive"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "runway.api_request",
+      "title": "Runway API request",
+      "description": "Call any Runway API endpoint that has no dedicated operation, e.g. path \"/v1/organization\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/organization\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "image_to_video",
+      "description": "Animate an image into a video with a Runway model (paid; waits for the task and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway model id, e.g. gen4.5 (12 credits/s), gen4_turbo (5 credits/s, image only), veo3.1, veo3.1_fast, kling3.0_pro, seedance2, hailuo3",
+            "default": "gen4.5"
+          },
+          "prompt_image": {
+            "type": "string",
+            "description": "First frame: an https URL, a runway:// upload URI or a data: URI (up to 5 MB)",
+            "minLength": 1
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What should happen in the video (required by gen4.5)",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1280:720 or 720:1280. Required by gen4.5, gen4_turbo and veo3.1; omit it for models that do not take it (e.g. h3_max)"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds of video (gen4.5: 2–10, required; veo3.1: 4, 6 or 8; kling models up to 15)",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "boolean",
+            "description": "Generate audio (veo3.1, kling, seedance, hailuo models; affects price)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What should not appear (veo3.1 models)",
+            "minLength": 1
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Container/encoding: mp4 (default), prores, png_sequence, ... (gen4.5)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "prompt_image"
+        ]
+      }
+    },
+    {
+      "name": "text_to_video",
+      "description": "Generate a video from a text prompt with a Runway model (paid; waits for the task and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway model id, e.g. gen4.5 (12 credits/s), gen4_turbo (5 credits/s, image only), veo3.1, veo3.1_fast, kling3.0_pro, seedance2, hailuo3",
+            "default": "gen4.5"
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What should appear in the video",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1280:720 or 720:1280. Required by gen4.5, gen4_turbo and veo3.1; omit it for models that do not take it (e.g. h3_max)"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Seconds of video (gen4.5: 2–10, required; veo3.1: 4, 6 or 8; kling models up to 15)",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "audio": {
+            "type": "boolean",
+            "description": "Generate audio (veo3.1, kling, seedance, hailuo models; affects price)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What should not appear (veo3.1 models)",
+            "minLength": 1
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Container/encoding: mp4 (default), prores, png_sequence, ... (gen4.5)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "name": "video_to_video",
+      "description": "Edit or restyle an input video (up to 30 s) with a prompt, e.g. with aleph2 (paid; waits and saves the video); give video_uri or prompt_video as the model expects",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway model id, e.g. aleph2 (28 credits/s, 56 minimum)",
+            "default": "aleph2"
+          },
+          "video_uri": {
+            "type": "string",
+            "description": "Input video for aleph2, gemini_omni_flash* and kling_4*: an https URL, a runway:// upload URI or a data: URI",
+            "minLength": 1
+          },
+          "prompt_video": {
+            "type": "string",
+            "description": "Input video for seedance2*, hailuo3* and klingO3* models (instead of video_uri)",
+            "minLength": 1
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What the edited video should show",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1280:720"
+          },
+          "keyframes": {
+            "type": "array",
+            "description": "Guidance images: [{uri, seconds} or {uri, at}] (aleph2)",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "video_upscale",
+      "description": "Upscale a video (up to 30 s) to 720p–4K, or raise its frame rate (paid; waits and saves the video)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "magnific_video_upscaler_creative or enhance_frame_rate",
+            "default": "magnific_video_upscaler_creative"
+          },
+          "video_uri": {
+            "type": "string",
+            "description": "Video to upscale: an https URL, a runway:// upload URI or a data: URI",
+            "minLength": 1
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Target resolution (default 2k; magnific_video_upscaler_creative)",
+            "enum": [
+              "720p",
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "creativity": {
+            "type": "integer",
+            "description": "AI detail added, 0 (faithful) to 100",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "target_framerate": {
+            "type": "string",
+            "description": "Output frame rate for enhance_frame_rate, e.g. 30, 60, 29_97"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "video_uri"
+        ]
+      }
+    },
+    {
+      "name": "text_to_image",
+      "description": "Generate an image from a prompt and optional reference images (paid; waits and saves the image)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Runway image model, e.g. gen4_image (5–8 credits), gen4_image_turbo (2 credits, needs reference_images)",
+            "default": "gen4_image"
+          },
+          "prompt_text": {
+            "type": "string",
+            "description": "What the image should show; reference tags as @tag",
+            "minLength": 1
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Output resolution as W:H, e.g. 1920:1080 or 1024:1024 (required by most image models; optional for ideogram and vector models)"
+          },
+          "reference_images": {
+            "type": "array",
+            "description": "Up to 3 references: [{uri, tag?}]",
+            "maxItems": 3,
+            "items": {
+              "type": "object"
+            }
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "public_figure_threshold": {
+            "type": "string",
+            "description": "low makes moderation less strict about recognizable public figures",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "Status of a Runway task (PENDING, THROTTLED, RUNNING, SUCCEEDED, FAILED, CANCELLED); saves the output of a finished task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id from a generation call"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "get_organization",
+      "description": "Credit balance, tier limits and per-model usage of the API key's organization",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "query_usage",
+      "description": "Credits used per model per day (UTC) between start_date and before_date",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, default 30 days ago"
+          },
+          "before_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, exclusive"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Runway API endpoint that has no dedicated operation, e.g. path \"/v1/organization\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/organization\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

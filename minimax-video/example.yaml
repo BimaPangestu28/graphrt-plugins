@@ -1,0 +1,12 @@
+# List the MiniMax H3 video tasks of the last 7 days. Read-only, nothing is billed.
+#   MINIMAX_API_KEY=... graphrt run minimax-video/example.yaml --plugins .
+version: "1"
+name: minimax-video-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: tasks, type: minimax-video.list_tasks, limit: 5 }
+    - { id: answer, type: answer, answer: "Recent MiniMax video tasks: {{#tasks.data#}}" }
+  edges:
+    - { source: start, target: tasks }
+    - { source: tasks, target: answer }
