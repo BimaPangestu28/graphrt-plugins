@@ -1,0 +1,39 @@
+# Runs on every pull request and on pushes to main: generated files must be in sync,
+# no plugin may use a graphrt-reserved parameter name, and every plugin's tests pass.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: npm test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install plugin dependencies
+        run: scripts/install-plugin-dependencies.sh
+
+      - name: Check generated files
+        run: npm run check
+
+      # Shared tests, every plugin's tests, the sync check and the reserved-parameter check.
+      # Integration tests that need ffmpeg, tesseract, a browser, sshd or a database skip cleanly here.
+      - name: Test
+        run: npm test
