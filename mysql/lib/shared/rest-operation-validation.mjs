@@ -5,6 +5,7 @@
  * path placeholders, body modes and constants, pagination, binary responses, jobs, downloads and time budgets.
  */
 import { findForbiddenSegments } from "./object-path.mjs";
+import { describeReservedParam, isReservedNodeKey } from "./reserved-node-keys.mjs";
 import {
   BODY_MODES,
   checkBaseUrl,
@@ -142,6 +143,7 @@ function validateParams(spec, operation, method, fail) {
 function validateParam(spec, operation, method, paramName, paramSpec, fail) {
   const failParam = (problem) => fail(`param \`${paramName}\`: ${problem}`);
   if (paramName === "access_token") failParam("`access_token` is reserved for the node credential override");
+  if (isReservedNodeKey(paramName)) failParam(describeReservedParam(paramName));
   rejectUnknownKeys(paramSpec, PARAM_KEYS, "param", failParam);
   if (!PARAM_LOCATIONS.includes(paramSpec.in)) failParam(`\`in\` must be one of ${PARAM_LOCATIONS.join(", ")}`);
   if (!PARAM_TYPES.includes(paramSpec.type)) failParam(`type \`${paramSpec.type}\` is unknown; use one of ${PARAM_TYPES.join(", ")}`);

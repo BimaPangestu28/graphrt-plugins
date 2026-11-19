@@ -20,6 +20,7 @@
  */
 import { Plugin, PluginError } from "./graphrt-plugin.mjs";
 import { validateArguments } from "./params.mjs";
+import { assertNoReservedParameters } from "./reserved-node-keys.mjs";
 
 const NODE_OUTPUTS = [
   { name: "data", type: "any", description: "API result" },
@@ -39,8 +40,10 @@ const MIN_TOOL_DEADLINE_MS = 5000;
  *
  * @param pluginDefinition - Plugin definition (object, see module docs)
  * @returns `{nodes, tools}` ready for the manifest (object)
+ * @throws Error - When a parameter name is one graphrt takes from nodes (see reserved-node-keys.mjs)
  */
 export function buildDescriptors(pluginDefinition) {
+  assertNoReservedParameters(pluginDefinition);
   const nodes = pluginDefinition.operations.map((operation) => ({
     kind: `${pluginDefinition.name}.${operation.name}`,
     title: operation.title,
@@ -117,8 +120,10 @@ function listPermittedEnv(pluginDefinition) {
  * @param runnerOptions - Optional `{fetchImpl, resolveHostAddresses}` passed to createClient, for tests (object)
  * @returns `(operationName, rawArguments, {source, signal}) => Promise<{data, next_cursor}>`
  * @throws PluginError kinds `invalid_input` (unknown operation or bad args), `auth_error` (no token)
+ * @throws Error - At creation, when a parameter name is one graphrt takes from nodes (see reserved-node-keys.mjs)
  */
 export function createOperationRunner(pluginDefinition, environment, runnerOptions = {}) {
+  assertNoReservedParameters(pluginDefinition);
   const operationsByName = new Map(pluginDefinition.operations.map((operation) => [operation.name, operation]));
   return async (operationName, rawArguments, { source, signal } = {}) => {
     const operation = operationsByName.get(operationName);

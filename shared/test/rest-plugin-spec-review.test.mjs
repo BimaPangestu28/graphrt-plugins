@@ -22,7 +22,7 @@ const INVALID_SPECS = [
   ["default of the wrong type", buildSpec([operation({ params: { a: { in: "query", type: "integer", default: "10" } } })]), /default/],
   ["enum values of the wrong type", buildSpec([operation({ params: { a: { in: "query", type: "string", enum: ["a", 1] } } })]), /enum/],
   ["default outside the enum", buildSpec([operation({ params: { a: { in: "query", type: "string", enum: ["a"], default: "b" } } })]), /default/],
-  ["path param id colliding with job {id}", buildSpec([post({ path: "/models/{id}/jobs", params: { id: { in: "path", type: "string", required: true } }, job: job() })]), /\{id\}/],
+  ["path param id colliding with job {id} (refused as a graphrt-reserved name first)", buildSpec([post({ path: "/models/{id}/jobs", params: { id: { in: "path", type: "string", required: true } }, job: job() })]), /param `id`/],
   ["invalid header wireName", buildSpec([operation({ params: { a: { in: "header", type: "string", wireName: "X Bad" } } })]), /header name/],
   ["invalid constant header name", buildSpec([operation({ constants: { headers: { "Bad Header": "1" } } })]), /header name/],
   ["constant colliding with a param", buildSpec([post({ params: { stream: { in: "body", type: "boolean" } }, constants: { body: { stream: false } } })]), /constant.*stream/],

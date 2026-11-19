@@ -81,11 +81,11 @@ test("constants add fixed query, body and header values that args cannot overrid
 
 test("contentType overrides the JSON content type (merge-patch) and text mode sends a string or NDJSON", async () => {
   const spec = buildSpec([
-    { name: "patch", title: "P", description: "d", method: "PATCH", write: "idempotent", contentType: "application/merge-patch+json", path: "/x", params: { title: { in: "body", type: "string" } } },
+    { name: "patch", title: "P", description: "d", method: "PATCH", write: "idempotent", contentType: "application/merge-patch+json", path: "/x", params: { item_title: { in: "body", type: "string", wireName: "title" } } },
     { name: "bulk", title: "B", description: "d", method: "POST", write: "unsafe", bodyMode: "text", contentType: "application/x-ndjson", path: "/_bulk", params: { lines: { in: "body", type: "array", items: { type: "object" }, required: true } } },
     { name: "note", title: "N", description: "d", method: "POST", write: "unsafe", bodyMode: "text", path: "/notes", params: { text: { in: "body", type: "string", required: true } } },
   ]);
-  const patch = await runOperation(spec, "patch", { title: "T" });
+  const patch = await runOperation(spec, "patch", { item_title: "T" });
   assert.equal(patch.calls[0].headers["content-type"], "application/merge-patch+json");
   assert.equal(patch.calls[0].body, '{"title":"T"}');
   const bulk = await runOperation(spec, "bulk", { lines: [{ index: {} }, { a: 1 }] });
