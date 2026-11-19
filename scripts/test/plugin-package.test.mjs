@@ -64,6 +64,18 @@ test("builds a catalog entry with download and readme URLs", () => {
   assert.equal(entry.size_bytes, 123);
 });
 
+test("carries the maturity status and ToS risk from plugin-status.json", () => {
+  const pluginStatuses = { "meta-api": { status: "beta", reason: "Checked live with an invalid token only.", tos_risk: "low", tos_notes: "Spam rules." } };
+  const entry = buildCatalogEntry(sampleManifest, { sha256: "0", sizeBytes: 1 }, pluginStatuses);
+  assert.equal(entry.status, "beta");
+  assert.equal(entry.status_reason, "Checked live with an invalid token only.");
+  assert.equal(entry.tos_risk, "low");
+  const repoEntry = buildCatalogEntry({ ...sampleManifest, name: "whatsapp-web", nodes: [] }, { sha256: "0", sizeBytes: 1 });
+  assert.equal(repoEntry.status, "experimental");
+  assert.equal(repoEntry.tos_risk, "high");
+  assert.throws(() => buildCatalogEntry({ ...sampleManifest, name: "ghost" }, { sha256: "0", sizeBytes: 1 }), /ghost: no entry in plugin-status.json/);
+});
+
 test("marks Playwright plugins as needing a browser", () => {
   const entry = buildCatalogEntry({ ...sampleManifest, name: "whatsapp-web", nodes: [] }, { sha256: "0", sizeBytes: 1 });
   assert.equal(entry.needs_browser, true);

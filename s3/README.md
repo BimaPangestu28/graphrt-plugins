@@ -1,5 +1,7 @@
 # s3
 
+**Status:** beta · **ToS risk:** none. SigV4 matches the AWS test vectors and a live round trip against MinIO passed (PR #37); not tested on real AWS or R2. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **Amazon S3** and S3-compatible object storage
 (Cloudflare R2, MinIO, Backblaze B2, Wasabi, ...). It talks to the S3 REST API directly. Requests are signed with

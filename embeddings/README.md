@@ -1,5 +1,7 @@
 # embeddings
 
+**Status:** beta · **ToS risk:** none. OpenAI-compatible /embeddings API for several providers; unit-tested with fakes, checked live only with an invalid key. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for text embeddings that does not tie a workflow to one
 provider. It calls the OpenAI-compatible `POST /embeddings` endpoint that OpenAI, Mistral, Gemini, Voyage AI, Ollama

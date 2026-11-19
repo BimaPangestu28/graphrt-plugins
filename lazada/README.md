@@ -1,5 +1,7 @@
 # lazada
 
+**Status:** experimental · **ToS risk:** low. Request signing is unit-tested but never accepted by Lazada: the live check used an invalid app key. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
 [Lazada Open Platform](https://open.lazada.com) seller APIs: seller, products, orders and order items, plus price,

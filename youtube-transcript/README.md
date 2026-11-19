@@ -1,5 +1,7 @@
 # youtube-transcript
 
+**Status:** beta · **ToS risk:** low. Official Data API only (captions.download works only for videos you can edit); checked live only with an invalid token. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **YouTube captions through the official
 YouTube Data API v3 only**. It lists a video's caption tracks and downloads one as timed segments and plain text,

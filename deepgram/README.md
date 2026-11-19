@@ -1,5 +1,7 @@
 # deepgram
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Deepgram API](https://developers.deepgram.com/reference).
 It transcribes pre-recorded audio by URL or from a file, turns text into speech with Aura voices saved as audio

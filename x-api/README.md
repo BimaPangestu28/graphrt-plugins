@@ -1,5 +1,7 @@
 # x-api
 
+**Status:** beta · **ToS risk:** medium. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **X API v2**. It publishes and
 manages posts, reads mentions and replies, likes and reposts, moderates replies, sends direct messages and uploads

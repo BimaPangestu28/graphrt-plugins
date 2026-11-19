@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { REPO_ROOT } from "../plugins.mjs";
+import { readPluginStatuses, statusForPlugin } from "./plugin-status.mjs";
 import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
 export const MANIFEST_FILE_NAME = "graphrt-plugin.json";
@@ -281,10 +282,14 @@ export function sha256Hex(bytes) {
  * @param tarball.sha256 - Hex sha256 of the tarball bytes (string)
  * @param tarball.sizeBytes - Tarball size (number)
  * @param tarball.readmeText - The plugin README shipped in the tarball, or null (string|null)
+ * @param pluginStatuses - Maturity labels by plugin name (object, default: the repo's plugin-status.json). They come
+ *   from the repo at catalog time, not from the tarball, so relabelling a plugin needs no new release
  * @returns A catalog `plugins[]` entry (object)
+ * @throws Error - When the plugin has no entry in plugin-status.json
  */
-export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }) {
+export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, pluginStatuses = readPluginStatuses()) {
   const { name, version } = releasedManifest;
+  const statusEntry = statusForPlugin(pluginStatuses, name);
   const tag = releaseTagFor(name, version);
   const permissions = releasedManifest.permissions ?? {};
   const manifestNodes = releasedManifest.nodes ?? [];
@@ -299,6 +304,9 @@ export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeT
     needs_browser: needsBrowser(releasedManifest),
     node: NODE_REQUIREMENT,
     warning: readmeText ? extractCatalogWarning(readmeText) : null,
+    status: statusEntry.status,
+    status_reason: statusEntry.reason,
+    tos_risk: statusEntry.tos_risk,
     operations_count: manifestNodes.length,
     nodes: manifestNodes.map((manifestNode) => buildCatalogNode(manifestNode)),
     tools: (releasedManifest.tools ?? []).map((tool) => tool.name),

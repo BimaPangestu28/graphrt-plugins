@@ -1,5 +1,7 @@
 # google-maps-scraper
 
+**Status:** experimental · **ToS risk:** high. Scrapes Google Maps with a headless browser: works live (PR #1), but against Google's terms and breaks when the Maps UI changes. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that searches Google Maps with a headless
 Chromium browser (Playwright) and returns business phone numbers, addresses, websites and ratings.

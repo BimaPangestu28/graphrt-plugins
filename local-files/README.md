@@ -1,5 +1,7 @@
 # local-files
 
+**Status:** stable · **ToS risk:** none. Local only; listed a real directory live and returned a clean not_found (PR #48). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **files in directories you allow**. Workflows and
 agents can list, stat, read and search files there, and write new ones. Nothing outside `LOCAL_FILES_ALLOWED_DIRS`

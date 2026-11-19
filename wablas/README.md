@@ -1,5 +1,7 @@
 # wablas
 
+**Status:** experimental · **ToS risk:** high. WhatsApp gateway driving a QR-linked device (unofficial); checked live only with an invalid token. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Wablas](https://wablas.com), an Indonesian
 WhatsApp gateway that sends from your WhatsApp number linked to a Wablas device

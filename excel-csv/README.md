@@ -1,5 +1,7 @@
 # excel-csv
 
+**Status:** stable · **ToS risk:** none. Local only; its example workflow ran on real files during the build (PR #40). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **local CSV/TSV and Excel (.xlsx) files**. Workflows
 and agents can list a workbook's sheets, read rows (a sheet, an A1 range, a header row, a row cap), write rows to a

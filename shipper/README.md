@@ -1,5 +1,7 @@
 # shipper
 
+**Status:** beta · **ToS risk:** none. Official API; checked live only with an invalid key, and one request field placement is unverified. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Shipper.id](https://shipper.id) logistics API v3
 ([reference](https://logistics-docs.shipper.id)). It searches locations, compares domestic courier rates, creates

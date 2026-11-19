@@ -1,5 +1,7 @@
 # whatsapp-api
 
+**Status:** beta · **ToS risk:** low. Official Cloud API; checked live only with an invalid token (190); sends are tested with fakes only. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **WhatsApp Business Cloud API**. It
 sends messages from a business phone number and manages media, message templates and the business profile.

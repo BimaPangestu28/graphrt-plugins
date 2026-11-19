@@ -1,5 +1,7 @@
 # qontak
 
+**Status:** experimental · **ToS risk:** low. Official WhatsApp BSP, but the HMAC request signing has not been verified against a live Mekari account. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Mekari Qontak](https://qontak.com), an
 Indonesian CRM and omnichannel platform:

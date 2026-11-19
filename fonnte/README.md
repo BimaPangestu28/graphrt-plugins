@@ -1,5 +1,7 @@
 # fonnte
 
+**Status:** experimental · **ToS risk:** high. Unofficial WhatsApp gateway (Fonnte runs your number through WhatsApp Web); checked live only with an invalid token. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Fonnte](https://fonnte.com), an Indonesian
 WhatsApp gateway that sends from your own WhatsApp number linked to a Fonnte "device"

@@ -1,5 +1,7 @@
 # news-api
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [NewsAPI.org](https://newsapi.org/docs) v2. It
 searches news articles and blog posts from tens of thousands of sources, reads top headlines by country, category

@@ -1,5 +1,7 @@
 # bigquery
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **Google BigQuery** (API v2). It lists datasets and
 tables, reads schemas and runs parameterised GoogleSQL with a hard bytes-billed cap. Agent tools only run `SELECT`

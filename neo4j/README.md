@@ -1,5 +1,7 @@
 # neo4j
 
+**Status:** beta · **ToS risk:** none. Official Query API; reviewed and unit-tested with fakes, checked live against the public demo with a bad password (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that runs Cypher on Neo4j through the
 [HTTP Query API v2](https://neo4j.com/docs/query-api/current/) (`POST /db/<database>/query/v2`). It works with

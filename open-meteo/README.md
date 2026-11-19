@@ -1,5 +1,7 @@
 # open-meteo
 
+**Status:** stable · **ToS risk:** none. Public no-auth API; the example read a real Jakarta forecast live (PR #27, rechecked 2026-11-19). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the free [Open-Meteo](https://open-meteo.com) weather
 API. It finds places by name and returns weather forecasts (current conditions, hourly and daily values for up to

@@ -1,5 +1,7 @@
 # telegram-bot
 
+**Status:** beta · **ToS risk:** low. Official Bot API; checked live only with an invalid token (401); no message sent live. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **Telegram Bot API**. It reads a
 bot's updates by long polling, sends and edits messages, sends photos and documents, answers inline-keyboard

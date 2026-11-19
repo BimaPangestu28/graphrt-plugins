@@ -1,5 +1,7 @@
 # pipedrive
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Pipedrive](https://www.pipedrive.com) CRM API.
 It lists, reads, searches, creates and updates persons, organizations, deals and activities (API v2), lists

@@ -1,5 +1,7 @@
 # stable-audio
 
+**Status:** beta · **ToS risk:** none. Official API; checked live only with a fake key; Stable Audio 3 audio-to-audio and inpainting are not implemented. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Stability AI's
 [Stable Audio API](https://platform.stability.ai/docs/api-reference). It generates music and sound effects from

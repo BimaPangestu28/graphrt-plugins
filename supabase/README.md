@@ -1,5 +1,7 @@
 # supabase
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for one [Supabase](https://supabase.com) project:
 table rows through the Data API ([PostgREST](https://docs.postgrest.org/en/stable/)) and files through

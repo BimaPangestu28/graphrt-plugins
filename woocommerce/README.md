@@ -1,5 +1,7 @@
 # woocommerce
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
 [WooCommerce REST API v3](https://woocommerce.github.io/woocommerce-rest-api-docs/) of one store: products and

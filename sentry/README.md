@@ -1,5 +1,7 @@
 # sentry
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Sentry web API](https://docs.sentry.io/api/)
 on sentry.io. It lists organizations, projects, releases, issues and events (with stack traces), and resolves,

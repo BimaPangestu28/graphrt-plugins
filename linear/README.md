@@ -1,5 +1,7 @@
 # linear
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Linear GraphQL API](https://linear.app/developers/graphql).
 It lists, searches, reads, creates and updates issues, reads and writes comments, and reads projects, teams, workflow

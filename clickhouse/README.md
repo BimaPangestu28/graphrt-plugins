@@ -1,5 +1,7 @@
 # clickhouse
 
+**Status:** beta · **ToS risk:** none. Official HTTP interface; reviewed and unit-tested with fakes, checked live against the public playground with a bad user (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [ClickHouse](https://clickhouse.com) over its
 [HTTP interface](https://clickhouse.com/docs/interfaces/http): self-hosted servers and ClickHouse Cloud. Agent
