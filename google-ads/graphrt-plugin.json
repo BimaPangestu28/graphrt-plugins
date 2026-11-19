@@ -1,0 +1,1436 @@
+{
+  "name": "google-ads",
+  "version": "0.1.0",
+  "description": "Google Ads API: accessible customers, GAQL search and searchStream, campaign/keyword/search-term reports; agent pause/enable and capped budget changes after opt-in, other mutates node only (OAuth or service account)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "GOOGLE_ADS_DEVELOPER_TOKEN",
+      "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
+      "GOOGLE_ADS_TOOL_CUSTOMER_IDS",
+      "GOOGLE_ADS_TOOL_MAX_DAILY_BUDGET_MICROS",
+      "GOOGLE_ADS_TOOL_ALLOW_LEADS",
+      "GOOGLE_ADS_TOOL_API_EXTRA_PATHS",
+      "GOOGLE_ADS_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 150000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-ads.list_accessible_customers",
+      "title": "Accessible customers",
+      "description": "Customer resource names (customers/<id>) the OAuth user can access directly",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.search",
+      "title": "Search (GAQL)",
+      "description": "Run a GAQL SELECT query (attributes, segments, metrics of any resource), 10000 rows per page. PARAMETERS clauses are refused",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "query": {
+            "type": "string",
+            "description": "GAQL, e.g. SELECT campaign.id, campaign.name, metrics.clicks FROM campaign WHERE segments.date DURING LAST_7_DAYS",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.search_stream",
+      "title": "Search stream (GAQL)",
+      "description": "Run a GAQL SELECT query and return every row at once as batches ([{results, fieldMask}]); for large exports prefer nodes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "query": {
+            "type": "string",
+            "description": "GAQL, e.g. SELECT campaign.id, campaign.name, metrics.clicks FROM campaign WHERE segments.date DURING LAST_7_DAYS",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.set_campaign_status",
+      "title": "Campaign status",
+      "description": "Pause or enable a campaign (as an agent tool only when GOOGLE_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ]
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the change without applying it (default false)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "campaign_id",
+          "status"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.set_ad_group_status",
+      "title": "Ad group status",
+      "description": "Pause or enable an ad group (as an agent tool only when GOOGLE_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "ad_group_id": {
+            "type": "string",
+            "description": "Ad group id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ]
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the change without applying it (default false)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "ad_group_id",
+          "status"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.set_campaign_budget_amount",
+      "title": "Campaign budget amount",
+      "description": "Change a campaign budget's amount, in micros of the account currency (20000000 = 20.00). Agent tools also need GOOGLE_ADS_TOOL_MAX_DAILY_BUDGET_MICROS (as an agent tool only when GOOGLE_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "budget_id": {
+            "type": "string",
+            "description": "Campaign budget id (campaign.campaign_budget is customers/<id>/campaignBudgets/<budget_id>)"
+          },
+          "amount_micros": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "New amount in micros of the account currency: 20000000 = 20.00 (USD 20.00, or IDR 20 on an IDR account)"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the change without applying it (default false)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "budget_id",
+          "amount_micros"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.mutate_campaigns",
+      "title": "Campaign mutate",
+      "description": "Campaign mutate: create, update or remove operations, e.g. [{\"create\": {\"name\": \"...\", \"status\": \"PAUSED\", \"campaignBudget\": \"customers/1/campaignBudgets/2\", \"advertisingChannelType\": \"SEARCH\", \"manualCpc\": {}}}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "operations": {
+            "type": "array",
+            "description": "Mutate operations as in the REST reference",
+            "items": {
+              "type": "object"
+            }
+          },
+          "partial_failure": {
+            "type": "boolean",
+            "description": "Apply the valid operations even if others fail"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the request without applying it"
+          },
+          "response_content_type": {
+            "type": "string",
+            "enum": [
+              "RESOURCE_NAME_ONLY",
+              "MUTABLE_RESOURCE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operations"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.mutate_campaign_budgets",
+      "title": "Campaign budget mutate",
+      "description": "Campaign budget mutate: create, update or remove operations, e.g. [{\"create\": {\"name\": \"...\", \"amountMicros\": \"20000000\", \"deliveryMethod\": \"STANDARD\"}}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "operations": {
+            "type": "array",
+            "description": "Mutate operations as in the REST reference",
+            "items": {
+              "type": "object"
+            }
+          },
+          "partial_failure": {
+            "type": "boolean",
+            "description": "Apply the valid operations even if others fail"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the request without applying it"
+          },
+          "response_content_type": {
+            "type": "string",
+            "enum": [
+              "RESOURCE_NAME_ONLY",
+              "MUTABLE_RESOURCE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operations"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.mutate_ad_groups",
+      "title": "Ad group mutate",
+      "description": "Ad group mutate: create, update or remove operations, e.g. [{\"remove\": \"customers/1/adGroups/3\"}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "operations": {
+            "type": "array",
+            "description": "Mutate operations as in the REST reference",
+            "items": {
+              "type": "object"
+            }
+          },
+          "partial_failure": {
+            "type": "boolean",
+            "description": "Apply the valid operations even if others fail"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the request without applying it"
+          },
+          "response_content_type": {
+            "type": "string",
+            "enum": [
+              "RESOURCE_NAME_ONLY",
+              "MUTABLE_RESOURCE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operations"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.mutate_ad_group_ads",
+      "title": "Ad group ad mutate",
+      "description": "Ad group ad mutate: create, update or remove operations, e.g. [{\"update\": {\"resourceName\": \"customers/1/adGroupAds/3~4\", \"status\": \"PAUSED\"}, \"updateMask\": \"status\"}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "operations": {
+            "type": "array",
+            "description": "Mutate operations as in the REST reference",
+            "items": {
+              "type": "object"
+            }
+          },
+          "partial_failure": {
+            "type": "boolean",
+            "description": "Apply the valid operations even if others fail"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the request without applying it"
+          },
+          "response_content_type": {
+            "type": "string",
+            "enum": [
+              "RESOURCE_NAME_ONLY",
+              "MUTABLE_RESOURCE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operations"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.mutate_ad_group_criteria",
+      "title": "Ad group criteria mutate",
+      "description": "Ad group criteria mutate: create, update or remove operations, e.g. [{\"create\": {\"adGroup\": \"customers/1/adGroups/3\", \"keyword\": {\"text\": \"shoes\", \"matchType\": \"PHRASE\"}}}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "operations": {
+            "type": "array",
+            "description": "Mutate operations as in the REST reference",
+            "items": {
+              "type": "object"
+            }
+          },
+          "partial_failure": {
+            "type": "boolean",
+            "description": "Apply the valid operations even if others fail"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the request without applying it"
+          },
+          "response_content_type": {
+            "type": "string",
+            "enum": [
+              "RESOURCE_NAME_ONLY",
+              "MUTABLE_RESOURCE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operations"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.mutate",
+      "title": "Multi-resource mutate",
+      "description": "Multi-resource mutate: create, update or remove operations, e.g. [{\"campaignOperation\": {\"update\": {...}, \"updateMask\": \"name\"}}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "operations": {
+            "type": "array",
+            "description": "Mutate operations as in the REST reference",
+            "items": {
+              "type": "object"
+            }
+          },
+          "partial_failure": {
+            "type": "boolean",
+            "description": "Apply the valid operations even if others fail"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the request without applying it"
+          },
+          "response_content_type": {
+            "type": "string",
+            "enum": [
+              "RESOURCE_NAME_ONLY",
+              "MUTABLE_RESOURCE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "operations"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.api_request",
+      "title": "Google Ads API request",
+      "description": "Call any Google Ads API endpoint that has no dedicated operation, e.g. path \"/customers:listAccessibleCustomers\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/customers:listAccessibleCustomers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.get_campaign_performance",
+      "title": "Campaign performance",
+      "description": "Metrics per campaign (id, name, status, channel, budget) for a date range, highest cost first; removed campaigns are left out. Built on search; the GAQL sent is returned as data.query",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "date_range": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "YESTERDAY",
+              "LAST_7_DAYS",
+              "LAST_BUSINESS_WEEK",
+              "THIS_MONTH",
+              "LAST_MONTH",
+              "LAST_14_DAYS",
+              "LAST_30_DAYS",
+              "THIS_WEEK_SUN_TODAY",
+              "THIS_WEEK_MON_TODAY",
+              "LAST_WEEK_SUN_SAT",
+              "LAST_WEEK_MON_SUN"
+            ],
+            "description": "Relative range in the account time zone (default LAST_30_DAYS)"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (with end_date, instead of date_range)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "impressions",
+                "clicks",
+                "ctr",
+                "average_cpc",
+                "average_cpm",
+                "cost_micros",
+                "conversions",
+                "conversions_value",
+                "cost_per_conversion",
+                "all_conversions",
+                "interactions"
+              ]
+            },
+            "description": "Metrics (default impressions, clicks, ctr, average_cpc, cost_micros, conversions); cost is in micros"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Only this campaign"
+          },
+          "row_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 100,
+            "description": "Maximum rows, highest cost first"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "daily": {
+            "type": "boolean",
+            "default": false,
+            "description": "One row per campaign and day (adds segments.date)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.get_keyword_performance",
+      "title": "Keyword performance",
+      "description": "Metrics per keyword (text, match type, status, ad group, campaign) for a date range, highest cost first; removed keywords are left out. Built on search; the GAQL sent is returned as data.query",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "date_range": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "YESTERDAY",
+              "LAST_7_DAYS",
+              "LAST_BUSINESS_WEEK",
+              "THIS_MONTH",
+              "LAST_MONTH",
+              "LAST_14_DAYS",
+              "LAST_30_DAYS",
+              "THIS_WEEK_SUN_TODAY",
+              "THIS_WEEK_MON_TODAY",
+              "LAST_WEEK_SUN_SAT",
+              "LAST_WEEK_MON_SUN"
+            ],
+            "description": "Relative range in the account time zone (default LAST_30_DAYS)"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (with end_date, instead of date_range)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "impressions",
+                "clicks",
+                "ctr",
+                "average_cpc",
+                "average_cpm",
+                "cost_micros",
+                "conversions",
+                "conversions_value",
+                "cost_per_conversion",
+                "all_conversions",
+                "interactions"
+              ]
+            },
+            "description": "Metrics (default impressions, clicks, ctr, average_cpc, cost_micros, conversions); cost is in micros"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Only this campaign"
+          },
+          "row_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 100,
+            "description": "Maximum rows, highest cost first"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "ad_group_id": {
+            "type": "string",
+            "description": "Only this ad group"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-ads.get_search_terms",
+      "title": "Search terms",
+      "description": "Search queries that triggered ads (search term, whether it was added or excluded, ad group, campaign) with metrics, highest cost first. Built on search; the GAQL sent is returned as data.query",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "date_range": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "YESTERDAY",
+              "LAST_7_DAYS",
+              "LAST_BUSINESS_WEEK",
+              "THIS_MONTH",
+              "LAST_MONTH",
+              "LAST_14_DAYS",
+              "LAST_30_DAYS",
+              "THIS_WEEK_SUN_TODAY",
+              "THIS_WEEK_MON_TODAY",
+              "LAST_WEEK_SUN_SAT",
+              "LAST_WEEK_MON_SUN"
+            ],
+            "description": "Relative range in the account time zone (default LAST_30_DAYS)"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (with end_date, instead of date_range)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "impressions",
+                "clicks",
+                "ctr",
+                "average_cpc",
+                "average_cpm",
+                "cost_micros",
+                "conversions",
+                "conversions_value",
+                "cost_per_conversion",
+                "all_conversions",
+                "interactions"
+              ]
+            },
+            "description": "Metrics (default impressions, clicks, ctr, average_cpc, cost_micros, conversions); cost is in micros"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Only this campaign"
+          },
+          "row_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 100,
+            "description": "Maximum rows, highest cost first"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "ad_group_id": {
+            "type": "string",
+            "description": "Only this ad group"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_accessible_customers",
+      "description": "Customer resource names (customers/<id>) the OAuth user can access directly",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "search",
+      "description": "Run a GAQL SELECT query (attributes, segments, metrics of any resource), 10000 rows per page. PARAMETERS clauses are refused",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "query": {
+            "type": "string",
+            "description": "GAQL, e.g. SELECT campaign.id, campaign.name, metrics.clicks FROM campaign WHERE segments.date DURING LAST_7_DAYS",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "customer_id",
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "search_stream",
+      "description": "Run a GAQL SELECT query and return every row at once as batches ([{results, fieldMask}]); for large exports prefer nodes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, digits, e.g. 1234567890 (dashes are removed)",
+            "minLength": 1
+          },
+          "query": {
+            "type": "string",
+            "description": "GAQL, e.g. SELECT campaign.id, campaign.name, metrics.clicks FROM campaign WHERE segments.date DURING LAST_7_DAYS",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "customer_id",
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "set_campaign_status",
+      "description": "Pause or enable a campaign (as an agent tool only when GOOGLE_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ]
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the change without applying it (default false)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "campaign_id",
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "set_ad_group_status",
+      "description": "Pause or enable an ad group (as an agent tool only when GOOGLE_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "ad_group_id": {
+            "type": "string",
+            "description": "Ad group id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ENABLED",
+              "PAUSED"
+            ]
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the change without applying it (default false)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "ad_group_id",
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "set_campaign_budget_amount",
+      "description": "Change a campaign budget's amount, in micros of the account currency (20000000 = 20.00). Agent tools also need GOOGLE_ADS_TOOL_MAX_DAILY_BUDGET_MICROS (as an agent tool only when GOOGLE_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "budget_id": {
+            "type": "string",
+            "description": "Campaign budget id (campaign.campaign_budget is customers/<id>/campaignBudgets/<budget_id>)"
+          },
+          "amount_micros": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "New amount in micros of the account currency: 20000000 = 20.00 (USD 20.00, or IDR 20 on an IDR account)"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "description": "Check the change without applying it (default false)"
+          }
+        },
+        "required": [
+          "customer_id",
+          "budget_id",
+          "amount_micros"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Ads API endpoint that has no dedicated operation, e.g. path \"/customers:listAccessibleCustomers\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/customers:listAccessibleCustomers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "get_campaign_performance",
+      "description": "Metrics per campaign (id, name, status, channel, budget) for a date range, highest cost first; removed campaigns are left out. Built on search; the GAQL sent is returned as data.query",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "date_range": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "YESTERDAY",
+              "LAST_7_DAYS",
+              "LAST_BUSINESS_WEEK",
+              "THIS_MONTH",
+              "LAST_MONTH",
+              "LAST_14_DAYS",
+              "LAST_30_DAYS",
+              "THIS_WEEK_SUN_TODAY",
+              "THIS_WEEK_MON_TODAY",
+              "LAST_WEEK_SUN_SAT",
+              "LAST_WEEK_MON_SUN"
+            ],
+            "description": "Relative range in the account time zone (default LAST_30_DAYS)"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (with end_date, instead of date_range)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "impressions",
+                "clicks",
+                "ctr",
+                "average_cpc",
+                "average_cpm",
+                "cost_micros",
+                "conversions",
+                "conversions_value",
+                "cost_per_conversion",
+                "all_conversions",
+                "interactions"
+              ]
+            },
+            "description": "Metrics (default impressions, clicks, ctr, average_cpc, cost_micros, conversions); cost is in micros"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Only this campaign"
+          },
+          "row_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 100,
+            "description": "Maximum rows, highest cost first"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "daily": {
+            "type": "boolean",
+            "default": false,
+            "description": "One row per campaign and day (adds segments.date)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      }
+    },
+    {
+      "name": "get_keyword_performance",
+      "description": "Metrics per keyword (text, match type, status, ad group, campaign) for a date range, highest cost first; removed keywords are left out. Built on search; the GAQL sent is returned as data.query",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "date_range": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "YESTERDAY",
+              "LAST_7_DAYS",
+              "LAST_BUSINESS_WEEK",
+              "THIS_MONTH",
+              "LAST_MONTH",
+              "LAST_14_DAYS",
+              "LAST_30_DAYS",
+              "THIS_WEEK_SUN_TODAY",
+              "THIS_WEEK_MON_TODAY",
+              "LAST_WEEK_SUN_SAT",
+              "LAST_WEEK_MON_SUN"
+            ],
+            "description": "Relative range in the account time zone (default LAST_30_DAYS)"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (with end_date, instead of date_range)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "impressions",
+                "clicks",
+                "ctr",
+                "average_cpc",
+                "average_cpm",
+                "cost_micros",
+                "conversions",
+                "conversions_value",
+                "cost_per_conversion",
+                "all_conversions",
+                "interactions"
+              ]
+            },
+            "description": "Metrics (default impressions, clicks, ctr, average_cpc, cost_micros, conversions); cost is in micros"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Only this campaign"
+          },
+          "row_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 100,
+            "description": "Maximum rows, highest cost first"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "ad_group_id": {
+            "type": "string",
+            "description": "Only this ad group"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      }
+    },
+    {
+      "name": "get_search_terms",
+      "description": "Search queries that triggered ads (search term, whether it was added or excluded, ad group, campaign) with metrics, highest cost first. Built on search; the GAQL sent is returned as data.query",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer (account) id, e.g. 1234567890 or 123-456-7890"
+          },
+          "date_range": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "YESTERDAY",
+              "LAST_7_DAYS",
+              "LAST_BUSINESS_WEEK",
+              "THIS_MONTH",
+              "LAST_MONTH",
+              "LAST_14_DAYS",
+              "LAST_30_DAYS",
+              "THIS_WEEK_SUN_TODAY",
+              "THIS_WEEK_MON_TODAY",
+              "LAST_WEEK_SUN_SAT",
+              "LAST_WEEK_MON_SUN"
+            ],
+            "description": "Relative range in the account time zone (default LAST_30_DAYS)"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD (with end_date, instead of date_range)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "impressions",
+                "clicks",
+                "ctr",
+                "average_cpc",
+                "average_cpm",
+                "cost_micros",
+                "conversions",
+                "conversions_value",
+                "cost_per_conversion",
+                "all_conversions",
+                "interactions"
+              ]
+            },
+            "description": "Metrics (default impressions, clicks, ctr, average_cpc, cost_micros, conversions); cost is in micros"
+          },
+          "campaign_id": {
+            "type": "string",
+            "description": "Only this campaign"
+          },
+          "row_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 100,
+            "description": "Maximum rows, highest cost first"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "ad_group_id": {
+            "type": "string",
+            "description": "Only this ad group"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      }
+    }
+  ]
+}

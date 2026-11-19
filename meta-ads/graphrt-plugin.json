@@ -1,0 +1,2161 @@
+{
+  "name": "meta-ads",
+  "version": "0.1.0",
+  "description": "Meta (Facebook/Instagram) ads: ad accounts, campaigns, ad sets, ads, creatives, insights and async reports, Lead Ads forms and leads; pause/activate and capped budget changes for agents after opt-in, creates and deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "META_ADS_ACCESS_TOKEN",
+      "META_GRAPH_VERSION",
+      "META_ADS_TOOL_ACCOUNT_IDS",
+      "META_ADS_TOOL_MAX_DAILY_BUDGET",
+      "META_ADS_TOOL_API_EXTRA_PATHS",
+      "META_ADS_TOOL_ALLOW_LEADS",
+      "META_ADS_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "meta-ads.list_ad_accounts",
+      "title": "List ad accounts",
+      "description": "Ad accounts the token's user or system user can access",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,account_id,name,account_status,currency,timezone_name,amount_spent,business)",
+            "default": "id,account_id,name,account_status,currency,timezone_name,amount_spent,business"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.get_ad_account",
+      "title": "Get ad account",
+      "description": "An ad account's name, status, currency (budgets use its minor units), time zone and spend",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,account_id,name,account_status,currency,timezone_name,amount_spent,spend_cap,balance,business)",
+            "default": "id,account_id,name,account_status,currency,timezone_name,amount_spent,spend_cap,balance,business"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.list_campaigns",
+      "title": "Campaigns",
+      "description": "Campaigns of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time)",
+            "default": "id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.list_ad_sets",
+      "title": "Ad sets",
+      "description": "Ad sets of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting)",
+            "default": "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.list_ads",
+      "title": "Ads",
+      "description": "Ads of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time)",
+            "default": "id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.list_ad_creatives",
+      "title": "Ad creatives",
+      "description": "Ad creatives of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,title,body,object_story_spec,thumbnail_url,status)",
+            "default": "id,name,title,body,object_story_spec,thumbnail_url,status"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.get_campaign",
+      "title": "Get campaign",
+      "description": "Get campaign: settings, status and budget",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "campaign id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time)",
+            "default": "id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.get_ad_set",
+      "title": "Get ad set",
+      "description": "Get ad set: settings, status and budget",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_set_id": {
+            "type": "string",
+            "description": "ad set id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting)",
+            "default": "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_set_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.get_ad",
+      "title": "Get ad",
+      "description": "Get ad: settings, status and budget",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_id": {
+            "type": "string",
+            "description": "ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time)",
+            "default": "id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.get_insights",
+      "title": "Get insights",
+      "description": "Performance metrics (spend, impressions, clicks, actions...) of an ad account, campaign, ad set or ad, with date range, breakdowns and level. Use run_insights_report for large ranges or many rows",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Ad account (act_<number>), campaign, ad set or ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated insight fields (default campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions)",
+            "default": "campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions"
+          },
+          "date_preset": {
+            "type": "string",
+            "description": "Relative date range (default last_30d; ignored with time_range)",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_month",
+              "last_month",
+              "this_quarter",
+              "maximum",
+              "data_maximum",
+              "last_3d",
+              "last_7d",
+              "last_14d",
+              "last_28d",
+              "last_30d",
+              "last_90d",
+              "last_week_mon_sun",
+              "last_week_sun_sat",
+              "last_quarter",
+              "last_year",
+              "this_week_mon_today",
+              "this_week_sun_today",
+              "this_year"
+            ]
+          },
+          "time_range": {
+            "type": "object",
+            "description": "Fixed range in the account time zone, e.g. {\"since\": \"2026-10-01\", \"until\": \"2026-10-31\"} (at most 37 months back)"
+          },
+          "time_increment": {
+            "type": "string",
+            "description": "\"1\" for daily rows, up to \"90\", \"monthly\" or \"all_days\" (default)"
+          },
+          "level": {
+            "type": "string",
+            "description": "Aggregation level",
+            "enum": [
+              "account",
+              "campaign",
+              "adset",
+              "ad"
+            ]
+          },
+          "breakdowns": {
+            "type": "array",
+            "description": "Breakdowns, e.g. [age, gender] or [publisher_platform] (only some combinations are allowed)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_breakdowns": {
+            "type": "array",
+            "description": "Action breakdowns, e.g. [action_type] (needs actions in fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_attribution_windows": {
+            "type": "array",
+            "description": "Attribution windows, e.g. [7d_click, 1d_view]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "description": "One sort, e.g. [spend_descending]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "use_unified_attribution_setting": {
+            "type": "boolean",
+            "description": "true matches Ads Manager attribution"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.run_insights_report",
+      "title": "Run async insights report",
+      "description": "Start an asynchronous insights report (for large date ranges, many objects or breakdowns) and wait until it is done; then read the rows with get_insights_report_rows and the report_run_id (wait: false returns at once)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Ad account (act_<number>), campaign, ad set or ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated insight fields (default campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions)",
+            "default": "campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions"
+          },
+          "date_preset": {
+            "type": "string",
+            "description": "Relative date range (default last_30d; ignored with time_range)",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_month",
+              "last_month",
+              "this_quarter",
+              "maximum",
+              "data_maximum",
+              "last_3d",
+              "last_7d",
+              "last_14d",
+              "last_28d",
+              "last_30d",
+              "last_90d",
+              "last_week_mon_sun",
+              "last_week_sun_sat",
+              "last_quarter",
+              "last_year",
+              "this_week_mon_today",
+              "this_week_sun_today",
+              "this_year"
+            ]
+          },
+          "time_range": {
+            "type": "object",
+            "description": "Fixed range in the account time zone, e.g. {\"since\": \"2026-10-01\", \"until\": \"2026-10-31\"} (at most 37 months back)"
+          },
+          "time_increment": {
+            "type": "string",
+            "description": "\"1\" for daily rows, up to \"90\", \"monthly\" or \"all_days\" (default)"
+          },
+          "level": {
+            "type": "string",
+            "description": "Aggregation level",
+            "enum": [
+              "account",
+              "campaign",
+              "adset",
+              "ad"
+            ]
+          },
+          "breakdowns": {
+            "type": "array",
+            "description": "Breakdowns, e.g. [age, gender] or [publisher_platform] (only some combinations are allowed)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_breakdowns": {
+            "type": "array",
+            "description": "Action breakdowns, e.g. [action_type] (needs actions in fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_attribution_windows": {
+            "type": "array",
+            "description": "Attribution windows, e.g. [7d_click, 1d_view]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "description": "One sort, e.g. [spend_descending]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "use_unified_attribution_setting": {
+            "type": "boolean",
+            "description": "true matches Ads Manager attribution"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.get_insights_report_rows",
+      "title": "Async insights report rows",
+      "description": "Rows of a finished async insights report (report_run_id from run_insights_report; kept for 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "report_run_id": {
+            "type": "string",
+            "description": "report_run_id",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "report_run_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.list_lead_forms",
+      "title": "List lead forms",
+      "description": "Instant Forms (lead forms) of a Facebook Page: ids, names, status and leads count (may need a Page access token as the node's access_token)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Facebook Page id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,status,leads_count,created_time,locale)",
+            "default": "id,name,status,leads_count,created_time,locale"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.list_leads",
+      "title": "List leads",
+      "description": "Leads (form answers: personal data) of a lead form or of an ad, optionally created after a time (as an agent tool only when META_ADS_TOOL_ALLOW_LEADS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "lead_source_id": {
+            "type": "string",
+            "description": "Lead form id or ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,created_time,ad_id,form_id,field_data)",
+            "default": "id,created_time,ad_id,form_id,field_data"
+          },
+          "filtering": {
+            "type": "array",
+            "description": "e.g. [{\"field\": \"time_created\", \"operator\": \"GREATER_THAN\", \"value\": 1761945743}] (Unix seconds)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "lead_source_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.set_status",
+      "title": "Pause or activate",
+      "description": "Pause or activate a campaign, ad set or ad (archiving and deleting are node only: delete_object) (as an agent tool only when META_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Campaign, ad set or ad id",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED"
+            ]
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "ad_set",
+              "ad"
+            ],
+            "description": "What object_id is (required for agent tools: the account and budget are read before the change)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_id",
+          "status"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.set_budget",
+      "title": "Change budget",
+      "description": "Change the daily or lifetime budget of a campaign (campaign budget) or ad set, in the account currency's minor units. Agent tools also need META_ADS_TOOL_MAX_DAILY_BUDGET (as an agent tool only when META_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Campaign or ad set id",
+            "minLength": 1
+          },
+          "daily_budget": {
+            "type": "integer",
+            "description": "Daily budget in the ad account currency's minor units (2000 = USD 20.00; JPY, IDR and similar have no minor unit: 50000 = IDR 50,000)",
+            "minimum": 1
+          },
+          "lifetime_budget": {
+            "type": "integer",
+            "description": "Lifetime budget in the account currency's minor units (needs end_time on ad sets)",
+            "minimum": 1
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "ad_set"
+            ],
+            "description": "What object_id is (required for agent tools: the account and budget are read before the change)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.create_campaign",
+      "title": "Create campaign",
+      "description": "Create a campaign (PAUSED by default)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "OUTCOME_APP_PROMOTION",
+              "OUTCOME_AWARENESS",
+              "OUTCOME_ENGAGEMENT",
+              "OUTCOME_LEADS",
+              "OUTCOME_SALES",
+              "OUTCOME_TRAFFIC"
+            ]
+          },
+          "special_ad_categories": {
+            "type": "array",
+            "description": "[] or e.g. [HOUSING], [EMPLOYMENT], [FINANCIAL_PRODUCTS_SERVICES], [ISSUES_ELECTIONS_POLITICS]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED"
+            ],
+            "default": "PAUSED"
+          },
+          "daily_budget": {
+            "type": "integer",
+            "description": "Daily budget in the ad account currency's minor units (2000 = USD 20.00; JPY, IDR and similar have no minor unit: 50000 = IDR 50,000)",
+            "minimum": 1
+          },
+          "lifetime_budget": {
+            "type": "integer",
+            "description": "Lifetime budget in the account currency's minor units (needs end_time on ad sets)",
+            "minimum": 1
+          },
+          "bid_strategy": {
+            "type": "string",
+            "description": "e.g. LOWEST_COST_WITHOUT_CAP, COST_CAP, LOWEST_COST_WITH_BID_CAP"
+          },
+          "spend_cap": {
+            "type": "integer",
+            "description": "Campaign spend cap in minor units"
+          },
+          "execution_options": {
+            "type": "array",
+            "description": "[\"validate_only\"] checks the request without creating anything",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id",
+          "name",
+          "objective",
+          "special_ad_categories"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.create_ad_set",
+      "title": "Create ad set",
+      "description": "Create an ad set in a campaign (PAUSED by default)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "campaign_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED"
+            ],
+            "default": "PAUSED"
+          },
+          "daily_budget": {
+            "type": "integer",
+            "description": "Daily budget in the ad account currency's minor units (2000 = USD 20.00; JPY, IDR and similar have no minor unit: 50000 = IDR 50,000)",
+            "minimum": 1
+          },
+          "lifetime_budget": {
+            "type": "integer",
+            "description": "Lifetime budget in the account currency's minor units (needs end_time on ad sets)",
+            "minimum": 1
+          },
+          "billing_event": {
+            "type": "string",
+            "description": "e.g. IMPRESSIONS"
+          },
+          "optimization_goal": {
+            "type": "string",
+            "description": "e.g. LINK_CLICKS, REACH, OFFSITE_CONVERSIONS, LEAD_GENERATION"
+          },
+          "bid_amount": {
+            "type": "integer",
+            "description": "Bid cap in minor units"
+          },
+          "targeting": {
+            "type": "object",
+            "description": "Targeting spec, e.g. {\"geo_locations\": {\"countries\": [\"ID\"]}, \"age_min\": 18}"
+          },
+          "promoted_object": {
+            "type": "object",
+            "description": "e.g. {pixel_id, custom_event_type} or {page_id}"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "ISO 8601 (required with lifetime_budget)"
+          },
+          "execution_options": {
+            "type": "array",
+            "description": "[\"validate_only\"] checks the request without creating anything",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id",
+          "name",
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.create_ad_creative",
+      "title": "Create ad creative",
+      "description": "Create an ad creative",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "object_story_spec": {
+            "type": "object",
+            "description": "e.g. {page_id, link_data: {link, message, image_hash, call_to_action}}"
+          },
+          "object_story_id": {
+            "type": "string",
+            "description": "Existing Page post <page_id>_<post_id>"
+          },
+          "asset_feed_spec": {
+            "type": "object"
+          },
+          "degrees_of_freedom_spec": {
+            "type": "object"
+          },
+          "url_tags": {
+            "type": "string"
+          },
+          "execution_options": {
+            "type": "array",
+            "description": "[\"validate_only\"] checks the request without creating anything",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.create_ad",
+      "title": "Create ad",
+      "description": "Create an ad in an ad set from a creative (PAUSED by default)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adset_id": {
+            "type": "string"
+          },
+          "creative": {
+            "type": "object",
+            "description": "{\"creative_id\": \"<id>\"}"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED"
+            ],
+            "default": "PAUSED"
+          },
+          "tracking_specs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "execution_options": {
+            "type": "array",
+            "description": "[\"validate_only\"] checks the request without creating anything",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ad_account_id",
+          "name",
+          "adset_id",
+          "creative"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.delete_object",
+      "title": "Delete campaign, ad set or ad",
+      "description": "Delete a campaign, ad set or ad (its children stop delivering; it cannot be undone)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Campaign, ad set or ad id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meta-ads.api_request",
+      "title": "Meta Marketing API request",
+      "description": "Call any Meta Marketing API endpoint that has no dedicated operation, e.g. path \"/act_<id>/adrules_library\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/act_<id>/adrules_library\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_ad_accounts",
+      "description": "Ad accounts the token's user or system user can access",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,account_id,name,account_status,currency,timezone_name,amount_spent,business)",
+            "default": "id,account_id,name,account_status,currency,timezone_name,amount_spent,business"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_ad_account",
+      "description": "An ad account's name, status, currency (budgets use its minor units), time zone and spend",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,account_id,name,account_status,currency,timezone_name,amount_spent,spend_cap,balance,business)",
+            "default": "id,account_id,name,account_status,currency,timezone_name,amount_spent,spend_cap,balance,business"
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      }
+    },
+    {
+      "name": "list_campaigns",
+      "description": "Campaigns of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time)",
+            "default": "id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      }
+    },
+    {
+      "name": "list_ad_sets",
+      "description": "Ad sets of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting)",
+            "default": "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      }
+    },
+    {
+      "name": "list_ads",
+      "description": "Ads of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time)",
+            "default": "id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      }
+    },
+    {
+      "name": "list_ad_creatives",
+      "description": "Ad creatives of an ad account (archived and deleted ones only when effective_status asks for them)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_account_id": {
+            "type": "string",
+            "description": "Ad account id: act_<number> or the bare number",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,title,body,object_story_spec,thumbnail_url,status)",
+            "default": "id,name,title,body,object_story_spec,thumbnail_url,status"
+          },
+          "effective_status": {
+            "type": "array",
+            "description": "Statuses to include, e.g. [ACTIVE, PAUSED] (default: all except ARCHIVED and DELETED)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "ad_account_id"
+        ]
+      }
+    },
+    {
+      "name": "get_campaign",
+      "description": "Get campaign: settings, status and budget",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "campaign id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time)",
+            "default": "id,name,objective,status,effective_status,daily_budget,lifetime_budget,budget_remaining,bid_strategy,start_time,stop_time,created_time,updated_time"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "get_ad_set",
+      "description": "Get ad set: settings, status and budget",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_set_id": {
+            "type": "string",
+            "description": "ad set id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting)",
+            "default": "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,budget_remaining,billing_event,optimization_goal,bid_amount,start_time,end_time,targeting"
+          }
+        },
+        "required": [
+          "ad_set_id"
+        ]
+      }
+    },
+    {
+      "name": "get_ad",
+      "description": "Get ad: settings, status and budget",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_id": {
+            "type": "string",
+            "description": "ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time)",
+            "default": "id,name,adset_id,campaign_id,status,effective_status,creative{id,name},created_time,updated_time"
+          }
+        },
+        "required": [
+          "ad_id"
+        ]
+      }
+    },
+    {
+      "name": "get_insights",
+      "description": "Performance metrics (spend, impressions, clicks, actions...) of an ad account, campaign, ad set or ad, with date range, breakdowns and level. Use run_insights_report for large ranges or many rows",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Ad account (act_<number>), campaign, ad set or ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated insight fields (default campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions)",
+            "default": "campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions"
+          },
+          "date_preset": {
+            "type": "string",
+            "description": "Relative date range (default last_30d; ignored with time_range)",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_month",
+              "last_month",
+              "this_quarter",
+              "maximum",
+              "data_maximum",
+              "last_3d",
+              "last_7d",
+              "last_14d",
+              "last_28d",
+              "last_30d",
+              "last_90d",
+              "last_week_mon_sun",
+              "last_week_sun_sat",
+              "last_quarter",
+              "last_year",
+              "this_week_mon_today",
+              "this_week_sun_today",
+              "this_year"
+            ]
+          },
+          "time_range": {
+            "type": "object",
+            "description": "Fixed range in the account time zone, e.g. {\"since\": \"2026-10-01\", \"until\": \"2026-10-31\"} (at most 37 months back)"
+          },
+          "time_increment": {
+            "type": "string",
+            "description": "\"1\" for daily rows, up to \"90\", \"monthly\" or \"all_days\" (default)"
+          },
+          "level": {
+            "type": "string",
+            "description": "Aggregation level",
+            "enum": [
+              "account",
+              "campaign",
+              "adset",
+              "ad"
+            ]
+          },
+          "breakdowns": {
+            "type": "array",
+            "description": "Breakdowns, e.g. [age, gender] or [publisher_platform] (only some combinations are allowed)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_breakdowns": {
+            "type": "array",
+            "description": "Action breakdowns, e.g. [action_type] (needs actions in fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_attribution_windows": {
+            "type": "array",
+            "description": "Attribution windows, e.g. [7d_click, 1d_view]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "description": "One sort, e.g. [spend_descending]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "use_unified_attribution_setting": {
+            "type": "boolean",
+            "description": "true matches Ads Manager attribution"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      }
+    },
+    {
+      "name": "run_insights_report",
+      "description": "Start an asynchronous insights report (for large date ranges, many objects or breakdowns) and wait until it is done; then read the rows with get_insights_report_rows and the report_run_id (wait: false returns at once)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Ad account (act_<number>), campaign, ad set or ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated insight fields (default campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions)",
+            "default": "campaign_name,adset_name,ad_name,impressions,reach,clicks,ctr,cpc,cpm,spend,actions"
+          },
+          "date_preset": {
+            "type": "string",
+            "description": "Relative date range (default last_30d; ignored with time_range)",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_month",
+              "last_month",
+              "this_quarter",
+              "maximum",
+              "data_maximum",
+              "last_3d",
+              "last_7d",
+              "last_14d",
+              "last_28d",
+              "last_30d",
+              "last_90d",
+              "last_week_mon_sun",
+              "last_week_sun_sat",
+              "last_quarter",
+              "last_year",
+              "this_week_mon_today",
+              "this_week_sun_today",
+              "this_year"
+            ]
+          },
+          "time_range": {
+            "type": "object",
+            "description": "Fixed range in the account time zone, e.g. {\"since\": \"2026-10-01\", \"until\": \"2026-10-31\"} (at most 37 months back)"
+          },
+          "time_increment": {
+            "type": "string",
+            "description": "\"1\" for daily rows, up to \"90\", \"monthly\" or \"all_days\" (default)"
+          },
+          "level": {
+            "type": "string",
+            "description": "Aggregation level",
+            "enum": [
+              "account",
+              "campaign",
+              "adset",
+              "ad"
+            ]
+          },
+          "breakdowns": {
+            "type": "array",
+            "description": "Breakdowns, e.g. [age, gender] or [publisher_platform] (only some combinations are allowed)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_breakdowns": {
+            "type": "array",
+            "description": "Action breakdowns, e.g. [action_type] (needs actions in fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_attribution_windows": {
+            "type": "array",
+            "description": "Attribution windows, e.g. [7d_click, 1d_view]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"field\": \"name\", \"operator\": \"CONTAIN\", \"value\": \"promo\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "sort": {
+            "type": "array",
+            "description": "One sort, e.g. [spend_descending]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "use_unified_attribution_setting": {
+            "type": "boolean",
+            "description": "true matches Ads Manager attribution"
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      }
+    },
+    {
+      "name": "get_insights_report_rows",
+      "description": "Rows of a finished async insights report (report_run_id from run_insights_report; kept for 30 days)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "report_run_id": {
+            "type": "string",
+            "description": "report_run_id",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "report_run_id"
+        ]
+      }
+    },
+    {
+      "name": "list_lead_forms",
+      "description": "Instant Forms (lead forms) of a Facebook Page: ids, names, status and leads count (may need a Page access token as the node's access_token)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Facebook Page id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,name,status,leads_count,created_time,locale)",
+            "default": "id,name,status,leads_count,created_time,locale"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "name": "list_leads",
+      "description": "Leads (form answers: personal data) of a lead form or of an ad, optionally created after a time (as an agent tool only when META_ADS_TOOL_ALLOW_LEADS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "lead_source_id": {
+            "type": "string",
+            "description": "Lead form id or ad id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields (default id,created_time,ad_id,form_id,field_data)",
+            "default": "id,created_time,ad_id,form_id,field_data"
+          },
+          "filtering": {
+            "type": "array",
+            "description": "e.g. [{\"field\": \"time_created\", \"operator\": \"GREATER_THAN\", \"value\": 1761945743}] (Unix seconds)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "lead_source_id"
+        ]
+      }
+    },
+    {
+      "name": "set_status",
+      "description": "Pause or activate a campaign, ad set or ad (archiving and deleting are node only: delete_object) (as an agent tool only when META_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Campaign, ad set or ad id",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED"
+            ]
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "ad_set",
+              "ad"
+            ],
+            "description": "What object_id is (required for agent tools: the account and budget are read before the change)"
+          }
+        },
+        "required": [
+          "object_id",
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "set_budget",
+      "description": "Change the daily or lifetime budget of a campaign (campaign budget) or ad set, in the account currency's minor units. Agent tools also need META_ADS_TOOL_MAX_DAILY_BUDGET (as an agent tool only when META_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "description": "Campaign or ad set id",
+            "minLength": 1
+          },
+          "daily_budget": {
+            "type": "integer",
+            "description": "Daily budget in the ad account currency's minor units (2000 = USD 20.00; JPY, IDR and similar have no minor unit: 50000 = IDR 50,000)",
+            "minimum": 1
+          },
+          "lifetime_budget": {
+            "type": "integer",
+            "description": "Lifetime budget in the account currency's minor units (needs end_time on ad sets)",
+            "minimum": 1
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "ad_set"
+            ],
+            "description": "What object_id is (required for agent tools: the account and budget are read before the change)"
+          }
+        },
+        "required": [
+          "object_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Meta Marketing API endpoint that has no dedicated operation, e.g. path \"/act_<id>/adrules_library\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/act_<id>/adrules_library\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

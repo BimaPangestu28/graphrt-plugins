@@ -1,0 +1,1758 @@
+{
+  "name": "tiktok-ads",
+  "version": "0.1.0",
+  "description": "TikTok ads (API for Business v1.3): advertiser info, campaigns, ad groups, ads, integrated reports, Instant Form leads (opt-in); agent enable/disable and capped budget changes after opt-in, creates and deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TIKTOK_ADS_ACCESS_TOKEN",
+      "TIKTOK_ADS_TOOL_ADVERTISER_IDS",
+      "TIKTOK_ADS_TOOL_MAX_BUDGET",
+      "TIKTOK_ADS_TOOL_API_EXTRA_PATHS",
+      "TIKTOK_ADS_TOOL_ALLOW_LEADS",
+      "TIKTOK_ADS_LEADS_DIR",
+      "TIKTOK_ADS_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "tiktok-ads.get_advertiser_info",
+      "title": "Advertiser info",
+      "description": "Name, status, currency (budgets are in it), time zone, balance and company of ad accounts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_ids": {
+            "type": "array",
+            "description": "Advertiser ids, e.g. [\"7000000000000000001\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields, e.g. [name, status, currency, timezone, balance] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.list_campaigns",
+      "title": "Campaigns",
+      "description": "Campaigns of an advertiser",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return, e.g. [campaign_id, campaign_name, budget, operation_status] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "object",
+            "description": "Filters, e.g. {\"campaign_ids\": [\"...\"], \"primary_status\": \"STATUS_DELIVERY_OK\", \"objective_type\": \"TRAFFIC\"}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.list_ad_groups",
+      "title": "Ad groups",
+      "description": "Ad groups of an advertiser",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return, e.g. [campaign_id, campaign_name, budget, operation_status] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "object",
+            "description": "Filters, e.g. {\"campaign_ids\": [\"...\"], \"adgroup_ids\": [\"...\"]}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.list_ads",
+      "title": "Ads",
+      "description": "Ads of an advertiser",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return, e.g. [campaign_id, campaign_name, budget, operation_status] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "object",
+            "description": "Filters, e.g. {\"adgroup_ids\": [\"...\"], \"ad_ids\": [\"...\"]}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.get_report",
+      "title": "Integrated report",
+      "description": "Synchronous report: metrics by dimensions for an advertiser, campaign, ad group or ad level and a date range (365 days max; 30 with stat_time_day, 1 with stat_time_hour)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "report_type": {
+            "type": "string",
+            "enum": [
+              "BASIC",
+              "AUDIENCE",
+              "PLAYABLE_MATERIAL",
+              "CATALOG"
+            ],
+            "default": "BASIC"
+          },
+          "data_level": {
+            "type": "string",
+            "description": "Required for BASIC, AUDIENCE and CATALOG",
+            "enum": [
+              "AUCTION_ADVERTISER",
+              "AUCTION_CAMPAIGN",
+              "AUCTION_ADGROUP",
+              "AUCTION_AD"
+            ]
+          },
+          "dimensions": {
+            "type": "array",
+            "description": "Dimensions, e.g. [campaign_id, stat_time_day] or [ad_id] or [gender] (AUDIENCE)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metrics": {
+            "type": "array",
+            "description": "Metrics, e.g. [spend, impressions, clicks, ctr, cpc, conversion] (default [spend, impressions])",
+            "items": {
+              "type": "string"
+            }
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD in the account time zone (required unless query_lifetime)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "query_lifetime": {
+            "type": "boolean",
+            "description": "Lifetime metrics (BASIC, no time dimension)"
+          },
+          "filtering": {
+            "type": "array",
+            "description": "e.g. [{\"field_name\": \"campaign_ids\", \"filter_type\": \"IN\", \"filter_value\": \"[\\\"123\\\"]\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "order_field": {
+            "type": "string",
+            "description": "Metric to sort by, e.g. spend"
+          },
+          "order_type": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "enable_total_metrics": {
+            "type": "boolean",
+            "description": "Add total_metrics for the whole range"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "dimensions"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.list_lead_forms",
+      "title": "List Instant Forms",
+      "description": "Instant Forms (lead generation pages) of an advertiser: page_id, title and status",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "EDITED",
+              "PUBLISHED"
+            ]
+          },
+          "form_title": {
+            "type": "string",
+            "description": "Filter by title"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.get_lead_form_fields",
+      "title": "Instant Form fields",
+      "description": "The questions (fields) of an Instant Form",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "lead_source": {
+            "type": "string",
+            "enum": [
+              "INSTANT_FORM",
+              "DIRECT_MESSAGE"
+            ],
+            "default": "INSTANT_FORM"
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Instant Form page id (required for INSTANT_FORM; from list_lead_forms)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.get_lead",
+      "title": "Get lead",
+      "description": "A lead of an Instant Form or a direct-message lead: answers (personal data) and campaign/ad metadata. For every lead of a form use create_lead_download_task (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_LEADS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "lead_source": {
+            "type": "string",
+            "enum": [
+              "INSTANT_FORM",
+              "DIRECT_MESSAGE"
+            ],
+            "default": "INSTANT_FORM"
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Instant Form page id (required for INSTANT_FORM; from list_lead_forms)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.create_lead_download_task",
+      "title": "Lead download task",
+      "description": "Start (or, with task_id, check) an export of every lead of an Instant Form or an ad; when status is SUCCEED, download_leads returns the file (ad account admins only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_LEADS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Instant Form page id (or ad_id)"
+          },
+          "ad_id": {
+            "type": "string",
+            "description": "Ad id (or page_id)"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "An existing task id, to read its status"
+          },
+          "lead_region": {
+            "type": "string",
+            "description": "eu: EEA, Switzerland and UK leads; us: US leads; omit for all other regions",
+            "enum": [
+              "eu",
+              "us"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.set_campaign_status",
+      "title": "Campaign status",
+      "description": "Enable or disable campaigns (deleting is node only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "campaign_ids": {
+            "type": "array",
+            "description": "campaigns ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation_status": {
+            "type": "string",
+            "enum": [
+              "ENABLE",
+              "DISABLE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "campaign_ids",
+          "operation_status"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.set_ad_group_status",
+      "title": "Ad group status",
+      "description": "Enable or disable ad groups (deleting is node only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "adgroup_ids": {
+            "type": "array",
+            "description": "ad groups ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation_status": {
+            "type": "string",
+            "enum": [
+              "ENABLE",
+              "DISABLE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "adgroup_ids",
+          "operation_status"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.set_ad_status",
+      "title": "Ad status",
+      "description": "Enable or disable ads (deleting is node only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "ad_ids": {
+            "type": "array",
+            "description": "ads ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation_status": {
+            "type": "string",
+            "enum": [
+              "ENABLE",
+              "DISABLE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "ad_ids",
+          "operation_status"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.set_campaign_budget",
+      "title": "Campaign budget",
+      "description": "Change a campaign's budget, in the account currency's units (e.g. 50.5 = USD 50.50; at least 105% of what it has spent). Agent tools also need TIKTOK_ADS_TOOL_MAX_BUDGET (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "campaign_id": {
+            "type": "string"
+          },
+          "budget": {
+            "type": "number",
+            "description": "New budget in currency units (USD 2 decimals; IDR, JPY, KRW whole numbers)",
+            "minimum": 0.01
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "campaign_id",
+          "budget"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.set_ad_group_budgets",
+      "title": "Ad group budgets",
+      "description": "Change lifetime budgets (budget, immediate) or schedule daily budgets (scheduled_budget, from 00:00 tomorrow) of up to 20 ad groups, in currency units. Agent tools also need TIKTOK_ADS_TOOL_MAX_BUDGET (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "budget": {
+            "type": "array",
+            "description": "New lifetime budgets, e.g. [{\"adgroup_id\": \"...\", \"budget\": 50.5}] (up to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "scheduled_budget": {
+            "type": "array",
+            "description": "New daily (or dynamic daily) budgets from tomorrow, e.g. [{\"adgroup_id\": \"...\", \"scheduled_budget\": 50.5}] (up to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.create_campaign",
+      "title": "Create campaign",
+      "description": "Create campaign: the request body as in TikTok's docs, e.g. {\"advertiser_id\": \"...\", \"campaign_name\": \"...\", \"objective_type\": \"TRAFFIC\", \"budget_mode\": \"BUDGET_MODE_DAY\", \"budget\": 50}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "request_body": {
+            "type": "object",
+            "description": "Whole JSON body, including advertiser_id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "request_body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.create_ad_group",
+      "title": "Create ad group",
+      "description": "Create ad group: the request body as in TikTok's docs, e.g. {\"advertiser_id\": \"...\", \"campaign_id\": \"...\", \"adgroup_name\": \"...\", \"placement_type\": \"PLACEMENT_TYPE_AUTOMATIC\", ...}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "request_body": {
+            "type": "object",
+            "description": "Whole JSON body, including advertiser_id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "request_body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.create_ad",
+      "title": "Create ad",
+      "description": "Create ad: the request body as in TikTok's docs, e.g. {\"advertiser_id\": \"...\", \"adgroup_id\": \"...\", \"creatives\": [...]}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "request_body": {
+            "type": "object",
+            "description": "Whole JSON body, including advertiser_id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "request_body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.delete_campaigns",
+      "title": "Delete campaigns",
+      "description": "Delete campaigns permanently (a deleted object can never be changed again)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "campaign_ids": {
+            "type": "array",
+            "description": "campaigns ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "campaign_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.delete_ad_groups",
+      "title": "Delete ad groups",
+      "description": "Delete ad groups permanently (a deleted object can never be changed again)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "adgroup_ids": {
+            "type": "array",
+            "description": "ad groups ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "adgroup_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.delete_ads",
+      "title": "Delete ads",
+      "description": "Delete ads permanently (a deleted object can never be changed again)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "ad_ids": {
+            "type": "array",
+            "description": "ads ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "ad_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.api_request",
+      "title": "TikTok API for Business request",
+      "description": "Call any TikTok API for Business endpoint that has no dedicated operation, e.g. path \"/pixel/list/\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/pixel/list/\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "tiktok-ads.download_leads",
+      "title": "Download leads",
+      "description": "Save the CSV or zip file of a finished lead download task into TIKTOK_ADS_LEADS_DIR (the file expires 10 minutes after it is ready) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_LEADS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Advertiser (ad account) id"
+          },
+          "task_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "task_id from create_lead_download_task"
+          },
+          "lead_region": {
+            "type": "string",
+            "enum": [
+              "eu",
+              "us"
+            ],
+            "description": "eu: EEA, Switzerland and UK leads; us: US leads; omit for all other regions"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_advertiser_info",
+      "description": "Name, status, currency (budgets are in it), time zone, balance and company of ad accounts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_ids": {
+            "type": "array",
+            "description": "Advertiser ids, e.g. [\"7000000000000000001\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields, e.g. [name, status, currency, timezone, balance] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "advertiser_ids"
+        ]
+      }
+    },
+    {
+      "name": "list_campaigns",
+      "description": "Campaigns of an advertiser",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return, e.g. [campaign_id, campaign_name, budget, operation_status] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "object",
+            "description": "Filters, e.g. {\"campaign_ids\": [\"...\"], \"primary_status\": \"STATUS_DELIVERY_OK\", \"objective_type\": \"TRAFFIC\"}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "list_ad_groups",
+      "description": "Ad groups of an advertiser",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return, e.g. [campaign_id, campaign_name, budget, operation_status] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "object",
+            "description": "Filters, e.g. {\"campaign_ids\": [\"...\"], \"adgroup_ids\": [\"...\"]}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "list_ads",
+      "description": "Ads of an advertiser",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return, e.g. [campaign_id, campaign_name, budget, operation_status] (default: all)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "object",
+            "description": "Filters, e.g. {\"adgroup_ids\": [\"...\"], \"ad_ids\": [\"...\"]}"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "get_report",
+      "description": "Synchronous report: metrics by dimensions for an advertiser, campaign, ad group or ad level and a date range (365 days max; 30 with stat_time_day, 1 with stat_time_hour)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "report_type": {
+            "type": "string",
+            "enum": [
+              "BASIC",
+              "AUDIENCE",
+              "PLAYABLE_MATERIAL",
+              "CATALOG"
+            ],
+            "default": "BASIC"
+          },
+          "data_level": {
+            "type": "string",
+            "description": "Required for BASIC, AUDIENCE and CATALOG",
+            "enum": [
+              "AUCTION_ADVERTISER",
+              "AUCTION_CAMPAIGN",
+              "AUCTION_ADGROUP",
+              "AUCTION_AD"
+            ]
+          },
+          "dimensions": {
+            "type": "array",
+            "description": "Dimensions, e.g. [campaign_id, stat_time_day] or [ad_id] or [gender] (AUDIENCE)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metrics": {
+            "type": "array",
+            "description": "Metrics, e.g. [spend, impressions, clicks, ctr, cpc, conversion] (default [spend, impressions])",
+            "items": {
+              "type": "string"
+            }
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD in the account time zone (required unless query_lifetime)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, inclusive"
+          },
+          "query_lifetime": {
+            "type": "boolean",
+            "description": "Lifetime metrics (BASIC, no time dimension)"
+          },
+          "filtering": {
+            "type": "array",
+            "description": "e.g. [{\"field_name\": \"campaign_ids\", \"filter_type\": \"IN\", \"filter_value\": \"[\\\"123\\\"]\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "order_field": {
+            "type": "string",
+            "description": "Metric to sort by, e.g. spend"
+          },
+          "order_type": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "enable_total_metrics": {
+            "type": "boolean",
+            "description": "Add total_metrics for the whole range"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "dimensions"
+        ]
+      }
+    },
+    {
+      "name": "list_lead_forms",
+      "description": "Instant Forms (lead generation pages) of an advertiser: page_id, title and status",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "EDITED",
+              "PUBLISHED"
+            ]
+          },
+          "form_title": {
+            "type": "string",
+            "description": "Filter by title"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "get_lead_form_fields",
+      "description": "The questions (fields) of an Instant Form",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "lead_source": {
+            "type": "string",
+            "enum": [
+              "INSTANT_FORM",
+              "DIRECT_MESSAGE"
+            ],
+            "default": "INSTANT_FORM"
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Instant Form page id (required for INSTANT_FORM; from list_lead_forms)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "get_lead",
+      "description": "A lead of an Instant Form or a direct-message lead: answers (personal data) and campaign/ad metadata. For every lead of a form use create_lead_download_task (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_LEADS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "lead_source": {
+            "type": "string",
+            "enum": [
+              "INSTANT_FORM",
+              "DIRECT_MESSAGE"
+            ],
+            "default": "INSTANT_FORM"
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Instant Form page id (required for INSTANT_FORM; from list_lead_forms)"
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "create_lead_download_task",
+      "description": "Start (or, with task_id, check) an export of every lead of an Instant Form or an ad; when status is SUCCEED, download_leads returns the file (ad account admins only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_LEADS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Instant Form page id (or ad_id)"
+          },
+          "ad_id": {
+            "type": "string",
+            "description": "Ad id (or page_id)"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "An existing task id, to read its status"
+          },
+          "lead_region": {
+            "type": "string",
+            "description": "eu: EEA, Switzerland and UK leads; us: US leads; omit for all other regions",
+            "enum": [
+              "eu",
+              "us"
+            ]
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "set_campaign_status",
+      "description": "Enable or disable campaigns (deleting is node only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "campaign_ids": {
+            "type": "array",
+            "description": "campaigns ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation_status": {
+            "type": "string",
+            "enum": [
+              "ENABLE",
+              "DISABLE"
+            ]
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "campaign_ids",
+          "operation_status"
+        ]
+      }
+    },
+    {
+      "name": "set_ad_group_status",
+      "description": "Enable or disable ad groups (deleting is node only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "adgroup_ids": {
+            "type": "array",
+            "description": "ad groups ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation_status": {
+            "type": "string",
+            "enum": [
+              "ENABLE",
+              "DISABLE"
+            ]
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "adgroup_ids",
+          "operation_status"
+        ]
+      }
+    },
+    {
+      "name": "set_ad_status",
+      "description": "Enable or disable ads (deleting is node only) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "ad_ids": {
+            "type": "array",
+            "description": "ads ids (1 to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation_status": {
+            "type": "string",
+            "enum": [
+              "ENABLE",
+              "DISABLE"
+            ]
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "ad_ids",
+          "operation_status"
+        ]
+      }
+    },
+    {
+      "name": "set_campaign_budget",
+      "description": "Change a campaign's budget, in the account currency's units (e.g. 50.5 = USD 50.50; at least 105% of what it has spent). Agent tools also need TIKTOK_ADS_TOOL_MAX_BUDGET (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "campaign_id": {
+            "type": "string"
+          },
+          "budget": {
+            "type": "number",
+            "description": "New budget in currency units (USD 2 decimals; IDR, JPY, KRW whole numbers)",
+            "minimum": 0.01
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "campaign_id",
+          "budget"
+        ]
+      }
+    },
+    {
+      "name": "set_ad_group_budgets",
+      "description": "Change lifetime budgets (budget, immediate) or schedule daily budgets (scheduled_budget, from 00:00 tomorrow) of up to 20 ad groups, in currency units. Agent tools also need TIKTOK_ADS_TOOL_MAX_BUDGET (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "description": "Advertiser (ad account) id",
+            "minLength": 1
+          },
+          "budget": {
+            "type": "array",
+            "description": "New lifetime budgets, e.g. [{\"adgroup_id\": \"...\", \"budget\": 50.5}] (up to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "scheduled_budget": {
+            "type": "array",
+            "description": "New daily (or dynamic daily) budgets from tomorrow, e.g. [{\"adgroup_id\": \"...\", \"scheduled_budget\": 50.5}] (up to 20)",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "advertiser_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any TikTok API for Business endpoint that has no dedicated operation, e.g. path \"/pixel/list/\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/pixel/list/\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "download_leads",
+      "description": "Save the CSV or zip file of a finished lead download task into TIKTOK_ADS_LEADS_DIR (the file expires 10 minutes after it is ready) (as an agent tool only when TIKTOK_ADS_TOOL_ALLOW_LEADS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "advertiser_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Advertiser (ad account) id"
+          },
+          "task_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "task_id from create_lead_download_task"
+          },
+          "lead_region": {
+            "type": "string",
+            "enum": [
+              "eu",
+              "us"
+            ],
+            "description": "eu: EEA, Switzerland and UK leads; us: US leads; omit for all other regions"
+          }
+        },
+        "required": [
+          "advertiser_id",
+          "task_id"
+        ]
+      }
+    }
+  ]
+}

@@ -69,6 +69,7 @@ Each plugin gets its own README (env, auth, scopes or approvals, pricing warning
 | B10 Payments and commerce | stripe, midtrans, xendit, paypal, shopify, woocommerce, lazada |
 | B11 Logistics and web data | biteship, rajaongkir, shipper, web-search, news-api, wikipedia, coingecko, currency-rates, open-meteo, google-maps-platform |
 | B12 Indonesia and vector/HTTP data stores | bmkg, bps, libur-nasional, wilayah-indonesia, supabase, elasticsearch, clickhouse, pinecone, qdrant, weaviate, chroma, neo4j |
+| B13 Marketing ads, prospecting and support | B13a ads: meta-ads, google-ads, tiktok-ads; prospecting and support plugins follow in later sub-batches. Ad reads are tools; status changes need `<PLUGIN>_TOOL_ALLOW_WRITES=1`, budget changes also a per-call budget cap env (default 0 refuses); creates and deletes are node only; lead (PII) reads need `<PLUGIN>_TOOL_ALLOW_LEADS=1` |
 
 ### Agent-safety defaults for Phase 2
 These follow the rules that earlier reviews settled on:
