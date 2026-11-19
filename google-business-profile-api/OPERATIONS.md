@@ -7,7 +7,7 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 
 | Operation | Description | Parameters |
 |-----------|-------------|------------|
-| `list_accounts` | List the Business Profile accounts (personal, location groups, organizations) the credentials can access. | parent_account, type, limit, cursor |
+| `list_accounts` | List the Business Profile accounts (personal, location groups, organizations) the credentials can access. | parent_account, account_type, limit, cursor |
 | `list_locations` | List an account's locations (businesses) with title, address, phone, website and Maps ids. Location `name` is locations/{id}. | **account_id**, read_mask, filter, order_by, limit, cursor |
 | `get_location` | Get one location's details: profile description, phones, categories, address, regular and special hours. | **location_id**, read_mask |
 | `update_location` | Update only the given fields of a location: description, primary/additional phones, regular hours (replaces all periods) and special hours (replaces all). Times are HH:MM, dates YYYY-MM-DD. Safe to resend after a failure. | **location_id**, description, primary_phone, additional_phones, regular_hours, special_hours, validate_only |

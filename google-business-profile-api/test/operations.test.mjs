@@ -15,7 +15,7 @@ const REQUEST_CASES = [
   ["list_accounts", {}, { host: ACCOUNTS, method: "GET", path: "/v1/accounts", query: { pageSize: "20" } }],
   [
     "list_accounts",
-    { parent_account: "accounts/9", type: "LOCATION_GROUP", limit: 5, cursor: "N" },
+    { parent_account: "accounts/9", account_type: "LOCATION_GROUP", limit: 5, cursor: "N" },
     { host: ACCOUNTS, method: "GET", path: "/v1/accounts", query: { parentAccount: "accounts/9", filter: "type=LOCATION_GROUP", pageSize: "5", pageToken: "N" } },
   ],
   [

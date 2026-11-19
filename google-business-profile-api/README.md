@@ -121,5 +121,9 @@ From the repo root: `npm run sync` after changing `definition.mjs`, `operations/
 `lib/google-token-endpoint.mjs`, `lib/service-account.mjs` and `lib/google-errors.mjs` are kept identical to the
 copies in `google-sheets/`.
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `list_accounts` parameter `type` is now `account_type` (still sent as the API `filter=type=...`). graphrt takes `type` from every workflow node, so the old name could never be set from a node; tool calls that passed `type` must use `account_type`.
+
 ## License
 Apache-2.0

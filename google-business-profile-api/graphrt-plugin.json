@@ -36,7 +36,7 @@
             "type": "string",
             "description": "Organization or user group account id, to list the accounts under it"
           },
-          "type": {
+          "account_type": {
             "type": "string",
             "enum": [
               "PERSONAL",
@@ -44,7 +44,7 @@
               "USER_GROUP",
               "ORGANIZATION"
             ],
-            "description": "Only accounts of this type"
+            "description": "Only accounts of this type (sent as the `type=` filter)"
           },
           "limit": {
             "type": "integer",
@@ -799,7 +799,7 @@
             "type": "string",
             "description": "Organization or user group account id, to list the accounts under it"
           },
-          "type": {
+          "account_type": {
             "type": "string",
             "enum": [
               "PERSONAL",
@@ -807,7 +807,7 @@
               "USER_GROUP",
               "ORGANIZATION"
             ],
-            "description": "Only accounts of this type"
+            "description": "Only accounts of this type (sent as the `type=` filter)"
           },
           "limit": {
             "type": "integer",
