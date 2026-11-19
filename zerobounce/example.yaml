@@ -1,0 +1,14 @@
+# Remaining ZeroBounce credits and this month's usage. Free and read-only.
+#   ZEROBOUNCE_API_KEY=... graphrt run zerobounce/example.yaml --plugins .
+version: "1"
+name: zerobounce-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: credits, type: zerobounce.get_credits }
+    - { id: usage, type: zerobounce.get_api_usage, start_date: "2026-11-01", end_date: "2026-11-19" }
+    - { id: answer, type: answer, answer: "{{#credits.data#}} credits left; {{#usage.data.total#}} API calls this month" }
+  edges:
+    - { source: start, target: credits }
+    - { source: credits, target: usage }
+    - { source: usage, target: answer }

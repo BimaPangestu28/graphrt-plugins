@@ -1,0 +1,576 @@
+{
+  "name": "zerobounce",
+  "version": "0.1.0",
+  "description": "ZeroBounce email validation API v2 (default, US or EU host): validate one address (credits), batches of up to 100 (agent opt-in), credits and usage; bulk file upload, status, results and delete are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ZEROBOUNCE_API_KEY",
+      "ZEROBOUNCE_REGION",
+      "ZEROBOUNCE_TOOL_ALLOW_BATCH",
+      "ZEROBOUNCE_FILE_DIR",
+      "ZEROBOUNCE_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "zerobounce.validate_email",
+      "title": "Validate email",
+      "description": "Validate one address: status (valid, invalid, catch-all, unknown, spamtrap, abuse, do_not_mail), sub_status, did_you_mean, domain age, MX (1 credit; unknown results are free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "IP the address signed up from (optional)"
+          },
+          "validation_timeout": {
+            "type": "integer",
+            "description": "Seconds ZeroBounce may spend (3-60, default 30); past it the result is unknown",
+            "minimum": 3,
+            "maximum": 60
+          },
+          "activity_data": {
+            "type": "boolean",
+            "description": "Append activity data (last seen active, in days)"
+          },
+          "verify_plus": {
+            "type": "boolean",
+            "description": "Use Verify+ (overrides the account setting)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.validate_batch",
+      "title": "Validate batch",
+      "description": "Validate up to 100 addresses in one call (can take up to 70 s; 1 credit each, unknown results free) (as an agent tool only when ZEROBOUNCE_TOOL_ALLOW_BATCH=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email_batch": {
+            "type": "array",
+            "description": "Addresses, e.g. [{\"email_address\": \"ada@example.com\", \"ip_address\": null}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "validation_timeout": {
+            "type": "integer",
+            "description": "Seconds for the whole batch (10-120)",
+            "minimum": 10,
+            "maximum": 120
+          },
+          "activity_data": {
+            "type": "boolean",
+            "description": "Append activity data (last seen active, in days)"
+          },
+          "verify_plus": {
+            "type": "boolean",
+            "description": "Use Verify+ (overrides the account setting)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email_batch"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.get_credits",
+      "title": "Credit balance",
+      "description": "Remaining validation credits (free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.get_api_usage",
+      "title": "API usage",
+      "description": "API calls and result counts by status and sub_status between two dates (free)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.send_file",
+      "title": "Send file",
+      "description": "Upload a CSV or TXT file for bulk validation (1 credit per address; return_url gets a POST when done)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "CSV or TXT file (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "email_address_column": {
+            "type": "integer",
+            "description": "1-based column of the email address",
+            "minimum": 1
+          },
+          "first_name_column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "last_name_column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "gender_column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ip_address_column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "has_header_row": {
+            "type": "boolean"
+          },
+          "remove_duplicate": {
+            "type": "boolean",
+            "description": "Remove duplicate addresses (default true; more than 50% duplicates is a 400)"
+          },
+          "allow_phase_2": {
+            "type": "boolean",
+            "description": "Run Verify+ catch-all validation (phase 2) after the first pass"
+          },
+          "return_url": {
+            "type": "string",
+            "description": "URL ZeroBounce POSTs {file_id, file_name, upload_date} to when done"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file",
+          "email_address_column"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.get_file_status",
+      "title": "File status",
+      "description": "Processing status and percentage of an uploaded file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "file_id returned by send_file",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.get_file",
+      "title": "Get result file",
+      "description": "Download the validation results of a finished file (CSV) into ZEROBOUNCE_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "file_id returned by send_file",
+            "minLength": 1
+          },
+          "activity_data": {
+            "type": "boolean",
+            "description": "Append activity data columns"
+          },
+          "download_type": {
+            "type": "string",
+            "description": "Verify+ phase results (phase_2 and combined need phase 2 to be complete)",
+            "enum": [
+              "phase_1",
+              "phase_2",
+              "combined"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.delete_file",
+      "title": "Delete file",
+      "description": "Delete an uploaded file and its results (only when its status is Complete)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "file_id returned by send_file",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zerobounce.api_request",
+      "title": "ZeroBounce API v2 request",
+      "description": "Call any ZeroBounce API v2 endpoint that has no dedicated operation, e.g. path \"/getcredits\". Only the API's own host is allowed. Agent tools may only read paths under /getcredits, /getapiusage.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/getcredits\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "validate_email",
+      "description": "Validate one address: status (valid, invalid, catch-all, unknown, spamtrap, abuse, do_not_mail), sub_status, did_you_mean, domain age, MX (1 credit; unknown results are free)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "IP the address signed up from (optional)"
+          },
+          "validation_timeout": {
+            "type": "integer",
+            "description": "Seconds ZeroBounce may spend (3-60, default 30); past it the result is unknown",
+            "minimum": 3,
+            "maximum": 60
+          },
+          "activity_data": {
+            "type": "boolean",
+            "description": "Append activity data (last seen active, in days)"
+          },
+          "verify_plus": {
+            "type": "boolean",
+            "description": "Use Verify+ (overrides the account setting)"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      }
+    },
+    {
+      "name": "validate_batch",
+      "description": "Validate up to 100 addresses in one call (can take up to 70 s; 1 credit each, unknown results free) (as an agent tool only when ZEROBOUNCE_TOOL_ALLOW_BATCH=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email_batch": {
+            "type": "array",
+            "description": "Addresses, e.g. [{\"email_address\": \"ada@example.com\", \"ip_address\": null}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "validation_timeout": {
+            "type": "integer",
+            "description": "Seconds for the whole batch (10-120)",
+            "minimum": 10,
+            "maximum": 120
+          },
+          "activity_data": {
+            "type": "boolean",
+            "description": "Append activity data (last seen active, in days)"
+          },
+          "verify_plus": {
+            "type": "boolean",
+            "description": "Use Verify+ (overrides the account setting)"
+          }
+        },
+        "required": [
+          "email_batch"
+        ]
+      }
+    },
+    {
+      "name": "get_credits",
+      "description": "Remaining validation credits (free)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_api_usage",
+      "description": "API calls and result counts by status and sub_status between two dates (free)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any ZeroBounce API v2 endpoint that has no dedicated operation, e.g. path \"/getcredits\". Only the API's own host is allowed. Agent tools may only read paths under /getcredits, /getapiusage.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/getcredits\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

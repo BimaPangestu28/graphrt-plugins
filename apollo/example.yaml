@@ -1,0 +1,15 @@
+# Contact stages of your Apollo account and three marketing managers in Indonesia from People API Search.
+# Read-only and free (People API Search uses no credits).
+#   APOLLO_API_KEY=... graphrt run apollo/example.yaml --plugins .
+version: "1"
+name: apollo-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: stages, type: apollo.list_contact_stages }
+    - { id: people, type: apollo.search_people, person_titles: [marketing manager], person_locations: [Indonesia], limit: 3 }
+    - { id: answer, type: answer, answer: "stages: {{#stages.data#}} | people: {{#people.data#}}" }
+  edges:
+    - { source: start, target: stages }
+    - { source: stages, target: people }
+    - { source: people, target: answer }

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-zerobounce",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: ZeroBounce email validation API v2 (single, batch, credits, usage, bulk files)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

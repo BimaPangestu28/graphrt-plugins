@@ -1,0 +1,19 @@
+# Top 10 Google Search queries of the last week for one property. Read-only. Set site_url to one of your
+# properties (list_sites shows them: "https://www.example.com/" or "sc-domain:example.com").
+#   GOOGLE_REFRESH_TOKEN=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... graphrt run google-search-console/example.yaml --plugins .
+version: "1"
+name: google-search-console-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: queries
+      type: google-search-console.query_search_analytics
+      site_url: "sc-domain:example.com"
+      start_date: "2026-11-01"
+      end_date: "2026-11-07"
+      dimensions: [query]
+      limit: 10
+    - { id: answer, type: answer, answer: "Top queries: {{#queries.data#}}" }
+  edges:
+    - { source: start, target: queries }
+    - { source: queries, target: answer }

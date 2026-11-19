@@ -1,0 +1,798 @@
+{
+  "name": "google-search-console",
+  "version": "0.1.0",
+  "description": "Google Search Console: search analytics (clicks, impressions, CTR, position), URL inspection, sites and sitemaps; agent writes need an opt-in, removals are node only (OAuth or service account)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "GOOGLE_SEARCH_CONSOLE_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-search-console.list_sites",
+      "title": "List sites",
+      "description": "Properties the caller can access, with permission levels (siteOwner, siteFullUser, siteRestrictedUser, siteUnverifiedUser)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.get_site",
+      "title": "Get site",
+      "description": "One property and the caller's permission level",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.add_site",
+      "title": "Add site",
+      "description": "Add a property to the caller's Search Console account (it still has to be verified) (as an agent tool only when GOOGLE_SEARCH_CONSOLE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.delete_site",
+      "title": "Remove site",
+      "description": "Remove a property from the caller's Search Console account",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.query_search_analytics",
+      "title": "Search analytics",
+      "description": "Clicks, impressions, CTR and position from Google Search, grouped by dimensions (query, page, country, device, date, ...) over a date range, with filters",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD (Pacific time)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day (inclusive), YYYY-MM-DD"
+          },
+          "dimensions": {
+            "type": "array",
+            "description": "Group-by dimensions, in order: date, hour, query, page, country, device, searchAppearance",
+            "items": {
+              "type": "string",
+              "enum": [
+                "date",
+                "hour",
+                "query",
+                "page",
+                "country",
+                "device",
+                "searchAppearance"
+              ]
+            }
+          },
+          "search_type": {
+            "type": "string",
+            "description": "Search type (default web)",
+            "enum": [
+              "web",
+              "image",
+              "video",
+              "news",
+              "discover",
+              "googleNews"
+            ]
+          },
+          "dimension_filter_groups": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"filters\": [{\"dimension\": \"query\", \"operator\": \"contains\", \"expression\": \"sepatu\"}]}] (operators: equals, notEquals, contains, notContains, includingRegex, excludingRegex)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aggregation_type": {
+            "type": "string",
+            "description": "How rows are aggregated (default auto)",
+            "enum": [
+              "auto",
+              "byProperty",
+              "byPage",
+              "byNewsShowcasePanel"
+            ]
+          },
+          "data_state": {
+            "type": "string",
+            "description": "final (default) excludes fresh partial data; all includes it; hourly_all is needed with the hour dimension",
+            "enum": [
+              "final",
+              "all",
+              "hourly_all"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `rowLimit`)",
+            "minimum": 1,
+            "maximum": 25000,
+            "default": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url",
+          "start_date",
+          "end_date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.list_sitemaps",
+      "title": "List sitemaps",
+      "description": "Sitemaps submitted for the property (or listed in a sitemap index), with errors, warnings and last download",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "sitemap_index": {
+            "type": "string",
+            "description": "URL of a sitemap index: list the sitemaps in it"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.get_sitemap",
+      "title": "Get sitemap",
+      "description": "One sitemap's status, errors, warnings and content counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "sitemap_url": {
+            "type": "string",
+            "description": "Full sitemap URL, e.g. https://www.example.com/sitemap.xml",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url",
+          "sitemap_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.submit_sitemap",
+      "title": "Submit sitemap",
+      "description": "Submit (or resubmit) a sitemap for the property (as an agent tool only when GOOGLE_SEARCH_CONSOLE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "sitemap_url": {
+            "type": "string",
+            "description": "Full sitemap URL, e.g. https://www.example.com/sitemap.xml",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url",
+          "sitemap_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.delete_sitemap",
+      "title": "Delete sitemap",
+      "description": "Remove a sitemap from the property's sitemap report",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "sitemap_url": {
+            "type": "string",
+            "description": "Full sitemap URL, e.g. https://www.example.com/sitemap.xml",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "site_url",
+          "sitemap_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.inspect_url",
+      "title": "Inspect URL",
+      "description": "Google's index status of one URL: coverage, last crawl, canonical, mobile usability, rich results, AMP",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "inspection_url": {
+            "type": "string",
+            "description": "Fully-qualified URL to inspect; must be under site_url",
+            "minLength": 1
+          },
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "language_code": {
+            "type": "string",
+            "description": "BCP-47 language for issue messages, e.g. id or en-US (default en-US)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "inspection_url",
+          "site_url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-search-console.api_request",
+      "title": "Google Search Console API request",
+      "description": "Call any Google Search Console API endpoint that has no dedicated operation, e.g. path \"/webmasters/v3/sites\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/webmasters/v3/sites\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_sites",
+      "description": "Properties the caller can access, with permission levels (siteOwner, siteFullUser, siteRestrictedUser, siteUnverifiedUser)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_site",
+      "description": "One property and the caller's permission level",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "site_url"
+        ]
+      }
+    },
+    {
+      "name": "add_site",
+      "description": "Add a property to the caller's Search Console account (it still has to be verified) (as an agent tool only when GOOGLE_SEARCH_CONSOLE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "site_url"
+        ]
+      }
+    },
+    {
+      "name": "query_search_analytics",
+      "description": "Clicks, impressions, CTR and position from Google Search, grouped by dimensions (query, page, country, device, date, ...) over a date range, with filters",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "start_date": {
+            "type": "string",
+            "description": "First day, YYYY-MM-DD (Pacific time)"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "Last day (inclusive), YYYY-MM-DD"
+          },
+          "dimensions": {
+            "type": "array",
+            "description": "Group-by dimensions, in order: date, hour, query, page, country, device, searchAppearance",
+            "items": {
+              "type": "string",
+              "enum": [
+                "date",
+                "hour",
+                "query",
+                "page",
+                "country",
+                "device",
+                "searchAppearance"
+              ]
+            }
+          },
+          "search_type": {
+            "type": "string",
+            "description": "Search type (default web)",
+            "enum": [
+              "web",
+              "image",
+              "video",
+              "news",
+              "discover",
+              "googleNews"
+            ]
+          },
+          "dimension_filter_groups": {
+            "type": "array",
+            "description": "Filters, e.g. [{\"filters\": [{\"dimension\": \"query\", \"operator\": \"contains\", \"expression\": \"sepatu\"}]}] (operators: equals, notEquals, contains, notContains, includingRegex, excludingRegex)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aggregation_type": {
+            "type": "string",
+            "description": "How rows are aggregated (default auto)",
+            "enum": [
+              "auto",
+              "byProperty",
+              "byPage",
+              "byNewsShowcasePanel"
+            ]
+          },
+          "data_state": {
+            "type": "string",
+            "description": "final (default) excludes fresh partial data; all includes it; hourly_all is needed with the hour dimension",
+            "enum": [
+              "final",
+              "all",
+              "hourly_all"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `rowLimit`)",
+            "minimum": 1,
+            "maximum": 25000,
+            "default": 1000
+          }
+        },
+        "required": [
+          "site_url",
+          "start_date",
+          "end_date"
+        ]
+      }
+    },
+    {
+      "name": "list_sitemaps",
+      "description": "Sitemaps submitted for the property (or listed in a sitemap index), with errors, warnings and last download",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "sitemap_index": {
+            "type": "string",
+            "description": "URL of a sitemap index: list the sitemaps in it"
+          }
+        },
+        "required": [
+          "site_url"
+        ]
+      }
+    },
+    {
+      "name": "get_sitemap",
+      "description": "One sitemap's status, errors, warnings and content counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "sitemap_url": {
+            "type": "string",
+            "description": "Full sitemap URL, e.g. https://www.example.com/sitemap.xml",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "site_url",
+          "sitemap_url"
+        ]
+      }
+    },
+    {
+      "name": "submit_sitemap",
+      "description": "Submit (or resubmit) a sitemap for the property (as an agent tool only when GOOGLE_SEARCH_CONSOLE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "sitemap_url": {
+            "type": "string",
+            "description": "Full sitemap URL, e.g. https://www.example.com/sitemap.xml",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "site_url",
+          "sitemap_url"
+        ]
+      }
+    },
+    {
+      "name": "inspect_url",
+      "description": "Google's index status of one URL: coverage, last crawl, canonical, mobile usability, rich results, AMP",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "inspection_url": {
+            "type": "string",
+            "description": "Fully-qualified URL to inspect; must be under site_url",
+            "minLength": 1
+          },
+          "site_url": {
+            "type": "string",
+            "description": "Property as Search Console names it: \"https://www.example.com/\" (URL-prefix, with the trailing slash) or \"sc-domain:example.com\" (Domain property)",
+            "minLength": 1
+          },
+          "language_code": {
+            "type": "string",
+            "description": "BCP-47 language for issue messages, e.g. id or en-US (default en-US)"
+          }
+        },
+        "required": [
+          "inspection_url",
+          "site_url"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Search Console API endpoint that has no dedicated operation, e.g. path \"/webmasters/v3/sites\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/webmasters/v3/sites\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
