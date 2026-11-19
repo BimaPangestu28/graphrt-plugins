@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-onedrive",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: OneDrive through Microsoft Graph (items, search, download, upload, folders, move/copy, sharing)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

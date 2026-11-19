@@ -1,0 +1,1818 @@
+{
+  "name": "clickup",
+  "version": "0.1.0",
+  "description": "ClickUp: workspaces, spaces, folders, lists, tasks (list, filter, get, create, update), comments and time entries (read); task deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "CLICKUP_API_TOKEN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "clickup.get_user",
+      "title": "Authorized user",
+      "description": "The user the token belongs to",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_teams",
+      "title": "List workspaces",
+      "description": "Workspaces (teams) the token can access, with members",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_spaces",
+      "title": "List spaces",
+      "description": "Spaces of a workspace",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (from list_teams; ClickUp v2 calls workspaces teams)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.get_space",
+      "title": "Get space",
+      "description": "One space with its statuses and features",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "Space id (from list_spaces)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_folders",
+      "title": "List folders",
+      "description": "Folders of a space, with their lists",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "Space id (from list_spaces)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_lists",
+      "title": "List lists",
+      "description": "Lists in a folder",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "folder_id": {
+            "type": "string",
+            "description": "Folder id (from list_folders)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "folder_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_folderless_lists",
+      "title": "Folderless lists",
+      "description": "Lists directly in a space (not in a folder)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "Space id (from list_spaces)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.get_list",
+      "title": "Get list",
+      "description": "One list with its statuses",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id (from list_lists or list_folderless_lists)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_tasks",
+      "title": "List tasks",
+      "description": "Tasks of a list (100 per page; closed tasks and subtasks only when asked)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id (from list_lists or list_folderless_lists)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Archived tasks only"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort field (default created)",
+            "enum": [
+              "id",
+              "created",
+              "updated",
+              "due_date"
+            ]
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Reverse the order"
+          },
+          "subtasks": {
+            "type": "boolean",
+            "description": "Include subtasks"
+          },
+          "include_closed": {
+            "type": "boolean",
+            "description": "Include closed tasks"
+          },
+          "statuses": {
+            "type": "array",
+            "description": "Status names, e.g. [\"to do\", \"in progress\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Assignee user ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tag names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date_gt": {
+            "type": "integer",
+            "description": "Due after (Unix time in milliseconds)"
+          },
+          "due_date_lt": {
+            "type": "integer",
+            "description": "Due before (Unix time in milliseconds)"
+          },
+          "date_updated_gt": {
+            "type": "integer",
+            "description": "Updated after (Unix time in milliseconds)"
+          },
+          "include_markdown_description": {
+            "type": "boolean",
+            "description": "Return markdown_description"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.search_tasks",
+      "title": "Filter workspace tasks",
+      "description": "Tasks across a workspace filtered by space, folder, list, status, assignee, tag or dates (100 per page)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (from list_teams; ClickUp v2 calls workspaces teams)"
+          },
+          "space_ids": {
+            "type": "array",
+            "description": "Space ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "folder_ids": {
+            "type": "array",
+            "description": "Folder ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "List ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parent_task_id": {
+            "type": "string",
+            "description": "Parent task id, to list its subtasks"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort field (default created)",
+            "enum": [
+              "id",
+              "created",
+              "updated",
+              "due_date"
+            ]
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Reverse the order"
+          },
+          "subtasks": {
+            "type": "boolean",
+            "description": "Include subtasks"
+          },
+          "include_closed": {
+            "type": "boolean",
+            "description": "Include closed tasks"
+          },
+          "statuses": {
+            "type": "array",
+            "description": "Status names, e.g. [\"to do\", \"in progress\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Assignee user ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tag names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date_gt": {
+            "type": "integer",
+            "description": "Due after (Unix time in milliseconds)"
+          },
+          "due_date_lt": {
+            "type": "integer",
+            "description": "Due before (Unix time in milliseconds)"
+          },
+          "date_updated_gt": {
+            "type": "integer",
+            "description": "Updated after (Unix time in milliseconds)"
+          },
+          "include_markdown_description": {
+            "type": "boolean",
+            "description": "Return markdown_description"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.get_task",
+      "title": "Get task",
+      "description": "One task with assignees, status, dates, custom fields and checklists",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "include_subtasks": {
+            "type": "boolean"
+          },
+          "include_markdown_description": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.get_time_in_status",
+      "title": "Time in status",
+      "description": "How long a task has spent in each status",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.create_task",
+      "title": "Create task",
+      "description": "Create a task (or a subtask with parent_task_id) in a list; assignees and watchers are notified by ClickUp",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id (from list_lists or list_folderless_lists)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Task name",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Plain-text description"
+          },
+          "markdown_content": {
+            "type": "string",
+            "description": "Markdown description (wins over description)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status name of the list, e.g. in progress"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 urgent, 2 high, 3 normal, 4 low",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_date": {
+            "type": "integer",
+            "description": "Due date, Unix time in milliseconds"
+          },
+          "due_date_time": {
+            "type": "boolean",
+            "description": "The due date has a time of day"
+          },
+          "start_date": {
+            "type": "integer",
+            "description": "Start date, Unix time in milliseconds"
+          },
+          "start_date_time": {
+            "type": "boolean",
+            "description": "The start date has a time of day"
+          },
+          "time_estimate": {
+            "type": "integer",
+            "description": "Estimate in milliseconds"
+          },
+          "points": {
+            "type": "number",
+            "description": "Sprint points"
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Assignee user ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tag names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parent_task_id": {
+            "type": "string",
+            "description": "Parent task id (same list) to create a subtask"
+          },
+          "links_to": {
+            "type": "string",
+            "description": "Task id to link as a dependency"
+          },
+          "notify_all": {
+            "type": "boolean",
+            "description": "Also notify the creator (assignees and watchers are always notified)",
+            "default": false
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field values, e.g. [{\"id\":\"<field id>\",\"value\":42}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.update_task",
+      "title": "Update task",
+      "description": "Change a task's name, description, status, priority, dates, estimate, assignees or archived flag",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Plain-text description"
+          },
+          "markdown_content": {
+            "type": "string",
+            "description": "Markdown description (wins over description)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status name of the list, e.g. in progress"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 urgent, 2 high, 3 normal, 4 low",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_date": {
+            "type": "integer",
+            "description": "Due date, Unix time in milliseconds"
+          },
+          "due_date_time": {
+            "type": "boolean",
+            "description": "The due date has a time of day"
+          },
+          "start_date": {
+            "type": "integer",
+            "description": "Start date, Unix time in milliseconds"
+          },
+          "start_date_time": {
+            "type": "boolean",
+            "description": "The start date has a time of day"
+          },
+          "time_estimate": {
+            "type": "integer",
+            "description": "Estimate in milliseconds"
+          },
+          "points": {
+            "type": "number",
+            "description": "Sprint points"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "add_assignees": {
+            "type": "array",
+            "description": "User ids to assign",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "remove_assignees": {
+            "type": "array",
+            "description": "User ids to unassign",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.delete_task",
+      "title": "Delete task",
+      "description": "Delete a task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_comments",
+      "title": "Task comments",
+      "description": "The 25 newest comments of a task; for older ones pass start and start_id of the last comment",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "start": {
+            "type": "integer",
+            "description": "date of the last comment of the previous page (with start_id)"
+          },
+          "start_id": {
+            "type": "string",
+            "description": "id of the last comment of the previous page (with start)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.add_comment",
+      "title": "Comment on task",
+      "description": "Add a comment to a task (assignees and watchers are notified by ClickUp)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "comment_text": {
+            "type": "string",
+            "description": "Comment text",
+            "minLength": 1
+          },
+          "assignee": {
+            "type": "integer",
+            "description": "User id to assign the comment to"
+          },
+          "notify_all": {
+            "type": "boolean",
+            "description": "Also notify the creator",
+            "default": false
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id",
+          "comment_text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.list_time_entries",
+      "title": "Time entries",
+      "description": "Time entries of a workspace in a date range (default: your entries of the last 30 days; a negative duration is a running timer)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (from list_teams; ClickUp v2 calls workspaces teams)"
+          },
+          "start_date": {
+            "type": "integer",
+            "description": "From (Unix time in milliseconds)"
+          },
+          "end_date": {
+            "type": "integer",
+            "description": "Until (Unix time in milliseconds)"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "Comma-separated user ids (workspace owners and admins only)"
+          },
+          "space_id": {
+            "type": "string",
+            "description": "Only this space (one of space_id, folder_id, list_id, task_id)"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "is_billable": {
+            "type": "boolean"
+          },
+          "include_task_tags": {
+            "type": "boolean"
+          },
+          "include_location_names": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickup.api_request",
+      "title": "ClickUp API v2 request",
+      "description": "Call any ClickUp API v2 endpoint that has no dedicated operation, e.g. path \"/list/{list_id}/member\". Only the API's own host is allowed. Agent tools may only read the user, workspaces, spaces, folders, lists, views, tasks, comments and time entries.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/list/{list_id}/member\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_user",
+      "description": "The user the token belongs to",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_teams",
+      "description": "Workspaces (teams) the token can access, with members",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_spaces",
+      "description": "Spaces of a workspace",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (from list_teams; ClickUp v2 calls workspaces teams)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    {
+      "name": "get_space",
+      "description": "One space with its statuses and features",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "Space id (from list_spaces)"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      }
+    },
+    {
+      "name": "list_folders",
+      "description": "Folders of a space, with their lists",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "Space id (from list_spaces)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      }
+    },
+    {
+      "name": "list_lists",
+      "description": "Lists in a folder",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "folder_id": {
+            "type": "string",
+            "description": "Folder id (from list_folders)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          }
+        },
+        "required": [
+          "folder_id"
+        ]
+      }
+    },
+    {
+      "name": "list_folderless_lists",
+      "description": "Lists directly in a space (not in a folder)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "Space id (from list_spaces)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Return archived items instead of active ones"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      }
+    },
+    {
+      "name": "get_list",
+      "description": "One list with its statuses",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id (from list_lists or list_folderless_lists)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "Tasks of a list (100 per page; closed tasks and subtasks only when asked)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id (from list_lists or list_folderless_lists)"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Archived tasks only"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort field (default created)",
+            "enum": [
+              "id",
+              "created",
+              "updated",
+              "due_date"
+            ]
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Reverse the order"
+          },
+          "subtasks": {
+            "type": "boolean",
+            "description": "Include subtasks"
+          },
+          "include_closed": {
+            "type": "boolean",
+            "description": "Include closed tasks"
+          },
+          "statuses": {
+            "type": "array",
+            "description": "Status names, e.g. [\"to do\", \"in progress\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Assignee user ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tag names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date_gt": {
+            "type": "integer",
+            "description": "Due after (Unix time in milliseconds)"
+          },
+          "due_date_lt": {
+            "type": "integer",
+            "description": "Due before (Unix time in milliseconds)"
+          },
+          "date_updated_gt": {
+            "type": "integer",
+            "description": "Updated after (Unix time in milliseconds)"
+          },
+          "include_markdown_description": {
+            "type": "boolean",
+            "description": "Return markdown_description"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "search_tasks",
+      "description": "Tasks across a workspace filtered by space, folder, list, status, assignee, tag or dates (100 per page)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (from list_teams; ClickUp v2 calls workspaces teams)"
+          },
+          "space_ids": {
+            "type": "array",
+            "description": "Space ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "folder_ids": {
+            "type": "array",
+            "description": "Folder ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "List ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parent_task_id": {
+            "type": "string",
+            "description": "Parent task id, to list its subtasks"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "Sort field (default created)",
+            "enum": [
+              "id",
+              "created",
+              "updated",
+              "due_date"
+            ]
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Reverse the order"
+          },
+          "subtasks": {
+            "type": "boolean",
+            "description": "Include subtasks"
+          },
+          "include_closed": {
+            "type": "boolean",
+            "description": "Include closed tasks"
+          },
+          "statuses": {
+            "type": "array",
+            "description": "Status names, e.g. [\"to do\", \"in progress\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Assignee user ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tag names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date_gt": {
+            "type": "integer",
+            "description": "Due after (Unix time in milliseconds)"
+          },
+          "due_date_lt": {
+            "type": "integer",
+            "description": "Due before (Unix time in milliseconds)"
+          },
+          "date_updated_gt": {
+            "type": "integer",
+            "description": "Updated after (Unix time in milliseconds)"
+          },
+          "include_markdown_description": {
+            "type": "boolean",
+            "description": "Return markdown_description"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "One task with assignees, status, dates, custom fields and checklists",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "include_subtasks": {
+            "type": "boolean"
+          },
+          "include_markdown_description": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "get_time_in_status",
+      "description": "How long a task has spent in each status",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "create_task",
+      "description": "Create a task (or a subtask with parent_task_id) in a list; assignees and watchers are notified by ClickUp",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id (from list_lists or list_folderless_lists)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Task name",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Plain-text description"
+          },
+          "markdown_content": {
+            "type": "string",
+            "description": "Markdown description (wins over description)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status name of the list, e.g. in progress"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 urgent, 2 high, 3 normal, 4 low",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_date": {
+            "type": "integer",
+            "description": "Due date, Unix time in milliseconds"
+          },
+          "due_date_time": {
+            "type": "boolean",
+            "description": "The due date has a time of day"
+          },
+          "start_date": {
+            "type": "integer",
+            "description": "Start date, Unix time in milliseconds"
+          },
+          "start_date_time": {
+            "type": "boolean",
+            "description": "The start date has a time of day"
+          },
+          "time_estimate": {
+            "type": "integer",
+            "description": "Estimate in milliseconds"
+          },
+          "points": {
+            "type": "number",
+            "description": "Sprint points"
+          },
+          "assignees": {
+            "type": "array",
+            "description": "Assignee user ids",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tag names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parent_task_id": {
+            "type": "string",
+            "description": "Parent task id (same list) to create a subtask"
+          },
+          "links_to": {
+            "type": "string",
+            "description": "Task id to link as a dependency"
+          },
+          "notify_all": {
+            "type": "boolean",
+            "description": "Also notify the creator (assignees and watchers are always notified)",
+            "default": false
+          },
+          "custom_fields": {
+            "type": "array",
+            "description": "Custom field values, e.g. [{\"id\":\"<field id>\",\"value\":42}]",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_task",
+      "description": "Change a task's name, description, status, priority, dates, estimate, assignees or archived flag",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Plain-text description"
+          },
+          "markdown_content": {
+            "type": "string",
+            "description": "Markdown description (wins over description)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status name of the list, e.g. in progress"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 urgent, 2 high, 3 normal, 4 low",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_date": {
+            "type": "integer",
+            "description": "Due date, Unix time in milliseconds"
+          },
+          "due_date_time": {
+            "type": "boolean",
+            "description": "The due date has a time of day"
+          },
+          "start_date": {
+            "type": "integer",
+            "description": "Start date, Unix time in milliseconds"
+          },
+          "start_date_time": {
+            "type": "boolean",
+            "description": "The start date has a time of day"
+          },
+          "time_estimate": {
+            "type": "integer",
+            "description": "Estimate in milliseconds"
+          },
+          "points": {
+            "type": "number",
+            "description": "Sprint points"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "add_assignees": {
+            "type": "array",
+            "description": "User ids to assign",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "remove_assignees": {
+            "type": "array",
+            "description": "User ids to unassign",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "list_comments",
+      "description": "The 25 newest comments of a task; for older ones pass start and start_id of the last comment",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "start": {
+            "type": "integer",
+            "description": "date of the last comment of the previous page (with start_id)"
+          },
+          "start_id": {
+            "type": "string",
+            "description": "id of the last comment of the previous page (with start)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "add_comment",
+      "description": "Add a comment to a task (assignees and watchers are notified by ClickUp)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id, e.g. 86a1b2c3d (or a custom id with custom_task_ids and team_id)"
+          },
+          "custom_task_ids": {
+            "type": "boolean",
+            "description": "task_id is a custom task id (needs team_id)"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id, required with custom_task_ids"
+          },
+          "comment_text": {
+            "type": "string",
+            "description": "Comment text",
+            "minLength": 1
+          },
+          "assignee": {
+            "type": "integer",
+            "description": "User id to assign the comment to"
+          },
+          "notify_all": {
+            "type": "boolean",
+            "description": "Also notify the creator",
+            "default": false
+          }
+        },
+        "required": [
+          "task_id",
+          "comment_text"
+        ]
+      }
+    },
+    {
+      "name": "list_time_entries",
+      "description": "Time entries of a workspace in a date range (default: your entries of the last 30 days; a negative duration is a running timer)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (from list_teams; ClickUp v2 calls workspaces teams)"
+          },
+          "start_date": {
+            "type": "integer",
+            "description": "From (Unix time in milliseconds)"
+          },
+          "end_date": {
+            "type": "integer",
+            "description": "Until (Unix time in milliseconds)"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "Comma-separated user ids (workspace owners and admins only)"
+          },
+          "space_id": {
+            "type": "string",
+            "description": "Only this space (one of space_id, folder_id, list_id, task_id)"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "is_billable": {
+            "type": "boolean"
+          },
+          "include_task_tags": {
+            "type": "boolean"
+          },
+          "include_location_names": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any ClickUp API v2 endpoint that has no dedicated operation, e.g. path \"/list/{list_id}/member\". Only the API's own host is allowed. Agent tools may only read the user, workspaces, spaces, folders, lists, views, tasks, comments and time entries.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/list/{list_id}/member\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

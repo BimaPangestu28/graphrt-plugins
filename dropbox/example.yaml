@@ -1,0 +1,14 @@
+# Show the signed-in account and the first entries of the Dropbox root folder. Read-only.
+#   DROPBOX_APP_KEY=... DROPBOX_APP_SECRET=... DROPBOX_REFRESH_TOKEN=... graphrt run dropbox/example.yaml --plugins .
+version: "1"
+name: dropbox-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: account, type: dropbox.get_current_account }
+    - { id: root, type: dropbox.list_folder, path: "", page_size: 20 }
+    - { id: answer, type: answer, answer: "Account: {{#account.data.email#}} | Root: {{#root.data.entries#}}" }
+  edges:
+    - { source: start, target: account }
+    - { source: account, target: root }
+    - { source: root, target: answer }

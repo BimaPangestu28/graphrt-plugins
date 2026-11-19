@@ -1,0 +1,1730 @@
+{
+  "name": "asana",
+  "version": "0.1.0",
+  "description": "Asana: workspaces, projects, sections, tasks (list, search, create, update, complete, subtasks) and comments with a personal access token; deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ASANA_ACCESS_TOKEN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "asana.get_me",
+      "title": "Current user",
+      "description": "The user who owns the token, with their workspaces",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,email,workspaces.name",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.list_workspaces",
+      "title": "List workspaces",
+      "description": "Workspaces and organizations the user belongs to",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.list_users",
+      "title": "List users",
+      "description": "Users of a workspace (gids for assignees)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,email",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "workspace_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.list_projects",
+      "title": "List projects",
+      "description": "Projects of a workspace or team",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid (this or team_gid)"
+          },
+          "team_gid": {
+            "type": "string",
+            "description": "Team gid"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Only archived (true) or unarchived (false) projects"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,owner.name,due_on,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.get_project",
+      "title": "Get project",
+      "description": "One project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,notes,members.name,custom_fields",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.list_sections",
+      "title": "List sections",
+      "description": "Sections (columns) of a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.list_tasks",
+      "title": "List tasks",
+      "description": "Tasks of a project, a section, or an assignee in a workspace (give exactly one of project_gid, section_gid, or assignee with workspace_gid)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "section_gid": {
+            "type": "string",
+            "description": "Section gid"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid, email or \"me\" (with workspace_gid)"
+          },
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid (with assignee)"
+          },
+          "completed_since": {
+            "type": "string",
+            "description": "Only tasks incomplete or completed since this time (ISO 8601), or \"now\" for incomplete only"
+          },
+          "modified_since": {
+            "type": "string",
+            "description": "Only tasks modified since this time (ISO 8601)"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name,due_on,notes,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.get_task",
+      "title": "Get task",
+      "description": "One task with its details",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name,due_on,notes,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.search_tasks",
+      "title": "Search tasks",
+      "description": "Full-text task search in a workspace (premium workspaces only; 402 otherwise). No paging: sort by created_at and filter to page manually",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid"
+          },
+          "text": {
+            "type": "string",
+            "description": "Words in the task name or description"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "assignee_any": {
+            "type": "array",
+            "description": "User gids, emails or \"me\"",
+            "items": {
+              "type": "string"
+            }
+          },
+          "projects_any": {
+            "type": "array",
+            "description": "Project gids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "is_subtask": {
+            "type": "boolean"
+          },
+          "modified_after": {
+            "type": "string",
+            "description": "ISO 8601 time"
+          },
+          "due_on_before": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "due_date",
+              "created_at",
+              "completed_at",
+              "likes",
+              "relevance",
+              "modified_at"
+            ]
+          },
+          "sort_ascending": {
+            "type": "boolean"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum tasks (1-100)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name,due_on,notes,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "workspace_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.list_subtasks",
+      "title": "List subtasks",
+      "description": "Subtasks of a task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.list_stories",
+      "title": "Comments and history",
+      "description": "Stories of a task: comments (resource_subtype comment_added) and system events",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. text,created_by.name,created_at,resource_subtype",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.create_task",
+      "title": "Create task",
+      "description": "Create a task in a workspace and/or projects",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Task name",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "description": "Description in plain text"
+          },
+          "html_notes": {
+            "type": "string",
+            "description": "Description as Asana rich text, e.g. <body>Hi <strong>team</strong></body>"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid or \"me\" (agent tools cannot assign by email)"
+          },
+          "due_on": {
+            "type": "string",
+            "description": "Due date, YYYY-MM-DD"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "Due date and time, ISO 8601 (instead of due_on)"
+          },
+          "start_on": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD (needs a due date)"
+          },
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid (not needed when project_gids is given)"
+          },
+          "project_gids": {
+            "type": "array",
+            "description": "Projects to add the task to",
+            "items": {
+              "type": "string"
+            }
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.update_task",
+      "title": "Update task",
+      "description": "Change a task's name, description, assignee, dates or completion",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Task name"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Description in plain text"
+          },
+          "html_notes": {
+            "type": "string",
+            "description": "Description as Asana rich text, e.g. <body>Hi <strong>team</strong></body>"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid or \"me\" (agent tools cannot assign by email)"
+          },
+          "due_on": {
+            "type": "string",
+            "description": "Due date, YYYY-MM-DD"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "Due date and time, ISO 8601 (instead of due_on)"
+          },
+          "start_on": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD (needs a due date)"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.complete_task",
+      "title": "Complete task",
+      "description": "Mark a task complete (or incomplete again with completed: false)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "completed": {
+            "type": "boolean",
+            "default": true
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.create_subtask",
+      "title": "Create subtask",
+      "description": "Create a subtask under a task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Parent task gid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Task name",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "description": "Description in plain text"
+          },
+          "html_notes": {
+            "type": "string",
+            "description": "Description as Asana rich text, e.g. <body>Hi <strong>team</strong></body>"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid or \"me\" (agent tools cannot assign by email)"
+          },
+          "due_on": {
+            "type": "string",
+            "description": "Due date, YYYY-MM-DD"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "Due date and time, ISO 8601 (instead of due_on)"
+          },
+          "start_on": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD (needs a due date)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.create_section",
+      "title": "Create section",
+      "description": "Add a section to a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_gid",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.add_task_to_section",
+      "title": "Move task to section",
+      "description": "Move a task into a section of a project it belongs to (moving again to the same place is harmless)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "section_gid": {
+            "type": "string",
+            "description": "Section gid"
+          },
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "insert_before": {
+            "type": "string",
+            "description": "Task gid to place it before"
+          },
+          "insert_after": {
+            "type": "string",
+            "description": "Task gid to place it after"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "section_gid",
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.add_comment",
+      "title": "Add comment",
+      "description": "Comment on a task (followers are notified)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment in plain text (this or html_text)"
+          },
+          "html_text": {
+            "type": "string",
+            "description": "Comment as Asana rich text, e.g. <body>Done</body>"
+          },
+          "is_pinned": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.delete_task",
+      "title": "Delete task",
+      "description": "Delete a task (it goes to the trash for 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "asana.api_request",
+      "title": "Asana API request",
+      "description": "Call any Asana API endpoint that has no dedicated operation, e.g. path \"/tags?workspace=<workspace gid>\". Only the API's own host is allowed. Agent tools may only read tasks, projects, sections, users, workspaces, teams, tags, stories, portfolios, goals and similar resources (no webhooks, attachments, exports or audit logs).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/tags?workspace=<workspace gid>\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "The user who owns the token, with their workspaces",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,email,workspaces.name",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_workspaces",
+      "description": "Workspaces and organizations the user belongs to",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_users",
+      "description": "Users of a workspace (gids for assignees)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,email",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "workspace_gid"
+        ]
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "Projects of a workspace or team",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid (this or team_gid)"
+          },
+          "team_gid": {
+            "type": "string",
+            "description": "Team gid"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Only archived (true) or unarchived (false) projects"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,owner.name,due_on,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_project",
+      "description": "One project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,notes,members.name,custom_fields",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "project_gid"
+        ]
+      }
+    },
+    {
+      "name": "list_sections",
+      "description": "Sections (columns) of a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "project_gid"
+        ]
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "Tasks of a project, a section, or an assignee in a workspace (give exactly one of project_gid, section_gid, or assignee with workspace_gid)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "section_gid": {
+            "type": "string",
+            "description": "Section gid"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid, email or \"me\" (with workspace_gid)"
+          },
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid (with assignee)"
+          },
+          "completed_since": {
+            "type": "string",
+            "description": "Only tasks incomplete or completed since this time (ISO 8601), or \"now\" for incomplete only"
+          },
+          "modified_since": {
+            "type": "string",
+            "description": "Only tasks modified since this time (ISO 8601)"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name,due_on,notes,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "One task with its details",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name,due_on,notes,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      }
+    },
+    {
+      "name": "search_tasks",
+      "description": "Full-text task search in a workspace (premium workspaces only; 402 otherwise). No paging: sort by created_at and filter to page manually",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid"
+          },
+          "text": {
+            "type": "string",
+            "description": "Words in the task name or description"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "assignee_any": {
+            "type": "array",
+            "description": "User gids, emails or \"me\"",
+            "items": {
+              "type": "string"
+            }
+          },
+          "projects_any": {
+            "type": "array",
+            "description": "Project gids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "is_subtask": {
+            "type": "boolean"
+          },
+          "modified_after": {
+            "type": "string",
+            "description": "ISO 8601 time"
+          },
+          "due_on_before": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "due_date",
+              "created_at",
+              "completed_at",
+              "likes",
+              "relevance",
+              "modified_at"
+            ]
+          },
+          "sort_ascending": {
+            "type": "boolean"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum tasks (1-100)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name,due_on,notes,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "workspace_gid"
+        ]
+      }
+    },
+    {
+      "name": "list_subtasks",
+      "description": "Subtasks of a task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,completed,assignee.name",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      }
+    },
+    {
+      "name": "list_stories",
+      "description": "Stories of a task: comments (resource_subtype comment_added) and system events",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. text,created_by.name,created_at,resource_subtype",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      }
+    },
+    {
+      "name": "create_task",
+      "description": "Create a task in a workspace and/or projects",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Task name",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "description": "Description in plain text"
+          },
+          "html_notes": {
+            "type": "string",
+            "description": "Description as Asana rich text, e.g. <body>Hi <strong>team</strong></body>"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid or \"me\" (agent tools cannot assign by email)"
+          },
+          "due_on": {
+            "type": "string",
+            "description": "Due date, YYYY-MM-DD"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "Due date and time, ISO 8601 (instead of due_on)"
+          },
+          "start_on": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD (needs a due date)"
+          },
+          "workspace_gid": {
+            "type": "string",
+            "description": "Workspace gid (not needed when project_gids is given)"
+          },
+          "project_gids": {
+            "type": "array",
+            "description": "Projects to add the task to",
+            "items": {
+              "type": "string"
+            }
+          },
+          "opt_fields": {
+            "type": "array",
+            "description": "Extra fields to return, e.g. name,permalink_url",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_task",
+      "description": "Change a task's name, description, assignee, dates or completion",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Task name"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Description in plain text"
+          },
+          "html_notes": {
+            "type": "string",
+            "description": "Description as Asana rich text, e.g. <body>Hi <strong>team</strong></body>"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid or \"me\" (agent tools cannot assign by email)"
+          },
+          "due_on": {
+            "type": "string",
+            "description": "Due date, YYYY-MM-DD"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "Due date and time, ISO 8601 (instead of due_on)"
+          },
+          "start_on": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD (needs a due date)"
+          },
+          "completed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      }
+    },
+    {
+      "name": "complete_task",
+      "description": "Mark a task complete (or incomplete again with completed: false)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "completed": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      }
+    },
+    {
+      "name": "create_subtask",
+      "description": "Create a subtask under a task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Parent task gid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Task name",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "description": "Description in plain text"
+          },
+          "html_notes": {
+            "type": "string",
+            "description": "Description as Asana rich text, e.g. <body>Hi <strong>team</strong></body>"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "User gid or \"me\" (agent tools cannot assign by email)"
+          },
+          "due_on": {
+            "type": "string",
+            "description": "Due date, YYYY-MM-DD"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "Due date and time, ISO 8601 (instead of due_on)"
+          },
+          "start_on": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD (needs a due date)"
+          }
+        },
+        "required": [
+          "task_gid",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "create_section",
+      "description": "Add a section to a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_gid": {
+            "type": "string",
+            "description": "Project gid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "project_gid",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "add_task_to_section",
+      "description": "Move a task into a section of a project it belongs to (moving again to the same place is harmless)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "section_gid": {
+            "type": "string",
+            "description": "Section gid"
+          },
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "insert_before": {
+            "type": "string",
+            "description": "Task gid to place it before"
+          },
+          "insert_after": {
+            "type": "string",
+            "description": "Task gid to place it after"
+          }
+        },
+        "required": [
+          "section_gid",
+          "task_gid"
+        ]
+      }
+    },
+    {
+      "name": "add_comment",
+      "description": "Comment on a task (followers are notified)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_gid": {
+            "type": "string",
+            "description": "Task gid"
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment in plain text (this or html_text)"
+          },
+          "html_text": {
+            "type": "string",
+            "description": "Comment as Asana rich text, e.g. <body>Done</body>"
+          },
+          "is_pinned": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "task_gid"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Asana API endpoint that has no dedicated operation, e.g. path \"/tags?workspace=<workspace gid>\". Only the API's own host is allowed. Agent tools may only read tasks, projects, sections, users, workspaces, teams, tags, stories, portfolios, goals and similar resources (no webhooks, attachments, exports or audit logs).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/tags?workspace=<workspace gid>\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

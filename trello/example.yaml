@@ -1,0 +1,14 @@
+# List your open boards and the lists of the first one. Read-only.
+#   TRELLO_API_KEY=... TRELLO_TOKEN=... graphrt run trello/example.yaml --plugins .
+version: "1"
+name: trello-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: boards, type: trello.list_boards, fields: "name,url" }
+    - { id: lists, type: trello.list_lists, board_id: "{{#boards.data.0.id#}}", fields: name }
+    - { id: answer, type: answer, answer: "Boards: {{#boards.data#}} | Lists of the first: {{#lists.data#}}" }
+  edges:
+    - { source: start, target: boards }
+    - { source: boards, target: lists }
+    - { source: lists, target: answer }

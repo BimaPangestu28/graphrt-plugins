@@ -1,0 +1,1757 @@
+{
+  "name": "todoist",
+  "version": "0.1.0",
+  "description": "Todoist (API v1): projects, sections, tasks (filter, completed, create, quick add, update, move, complete, reopen), labels and comments; deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TODOIST_API_TOKEN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "todoist.get_user",
+      "title": "Current user",
+      "description": "The account's name, email, time zone, inbox project and goals (token fields removed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.list_projects",
+      "title": "List projects",
+      "description": "Active projects",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "folder_id": {
+            "type": "integer",
+            "description": "Only projects in this workspace folder"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.get_project",
+      "title": "Get project",
+      "description": "One project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id (from list_projects)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.create_project",
+      "title": "Create project",
+      "description": "Create a personal project (or a sub-project with parent_id)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent project id"
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "description": "Color name, e.g. berry_red, blue, grey"
+          },
+          "is_favorite": {
+            "type": "boolean"
+          },
+          "project_view_style": {
+            "type": "string",
+            "description": "Project layout",
+            "enum": [
+              "list",
+              "board",
+              "calendar"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.update_project",
+      "title": "Update project",
+      "description": "Rename a project or change its description, color, favorite flag or layout",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id (from list_projects)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "description": "Color name, e.g. berry_red, blue, grey"
+          },
+          "is_favorite": {
+            "type": "boolean"
+          },
+          "project_view_style": {
+            "type": "string",
+            "description": "Project layout",
+            "enum": [
+              "list",
+              "board",
+              "calendar"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.list_sections",
+      "title": "List sections",
+      "description": "Sections of a project (or of all projects)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.create_section",
+      "title": "Create section",
+      "description": "Add a section to a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name",
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.list_tasks",
+      "title": "List tasks",
+      "description": "Active tasks, optionally of one project, section, parent task or label",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "description": "Label name"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these task ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.filter_tasks",
+      "title": "Filter tasks",
+      "description": "Active tasks matching a Todoist filter query, e.g. \"today | overdue\", \"#Work & p1\", \"assigned to: me\"",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Todoist filter query",
+            "minLength": 1
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language of the query, e.g. en"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.list_completed_tasks",
+      "title": "Completed tasks",
+      "description": "Tasks completed in a time range (up to 3 months), optionally in one project or section",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "description": "From, e.g. 2026-11-01T00:00:00Z"
+          },
+          "until": {
+            "type": "string",
+            "description": "Until, e.g. 2026-11-19T23:59:59Z"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "filter_query": {
+            "type": "string",
+            "description": "Todoist filter query"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "since",
+          "until"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.get_task",
+      "title": "Get task",
+      "description": "One task",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.create_task",
+      "title": "Create task",
+      "description": "Create a task (in the Inbox unless a project is given)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Task name (markdown allowed)",
+            "minLength": 1
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent task id, to create a sub-task"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 normal to 4 urgent (4 is p1 in the apps)",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_string": {
+            "type": "string",
+            "description": "Natural-language due date, e.g. \"tomorrow at 9\", \"every monday\""
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due date YYYY-MM-DD"
+          },
+          "due_datetime": {
+            "type": "string",
+            "description": "Due date and time, RFC 3339 in UTC"
+          },
+          "due_lang": {
+            "type": "string",
+            "description": "Language of due_string, e.g. en"
+          },
+          "assignee_id": {
+            "type": "integer",
+            "description": "User id of a collaborator of a shared project"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Duration amount (with duration_unit)",
+            "minimum": 1
+          },
+          "duration_unit": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ]
+          },
+          "deadline_date": {
+            "type": "string",
+            "description": "Deadline YYYY-MM-DD"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.quick_add_task",
+      "title": "Quick add",
+      "description": "Create a task from one line in the apps' Quick Add syntax, e.g. \"Pay rent tomorrow #Home @bills p1\"",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Quick Add text with dates, #project, @label, p1–p4",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string",
+            "description": "Comment added to the task"
+          },
+          "reminder": {
+            "type": "string",
+            "description": "Reminder date in natural language, e.g. \"tomorrow 9am\""
+          },
+          "auto_reminder": {
+            "type": "boolean",
+            "description": "Add the default reminder when the task has a due time"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.update_task",
+      "title": "Update task",
+      "description": "Change a task's content, description, labels, priority, due date, deadline, duration or assignee",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 normal to 4 urgent (4 is p1 in the apps)",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_string": {
+            "type": "string",
+            "description": "Natural-language due date, e.g. \"tomorrow at 9\", \"every monday\""
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due date YYYY-MM-DD"
+          },
+          "due_datetime": {
+            "type": "string",
+            "description": "Due date and time, RFC 3339 in UTC"
+          },
+          "due_lang": {
+            "type": "string",
+            "description": "Language of due_string, e.g. en"
+          },
+          "assignee_id": {
+            "type": "integer",
+            "description": "User id of a collaborator of a shared project"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Duration amount (with duration_unit)",
+            "minimum": 1
+          },
+          "duration_unit": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ]
+          },
+          "deadline_date": {
+            "type": "string",
+            "description": "Deadline YYYY-MM-DD"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.move_task",
+      "title": "Move task",
+      "description": "Move a task to another project, section or parent task (give exactly one)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.close_task",
+      "title": "Complete task",
+      "description": "Complete a task (a recurring task moves to its next date)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.reopen_task",
+      "title": "Reopen task",
+      "description": "Mark a completed task as not completed",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.delete_task",
+      "title": "Delete task",
+      "description": "Delete a task and its sub-tasks",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.list_labels",
+      "title": "List labels",
+      "description": "Personal labels",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.list_comments",
+      "title": "List comments",
+      "description": "Comments of a task or of a project (give exactly one of task_id, project_id)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.add_comment",
+      "title": "Add comment",
+      "description": "Comment on a task or a project (give exactly one of task_id, project_id); uids_to_notify notifies project collaborators",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Comment text (markdown allowed)",
+            "minLength": 1
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "uids_to_notify": {
+            "type": "array",
+            "description": "Collaborator user ids to notify",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "todoist.api_request",
+      "title": "Todoist API v1 request",
+      "description": "Call any Todoist API v1 endpoint that has no dedicated operation, e.g. path \"/projects/{project_id}/collaborators\". Only the API's own host is allowed. Agent tools may only read /projects, /sections, /tasks, /labels, /comments and /folders paths.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/projects/{project_id}/collaborators\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_user",
+      "description": "The account's name, email, time zone, inbox project and goals (token fields removed)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "Active projects",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "folder_id": {
+            "type": "integer",
+            "description": "Only projects in this workspace folder"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_project",
+      "description": "One project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id (from list_projects)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "create_project",
+      "description": "Create a personal project (or a sub-project with parent_id)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent project id"
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "description": "Color name, e.g. berry_red, blue, grey"
+          },
+          "is_favorite": {
+            "type": "boolean"
+          },
+          "project_view_style": {
+            "type": "string",
+            "description": "Project layout",
+            "enum": [
+              "list",
+              "board",
+              "calendar"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_project",
+      "description": "Rename a project or change its description, color, favorite flag or layout",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id (from list_projects)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "description": "Color name, e.g. berry_red, blue, grey"
+          },
+          "is_favorite": {
+            "type": "boolean"
+          },
+          "project_view_style": {
+            "type": "string",
+            "description": "Project layout",
+            "enum": [
+              "list",
+              "board",
+              "calendar"
+            ]
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "list_sections",
+      "description": "Sections of a project (or of all projects)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "create_section",
+      "description": "Add a section to a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "Active tasks, optionally of one project, section, parent task or label",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "description": "Label name"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these task ids",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "filter_tasks",
+      "description": "Active tasks matching a Todoist filter query, e.g. \"today | overdue\", \"#Work & p1\", \"assigned to: me\"",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Todoist filter query",
+            "minLength": 1
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language of the query, e.g. en"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "list_completed_tasks",
+      "description": "Tasks completed in a time range (up to 3 months), optionally in one project or section",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "description": "From, e.g. 2026-11-01T00:00:00Z"
+          },
+          "until": {
+            "type": "string",
+            "description": "Until, e.g. 2026-11-19T23:59:59Z"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "filter_query": {
+            "type": "string",
+            "description": "Todoist filter query"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": [
+          "since",
+          "until"
+        ]
+      }
+    },
+    {
+      "name": "get_task",
+      "description": "One task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "create_task",
+      "description": "Create a task (in the Inbox unless a project is given)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Task name (markdown allowed)",
+            "minLength": 1
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent task id, to create a sub-task"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 normal to 4 urgent (4 is p1 in the apps)",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_string": {
+            "type": "string",
+            "description": "Natural-language due date, e.g. \"tomorrow at 9\", \"every monday\""
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due date YYYY-MM-DD"
+          },
+          "due_datetime": {
+            "type": "string",
+            "description": "Due date and time, RFC 3339 in UTC"
+          },
+          "due_lang": {
+            "type": "string",
+            "description": "Language of due_string, e.g. en"
+          },
+          "assignee_id": {
+            "type": "integer",
+            "description": "User id of a collaborator of a shared project"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Duration amount (with duration_unit)",
+            "minimum": 1
+          },
+          "duration_unit": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ]
+          },
+          "deadline_date": {
+            "type": "string",
+            "description": "Deadline YYYY-MM-DD"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "quick_add_task",
+      "description": "Create a task from one line in the apps' Quick Add syntax, e.g. \"Pay rent tomorrow #Home @bills p1\"",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Quick Add text with dates, #project, @label, p1–p4",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string",
+            "description": "Comment added to the task"
+          },
+          "reminder": {
+            "type": "string",
+            "description": "Reminder date in natural language, e.g. \"tomorrow 9am\""
+          },
+          "auto_reminder": {
+            "type": "boolean",
+            "description": "Add the default reminder when the task has a due time"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "update_task",
+      "description": "Change a task's content, description, labels, priority, due date, deadline, duration or assignee",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "description": "Label names",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 normal to 4 urgent (4 is p1 in the apps)",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "due_string": {
+            "type": "string",
+            "description": "Natural-language due date, e.g. \"tomorrow at 9\", \"every monday\""
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due date YYYY-MM-DD"
+          },
+          "due_datetime": {
+            "type": "string",
+            "description": "Due date and time, RFC 3339 in UTC"
+          },
+          "due_lang": {
+            "type": "string",
+            "description": "Language of due_string, e.g. en"
+          },
+          "assignee_id": {
+            "type": "integer",
+            "description": "User id of a collaborator of a shared project"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Duration amount (with duration_unit)",
+            "minimum": 1
+          },
+          "duration_unit": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ]
+          },
+          "deadline_date": {
+            "type": "string",
+            "description": "Deadline YYYY-MM-DD"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "move_task",
+      "description": "Move a task to another project, section or parent task (give exactly one)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "section_id": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "close_task",
+      "description": "Complete a task (a recurring task moves to its next date)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "reopen_task",
+      "description": "Mark a completed task as not completed",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task id (from list_tasks)"
+          }
+        },
+        "required": [
+          "task_id"
+        ]
+      }
+    },
+    {
+      "name": "list_labels",
+      "description": "Personal labels",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_comments",
+      "description": "Comments of a task or of a project (give exactly one of task_id, project_id)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "add_comment",
+      "description": "Comment on a task or a project (give exactly one of task_id, project_id); uids_to_notify notifies project collaborators",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Comment text (markdown allowed)",
+            "minLength": 1
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "uids_to_notify": {
+            "type": "array",
+            "description": "Collaborator user ids to notify",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Todoist API v1 endpoint that has no dedicated operation, e.g. path \"/projects/{project_id}/collaborators\". Only the API's own host is allowed. Agent tools may only read /projects, /sections, /tasks, /labels, /comments and /folders paths.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/projects/{project_id}/collaborators\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

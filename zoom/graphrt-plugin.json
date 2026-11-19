@@ -1,0 +1,1188 @@
+{
+  "name": "zoom",
+  "version": "0.1.0",
+  "description": "Zoom: users, meetings (list, get, create, update; delete is node only), past meetings and participants, cloud recordings (Server-to-Server OAuth; start and download links hidden from agents)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ZOOM_CLIENT_SECRET",
+      "ZOOM_ACCOUNT_ID",
+      "ZOOM_CLIENT_ID"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "zoom.get_me",
+      "title": "App user",
+      "description": "The user the app acts as (users/me)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.list_users",
+      "title": "List users",
+      "description": "Users of the account",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Default active",
+            "enum": [
+              "active",
+              "inactive",
+              "pending"
+            ]
+          },
+          "role_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.get_user",
+      "title": "Get user",
+      "description": "One user by id or email",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.list_meetings",
+      "title": "List meetings",
+      "description": "A user's meetings: scheduled (default), live, upcoming, upcoming_meetings or previous_meetings",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          },
+          "meeting_type": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "live",
+              "upcoming",
+              "upcoming_meetings",
+              "previous_meetings"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "description": "From date, yyyy-mm-dd (UTC)"
+          },
+          "to": {
+            "type": "string",
+            "description": "To date, yyyy-mm-dd (UTC)"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Time zone of from/to"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.get_meeting",
+      "title": "Get meeting",
+      "description": "One meeting with its settings and occurrences",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id (numeric)"
+          },
+          "occurrence_id": {
+            "type": "string"
+          },
+          "show_previous_occurrences": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.create_meeting",
+      "title": "Create meeting",
+      "description": "Schedule a meeting for a user (no invitations are sent; share join_url yourself)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          },
+          "topic": {
+            "type": "string",
+            "description": "Meeting topic",
+            "minLength": 1
+          },
+          "meeting_type": {
+            "type": "integer",
+            "description": "1 instant, 2 scheduled (default), 3 recurring without fixed time, 8 recurring with fixed time",
+            "enum": [
+              1,
+              2,
+              3,
+              8
+            ]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Start, yyyy-MM-ddTHH:mm:ssZ (UTC) or yyyy-MM-ddTHH:mm:ss with timezone"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Minutes",
+            "minimum": 1
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "agenda": {
+            "type": "string",
+            "description": "Description (max 2000 characters)"
+          },
+          "passcode": {
+            "type": "string",
+            "description": "Passcode (max 10 characters: letters, numbers, @ - _ *)"
+          },
+          "recurrence": {
+            "type": "object",
+            "description": "For types 3 and 8, e.g. {\"type\":2,\"repeat_interval\":1,\"weekly_days\":\"2\",\"end_times\":4}"
+          },
+          "host_video": {
+            "type": "boolean"
+          },
+          "participant_video": {
+            "type": "boolean"
+          },
+          "join_before_host": {
+            "type": "boolean"
+          },
+          "mute_upon_entry": {
+            "type": "boolean"
+          },
+          "waiting_room": {
+            "type": "boolean"
+          },
+          "auto_recording": {
+            "type": "string",
+            "enum": [
+              "local",
+              "cloud",
+              "none"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user_id",
+          "topic"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.update_meeting",
+      "title": "Update meeting",
+      "description": "Change a meeting's topic, time, duration, agenda, passcode or settings (Zoom answers 204 with no body; 100 updates a day per meeting)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id (numeric)"
+          },
+          "occurrence_id": {
+            "type": "string",
+            "description": "Change only this occurrence"
+          },
+          "topic": {
+            "type": "string",
+            "description": "Meeting topic"
+          },
+          "meeting_type": {
+            "type": "integer",
+            "description": "1 instant, 2 scheduled (default), 3 recurring without fixed time, 8 recurring with fixed time",
+            "enum": [
+              1,
+              2,
+              3,
+              8
+            ]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Start, yyyy-MM-ddTHH:mm:ssZ (UTC) or yyyy-MM-ddTHH:mm:ss with timezone"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Minutes",
+            "minimum": 1
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "agenda": {
+            "type": "string",
+            "description": "Description (max 2000 characters)"
+          },
+          "passcode": {
+            "type": "string",
+            "description": "Passcode (max 10 characters: letters, numbers, @ - _ *)"
+          },
+          "recurrence": {
+            "type": "object",
+            "description": "For types 3 and 8, e.g. {\"type\":2,\"repeat_interval\":1,\"weekly_days\":\"2\",\"end_times\":4}"
+          },
+          "host_video": {
+            "type": "boolean"
+          },
+          "participant_video": {
+            "type": "boolean"
+          },
+          "join_before_host": {
+            "type": "boolean"
+          },
+          "mute_upon_entry": {
+            "type": "boolean"
+          },
+          "waiting_room": {
+            "type": "boolean"
+          },
+          "auto_recording": {
+            "type": "string",
+            "enum": [
+              "local",
+              "cloud",
+              "none"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.delete_meeting",
+      "title": "Delete meeting",
+      "description": "Delete a meeting or one occurrence",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id (numeric)"
+          },
+          "occurrence_id": {
+            "type": "string"
+          },
+          "cancel_meeting_reminder": {
+            "type": "boolean",
+            "description": "Email the registrants and alternative hosts about the cancellation"
+          },
+          "schedule_for_reminder": {
+            "type": "boolean",
+            "description": "Email the host about the cancellation"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.get_past_meeting",
+      "title": "Past meeting",
+      "description": "Details of an ended meeting (duration, participant count)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id, or a meeting instance UUID (from list_past_meeting_instances) for one occurrence"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.list_past_meeting_instances",
+      "title": "Past meeting instances",
+      "description": "Instances (UUIDs and start times) of an ended or recurring meeting",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id (numeric)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.list_past_meeting_participants",
+      "title": "Past meeting participants",
+      "description": "Who joined an ended meeting, with join and leave times (paid plans)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id, or a meeting instance UUID (from list_past_meeting_instances) for one occurrence"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.list_recordings",
+      "title": "List recordings",
+      "description": "A user's cloud recordings between two dates (at most one month apart; default the last day)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          },
+          "from": {
+            "type": "string",
+            "description": "From date, yyyy-mm-dd (UTC)"
+          },
+          "to": {
+            "type": "string",
+            "description": "To date, yyyy-mm-dd (UTC)"
+          },
+          "meeting_id": {
+            "type": "integer",
+            "description": "Only this meeting"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.get_meeting_recordings",
+      "title": "Meeting recordings",
+      "description": "Cloud recording files of a meeting (latest instance for an id; one instance for a UUID)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id, or a meeting instance UUID (from list_past_meeting_instances) for one occurrence"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoom.api_request",
+      "title": "Zoom API request",
+      "description": "Call any Zoom API endpoint that has no dedicated operation, e.g. path \"/users/me/upcoming_meetings\". Only the API's own host is allowed. Agent tools may only read users, meetings, past meetings, recordings and reports (start links, recording download links and passcodes are removed).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/users/me/upcoming_meetings\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "The user the app acts as (users/me)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_users",
+      "description": "Users of the account",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Default active",
+            "enum": [
+              "active",
+              "inactive",
+              "pending"
+            ]
+          },
+          "role_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_user",
+      "description": "One user by id or email",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      }
+    },
+    {
+      "name": "list_meetings",
+      "description": "A user's meetings: scheduled (default), live, upcoming, upcoming_meetings or previous_meetings",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          },
+          "meeting_type": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "live",
+              "upcoming",
+              "upcoming_meetings",
+              "previous_meetings"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "description": "From date, yyyy-mm-dd (UTC)"
+          },
+          "to": {
+            "type": "string",
+            "description": "To date, yyyy-mm-dd (UTC)"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Time zone of from/to"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      }
+    },
+    {
+      "name": "get_meeting",
+      "description": "One meeting with its settings and occurrences",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id (numeric)"
+          },
+          "occurrence_id": {
+            "type": "string"
+          },
+          "show_previous_occurrences": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      }
+    },
+    {
+      "name": "create_meeting",
+      "description": "Schedule a meeting for a user (no invitations are sent; share join_url yourself)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          },
+          "topic": {
+            "type": "string",
+            "description": "Meeting topic",
+            "minLength": 1
+          },
+          "meeting_type": {
+            "type": "integer",
+            "description": "1 instant, 2 scheduled (default), 3 recurring without fixed time, 8 recurring with fixed time",
+            "enum": [
+              1,
+              2,
+              3,
+              8
+            ]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Start, yyyy-MM-ddTHH:mm:ssZ (UTC) or yyyy-MM-ddTHH:mm:ss with timezone"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Minutes",
+            "minimum": 1
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "agenda": {
+            "type": "string",
+            "description": "Description (max 2000 characters)"
+          },
+          "passcode": {
+            "type": "string",
+            "description": "Passcode (max 10 characters: letters, numbers, @ - _ *)"
+          },
+          "recurrence": {
+            "type": "object",
+            "description": "For types 3 and 8, e.g. {\"type\":2,\"repeat_interval\":1,\"weekly_days\":\"2\",\"end_times\":4}"
+          },
+          "host_video": {
+            "type": "boolean"
+          },
+          "participant_video": {
+            "type": "boolean"
+          },
+          "join_before_host": {
+            "type": "boolean"
+          },
+          "mute_upon_entry": {
+            "type": "boolean"
+          },
+          "waiting_room": {
+            "type": "boolean"
+          },
+          "auto_recording": {
+            "type": "string",
+            "enum": [
+              "local",
+              "cloud",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "user_id",
+          "topic"
+        ]
+      }
+    },
+    {
+      "name": "update_meeting",
+      "description": "Change a meeting's topic, time, duration, agenda, passcode or settings (Zoom answers 204 with no body; 100 updates a day per meeting)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id (numeric)"
+          },
+          "occurrence_id": {
+            "type": "string",
+            "description": "Change only this occurrence"
+          },
+          "topic": {
+            "type": "string",
+            "description": "Meeting topic"
+          },
+          "meeting_type": {
+            "type": "integer",
+            "description": "1 instant, 2 scheduled (default), 3 recurring without fixed time, 8 recurring with fixed time",
+            "enum": [
+              1,
+              2,
+              3,
+              8
+            ]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Start, yyyy-MM-ddTHH:mm:ssZ (UTC) or yyyy-MM-ddTHH:mm:ss with timezone"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Minutes",
+            "minimum": 1
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "agenda": {
+            "type": "string",
+            "description": "Description (max 2000 characters)"
+          },
+          "passcode": {
+            "type": "string",
+            "description": "Passcode (max 10 characters: letters, numbers, @ - _ *)"
+          },
+          "recurrence": {
+            "type": "object",
+            "description": "For types 3 and 8, e.g. {\"type\":2,\"repeat_interval\":1,\"weekly_days\":\"2\",\"end_times\":4}"
+          },
+          "host_video": {
+            "type": "boolean"
+          },
+          "participant_video": {
+            "type": "boolean"
+          },
+          "join_before_host": {
+            "type": "boolean"
+          },
+          "mute_upon_entry": {
+            "type": "boolean"
+          },
+          "waiting_room": {
+            "type": "boolean"
+          },
+          "auto_recording": {
+            "type": "string",
+            "enum": [
+              "local",
+              "cloud",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      }
+    },
+    {
+      "name": "get_past_meeting",
+      "description": "Details of an ended meeting (duration, participant count)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id, or a meeting instance UUID (from list_past_meeting_instances) for one occurrence"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      }
+    },
+    {
+      "name": "list_past_meeting_instances",
+      "description": "Instances (UUIDs and start times) of an ended or recurring meeting",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id (numeric)"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      }
+    },
+    {
+      "name": "list_past_meeting_participants",
+      "description": "Who joined an ended meeting, with join and leave times (paid plans)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id, or a meeting instance UUID (from list_past_meeting_instances) for one occurrence"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      }
+    },
+    {
+      "name": "list_recordings",
+      "description": "A user's cloud recordings between two dates (at most one month apart; default the last day)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User id, email, or \"me\" for the app's user context"
+          },
+          "from": {
+            "type": "string",
+            "description": "From date, yyyy-mm-dd (UTC)"
+          },
+          "to": {
+            "type": "string",
+            "description": "To date, yyyy-mm-dd (UTC)"
+          },
+          "meeting_id": {
+            "type": "integer",
+            "description": "Only this meeting"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      }
+    },
+    {
+      "name": "get_meeting_recordings",
+      "description": "Cloud recording files of a meeting (latest instance for an id; one instance for a UUID)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id, or a meeting instance UUID (from list_past_meeting_instances) for one occurrence"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Zoom API endpoint that has no dedicated operation, e.g. path \"/users/me/upcoming_meetings\". Only the API's own host is allowed. Agent tools may only read users, meetings, past meetings, recordings and reports (start links, recording download links and passcodes are removed).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/users/me/upcoming_meetings\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

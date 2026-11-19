@@ -1,0 +1,12 @@
+# List the app user's upcoming meetings. Read-only.
+#   ZOOM_ACCOUNT_ID=... ZOOM_CLIENT_ID=... ZOOM_CLIENT_SECRET=... graphrt run zoom/example.yaml --plugins .
+version: "1"
+name: zoom-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: upcoming, type: zoom.list_meetings, user_id: me, meeting_type: upcoming, limit: 10 }
+    - { id: answer, type: answer, answer: "Upcoming meetings: {{#upcoming.data#}}" }
+  edges:
+    - { source: start, target: upcoming }
+    - { source: upcoming, target: answer }
