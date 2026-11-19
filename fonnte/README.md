@@ -8,6 +8,13 @@ WhatsApp gateway that sends from your own WhatsApp number linked to a Fonnte "de
 ([API docs](https://docs.fonnte.com/category/api/)): send messages and files, check which numbers are on WhatsApp,
 read the device status and quota, and list groups.
 
+> **Warning:** unofficial: this can get your WhatsApp number **banned**. Fonnte is not part of Meta's WhatsApp
+> Business Platform: it runs your number through WhatsApp Web, which WhatsApp's Terms of Service forbid ("automated
+> or other means", bulk and auto-messaging), and Fonnte itself says the ban risk stays whatever you do. Prefer the
+> official Cloud API (`whatsapp-api`) or an official provider such as `qontak`. If you use it, message only people who
+> asked to hear from you, keep volumes low and keep `FONNTE_TOOL_RECIPIENT_ALLOWLIST` tight. See
+> [docs/tos-audit.md](../docs/tos-audit.md#bulk-whatsapp-gateways-fonnte-wablas).
+
 Built with the [declarative REST layer](../docs/declarative-plugins.md): [`definition.mjs`](definition.mjs).
 [`lib/recipient-policy.mjs`](lib/recipient-policy.mjs) validates phone numbers (E.164) and holds the agent
 recipient allowlist.
