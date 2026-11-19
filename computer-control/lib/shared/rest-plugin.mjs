@@ -24,10 +24,11 @@ import { createAuthHooks, createCredentialResolver, describeAuthEnv } from "./re
 import { listResultUrls, saveDownloads, DEFAULT_MAX_DOWNLOAD_BYTES } from "./rest-downloads.mjs";
 import { createBodyErrorDetector, createErrorParser } from "./rest-errors.mjs";
 import { describeJobError, readJobId, resolveJobBudgetMs, waitForJob } from "./rest-job.mjs";
-import { buildRestRequest } from "./rest-request.mjs";
+import { buildRestRequest, hasFileParams } from "./rest-request.mjs";
 import { DEFAULT_TOOL_OUTPUT, shapeRestResponse, truncateForTool } from "./rest-response.mjs";
-import { checkBaseUrl, describePaginationWireNames, describeTimeBudgets, JOB_WAIT_PARAM, paginationStyles, READ_METHODS, TOOL_POLICY_PATTERN } from "./rest-spec-helpers.mjs";
+import { checkBaseUrl, DEFAULT_REQUEST_TIMEOUT_MS, describePaginationWireNames, describeTimeBudgets, JOB_WAIT_PARAM, paginationStyles, READ_METHODS, TOOL_POLICY_PATTERN } from "./rest-spec-helpers.mjs";
 import { validateRestSpec } from "./rest-spec-validation.mjs";
+import { createTransferBudget } from "./transfer-budget.mjs";
 
 const UNKNOWN_OUTCOME_MARKER = "outcome unknown";
 
@@ -74,6 +75,7 @@ function collectExtraEnv(restSpec) {
     operation.download?.saveTo.envDir,
     operation.response?.binary?.envDir,
     operation.multipart?.fileDirEnv,
+    operation.fileBody?.fileDirEnv,
   ]);
   const envNames = [...describeAuthEnv(restSpec.auth).extraEnv, ...(restSpec.extraEnv ?? []), ...operationEnv].filter(Boolean);
   return [...new Set(envNames)];
@@ -229,7 +231,8 @@ async function runOperation(operation, context, settings) {
   const client = selectClient(operation, context);
   const binaryDirectory = operation.response?.binary ? await prepareOutputDirectory(context.environment, operation.response.binary.envDir) : undefined;
   const idempotencyKey = resolveIdempotencyKey(operation, settings.spec);
-  const requestContext = { baseUrl: client.baseUrl, environment: context.environment, fetchImpl: client.fetchImpl, resolveHostAddresses: client.resolveHostAddresses, signal: context.signal, idempotencyKey };
+  const transferBudget = hasFileParams(operation) ? createOperationTransferBudget(operation, settings, startedAt) : undefined;
+  const requestContext = { baseUrl: client.baseUrl, environment: context.environment, fetchImpl: client.fetchImpl, resolveHostAddresses: client.resolveHostAddresses, signal: context.signal, idempotencyKey, transferBudget };
   const request = await buildRestRequest(operation, context.args, requestContext);
   const response = await sendRequest(operation, client, { ...request, signal: context.signal, redactResponse: true, rawResponse: Boolean(binaryDirectory) }, idempotencyKey);
   if (binaryDirectory) return { data: await saveBinaryResponse(operation, response, binaryDirectory, context.signal), next_cursor: null };
@@ -239,6 +242,13 @@ async function runOperation(operation, context, settings) {
   if (!operation.download) return shapedResult;
   const { result, savedFiles } = await saveDownloads({ operation, result: shapedResult.data, client, environment: context.environment, signal: context.signal, deadlineAt: callContext.deadlineAt });
   return { data: { result, saved_files: savedFiles }, next_cursor: shapedResult.next_cursor };
+}
+
+// File inputs and the request share the call's budget (host timeout minus 10 s); the request needs minRequestMs.
+function createOperationTransferBudget(operation, settings, startedAt) {
+  const requestTimeoutMs = operation.timeoutMs ?? settings.spec.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const { requestTimeoutCapMs } = describeTimeBudgets(settings.spec.limits);
+  return createTransferBudget({ totalMs: requestTimeoutCapMs, minRequestMs: operation.minRequestMs ?? requestTimeoutMs, maxRequestMs: requestTimeoutMs, startedAt });
 }
 
 function assertToolPolicy(operation, { source, environment }) {

@@ -1,0 +1,1179 @@
+{
+  "name": "deepgram",
+  "version": "0.1.0",
+  "description": "Deepgram: pre-recorded transcription by URL or file, Aura text to speech saved as audio files, text intelligence, models and project usage",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "DEEPGRAM_API_KEY",
+      "DEEPGRAM_UPLOAD_DIR",
+      "DEEPGRAM_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "deepgram.transcribe_url",
+      "title": "Transcribe audio URL",
+      "description": "Transcribe pre-recorded audio or video that Deepgram fetches from a public URL (billed per minute of audio)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public http(s) URL of the media",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. nova-3, nova-3-medical, nova-2 (Deepgram's own default is base)",
+            "default": "nova-3"
+          },
+          "language": {
+            "type": "string",
+            "description": "BCP-47 language, e.g. en, id; multi for multilingual nova-3 (default en)"
+          },
+          "detect_language": {
+            "type": "boolean",
+            "description": "Detect the dominant language"
+          },
+          "smart_format": {
+            "type": "boolean",
+            "description": "Punctuation, paragraphs and readable numbers, dates and currency",
+            "default": true
+          },
+          "punctuate": {
+            "type": "boolean",
+            "description": "Add punctuation and capitalization"
+          },
+          "diarize": {
+            "type": "boolean",
+            "description": "Label speakers on each word"
+          },
+          "paragraphs": {
+            "type": "boolean",
+            "description": "Split the transcript into paragraphs"
+          },
+          "utterances": {
+            "type": "boolean",
+            "description": "Split into utterances (speech segments) with timings"
+          },
+          "summarize": {
+            "type": "string",
+            "description": "v2: add a summary (English)",
+            "enum": [
+              "v2"
+            ]
+          },
+          "topics": {
+            "type": "boolean",
+            "description": "Detect topics (English)"
+          },
+          "intents": {
+            "type": "boolean",
+            "description": "Detect intents (English)"
+          },
+          "sentiment": {
+            "type": "boolean",
+            "description": "Sentiment per segment (English)"
+          },
+          "detect_entities": {
+            "type": "boolean",
+            "description": "Detect entities such as names and places"
+          },
+          "keyterm": {
+            "type": "array",
+            "description": "Key terms to boost (nova-3 only)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "redact": {
+            "type": "array",
+            "description": "Redact pci, pii and/or numbers",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "pci",
+                "pii",
+                "numbers"
+              ]
+            }
+          },
+          "numerals": {
+            "type": "boolean",
+            "description": "Write numbers as digits"
+          },
+          "profanity_filter": {
+            "type": "boolean",
+            "description": "Mask profanity"
+          },
+          "filler_words": {
+            "type": "boolean",
+            "description": "Keep filler words such as uh and um"
+          },
+          "multichannel": {
+            "type": "boolean",
+            "description": "Transcribe each audio channel separately"
+          },
+          "tag": {
+            "type": "array",
+            "description": "Tags for usage reports",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.transcribe_file",
+      "title": "Transcribe audio file",
+      "description": "Transcribe a pre-recorded audio or video file (an https URL that this plugin downloads, or a file inside DEEPGRAM_UPLOAD_DIR; billed per minute of audio)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio or video file, up to 200 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. nova-3, nova-3-medical, nova-2 (Deepgram's own default is base)",
+            "default": "nova-3"
+          },
+          "language": {
+            "type": "string",
+            "description": "BCP-47 language, e.g. en, id; multi for multilingual nova-3 (default en)"
+          },
+          "detect_language": {
+            "type": "boolean",
+            "description": "Detect the dominant language"
+          },
+          "smart_format": {
+            "type": "boolean",
+            "description": "Punctuation, paragraphs and readable numbers, dates and currency",
+            "default": true
+          },
+          "punctuate": {
+            "type": "boolean",
+            "description": "Add punctuation and capitalization"
+          },
+          "diarize": {
+            "type": "boolean",
+            "description": "Label speakers on each word"
+          },
+          "paragraphs": {
+            "type": "boolean",
+            "description": "Split the transcript into paragraphs"
+          },
+          "utterances": {
+            "type": "boolean",
+            "description": "Split into utterances (speech segments) with timings"
+          },
+          "summarize": {
+            "type": "string",
+            "description": "v2: add a summary (English)",
+            "enum": [
+              "v2"
+            ]
+          },
+          "topics": {
+            "type": "boolean",
+            "description": "Detect topics (English)"
+          },
+          "intents": {
+            "type": "boolean",
+            "description": "Detect intents (English)"
+          },
+          "sentiment": {
+            "type": "boolean",
+            "description": "Sentiment per segment (English)"
+          },
+          "detect_entities": {
+            "type": "boolean",
+            "description": "Detect entities such as names and places"
+          },
+          "keyterm": {
+            "type": "array",
+            "description": "Key terms to boost (nova-3 only)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "redact": {
+            "type": "array",
+            "description": "Redact pci, pii and/or numbers",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "pci",
+                "pii",
+                "numbers"
+              ]
+            }
+          },
+          "numerals": {
+            "type": "boolean",
+            "description": "Write numbers as digits"
+          },
+          "profanity_filter": {
+            "type": "boolean",
+            "description": "Mask profanity"
+          },
+          "filler_words": {
+            "type": "boolean",
+            "description": "Keep filler words such as uh and um"
+          },
+          "multichannel": {
+            "type": "boolean",
+            "description": "Transcribe each audio channel separately"
+          },
+          "tag": {
+            "type": "array",
+            "description": "Tags for usage reports",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.text_to_speech",
+      "title": "Text to speech",
+      "description": "Turn text (up to 2000 characters) into speech with an Aura voice and save the audio file in DEEPGRAM_OUTPUT_DIR (billed per character)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to speak (max 2000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Aura voice model, e.g. aura-2-thalia-en, aura-2-andromeda-en (see list_models tts)",
+            "default": "aura-2-thalia-en"
+          },
+          "encoding": {
+            "type": "string",
+            "description": "Audio encoding (default mp3)",
+            "enum": [
+              "linear16",
+              "flac",
+              "mulaw",
+              "alaw",
+              "mp3",
+              "opus",
+              "aac"
+            ]
+          },
+          "container": {
+            "type": "string",
+            "description": "Container: wav for linear16/mulaw/alaw, ogg for opus",
+            "enum": [
+              "none",
+              "wav",
+              "ogg"
+            ]
+          },
+          "sample_rate": {
+            "type": "integer",
+            "description": "Sample rate in Hz, e.g. 24000 (depends on the encoding)"
+          },
+          "bit_rate": {
+            "type": "integer",
+            "description": "Bit rate in bps, e.g. 48000 (mp3: 32000 or 48000)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.analyze_text",
+      "title": "Analyze text",
+      "description": "Summarize text and detect topics, intents and sentiment (exactly one of text or url; billed per token)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to analyze (or url)",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "description": "URL of a text file to analyze (or text)",
+            "minLength": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the text (intelligence features support en)",
+            "default": "en"
+          },
+          "summarize": {
+            "type": "boolean",
+            "description": "Add a summary"
+          },
+          "topics": {
+            "type": "boolean",
+            "description": "Detect topics"
+          },
+          "intents": {
+            "type": "boolean",
+            "description": "Detect intents"
+          },
+          "sentiment": {
+            "type": "boolean",
+            "description": "Sentiment per segment and on average"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.list_models",
+      "title": "List models",
+      "description": "List the speech-to-text (stt) and text-to-speech (tts) models with languages and versions",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "include_outdated": {
+            "type": "boolean",
+            "description": "Also list outdated model versions"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.get_model",
+      "title": "Get model",
+      "description": "Get one model by its uuid",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model uuid from list_models"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.list_projects",
+      "title": "List projects",
+      "description": "List the projects the key can access (project_id and name)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.get_project_balances",
+      "title": "Get balances",
+      "description": "Remaining credit balances of a project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id from list_projects"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.list_project_requests",
+      "title": "List requests",
+      "description": "List a project's API requests (newest first) with endpoint, status and response summary",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id from list_projects"
+          },
+          "start": {
+            "type": "string",
+            "description": "From this date or time (YYYY-MM-DD or ISO 8601)"
+          },
+          "end": {
+            "type": "string",
+            "description": "Until this date or time (YYYY-MM-DD or ISO 8601)"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Only this endpoint",
+            "enum": [
+              "listen",
+              "read",
+              "speak",
+              "agent"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": "Only this request method",
+            "enum": [
+              "sync",
+              "async",
+              "streaming"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Only this status",
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Only this request id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "deepgram.api_request",
+      "title": "Deepgram API request",
+      "description": "Call any Deepgram API endpoint that has no dedicated operation, e.g. path \"/v1/projects\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/projects\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "transcribe_url",
+      "description": "Transcribe pre-recorded audio or video that Deepgram fetches from a public URL (billed per minute of audio)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public http(s) URL of the media",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. nova-3, nova-3-medical, nova-2 (Deepgram's own default is base)",
+            "default": "nova-3"
+          },
+          "language": {
+            "type": "string",
+            "description": "BCP-47 language, e.g. en, id; multi for multilingual nova-3 (default en)"
+          },
+          "detect_language": {
+            "type": "boolean",
+            "description": "Detect the dominant language"
+          },
+          "smart_format": {
+            "type": "boolean",
+            "description": "Punctuation, paragraphs and readable numbers, dates and currency",
+            "default": true
+          },
+          "punctuate": {
+            "type": "boolean",
+            "description": "Add punctuation and capitalization"
+          },
+          "diarize": {
+            "type": "boolean",
+            "description": "Label speakers on each word"
+          },
+          "paragraphs": {
+            "type": "boolean",
+            "description": "Split the transcript into paragraphs"
+          },
+          "utterances": {
+            "type": "boolean",
+            "description": "Split into utterances (speech segments) with timings"
+          },
+          "summarize": {
+            "type": "string",
+            "description": "v2: add a summary (English)",
+            "enum": [
+              "v2"
+            ]
+          },
+          "topics": {
+            "type": "boolean",
+            "description": "Detect topics (English)"
+          },
+          "intents": {
+            "type": "boolean",
+            "description": "Detect intents (English)"
+          },
+          "sentiment": {
+            "type": "boolean",
+            "description": "Sentiment per segment (English)"
+          },
+          "detect_entities": {
+            "type": "boolean",
+            "description": "Detect entities such as names and places"
+          },
+          "keyterm": {
+            "type": "array",
+            "description": "Key terms to boost (nova-3 only)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "redact": {
+            "type": "array",
+            "description": "Redact pci, pii and/or numbers",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "pci",
+                "pii",
+                "numbers"
+              ]
+            }
+          },
+          "numerals": {
+            "type": "boolean",
+            "description": "Write numbers as digits"
+          },
+          "profanity_filter": {
+            "type": "boolean",
+            "description": "Mask profanity"
+          },
+          "filler_words": {
+            "type": "boolean",
+            "description": "Keep filler words such as uh and um"
+          },
+          "multichannel": {
+            "type": "boolean",
+            "description": "Transcribe each audio channel separately"
+          },
+          "tag": {
+            "type": "array",
+            "description": "Tags for usage reports",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "name": "transcribe_file",
+      "description": "Transcribe a pre-recorded audio or video file (an https URL that this plugin downloads, or a file inside DEEPGRAM_UPLOAD_DIR; billed per minute of audio)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio or video file, up to 200 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. nova-3, nova-3-medical, nova-2 (Deepgram's own default is base)",
+            "default": "nova-3"
+          },
+          "language": {
+            "type": "string",
+            "description": "BCP-47 language, e.g. en, id; multi for multilingual nova-3 (default en)"
+          },
+          "detect_language": {
+            "type": "boolean",
+            "description": "Detect the dominant language"
+          },
+          "smart_format": {
+            "type": "boolean",
+            "description": "Punctuation, paragraphs and readable numbers, dates and currency",
+            "default": true
+          },
+          "punctuate": {
+            "type": "boolean",
+            "description": "Add punctuation and capitalization"
+          },
+          "diarize": {
+            "type": "boolean",
+            "description": "Label speakers on each word"
+          },
+          "paragraphs": {
+            "type": "boolean",
+            "description": "Split the transcript into paragraphs"
+          },
+          "utterances": {
+            "type": "boolean",
+            "description": "Split into utterances (speech segments) with timings"
+          },
+          "summarize": {
+            "type": "string",
+            "description": "v2: add a summary (English)",
+            "enum": [
+              "v2"
+            ]
+          },
+          "topics": {
+            "type": "boolean",
+            "description": "Detect topics (English)"
+          },
+          "intents": {
+            "type": "boolean",
+            "description": "Detect intents (English)"
+          },
+          "sentiment": {
+            "type": "boolean",
+            "description": "Sentiment per segment (English)"
+          },
+          "detect_entities": {
+            "type": "boolean",
+            "description": "Detect entities such as names and places"
+          },
+          "keyterm": {
+            "type": "array",
+            "description": "Key terms to boost (nova-3 only)",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "redact": {
+            "type": "array",
+            "description": "Redact pci, pii and/or numbers",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "pci",
+                "pii",
+                "numbers"
+              ]
+            }
+          },
+          "numerals": {
+            "type": "boolean",
+            "description": "Write numbers as digits"
+          },
+          "profanity_filter": {
+            "type": "boolean",
+            "description": "Mask profanity"
+          },
+          "filler_words": {
+            "type": "boolean",
+            "description": "Keep filler words such as uh and um"
+          },
+          "multichannel": {
+            "type": "boolean",
+            "description": "Transcribe each audio channel separately"
+          },
+          "tag": {
+            "type": "array",
+            "description": "Tags for usage reports",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "text_to_speech",
+      "description": "Turn text (up to 2000 characters) into speech with an Aura voice and save the audio file in DEEPGRAM_OUTPUT_DIR (billed per character)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to speak (max 2000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Aura voice model, e.g. aura-2-thalia-en, aura-2-andromeda-en (see list_models tts)",
+            "default": "aura-2-thalia-en"
+          },
+          "encoding": {
+            "type": "string",
+            "description": "Audio encoding (default mp3)",
+            "enum": [
+              "linear16",
+              "flac",
+              "mulaw",
+              "alaw",
+              "mp3",
+              "opus",
+              "aac"
+            ]
+          },
+          "container": {
+            "type": "string",
+            "description": "Container: wav for linear16/mulaw/alaw, ogg for opus",
+            "enum": [
+              "none",
+              "wav",
+              "ogg"
+            ]
+          },
+          "sample_rate": {
+            "type": "integer",
+            "description": "Sample rate in Hz, e.g. 24000 (depends on the encoding)"
+          },
+          "bit_rate": {
+            "type": "integer",
+            "description": "Bit rate in bps, e.g. 48000 (mp3: 32000 or 48000)"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "analyze_text",
+      "description": "Summarize text and detect topics, intents and sentiment (exactly one of text or url; billed per token)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text to analyze (or url)",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "description": "URL of a text file to analyze (or text)",
+            "minLength": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the text (intelligence features support en)",
+            "default": "en"
+          },
+          "summarize": {
+            "type": "boolean",
+            "description": "Add a summary"
+          },
+          "topics": {
+            "type": "boolean",
+            "description": "Detect topics"
+          },
+          "intents": {
+            "type": "boolean",
+            "description": "Detect intents"
+          },
+          "sentiment": {
+            "type": "boolean",
+            "description": "Sentiment per segment and on average"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List the speech-to-text (stt) and text-to-speech (tts) models with languages and versions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "include_outdated": {
+            "type": "boolean",
+            "description": "Also list outdated model versions"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "Get one model by its uuid",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model uuid from list_models"
+          }
+        },
+        "required": [
+          "model_id"
+        ]
+      }
+    },
+    {
+      "name": "list_projects",
+      "description": "List the projects the key can access (project_id and name)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_project_balances",
+      "description": "Remaining credit balances of a project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id from list_projects"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "list_project_requests",
+      "description": "List a project's API requests (newest first) with endpoint, status and response summary",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "Project id from list_projects"
+          },
+          "start": {
+            "type": "string",
+            "description": "From this date or time (YYYY-MM-DD or ISO 8601)"
+          },
+          "end": {
+            "type": "string",
+            "description": "Until this date or time (YYYY-MM-DD or ISO 8601)"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Only this endpoint",
+            "enum": [
+              "listen",
+              "read",
+              "speak",
+              "agent"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": "Only this request method",
+            "enum": [
+              "sync",
+              "async",
+              "streaming"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Only this status",
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Only this request id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Deepgram API endpoint that has no dedicated operation, e.g. path \"/v1/projects\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/projects\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

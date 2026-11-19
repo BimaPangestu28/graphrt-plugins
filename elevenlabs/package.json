@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-elevenlabs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: ElevenLabs text to speech, sound effects, speech to text and voices",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

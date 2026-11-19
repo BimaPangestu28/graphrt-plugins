@@ -1,0 +1,794 @@
+{
+  "name": "stable-audio",
+  "version": "0.1.0",
+  "description": "Stability AI Stable Audio: music and sound effects from text, audio-to-audio and inpainting saved as audio files, plus credit balance",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "STABILITY_API_KEY",
+      "STABLE_AUDIO_OUTPUT_DIR",
+      "STABLE_AUDIO_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 420000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "stable-audio.text_to_audio",
+      "title": "Text to audio",
+      "description": "Generate music or sound (up to 190 s) from a prompt with Stable Audio 2.5 or 2 and save it in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-190 (default 190)",
+            "minimum": 1,
+            "maximum": 190
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "stable-audio-2.5 (8 credits) or stable-audio-2 (about 20 credits)",
+            "enum": [
+              "stable-audio-2.5",
+              "stable-audio-2"
+            ],
+            "default": "stable-audio-2.5"
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps: 4-8 for stable-audio-2.5 (default 8), 30-100 for stable-audio-2 (default 50)",
+            "minimum": 4,
+            "maximum": 100
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt (default 1 for 2.5, 7 for 2)",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stable-audio.audio_to_audio",
+      "title": "Audio to audio",
+      "description": "Transform input audio (https URL or a file inside STABLE_AUDIO_UPLOAD_DIR) with a prompt and save the result in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "audio": {
+            "type": "string",
+            "description": "Input audio, mp3 or wav, 6-190 seconds, up to 50 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "strength": {
+            "type": "number",
+            "description": "How much the input is changed: 0 keeps it, 1 ignores it (default 1)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-190 (default 190)",
+            "minimum": 1,
+            "maximum": 190
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "stable-audio-2.5 (8 credits) or stable-audio-2 (about 20 credits)",
+            "enum": [
+              "stable-audio-2.5",
+              "stable-audio-2"
+            ],
+            "default": "stable-audio-2.5"
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps: 4-8 for stable-audio-2.5 (default 8), 30-100 for stable-audio-2 (default 50)",
+            "minimum": 4,
+            "maximum": 100
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt (default 1 for 2.5, 7 for 2)",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "audio"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stable-audio.inpaint_audio",
+      "title": "Inpaint audio",
+      "description": "Regenerate a time range of input audio (mask_start to mask_end) from a prompt with Stable Audio 2.5 and save the result in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "audio": {
+            "type": "string",
+            "description": "Input audio, mp3 or wav, 6-190 seconds, up to 50 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask_start": {
+            "type": "number",
+            "description": "Start of the range to regenerate, in seconds (default 30)",
+            "minimum": 0,
+            "maximum": 190
+          },
+          "mask_end": {
+            "type": "number",
+            "description": "End of the range to regenerate, in seconds (default 190)",
+            "minimum": 0,
+            "maximum": 190
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-190 (default 190)",
+            "minimum": 1,
+            "maximum": 190
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps (default 8)",
+            "minimum": 4,
+            "maximum": 8
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "audio"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stable-audio.text_to_audio_v3",
+      "title": "Text to audio (Stable Audio 3)",
+      "description": "Generate music or sound (up to 380 s) with Stable Audio 3.0 as a job, wait for it and save it in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-380 (default 190)",
+            "minimum": 1,
+            "maximum": 380
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps (default 8)",
+            "minimum": 4,
+            "maximum": 8
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt (default 1)",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stable-audio.get_audio_result",
+      "title": "Get audio result",
+      "description": "Fetch a Stable Audio 3 generation by id (kept 24 hours): {status: in-progress}, or the finished audio saved in STABLE_AUDIO_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "Generation id from text_to_audio_v3"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stable-audio.get_balance",
+      "title": "Get credit balance",
+      "description": "Remaining Stability AI credits (1 credit = $0.01)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stable-audio.get_account",
+      "title": "Get account",
+      "description": "The account behind the key: id, email and organizations",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stable-audio.api_request",
+      "title": "Stability AI API request",
+      "description": "Call any Stability AI API endpoint that has no dedicated operation, e.g. path \"/v1/user/balance\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/user/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "text_to_audio",
+      "description": "Generate music or sound (up to 190 s) from a prompt with Stable Audio 2.5 or 2 and save it in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-190 (default 190)",
+            "minimum": 1,
+            "maximum": 190
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "stable-audio-2.5 (8 credits) or stable-audio-2 (about 20 credits)",
+            "enum": [
+              "stable-audio-2.5",
+              "stable-audio-2"
+            ],
+            "default": "stable-audio-2.5"
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps: 4-8 for stable-audio-2.5 (default 8), 30-100 for stable-audio-2 (default 50)",
+            "minimum": 4,
+            "maximum": 100
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt (default 1 for 2.5, 7 for 2)",
+            "minimum": 1,
+            "maximum": 25
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "audio_to_audio",
+      "description": "Transform input audio (https URL or a file inside STABLE_AUDIO_UPLOAD_DIR) with a prompt and save the result in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "audio": {
+            "type": "string",
+            "description": "Input audio, mp3 or wav, 6-190 seconds, up to 50 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "strength": {
+            "type": "number",
+            "description": "How much the input is changed: 0 keeps it, 1 ignores it (default 1)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-190 (default 190)",
+            "minimum": 1,
+            "maximum": 190
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "description": "stable-audio-2.5 (8 credits) or stable-audio-2 (about 20 credits)",
+            "enum": [
+              "stable-audio-2.5",
+              "stable-audio-2"
+            ],
+            "default": "stable-audio-2.5"
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps: 4-8 for stable-audio-2.5 (default 8), 30-100 for stable-audio-2 (default 50)",
+            "minimum": 4,
+            "maximum": 100
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt (default 1 for 2.5, 7 for 2)",
+            "minimum": 1,
+            "maximum": 25
+          }
+        },
+        "required": [
+          "prompt",
+          "audio"
+        ]
+      }
+    },
+    {
+      "name": "inpaint_audio",
+      "description": "Regenerate a time range of input audio (mask_start to mask_end) from a prompt with Stable Audio 2.5 and save the result in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "audio": {
+            "type": "string",
+            "description": "Input audio, mp3 or wav, 6-190 seconds, up to 50 MB (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask_start": {
+            "type": "number",
+            "description": "Start of the range to regenerate, in seconds (default 30)",
+            "minimum": 0,
+            "maximum": 190
+          },
+          "mask_end": {
+            "type": "number",
+            "description": "End of the range to regenerate, in seconds (default 190)",
+            "minimum": 0,
+            "maximum": 190
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-190 (default 190)",
+            "minimum": 1,
+            "maximum": 190
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps (default 8)",
+            "minimum": 4,
+            "maximum": 8
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          }
+        },
+        "required": [
+          "prompt",
+          "audio"
+        ]
+      }
+    },
+    {
+      "name": "text_to_audio_v3",
+      "description": "Generate music or sound (up to 380 s) with Stable Audio 3.0 as a job, wait for it and save it in STABLE_AUDIO_OUTPUT_DIR (paid in credits)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate: genre, instruments, mood, tempo, e.g. 'Lo-fi hip hop beat, 90 BPM, warm piano'",
+            "minLength": 1
+          },
+          "duration": {
+            "type": "number",
+            "description": "Length in seconds, 1-380 (default 190)",
+            "minimum": 1,
+            "maximum": 380
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Seed (0 or omitted: random)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Sampling steps (default 8)",
+            "minimum": 4,
+            "maximum": 8
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt (default 1)",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "wav"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "get_audio_result",
+      "description": "Fetch a Stable Audio 3 generation by id (kept 24 hours): {status: in-progress}, or the finished audio saved in STABLE_AUDIO_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "Generation id from text_to_audio_v3"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      }
+    },
+    {
+      "name": "get_balance",
+      "description": "Remaining Stability AI credits (1 credit = $0.01)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_account",
+      "description": "The account behind the key: id, email and organizations",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Stability AI API endpoint that has no dedicated operation, e.g. path \"/v1/user/balance\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/user/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

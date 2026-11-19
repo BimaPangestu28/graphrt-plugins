@@ -1,0 +1,543 @@
+{
+  "name": "openai-audio",
+  "version": "0.1.0",
+  "description": "OpenAI audio: text to speech saved as audio files, transcription and translation to English from files or URLs",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "OPENAI_API_KEY",
+      "OPENAI_AUDIO_OUTPUT_DIR",
+      "OPENAI_AUDIO_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "openai-audio.create_speech",
+      "title": "Text to speech",
+      "description": "Turn text (up to 4096 characters) into speech and save the audio file in OPENAI_AUDIO_OUTPUT_DIR (billed per character or token)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Text to speak (max 4096 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "gpt-4o-mini-tts, tts-1 or tts-1-hd",
+            "default": "gpt-4o-mini-tts"
+          },
+          "voice": {
+            "type": "string",
+            "description": "alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse, marin or cedar (or a custom voice id)",
+            "default": "alloy"
+          },
+          "instructions": {
+            "type": "string",
+            "description": "Tone, accent or style instructions (gpt-4o-mini-tts only)"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "opus",
+              "aac",
+              "flac",
+              "wav",
+              "pcm"
+            ]
+          },
+          "speed": {
+            "type": "number",
+            "description": "Speed (default 1.0)",
+            "minimum": 0.25,
+            "maximum": 4
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-audio.create_transcription",
+      "title": "Transcribe audio",
+      "description": "Transcribe audio to text in its own language (https URL or a file inside OPENAI_AUDIO_UPLOAD_DIR; billed per minute of audio)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio file up to 25 MB (flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "model": {
+            "type": "string",
+            "description": "gpt-4o-mini-transcribe, gpt-4o-transcribe, gpt-4o-transcribe-diarize, gpt-transcribe or whisper-1",
+            "default": "gpt-4o-mini-transcribe"
+          },
+          "language": {
+            "type": "string",
+            "description": "ISO-639-1 language of the audio, e.g. id; improves accuracy and latency"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Text to guide style or vocabulary (same language as the audio; English for translations)"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "json (default); gpt-4o(-mini)-transcribe support json only; srt, vtt and verbose_json are whisper-1; diarized_json is gpt-4o-transcribe-diarize",
+            "enum": [
+              "json",
+              "text",
+              "srt",
+              "verbose_json",
+              "vtt",
+              "diarized_json"
+            ]
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (default 0)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "timestamp_granularities": {
+            "type": "array",
+            "description": "word and/or segment timestamps (whisper-1 with verbose_json)",
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "enum": [
+                "word",
+                "segment"
+              ]
+            }
+          },
+          "include": {
+            "type": "array",
+            "description": "Extra output: logprobs (gpt-4o(-mini)-transcribe with json)",
+            "maxItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "logprobs"
+              ]
+            }
+          },
+          "chunking_strategy": {
+            "type": "string",
+            "description": "auto: split the audio on silence first (required by the diarize model for audio over 30 s)",
+            "enum": [
+              "auto"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-audio.create_translation",
+      "title": "Translate audio to English",
+      "description": "Transcribe audio in any supported language into English text (https URL or a file inside OPENAI_AUDIO_UPLOAD_DIR; whisper-1, billed per minute)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio file up to 25 MB (flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "model": {
+            "type": "string",
+            "description": "whisper-1 (the only translation model)",
+            "default": "whisper-1"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Text to guide style or vocabulary (same language as the audio; English for translations)"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "Output format (default json)",
+            "enum": [
+              "json",
+              "text",
+              "srt",
+              "verbose_json",
+              "vtt"
+            ]
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (default 0)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-audio.list_models",
+      "title": "List models",
+      "description": "List the models the key can use (look for tts-*, *-transcribe and whisper-1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-audio.api_request",
+      "title": "OpenAI API request",
+      "description": "Call any OpenAI API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_speech",
+      "description": "Turn text (up to 4096 characters) into speech and save the audio file in OPENAI_AUDIO_OUTPUT_DIR (billed per character or token)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Text to speak (max 4096 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "gpt-4o-mini-tts, tts-1 or tts-1-hd",
+            "default": "gpt-4o-mini-tts"
+          },
+          "voice": {
+            "type": "string",
+            "description": "alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse, marin or cedar (or a custom voice id)",
+            "default": "alloy"
+          },
+          "instructions": {
+            "type": "string",
+            "description": "Tone, accent or style instructions (gpt-4o-mini-tts only)"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "Audio format (default mp3)",
+            "enum": [
+              "mp3",
+              "opus",
+              "aac",
+              "flac",
+              "wav",
+              "pcm"
+            ]
+          },
+          "speed": {
+            "type": "number",
+            "description": "Speed (default 1.0)",
+            "minimum": 0.25,
+            "maximum": 4
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "create_transcription",
+      "description": "Transcribe audio to text in its own language (https URL or a file inside OPENAI_AUDIO_UPLOAD_DIR; billed per minute of audio)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio file up to 25 MB (flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "model": {
+            "type": "string",
+            "description": "gpt-4o-mini-transcribe, gpt-4o-transcribe, gpt-4o-transcribe-diarize, gpt-transcribe or whisper-1",
+            "default": "gpt-4o-mini-transcribe"
+          },
+          "language": {
+            "type": "string",
+            "description": "ISO-639-1 language of the audio, e.g. id; improves accuracy and latency"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Text to guide style or vocabulary (same language as the audio; English for translations)"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "json (default); gpt-4o(-mini)-transcribe support json only; srt, vtt and verbose_json are whisper-1; diarized_json is gpt-4o-transcribe-diarize",
+            "enum": [
+              "json",
+              "text",
+              "srt",
+              "verbose_json",
+              "vtt",
+              "diarized_json"
+            ]
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (default 0)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "timestamp_granularities": {
+            "type": "array",
+            "description": "word and/or segment timestamps (whisper-1 with verbose_json)",
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "enum": [
+                "word",
+                "segment"
+              ]
+            }
+          },
+          "include": {
+            "type": "array",
+            "description": "Extra output: logprobs (gpt-4o(-mini)-transcribe with json)",
+            "maxItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "logprobs"
+              ]
+            }
+          },
+          "chunking_strategy": {
+            "type": "string",
+            "description": "auto: split the audio on silence first (required by the diarize model for audio over 30 s)",
+            "enum": [
+              "auto"
+            ]
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "create_translation",
+      "description": "Transcribe audio in any supported language into English text (https URL or a file inside OPENAI_AUDIO_UPLOAD_DIR; whisper-1, billed per minute)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Audio file up to 25 MB (flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "model": {
+            "type": "string",
+            "description": "whisper-1 (the only translation model)",
+            "default": "whisper-1"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Text to guide style or vocabulary (same language as the audio; English for translations)"
+          },
+          "response_format": {
+            "type": "string",
+            "description": "Output format (default json)",
+            "enum": [
+              "json",
+              "text",
+              "srt",
+              "verbose_json",
+              "vtt"
+            ]
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature (default 0)",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "list_models",
+      "description": "List the models the key can use (look for tts-*, *-transcribe and whisper-1)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any OpenAI API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

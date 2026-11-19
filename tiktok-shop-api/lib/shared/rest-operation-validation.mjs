@@ -11,6 +11,7 @@ import {
   checkEnvName,
   checkHeaderName,
   describePaginationWireNames,
+  DEFAULT_REQUEST_TIMEOUT_MS,
   describeTimeBudgets,
   FORM_ARRAY_STYLES,
   HTTP_METHODS,
@@ -33,8 +34,8 @@ import {
 
 const OPERATION_KEYS = [
   "name", "title", "description", "baseUrl", "sendCredential", "method", "path", "params", "bodyMode", "contentType", "formArrays",
-  "multipart", "constants", "idempotencyKeyHeader", "write", "checkHint", "nodeOnly", "toolPolicy", "response", "job", "download",
-  "timeoutMs", "toolOutput",
+  "multipart", "fileBody", "constants", "idempotencyKeyHeader", "write", "checkHint", "nodeOnly", "toolPolicy", "response", "job", "download",
+  "timeoutMs", "minRequestMs", "toolOutput",
 ];
 const PARAM_KEYS = ["in", "type", "required", "description", "enum", "min", "max", "default", "wireName", "items", "maxItems", "minLength", "style", "file"];
 const RESPONSE_KEYS = ["dataPath", "cursorPath", "cursorParam", "limitParam", "hasMorePath", "nextLinkHeader", "nextUrlPath", "lastItemCursor", "pagePagination", "offsetPagination", "maxLimit", "defaultLimit", "paramsIn", "binary"];
@@ -46,7 +47,8 @@ const JOB_KEYS = ["idPath", "poll", "result", "allowedHosts", "statusPath", "don
 const POLL_KEYS = ["method", "path", "urlPath", "params"];
 const JOB_RESULT_KEYS = ["method", "path", "urlPath"];
 const SAVE_TO_KEYS = ["urlPaths", "base64Paths", "envDir", "maxBytes", "maxFiles"];
-const MULTIPART_KEYS = ["fileDirEnv", "maxFileBytes"];
+const FILE_SETTINGS_KEYS = ["fileDirEnv", "maxFileBytes"];
+const FILE_BODY_MODES = ["multipart", "file"];
 const CONSTANT_KEYS = ["query", "body", "headers"];
 const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
 const HOST_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
@@ -96,7 +98,22 @@ function validateBasics(spec, operation, fail) {
   if (operation.idempotencyKeyHeader !== undefined && operation.idempotencyKeyHeader !== false) checkHeaderName(operation.idempotencyKeyHeader, "idempotencyKeyHeader", fail);
   validateToolOutput(operation.toolOutput, "toolOutput", fail);
   validateRequestTimeout(operation.timeoutMs, spec.limits, "timeoutMs", fail);
+  validateFileInputBudget(spec, operation, fail);
   return method;
+}
+
+// File inputs are read before the request inside the call's budget, so the request's minimum must leave time.
+function validateFileInputBudget(spec, operation, fail) {
+  const hasFiles = Object.values(operation.params ?? {}).some((paramSpec) => paramSpec.file === true);
+  if (operation.minRequestMs !== undefined && !hasFiles) fail("`minRequestMs` is only for operations with file inputs (`file: true` params)");
+  if (!hasFiles) return;
+  const requestTimeoutMs = operation.timeoutMs ?? spec.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const minRequestMs = operation.minRequestMs ?? requestTimeoutMs;
+  if (!Number.isInteger(minRequestMs) || minRequestMs <= 0 || minRequestMs > requestTimeoutMs) fail(`minRequestMs must be a positive integer, at most the request's timeoutMs ${requestTimeoutMs}`);
+  const { hostTimeoutMs, requestTimeoutCapMs } = describeTimeBudgets(spec.limits);
+  if (minRequestMs >= requestTimeoutCapMs) {
+    fail(`file inputs are read before a request that needs ${minRequestMs} ms, and limits.timeout_ms ${hostTimeoutMs} minus 10 s leaves no time for them; raise limits.timeout_ms or set minRequestMs`);
+  }
 }
 
 function validateWriteClass(operation, method, fail) {
@@ -158,8 +175,8 @@ function validateStyleAndFile(operation, paramSpec, failParam) {
   if (paramSpec.style !== undefined && (paramSpec.in !== "query" || paramSpec.type !== "array" || !QUERY_ARRAY_STYLES.includes(paramSpec.style))) {
     failParam(`style is only for query arrays: one of ${QUERY_ARRAY_STYLES.join(", ")}`);
   }
-  if (paramSpec.file !== undefined && (paramSpec.file !== true || operation.bodyMode !== "multipart" || paramSpec.in !== "body" || paramSpec.type !== "string")) {
-    failParam('`file: true` needs bodyMode "multipart", `in: "body"` and type string');
+  if (paramSpec.file !== undefined && (paramSpec.file !== true || !FILE_BODY_MODES.includes(operation.bodyMode) || paramSpec.in !== "body" || paramSpec.type !== "string")) {
+    failParam('`file: true` needs bodyMode "multipart" or "file", `in: "body"` and type string');
   }
 }
 
@@ -203,18 +220,23 @@ function validateBody(operation, method, fail) {
   if (bodyMode === "raw" && (bodyParams.length !== 1 || !["object", "array"].includes(bodyParams[0].type))) fail('bodyMode "raw" needs exactly one body param of type object or array');
   if (bodyMode === "text" && (bodyParams.length !== 1 || !["string", "array"].includes(bodyParams[0].type))) fail('bodyMode "text" needs exactly one body param of type string (sent as is) or array (sent as NDJSON)');
   if (operation.formArrays !== undefined && (bodyMode !== "form" || !FORM_ARRAY_STYLES.includes(operation.formArrays))) fail(`formArrays is only for bodyMode "form": one of ${FORM_ARRAY_STYLES.join(", ")}`);
-  if (operation.contentType !== undefined && (!["json", "raw", "text"].includes(bodyMode) || !/^[\w.+-]+\/[\w.+-]+(;.*)?$/.test(operation.contentType))) {
-    fail('`contentType` must be a media type and is only for bodyMode "json", "raw" or "text"');
+  if (bodyMode === "file" && (bodyParams.length !== 1 || bodyParams[0].file !== true)) fail('bodyMode "file" needs exactly one body param, with `file: true` (the file is the whole body)');
+  if (operation.contentType !== undefined && (!["json", "raw", "text", "file"].includes(bodyMode) || !/^[\w.+-]+\/[\w.+-]+(;.*)?$/.test(operation.contentType))) {
+    fail('`contentType` must be a media type and is only for bodyMode "json", "raw", "text" or "file"');
   }
-  validateMultipart(operation, bodyMode, fail);
+  validateFileSettings(operation, "multipart", bodyMode, fail);
+  validateFileSettings(operation, "fileBody", bodyMode, fail);
 }
 
-function validateMultipart(operation, bodyMode, fail) {
-  if (operation.multipart === undefined) return;
-  if (bodyMode !== "multipart") fail('`multipart` settings need bodyMode "multipart"');
-  rejectUnknownKeys(operation.multipart, MULTIPART_KEYS, "multipart", fail);
-  if (operation.multipart.fileDirEnv !== undefined) checkEnvName(operation.multipart.fileDirEnv, "multipart.fileDirEnv", fail);
-  if (operation.multipart.maxFileBytes !== undefined && !(Number.isInteger(operation.multipart.maxFileBytes) && operation.multipart.maxFileBytes > 0)) fail("multipart.maxFileBytes must be a positive integer");
+// `multipart` (bodyMode "multipart") and `fileBody` (bodyMode "file") hold the same file input settings.
+function validateFileSettings(operation, settingsKey, bodyMode, fail) {
+  const settings = operation[settingsKey];
+  if (settings === undefined) return;
+  const settingsBodyMode = settingsKey === "fileBody" ? "file" : "multipart";
+  if (bodyMode !== settingsBodyMode) fail(`\`${settingsKey}\` settings need bodyMode "${settingsBodyMode}"`);
+  rejectUnknownKeys(settings, FILE_SETTINGS_KEYS, settingsKey, fail);
+  if (settings.fileDirEnv !== undefined) checkEnvName(settings.fileDirEnv, `${settingsKey}.fileDirEnv`, fail);
+  if (settings.maxFileBytes !== undefined && !(Number.isInteger(settings.maxFileBytes) && settings.maxFileBytes > 0)) fail(`${settingsKey}.maxFileBytes must be a positive integer`);
 }
 
 function validateConstants(operation, fail) {
@@ -231,7 +253,7 @@ function validateConstants(operation, fail) {
       if (constantLocation === "body" && findForbiddenSegments(constantName).length > 0) fail(`constant body \`${constantName}\` has a forbidden segment`);
     }
   }
-  if (constants.body && ["raw", "text"].includes(operation.bodyMode)) fail(`constant body values cannot be combined with bodyMode "${operation.bodyMode}"`);
+  if (constants.body && ["raw", "text", "file"].includes(operation.bodyMode)) fail(`constant body values cannot be combined with bodyMode "${operation.bodyMode}"`);
 }
 
 // --- response and pagination ------------------------------------------------------------------------
@@ -270,7 +292,7 @@ function validatePaginationPlacement(operation, method, response, fail) {
   const paramsIn = response.paramsIn ?? (READ_METHODS.has(method) ? "query" : "body");
   if (paramsIn === "body" && READ_METHODS.has(method)) fail(`response.paramsIn: "body" cannot be used with ${method}, which sends no body`);
   const bodyMode = operation.bodyMode ?? "json";
-  if (paramsIn === "body" && ["raw", "text", "multipart"].includes(bodyMode)) fail(`bodyMode "${bodyMode}" cannot carry pagination params in the body; set response.paramsIn: "query"`);
+  if (paramsIn === "body" && ["raw", "text", "multipart", "file"].includes(bodyMode)) fail(`bodyMode "${bodyMode}" cannot carry pagination params in the body; set response.paramsIn: "query"`);
   const { limitWireName, cursorWireName } = describePaginationWireNames(response);
   const paramLocation = paramsIn === "body" ? "body" : "query";
   for (const [paramName, paramSpec] of Object.entries(operation.params ?? {})) {

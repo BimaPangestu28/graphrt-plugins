@@ -13,10 +13,11 @@ import { createRecordingFetch } from "./testing.mjs";
 
 export const FAKE_CREDENTIAL = "contract-test-credential-0001";
 export const FAKE_JOB_ID = "contract-job-1";
-/** Use `https://files.contract.example/<name>` for multipart file args in cases; the contract serves it. */
+/** Use `https://files.contract.example/<name>` for file args in cases; the contract serves CONTRACT_FILE_TEXT. */
 export const CONTRACT_FILE_HOST = "files.contract.example";
+export const CONTRACT_FILE_TEXT = "CONTRACT-FILE";
 const FAKE_USER = "contract-user";
-const BODY_SPECIFIERS = ["json", "form", "text", "multipart", "body"];
+const BODY_SPECIFIERS = ["json", "form", "text", "multipart", "file", "body"];
 const publicResolver = async () => ["93.184.216.34"];
 
 /**
@@ -50,7 +51,7 @@ function checkCase(pluginName, operation, operationCase) {
   if (typeof request.url !== "string" || !/^https?:\/\//.test(request.url) || request.url.includes("?")) fail("request.url must be the full URL literal without the query, e.g. \"https://api.example.com/v1/items/1\"");
   if (request.query === undefined) fail('request.query is required: the exact query (auth param excluded), or "absent"');
   const bodySpecifiers = BODY_SPECIFIERS.filter((key) => request[key] !== undefined);
-  if (!["GET", "HEAD"].includes(operation.method) && bodySpecifiers.length !== 1) fail('request needs exactly one of json, form, text, multipart or body: "absent"');
+  if (!["GET", "HEAD"].includes(operation.method) && bodySpecifiers.length !== 1) fail('request needs exactly one of json, form, text, multipart, file or body: "absent"');
 }
 
 function buildEnvironment(restSpec, caseEnvironment = {}, scratchDirectory) {
@@ -72,6 +73,7 @@ function describeCredential(auth, environment) {
 
 /**
  * Runs one operation against canned responses; OAuth token and contract file requests are answered on the side.
+ * Each recorded call also has `rawBody`, the body exactly as passed to fetch (bytes for bodyMode "file").
  *
  * @param contract - Contract context (object)
  * @param operationName - Operation (string)
@@ -84,8 +86,10 @@ export async function runContractOperation(contract, operationName, args, { resp
   const tokenUrl = contract.restSpec.auth.type === "oauth2" ? contract.restSpec.auth.tokenUrl : undefined;
   const contractFetch = async (url, init) => {
     if (tokenUrl && String(url) === tokenUrl) return new Response(JSON.stringify({ access_token: FAKE_CREDENTIAL, expires_in: 3600 }), { headers: { "content-type": "application/json" } });
-    if (new URL(String(url)).host === CONTRACT_FILE_HOST) return new Response("CONTRACT-FILE", { headers: { "content-type": "application/octet-stream" } });
-    return recordingFetch(url, init);
+    if (new URL(String(url)).host === CONTRACT_FILE_HOST) return new Response(CONTRACT_FILE_TEXT, { headers: { "content-type": "application/octet-stream" } });
+    const recordedResponse = recordingFetch(url, init);
+    recordingFetch.calls.at(-1).rawBody = init?.body;
+    return recordedResponse;
   };
   const runOperation = createOperationRunner(contract.pluginDefinition, { ...contract.environment, ...environment }, { fetchImpl: contractFetch, resolveHostAddresses: publicResolver });
   const outcome = await runOperation(operationName, args, { source, signal }).then(
@@ -119,9 +123,20 @@ export function successResponses(contract, operation, resultValue = { contract_r
   if (operation.response?.binary) return [{ body: "CONTRACT-BINARY", headers: { "content-type": "application/octet-stream" } }];
   if (!operation.job) return [operationCase.response ?? { body: {} }];
   const job = operation.job;
-  const finishedStatus = jobStatusResponse(operation, job.doneValues[0], job.result ? {} : { [job.resultPath ?? "contract_result"]: resultValue });
+  const finishedStatus = finishedStatusResponse(operation, resultValue);
   const resultResponses = job.result ? [{ body: job.resultPath ? writePath({}, job.resultPath, resultValue) : resultValue }] : [];
   return [jobCreatedResponse(contract, operation), finishedStatus, ...resultResponses];
+}
+
+// Without job.result the result is read from the finished status: at resultPath, or the whole body when there is
+// no resultPath (then the result's fields sit next to the status field).
+function finishedStatusResponse(operation, resultValue) {
+  const job = operation.job;
+  const doneValue = job.doneValues[0];
+  if (job.result) return jobStatusResponse(operation, doneValue);
+  if (job.resultPath) return jobStatusResponse(operation, doneValue, { [job.resultPath]: resultValue });
+  const resultFields = resultValue && typeof resultValue === "object" && !Array.isArray(resultValue) ? structuredClone(resultValue) : { contract_result: resultValue };
+  return { body: writePath(resultFields, job.statusPath, doneValue) };
 }
 
 /**

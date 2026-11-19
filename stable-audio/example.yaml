@@ -1,0 +1,12 @@
+# Show the remaining Stability AI credits. Read-only and free.
+#   STABILITY_API_KEY=sk-... graphrt run stable-audio/example.yaml --plugins .
+version: "1"
+name: stable-audio-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: balance, type: stable-audio.get_balance }
+    - { id: answer, type: answer, answer: "Credits left: {{#balance.data.credits#}}" }
+  edges:
+    - { source: start, target: balance }
+    - { source: balance, target: answer }

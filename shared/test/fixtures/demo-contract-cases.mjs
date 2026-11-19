@@ -26,5 +26,10 @@ export const DEMO_CONTRACT_CASES = {
     list_pages: { args: {}, request: { method: "GET", url: `${BASE}/pages`, query: "absent" } },
     list_offsets: { args: {}, request: { method: "POST", url: `${BASE}/records/query`, query: "absent", json: {} } },
     generate_image: { args: { prompt: "cat" }, request: { method: "POST", url: `${BASE}/images`, query: "absent", json: { prompt: "cat" } } },
+    render_audio: { args: { prompt: "rain" }, request: { method: "POST", url: `${BASE}/audio`, query: "absent", json: { prompt: "rain" } } },
+    upload_blob: {
+      args: { file: "https://files.contract.example/clip.wav", folder: "in" },
+      request: { method: "POST", url: `${BASE}/blobs`, query: { folder: "in" }, file: { contentType: "application/octet-stream" } },
+    },
   },
 };

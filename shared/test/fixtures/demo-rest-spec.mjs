@@ -1,6 +1,7 @@
 /**
  * Demo REST spec shared by the rest-plugin tests: one operation per feature (path/query/header params, nested and
- * raw bodies, write classes, nodeOnly, toolPolicy, every pagination style, an async job with downloads).
+ * raw bodies, write classes, nodeOnly, toolPolicy, every pagination style, async jobs with URL and base64 downloads,
+ * and a raw file upload).
  */
 export const DEMO_OPERATIONS = [
   {
@@ -115,6 +116,30 @@ export const DEMO_OPERATIONS = [
       timeoutMs: 60000,
     },
     download: { saveTo: { urlPaths: ["images[].url"], envDir: "DEMO_OUTPUT_DIR" } },
+  },
+  {
+    // No resultPath: the finished status body itself is the result (with the base64 audio in it).
+    name: "render_audio",
+    title: "Render audio",
+    description: "Start an audio job",
+    method: "POST",
+    path: "/audio",
+    write: "unsafe",
+    params: { prompt: { in: "body", type: "string", required: true } },
+    job: { idPath: "id", poll: { path: "/audio/{id}" }, statusPath: "finish_reason", doneValues: ["SUCCESS"], intervalMs: 0, timeoutMs: 60000 },
+    download: { saveTo: { base64Paths: ["audio"], envDir: "DEMO_OUTPUT_DIR" } },
+  },
+  {
+    name: "upload_blob",
+    title: "Upload blob",
+    description: "Upload a file as the raw body",
+    method: "POST",
+    path: "/blobs",
+    write: "unsafe",
+    checkHint: "list the folder's blobs",
+    bodyMode: "file",
+    fileBody: { fileDirEnv: "DEMO_UPLOAD_DIR", maxFileBytes: 4096 },
+    params: { file: { in: "body", type: "string", file: true, required: true, description: "File" }, folder: { in: "query", type: "string" } },
   },
 ];
 

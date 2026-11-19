@@ -28,15 +28,16 @@ const BASE64_PATTERN = /^[A-Za-z0-9+/_-]*={0,2}$/;
  * Reads a multipart file input.
  *
  * @param fileReference - Absolute local path, or an https URL (string)
- * @param options - `{paramName, fileDirEnv, environment, maxBytes, fetchImpl, resolveHostAddresses, signal}` (object)
+ * @param options - `{paramName, fileDirEnv, environment, maxBytes, fetchImpl, resolveHostAddresses, signal, timeoutMs?}`;
+ *   `timeoutMs` bounds the download of a URL input (object)
  * @returns `{bytes, fileName, contentType}` (Promise<object>)
  * @throws PluginError kind `invalid_input` - Not https, outside the allowlist, not a regular file, too large, or no allowlist env
  */
 export async function readFileInput(fileReference, options) {
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_FILE_BYTES;
   if (/^https:\/\//i.test(fileReference)) {
-    const { fetchImpl, resolveHostAddresses, signal, paramName } = options;
-    return fetchPublicHttpsBytes(fileReference, { fetchImpl, resolveHostAddresses, signal, maxBytes, label: paramName });
+    const { fetchImpl, resolveHostAddresses, signal, paramName, timeoutMs } = options;
+    return fetchPublicHttpsBytes(fileReference, { fetchImpl, resolveHostAddresses, signal, maxBytes, timeoutMs, label: paramName });
   }
   if (/^[a-z][a-z0-9+.-]*:/i.test(fileReference)) throw invalidFile(options.paramName, "must be an https URL or an absolute local path");
   return readAllowlistedFile(fileReference, options, maxBytes);
