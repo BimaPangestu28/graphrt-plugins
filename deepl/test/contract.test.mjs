@@ -26,7 +26,7 @@ describeRestPluginContract(pluginDefinition, {
       expect: { data: { character_count: 180, character_limit: 500000 } },
     },
     list_languages: {
-      args: { type: "source" },
+      args: { language_type: "source" },
       request: { method: "GET", url: `${API}/v2/languages`, query: { type: "source" } },
     },
     list_glossaries: {

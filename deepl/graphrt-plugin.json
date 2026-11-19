@@ -41,7 +41,7 @@
           },
           "target_lang": {
             "type": "string",
-            "description": "Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages type target)"
+            "description": "Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages with language_type target)"
           },
           "source_lang": {
             "type": "string",
@@ -217,9 +217,9 @@
       "config_schema": {
         "type": "object",
         "properties": {
-          "type": {
+          "language_type": {
             "type": "string",
-            "description": "source or target languages",
+            "description": "source or target languages (sent as `type`)",
             "enum": [
               "source",
               "target"
@@ -563,7 +563,7 @@
           },
           "target_lang": {
             "type": "string",
-            "description": "Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages type target)"
+            "description": "Target language, e.g. EN-US, EN-GB, DE, ID, PT-BR (see list_languages with language_type target)"
           },
           "source_lang": {
             "type": "string",
@@ -684,9 +684,9 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "type": {
+          "language_type": {
             "type": "string",
-            "description": "source or target languages",
+            "description": "source or target languages (sent as `type`)",
             "enum": [
               "source",
               "target"
