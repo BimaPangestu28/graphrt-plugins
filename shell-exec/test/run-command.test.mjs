@@ -141,7 +141,10 @@ test("tools: refused without SHELL_EXEC_TOOL_RULES; tools never set env", async 
   });
 });
 
-test("tool rules: the argv must start with argsPrefix, and extra arguments need an argPattern", async () => {
+// As root every system program is "writable by this user", so agents are (rightly) refused any program.
+const RUNNING_AS_ROOT = process.getuid?.() === 0 ? "running as root: every program counts as replaceable, so agent calls are refused" : false;
+
+test("tool rules: the argv must start with argsPrefix, and extra arguments need an argPattern", { skip: RUNNING_AS_ROOT }, async () => {
   await withShellExec({ SHELL_EXEC_TOOL_RULES: ECHO_HELLO_RULE }, async ({ runOperation }) => {
     const { data } = await runOperation("run_command", { command: "/bin/echo", args: ["hello"] }, AS_TOOL);
     assert.equal(data.stdout, "hello\n");
@@ -151,7 +154,7 @@ test("tool rules: the argv must start with argsPrefix, and extra arguments need 
   });
 });
 
-test("tool rules: argPattern is anchored to the whole argument, and maxExtraArgs bounds them", async () => {
+test("tool rules: argPattern is anchored to the whole argument, and maxExtraArgs bounds them", { skip: RUNNING_AS_ROOT }, async () => {
   const rules = JSON.stringify([{ command: "/bin/echo", argsPrefix: ["n"], argPattern: "[a-z]{1,8}", maxExtraArgs: 2 }]);
   await withShellExec({ SHELL_EXEC_TOOL_RULES: rules }, async ({ runOperation }) => {
     const { data } = await runOperation("run_command", { command: "echo", args: ["n", "abc", "def"] }, AS_TOOL);
