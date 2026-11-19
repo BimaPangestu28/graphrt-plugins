@@ -2,10 +2,16 @@
 
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
+> **0.3.0 (behaviour change for agents):** agent tools may no longer publish, reply, repost or moderate replies by
+> default. Publishing and reposts need `THREADS_TOOL_ALLOW_POST=1`, hiding and approving replies need
+> `THREADS_TOOL_ALLOW_ENGAGE=1`, and `delete_thread` is node only. Workflow nodes are unchanged. See
+> [Agent policy](#agent-policy).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **Threads API**
 (`graph.threads.net`). It reads the account's profile and posts, publishes text, image, video and carousel threads,
-moderates replies, and reads mentions and keyword search. Every operation is a workflow node and an agent tool.
+moderates replies, and reads mentions and keyword search. Every operation is a workflow node. Agent tools are limited by the
+[agent policy](#agent-policy).
 
 ## Features
 - **Profile:** own profile, public profile lookup by username, publishing quota, long-lived token refresh
@@ -47,8 +53,10 @@ No `npm install` needed: the plugin has no dependencies.
 | Env var | Required | Description |
 |---------|----------|-------------|
 | `THREADS_ACCESS_TOKEN` | yes | Threads user access token (sent as a Bearer header) |
+| `THREADS_TOOL_ALLOW_POST` | no | `1` lets **agent tools** publish posts, replies and quotes and repost (see [Agent policy](#agent-policy)) |
+| `THREADS_TOOL_ALLOW_ENGAGE` | no | `1` lets agent tools hide, unhide, approve or ignore replies |
 
-graphrt starts plugins with a clean environment, and only this variable is passed through. A node can also take
+graphrt starts plugins with a clean environment, and only these variables are passed through. A node can also take
 `access_token` to use another account's token. Pass it from a secret and trust the plugin
 (`--trust-plugin threads-api`).
 
@@ -90,12 +98,26 @@ graphrt run threads-api/example.yaml --plugins .
 - **Polling:** graphrt plugins can't receive webhooks. To react to new replies or mentions, run a workflow on a
   schedule that lists them.
 
+## Agent policy
+Meta's Developer Policies require consent before publishing on someone's behalf, so agent tools start read-only.
+Workflow nodes are never limited.
+
+| Operations | As an agent tool |
+|------------|------------------|
+| Profiles, publishing limit, `list_threads`, `list_my_replies`, `list_mentions`, `keyword_search`, `list_replies`, `list_pending_replies` | Always |
+| `publish_thread` (posts, replies with `reply_to_id`, quotes), `repost_thread` | Only with `THREADS_TOOL_ALLOW_POST=1` |
+| `hide_reply`, `approve_pending_reply` | Only with `THREADS_TOOL_ALLOW_ENGAGE=1` |
+| `delete_thread`, `refresh_access_token` | Never (node only) |
+| `api_request` | GET only |
+
+A refused call fails with `permission_denied` and sends no request. The Threads API has no direct messages.
+
 ## Errors
 | Kind | When |
 |------|------|
 | `invalid_input` | Bad arguments (e.g. text over 500 characters) or Graph code 100 |
 | `auth_error` | Missing, invalid or expired token (Graph 190/102, HTTP 401) |
-| `permission_denied` | Missing permission (Graph 10, 200–299) |
+| `permission_denied` | Agent tool call without its opt-in ([Agent policy](#agent-policy)); missing permission (Graph 10, 200–299) |
 | `rate_limited` | Throttling. Graph codes 4, 17, 32 and 613 are hourly app/user limits and are not retried (try again later); a plain HTTP 429 is retried automatically for up to 60 s |
 | `not_found`, `api_error`, `network_error`, `timeout`, `cancelled` | As named |
 
@@ -104,6 +126,11 @@ From the repo root: `npm run sync` after changing `definition.mjs`, `operations/
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
 
 ## Changelog
+### 0.3.0
+- **Behaviour change for agents:** `publish_thread` and `repost_thread` need `THREADS_TOOL_ALLOW_POST=1` as agent
+  tools, `hide_reply` and `approve_pending_reply` need `THREADS_TOOL_ALLOW_ENGAGE=1`, and `delete_thread` is node
+  only. Workflow nodes are unchanged.
+
 ### 0.2.0
 - **Breaking:** `publish_thread` parameter `container_id` is now `existing_container_id`. graphrt takes `container_id` from every workflow node (it marks a node's parent container), so the old name could never be set from a node; tool calls that passed `container_id` must use `existing_container_id`. The output still reports `container_id`.
 

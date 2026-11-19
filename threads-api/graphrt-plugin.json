@@ -1,6 +1,6 @@
 {
   "name": "threads-api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Threads profiles, posts, publishing, replies, mentions and search via the official Threads API",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -12,7 +12,9 @@
     "network": true,
     "secrets": true,
     "env": [
-      "THREADS_ACCESS_TOKEN"
+      "THREADS_ACCESS_TOKEN",
+      "THREADS_TOOL_ALLOW_POST",
+      "THREADS_TOOL_ALLOW_ENGAGE"
     ]
   },
   "limits": {
@@ -372,7 +374,7 @@
     {
       "kind": "threads-api.repost_thread",
       "title": "Repost thread",
-      "description": "Repost a Threads post to the account's profile. Returns the repost id.",
+      "description": "Repost a Threads post to the account's profile. Returns the repost id. (as an agent tool only when THREADS_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -440,7 +442,7 @@
     {
       "kind": "threads-api.publish_thread",
       "title": "Publish thread",
-      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `existing_container_id` instead of re-running, so nothing is posted twice.",
+      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `existing_container_id` instead of re-running, so nothing is posted twice. (as an agent tool only when THREADS_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -599,7 +601,7 @@
     {
       "kind": "threads-api.hide_reply",
       "title": "Hide/unhide Threads reply",
-      "description": "Hide or unhide a reply under one of the account's posts (needs threads_manage_replies).",
+      "description": "Hide or unhide a reply under one of the account's posts (needs threads_manage_replies). (as an agent tool only when THREADS_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -699,7 +701,7 @@
     {
       "kind": "threads-api.approve_pending_reply",
       "title": "Approve/ignore pending Threads reply",
-      "description": "Approve (approve=true) or ignore (approve=false) a pending reply.",
+      "description": "Approve (approve=true) or ignore (approve=false) a pending reply. (as an agent tool only when THREADS_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -986,23 +988,7 @@
     },
     {
       "name": "repost_thread",
-      "description": "Repost a Threads post to the account's profile. Returns the repost id.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "media_id": {
-            "type": "string",
-            "description": "Threads media (post) id"
-          }
-        },
-        "required": [
-          "media_id"
-        ]
-      }
-    },
-    {
-      "name": "delete_thread",
-      "description": "Delete one of the account's Threads posts or replies (needs threads_delete).",
+      "description": "Repost a Threads post to the account's profile. Returns the repost id. (as an agent tool only when THREADS_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1018,7 +1004,7 @@
     },
     {
       "name": "publish_thread",
-      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `existing_container_id` instead of re-running, so nothing is posted twice.",
+      "description": "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `existing_container_id` instead of re-running, so nothing is posted twice. (as an agent tool only when THREADS_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1141,7 +1127,7 @@
     },
     {
       "name": "hide_reply",
-      "description": "Hide or unhide a reply under one of the account's posts (needs threads_manage_replies).",
+      "description": "Hide or unhide a reply under one of the account's posts (needs threads_manage_replies). (as an agent tool only when THREADS_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1205,7 +1191,7 @@
     },
     {
       "name": "approve_pending_reply",
-      "description": "Approve (approve=true) or ignore (approve=false) a pending reply.",
+      "description": "Approve (approve=true) or ignore (approve=false) a pending reply. (as an agent tool only when THREADS_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {

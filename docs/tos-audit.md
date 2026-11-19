@@ -164,8 +164,9 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
 - **Mitigation in the plugin:**
   - meta-api documents the 24 h window and the `HUMAN_AGENT` tag, and retries using Meta's regain-access estimate.
   - Both plugins use official Graph APIs only.
-- **Missing:** publishing and replies are agent tools with no opt-in. Low risk while the user owns the account, but
-  it is worth the same opt-in as x-api.
+- **Missing:** **fixed** for threads-api 0.3.0: publishing, replies and reposts need `THREADS_TOOL_ALLOW_POST=1` as
+  agent tools, reply moderation needs `THREADS_TOOL_ALLOW_ENGAGE=1`, and `delete_thread` is node only.
+  meta-api: see below.
 
 ## Marketplaces: shopee-api, tiktok-shop-api, lazada
 - **Risk: low** (official, partner-gated APIs). All three portals render with JavaScript only, so the terms text was
