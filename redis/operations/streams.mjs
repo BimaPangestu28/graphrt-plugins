@@ -23,13 +23,13 @@ const scan = defineOperation({
     cursor: { type: "string", default: "0", description: "`next_cursor` from the previous page; \"0\" starts" },
     match: { type: "string", description: "Glob pattern within the prefix, e.g. \"order:*\"" },
     count: { type: "integer", minimum: 1, maximum: MAX_ITEMS, default: 100, description: "How much work SCAN does per page (a hint; a page may hold more or fewer keys)" },
-    type: { type: "string", enum: SCAN_TYPES, description: "Only keys of this type" },
+    key_type: { type: "string", enum: SCAN_TYPES, description: "Only keys of this type (sent as SCAN ... TYPE)" },
     encoding: ENCODING_PROPERTY,
   },
   execute: async (context) => {
     const { args, client } = context;
     if (!/^\d{1,20}$/.test(args.cursor)) throw invalidInput("`cursor` must be a next_cursor from an earlier scan");
-    const commandArguments = [args.cursor, "MATCH", client.keyspace.scanPattern(args.match), "COUNT", args.count, ...(args.type ? ["TYPE", args.type] : [])];
+    const commandArguments = [args.cursor, "MATCH", client.keyspace.scanPattern(args.match), "COUNT", args.count, ...(args.key_type ? ["TYPE", args.key_type] : [])];
     const [nextCursorReply, keyReplies] = await sendCommand(context, "scan", commandArguments);
     const keys = keyReplies.map((serverKey) => client.keyspace.fromServerKey(serverKey)).filter(Boolean).map((key) => decodeValue(key, args.encoding));
     const nextCursor = toText(nextCursorReply);
@@ -65,7 +65,7 @@ const xadd = defineOperation({
   properties: {
     key: KEY_PROPERTY,
     fields: { type: "object", description: "Entry fields, e.g. {\"order\": \"A-12\", \"status\": \"paid\"} (at most 1000)" },
-    id: { type: "string", default: "*", description: "Entry id; \"*\" lets Redis choose" },
+    entry_id: { type: "string", default: "*", description: "Entry id; \"*\" lets Redis choose" },
     max_length: { type: "integer", minimum: 1, maximum: 1_000_000_000, description: "Trim the stream to about this many entries (MAXLEN ~)" },
     no_create: { type: "boolean", default: false, description: "Do not create the stream when it does not exist" },
     encoding: ENCODING_PROPERTY,
@@ -73,14 +73,14 @@ const xadd = defineOperation({
   required: ["key", "fields"],
   execute: async (context) => {
     const { args, client } = context;
-    if (!STREAM_ID.test(args.id)) throw invalidInput("`id` must be \"*\" or an id like \"1700000000000-0\"");
+    if (!STREAM_ID.test(args.entry_id)) throw invalidInput("`entry_id` must be \"*\" or an id like \"1700000000000-0\"");
     const entries = Object.entries(args.fields);
     if (entries.length === 0 || entries.length > MAX_ITEMS) throw invalidInput(`\`fields\` must have 1 to ${MAX_ITEMS} entries`);
     const values = entries.map(([fieldName, fieldValue]) => encodeValue(fieldValue, { encoding: args.encoding, label: `fields.${fieldName}`, maxBytes: client.settings.maxValueBytes }));
     assertRequestSize(values);
     const options = [...(args.no_create ? ["NOMKSTREAM"] : []), ...(args.max_length ? ["MAXLEN", "~", args.max_length] : [])];
     const pairs = entries.flatMap(([fieldName], index) => [fieldName, values[index]]);
-    const reply = await sendCommand(context, "xadd", [client.keyspace.toServerKey(args.key), ...options, args.id, ...pairs], true);
+    const reply = await sendCommand(context, "xadd", [client.keyspace.toServerKey(args.key), ...options, args.entry_id, ...pairs], true);
     return { key: args.key, id: toText(reply), created: reply !== null };
   },
 });
@@ -123,7 +123,7 @@ const xreadgroup = defineOperation({
     key: KEY_PROPERTY,
     group: { type: "string", description: "Consumer group" },
     consumer: { type: "string", description: "Consumer name (created on first use)" },
-    id: { type: "string", default: ">", description: "\">\" for new entries, or an id to read pending entries after it" },
+    start_id: { type: "string", default: ">", description: "\">\" for new entries, or an id to read pending entries after it" },
     count: { type: "integer", minimum: 1, maximum: MAX_ITEMS, default: 10, description: "Entries to return" },
     no_ack: {
       type: "boolean",
@@ -137,10 +137,10 @@ const xreadgroup = defineOperation({
     const { args, client } = context;
     assertName(args.group, "group");
     assertName(args.consumer, "consumer");
-    if (args.id !== ">" && !STREAM_ID.test(args.id)) throw invalidInput("`id` must be \">\" or a stream id");
+    if (args.start_id !== ">" && !STREAM_ID.test(args.start_id)) throw invalidInput("`start_id` must be \">\" or a stream id");
     const serverKey = client.keyspace.toServerKey(args.key);
     // Never NOACK: entries the result cap leaves out must stay pending, or they would be lost.
-    const commandArguments = ["GROUP", args.group, args.consumer, "COUNT", args.count, "STREAMS", serverKey, args.id];
+    const commandArguments = ["GROUP", args.group, args.consumer, "COUNT", args.count, "STREAMS", serverKey, args.start_id];
     const reply = await sendCommand(context, "xreadgroup", commandArguments, true);
     const entries = reply === null ? [] : decodeEntries(reply[0]?.[1] ?? [], args.encoding);
     const capped = capItems(entries, client.settings.maxResultBytes);
@@ -160,15 +160,15 @@ const xgroupCreate = defineOperation({
   properties: {
     key: KEY_PROPERTY,
     group: { type: "string", description: "Consumer group" },
-    id: { type: "string", default: "$", description: "\"$\" (new entries only), \"0\" (everything) or an entry id" },
+    start_id: { type: "string", default: "$", description: "\"$\" (new entries only), \"0\" (everything) or an entry id" },
     create_stream: { type: "boolean", default: true, description: "Create an empty stream when the key does not exist (MKSTREAM)" },
   },
   required: ["key", "group"],
   execute: async (context) => {
     const { args, client } = context;
     assertName(args.group, "group");
-    if (args.id !== "$" && !STREAM_ID.test(args.id)) throw invalidInput("`id` must be \"$\", \"0\" or a stream id");
-    const commandArguments = ["CREATE", client.keyspace.toServerKey(args.key), args.group, args.id, ...(args.create_stream ? ["MKSTREAM"] : [])];
+    if (args.start_id !== "$" && !STREAM_ID.test(args.start_id)) throw invalidInput("`start_id` must be \"$\", \"0\" or a stream id");
+    const commandArguments = ["CREATE", client.keyspace.toServerKey(args.key), args.group, args.start_id, ...(args.create_stream ? ["MKSTREAM"] : [])];
     await sendCommand(context, "xgroup", commandArguments, true);
     return { key: args.key, group: args.group, created: true };
   },

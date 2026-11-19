@@ -164,5 +164,9 @@ directory and persistence off. It runs real reads and writes (binary values, par
 paging, streams with consumer groups, the escape hatch, a wrong password), then stops the server and deletes
 the directory. It also checks a clean, redacted `network_error` against an unused port.
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** renamed parameters graphrt takes from every workflow node (so they could never be set from a node; tool calls must use the new names): `scan` `type` → `key_type` (still sent as `TYPE`); `xadd` `id` → `entry_id`; `xreadgroup` and `xgroup_create` `id` → `start_id`.
+
 ## License
 Apache-2.0
