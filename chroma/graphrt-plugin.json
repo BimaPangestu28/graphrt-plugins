@@ -1,0 +1,1275 @@
+{
+  "name": "chroma",
+  "version": "0.1.0",
+  "description": "Chroma (HTTP API v2, local or Chroma Cloud): collections, get, query and search records; adds and upserts opt-in for agents, deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "CHROMA_API_KEY",
+      "CHROMA_URL",
+      "CHROMA_TENANT",
+      "CHROMA_DATABASE",
+      "CHROMA_AUTH_HEADER",
+      "CHROMA_TOOL_API_EXTRA_PATHS",
+      "CHROMA_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "chroma.heartbeat",
+      "title": "Heartbeat",
+      "description": "Check the server is up ({\"nanosecond heartbeat\": ...})",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.get_identity",
+      "title": "Get identity",
+      "description": "Who the token belongs to: user id, tenant and the databases it can use",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.list_collections",
+      "title": "List collections",
+      "description": "Collections of the database with id, name, metadata and configuration",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.count_collections",
+      "title": "Count collections",
+      "description": "Number of collections in the database",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.get_collection",
+      "title": "Get collection",
+      "description": "A collection by name: its id (needed by record operations), metadata, configuration and dimension",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.create_collection",
+      "title": "Create collection",
+      "description": "Create a collection (or return the existing one with get_or_create) (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Collection name (3-512 characters: letters, digits, . _ -)",
+            "minLength": 3
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Collection metadata"
+          },
+          "configuration": {
+            "type": "object",
+            "description": "Index configuration, e.g. {\"hnsw\": {\"space\": \"cosine\"}}"
+          },
+          "get_or_create": {
+            "type": "boolean",
+            "description": "Return the existing collection instead of failing",
+            "default": true
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.delete_collection",
+      "title": "Delete collection",
+      "description": "Delete a collection by name, with all its records",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.count_records",
+      "title": "Count records",
+      "description": "Number of records in a collection",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.get_records",
+      "title": "Get records",
+      "description": "Records by ids and/or filters (columnar: ids, documents, metadatas, ... arrays of equal length)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "where": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"source\": \"news\"} or {\"$and\": [{\"year\": {\"$gte\": 2024}}, {\"lang\": {\"$in\": [\"id\", \"en\"]}}]}"
+          },
+          "where_document": {
+            "type": "object",
+            "description": "Document text filter, e.g. {\"$contains\": \"banjir\"} or {\"$regex\": \"^Jakarta\"}"
+          },
+          "include": {
+            "type": "array",
+            "description": "Fields to return: documents, embeddings, metadatas, distances, uris",
+            "items": {
+              "type": "string",
+              "enum": [
+                "documents",
+                "embeddings",
+                "metadatas",
+                "distances",
+                "uris"
+              ]
+            },
+            "default": [
+              "documents",
+              "metadatas"
+            ]
+          },
+          "record_limit": {
+            "type": "integer",
+            "description": "Maximum records",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "record_offset": {
+            "type": "integer",
+            "description": "Skip this many records",
+            "minimum": 0
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.query_records",
+      "title": "Query records",
+      "description": "Nearest records to one or more query embeddings (one result list per query embedding, with distances)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "query_embeddings": {
+            "type": "array",
+            "description": "Query embeddings, e.g. [[0.1, 0.2, ...]]",
+            "maxItems": 100,
+            "items": {
+              "type": "array"
+            }
+          },
+          "n_results": {
+            "type": "integer",
+            "description": "Results per query",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10
+          },
+          "where": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"source\": \"news\"} or {\"$and\": [{\"year\": {\"$gte\": 2024}}, {\"lang\": {\"$in\": [\"id\", \"en\"]}}]}"
+          },
+          "where_document": {
+            "type": "object",
+            "description": "Document text filter, e.g. {\"$contains\": \"banjir\"} or {\"$regex\": \"^Jakarta\"}"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only consider these record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include": {
+            "type": "array",
+            "description": "Fields to return: documents, embeddings, metadatas, distances, uris",
+            "items": {
+              "type": "string",
+              "enum": [
+                "documents",
+                "embeddings",
+                "metadatas",
+                "distances",
+                "uris"
+              ]
+            },
+            "default": [
+              "documents",
+              "metadatas",
+              "distances"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id",
+          "query_embeddings"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.search_records",
+      "title": "Search records",
+      "description": "Search API (Chroma Cloud and recent servers): searches with rank expressions (knn, rrf), filters, select and limit",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "searches": {
+            "type": "array",
+            "description": "e.g. [{\"rank\": {\"$knn\": {\"query\": [0.1, ...]}}, \"limit\": {\"limit\": 5}, \"select\": {\"keys\": [\"#document\", \"#score\"]}}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "read_level": {
+            "type": "string",
+            "description": "Consistency vs speed (default index_and_wal)",
+            "enum": [
+              "index_and_wal",
+              "index_only",
+              "index_and_bounded_wal"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id",
+          "searches"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.add_records",
+      "title": "Add records",
+      "description": "Add records with embeddings (ids that already exist are left unchanged) (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "embeddings": {
+            "type": "array",
+            "description": "One embedding (array of numbers) per id, same dimension as the collection",
+            "maxItems": 10000,
+            "items": {
+              "type": "array"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "One document text (or null) per id",
+            "maxItems": 10000
+          },
+          "metadatas": {
+            "type": "array",
+            "description": "One metadata object (or null) per id",
+            "maxItems": 10000
+          },
+          "uris": {
+            "type": "array",
+            "description": "One URI (or null) per id",
+            "maxItems": 10000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id",
+          "ids",
+          "embeddings"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.upsert_records",
+      "title": "Upsert records",
+      "description": "Insert or overwrite records by id (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "embeddings": {
+            "type": "array",
+            "description": "One embedding (array of numbers) per id, same dimension as the collection",
+            "maxItems": 10000,
+            "items": {
+              "type": "array"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "One document text (or null) per id",
+            "maxItems": 10000
+          },
+          "metadatas": {
+            "type": "array",
+            "description": "One metadata object (or null) per id",
+            "maxItems": 10000
+          },
+          "uris": {
+            "type": "array",
+            "description": "One URI (or null) per id",
+            "maxItems": 10000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id",
+          "ids",
+          "embeddings"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.update_records",
+      "title": "Update records",
+      "description": "Update embeddings, documents, metadata or URIs of existing records by id (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "embeddings": {
+            "type": "array",
+            "description": "One embedding (array of numbers) per id, same dimension as the collection",
+            "maxItems": 10000,
+            "items": {
+              "type": "array"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "One document text (or null) per id",
+            "maxItems": 10000
+          },
+          "metadatas": {
+            "type": "array",
+            "description": "One metadata object (or null) per id",
+            "maxItems": 10000
+          },
+          "uris": {
+            "type": "array",
+            "description": "One URI (or null) per id",
+            "maxItems": 10000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.delete_records",
+      "title": "Delete records",
+      "description": "Delete records by ids and/or a metadata or document filter",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids to delete",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "where": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"source\": \"news\"} or {\"$and\": [{\"year\": {\"$gte\": 2024}}, {\"lang\": {\"$in\": [\"id\", \"en\"]}}]}"
+          },
+          "where_document": {
+            "type": "object",
+            "description": "Document text filter, e.g. {\"$contains\": \"banjir\"} or {\"$regex\": \"^Jakarta\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "collection_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "chroma.api_request",
+      "title": "Chroma API (database-scoped) request",
+      "description": "Call any Chroma API (database-scoped) endpoint that has no dedicated operation, e.g. path \"/collections/<collection_id>/indexing_status\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/collections/<collection_id>/indexing_status\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "heartbeat",
+      "description": "Check the server is up ({\"nanosecond heartbeat\": ...})",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_identity",
+      "description": "Who the token belongs to: user id, tenant and the databases it can use",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_collections",
+      "description": "Collections of the database with id, name, metadata and configuration",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "count_collections",
+      "description": "Number of collections in the database",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_collection",
+      "description": "A collection by name: its id (needed by record operations), metadata, configuration and dimension",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_name": {
+            "type": "string",
+            "description": "Collection name"
+          }
+        },
+        "required": [
+          "collection_name"
+        ]
+      }
+    },
+    {
+      "name": "create_collection",
+      "description": "Create a collection (or return the existing one with get_or_create) (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Collection name (3-512 characters: letters, digits, . _ -)",
+            "minLength": 3
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Collection metadata"
+          },
+          "configuration": {
+            "type": "object",
+            "description": "Index configuration, e.g. {\"hnsw\": {\"space\": \"cosine\"}}"
+          },
+          "get_or_create": {
+            "type": "boolean",
+            "description": "Return the existing collection instead of failing",
+            "default": true
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "count_records",
+      "description": "Number of records in a collection",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          }
+        },
+        "required": [
+          "collection_id"
+        ]
+      }
+    },
+    {
+      "name": "get_records",
+      "description": "Records by ids and/or filters (columnar: ids, documents, metadatas, ... arrays of equal length)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "where": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"source\": \"news\"} or {\"$and\": [{\"year\": {\"$gte\": 2024}}, {\"lang\": {\"$in\": [\"id\", \"en\"]}}]}"
+          },
+          "where_document": {
+            "type": "object",
+            "description": "Document text filter, e.g. {\"$contains\": \"banjir\"} or {\"$regex\": \"^Jakarta\"}"
+          },
+          "include": {
+            "type": "array",
+            "description": "Fields to return: documents, embeddings, metadatas, distances, uris",
+            "items": {
+              "type": "string",
+              "enum": [
+                "documents",
+                "embeddings",
+                "metadatas",
+                "distances",
+                "uris"
+              ]
+            },
+            "default": [
+              "documents",
+              "metadatas"
+            ]
+          },
+          "record_limit": {
+            "type": "integer",
+            "description": "Maximum records",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "record_offset": {
+            "type": "integer",
+            "description": "Skip this many records",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "collection_id"
+        ]
+      }
+    },
+    {
+      "name": "query_records",
+      "description": "Nearest records to one or more query embeddings (one result list per query embedding, with distances)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "query_embeddings": {
+            "type": "array",
+            "description": "Query embeddings, e.g. [[0.1, 0.2, ...]]",
+            "maxItems": 100,
+            "items": {
+              "type": "array"
+            }
+          },
+          "n_results": {
+            "type": "integer",
+            "description": "Results per query",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10
+          },
+          "where": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"source\": \"news\"} or {\"$and\": [{\"year\": {\"$gte\": 2024}}, {\"lang\": {\"$in\": [\"id\", \"en\"]}}]}"
+          },
+          "where_document": {
+            "type": "object",
+            "description": "Document text filter, e.g. {\"$contains\": \"banjir\"} or {\"$regex\": \"^Jakarta\"}"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only consider these record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include": {
+            "type": "array",
+            "description": "Fields to return: documents, embeddings, metadatas, distances, uris",
+            "items": {
+              "type": "string",
+              "enum": [
+                "documents",
+                "embeddings",
+                "metadatas",
+                "distances",
+                "uris"
+              ]
+            },
+            "default": [
+              "documents",
+              "metadatas",
+              "distances"
+            ]
+          }
+        },
+        "required": [
+          "collection_id",
+          "query_embeddings"
+        ]
+      }
+    },
+    {
+      "name": "search_records",
+      "description": "Search API (Chroma Cloud and recent servers): searches with rank expressions (knn, rrf), filters, select and limit",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "searches": {
+            "type": "array",
+            "description": "e.g. [{\"rank\": {\"$knn\": {\"query\": [0.1, ...]}}, \"limit\": {\"limit\": 5}, \"select\": {\"keys\": [\"#document\", \"#score\"]}}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "read_level": {
+            "type": "string",
+            "description": "Consistency vs speed (default index_and_wal)",
+            "enum": [
+              "index_and_wal",
+              "index_only",
+              "index_and_bounded_wal"
+            ]
+          }
+        },
+        "required": [
+          "collection_id",
+          "searches"
+        ]
+      }
+    },
+    {
+      "name": "add_records",
+      "description": "Add records with embeddings (ids that already exist are left unchanged) (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "embeddings": {
+            "type": "array",
+            "description": "One embedding (array of numbers) per id, same dimension as the collection",
+            "maxItems": 10000,
+            "items": {
+              "type": "array"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "One document text (or null) per id",
+            "maxItems": 10000
+          },
+          "metadatas": {
+            "type": "array",
+            "description": "One metadata object (or null) per id",
+            "maxItems": 10000
+          },
+          "uris": {
+            "type": "array",
+            "description": "One URI (or null) per id",
+            "maxItems": 10000
+          }
+        },
+        "required": [
+          "collection_id",
+          "ids",
+          "embeddings"
+        ]
+      }
+    },
+    {
+      "name": "upsert_records",
+      "description": "Insert or overwrite records by id (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "embeddings": {
+            "type": "array",
+            "description": "One embedding (array of numbers) per id, same dimension as the collection",
+            "maxItems": 10000,
+            "items": {
+              "type": "array"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "One document text (or null) per id",
+            "maxItems": 10000
+          },
+          "metadatas": {
+            "type": "array",
+            "description": "One metadata object (or null) per id",
+            "maxItems": 10000
+          },
+          "uris": {
+            "type": "array",
+            "description": "One URI (or null) per id",
+            "maxItems": 10000
+          }
+        },
+        "required": [
+          "collection_id",
+          "ids",
+          "embeddings"
+        ]
+      }
+    },
+    {
+      "name": "update_records",
+      "description": "Update embeddings, documents, metadata or URIs of existing records by id (as an agent tool only when CHROMA_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "description": "Collection id (UUID, `id` from get_collection or list_collections)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 10000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "embeddings": {
+            "type": "array",
+            "description": "One embedding (array of numbers) per id, same dimension as the collection",
+            "maxItems": 10000,
+            "items": {
+              "type": "array"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "One document text (or null) per id",
+            "maxItems": 10000
+          },
+          "metadatas": {
+            "type": "array",
+            "description": "One metadata object (or null) per id",
+            "maxItems": 10000
+          },
+          "uris": {
+            "type": "array",
+            "description": "One URI (or null) per id",
+            "maxItems": 10000
+          }
+        },
+        "required": [
+          "collection_id",
+          "ids"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Chroma API (database-scoped) endpoint that has no dedicated operation, e.g. path \"/collections/<collection_id>/indexing_status\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/collections/<collection_id>/indexing_status\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# Latest earthquake and the 3-day forecast for Kemayoran, Jakarta. Read-only, no API key needed.
+# Data: BMKG (Badan Meteorologi, Klimatologi, dan Geofisika); credit BMKG wherever you show it.
+#   graphrt run bmkg/example.yaml --plugins .
+version: "1"
+name: bmkg-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: quake, type: bmkg.get_latest_earthquake }
+    - { id: weather, type: bmkg.get_weather_forecast, adm4: "31.71.03.1001" }
+    - id: answer
+      type: answer
+      answer: "Latest earthquake: M{{#quake.data.Magnitude#}} {{#quake.data.Wilayah#}} at {{#quake.data.Jam#}} ({{#quake.data.Potensi#}}). Kemayoran next: {{#weather.data.forecasts.0.local_datetime#}} {{#weather.data.forecasts.0.weather_desc_en#}} {{#weather.data.forecasts.0.t#}} C. Source: BMKG"
+  edges:
+    - { source: start, target: quake }
+    - { source: quake, target: weather }
+    - { source: weather, target: answer }

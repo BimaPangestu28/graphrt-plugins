@@ -1,0 +1,15 @@
+# List collections, then show the first collection's info. Read-only.
+#   QDRANT_URL=http://localhost:6333 graphrt run qdrant/example.yaml --plugins .
+#   (Qdrant Cloud: QDRANT_URL=https://<cluster>.cloud.qdrant.io:6333 QDRANT_API_KEY=...)
+version: "1"
+name: qdrant-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: collections, type: qdrant.list_collections }
+    - { id: info, type: qdrant.get_collection, collection_name: "{{#collections.data.0.name#}}" }
+    - { id: answer, type: answer, answer: "{{#collections.data.0.name#}}: {{#info.data.points_count#}} points, status {{#info.data.status#}}" }
+  edges:
+    - { source: start, target: collections }
+    - { source: collections, target: info }
+    - { source: info, target: answer }

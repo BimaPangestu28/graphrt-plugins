@@ -1,0 +1,521 @@
+{
+  "name": "neo4j",
+  "version": "0.1.0",
+  "description": "Neo4j Cypher over the HTTP Query API v2: read queries (accessMode Read plus an agent statement guard), schema (labels, types, indexes, constraints), nodes by elementId; writes need an opt-in for agents, deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "NEO4J_PASSWORD",
+      "NEO4J_USERNAME",
+      "NEO4J_URL",
+      "NEO4J_DATABASE",
+      "NEO4J_TOOL_ALLOWED_PROCEDURES",
+      "NEO4J_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "neo4j.run_read_query",
+      "title": "Run read query",
+      "description": "Run a read-only Cypher query (accessMode Read; agent statements with write clauses are refused); rows are in records, one object per row keyed by the RETURN names",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "description": "Cypher statement on one line; pass values as $name placeholders in parameters, never inline",
+            "minLength": 1
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Values for $placeholders, e.g. {\"name\": \"Alice\", \"limit\": 10}"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "description": "Server-side transaction timeout in seconds (Neo4j 2026.04+)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "statement"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.run_write_query",
+      "title": "Run write query",
+      "description": "Run a Cypher query that may write (CREATE, MERGE, SET, DELETE); counters say what changed (as an agent tool only when NEO4J_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "description": "Cypher statement on one line; pass values as $name placeholders in parameters, never inline",
+            "minLength": 1
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Values for $placeholders, e.g. {\"name\": \"Alice\", \"limit\": 10}"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "description": "Server-side transaction timeout in seconds (Neo4j 2026.04+)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "statement"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.list_labels",
+      "title": "List labels",
+      "description": "Node labels in the database (records[].label)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.list_relationship_types",
+      "title": "List relationship types",
+      "description": "Relationship types in the database (records[].relationshipType)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.list_property_keys",
+      "title": "List property keys",
+      "description": "Property keys used in the database (records[].propertyKey)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.list_indexes",
+      "title": "List indexes",
+      "description": "Indexes (name, type, entityType, labelsOrTypes, properties, state), including full-text and vector indexes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.list_constraints",
+      "title": "List constraints",
+      "description": "Constraints (name, type, entityType, labelsOrTypes, properties)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.get_schema",
+      "title": "Get schema",
+      "description": "Schema graph: which labels connect through which relationship types (records[0].nodes and relationships)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.get_node",
+      "title": "Get node",
+      "description": "One node by elementId with its labels and properties (records[0].n; no records when missing)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "element_id": {
+            "type": "string",
+            "description": "elementId of the node (from a query result)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "element_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.delete_node",
+      "title": "Delete node",
+      "description": "Delete one node by elementId together with its relationships (DETACH DELETE); counters.nodesDeleted is 0 when it was missing",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "element_id": {
+            "type": "string",
+            "description": "elementId of the node (from a query result)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "element_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "neo4j.get_server_info",
+      "title": "Server info",
+      "description": "Neo4j version, edition and the Query API versions the server offers (discovery, no auth needed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "run_read_query",
+      "description": "Run a read-only Cypher query (accessMode Read; agent statements with write clauses are refused); rows are in records, one object per row keyed by the RETURN names",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "description": "Cypher statement on one line; pass values as $name placeholders in parameters, never inline",
+            "minLength": 1
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Values for $placeholders, e.g. {\"name\": \"Alice\", \"limit\": 10}"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "description": "Server-side transaction timeout in seconds (Neo4j 2026.04+)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "statement"
+        ]
+      }
+    },
+    {
+      "name": "run_write_query",
+      "description": "Run a Cypher query that may write (CREATE, MERGE, SET, DELETE); counters say what changed (as an agent tool only when NEO4J_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "description": "Cypher statement on one line; pass values as $name placeholders in parameters, never inline",
+            "minLength": 1
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Values for $placeholders, e.g. {\"name\": \"Alice\", \"limit\": 10}"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "description": "Server-side transaction timeout in seconds (Neo4j 2026.04+)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "statement"
+        ]
+      }
+    },
+    {
+      "name": "list_labels",
+      "description": "Node labels in the database (records[].label)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_relationship_types",
+      "description": "Relationship types in the database (records[].relationshipType)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_property_keys",
+      "description": "Property keys used in the database (records[].propertyKey)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_indexes",
+      "description": "Indexes (name, type, entityType, labelsOrTypes, properties, state), including full-text and vector indexes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_constraints",
+      "description": "Constraints (name, type, entityType, labelsOrTypes, properties)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_schema",
+      "description": "Schema graph: which labels connect through which relationship types (records[0].nodes and relationships)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_node",
+      "description": "One node by elementId with its labels and properties (records[0].n; no records when missing)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "element_id": {
+            "type": "string",
+            "description": "elementId of the node (from a query result)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "element_id"
+        ]
+      }
+    },
+    {
+      "name": "get_server_info",
+      "description": "Neo4j version, edition and the Query API versions the server offers (discovery, no auth needed)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  ]
+}

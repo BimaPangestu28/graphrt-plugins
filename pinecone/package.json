@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-pinecone",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Pinecone vector database (indexes, vectors, namespaces, documents)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

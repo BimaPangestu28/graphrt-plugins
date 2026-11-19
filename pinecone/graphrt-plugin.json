@@ -1,0 +1,1686 @@
+{
+  "name": "pinecone",
+  "version": "0.1.0",
+  "description": "Pinecone vector database (API 2026-07): indexes, stats, namespaces, query/fetch/list vectors, document search; upserts opt-in for agents, deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "PINECONE_API_KEY",
+      "PINECONE_INDEX_HOST",
+      "PINECONE_TOOL_API_EXTRA_PATHS",
+      "PINECONE_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "pinecone.list_indexes",
+      "title": "List indexes",
+      "description": "Indexes in the project with their host (use it as index_host), dimension or schema, status and deployment",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.describe_index",
+      "title": "Describe index",
+      "description": "One index: host (for index_host), status, schema/dimension and metric, deployment, deletion protection",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_name": {
+            "type": "string",
+            "description": "Index name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.delete_index",
+      "title": "Delete index",
+      "description": "Delete an index and all its data (refused while deletion protection is enabled)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_name": {
+            "type": "string",
+            "description": "Index name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "index_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.describe_index_stats",
+      "title": "Describe index stats",
+      "description": "Vector count per namespace, dimension and fullness of the index",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Only count vectors matching this metadata filter (pod-based indexes only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.list_namespaces",
+      "title": "List namespaces",
+      "description": "Namespaces of the index with their record counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only namespaces starting with this prefix"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.delete_namespace",
+      "title": "Delete namespace",
+      "description": "Delete a namespace and every record in it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.query_vectors",
+      "title": "Query vectors",
+      "description": "Nearest neighbours of a query vector (or of a stored vector by vector_id), with scores and optional metadata",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Number of matches",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "vector": {
+            "type": "array",
+            "description": "Query vector (same dimension as the index); or use vector_id",
+            "maxItems": 20000,
+            "items": {
+              "type": "number"
+            }
+          },
+          "vector_id": {
+            "type": "string",
+            "description": "Use this stored vector as the query instead of `vector`"
+          },
+          "sparse_vector": {
+            "type": "object",
+            "description": "Sparse vector {indices: [int], values: [number]}"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          },
+          "include_metadata": {
+            "type": "boolean",
+            "default": true
+          },
+          "include_values": {
+            "type": "boolean",
+            "default": false
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "top_k"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.fetch_vectors",
+      "title": "Fetch vectors",
+      "description": "Vectors by id with values and metadata (`vectors` is a map from id to vector)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Vector ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default namespace when omitted)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.fetch_vectors_by_metadata",
+      "title": "Fetch vectors by metadata",
+      "description": "Vectors whose metadata matches a filter, page by page (`vectors` is a map from id to vector)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "filter"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.list_vector_ids",
+      "title": "List vector ids",
+      "description": "Vector ids in a namespace (serverless indexes), optionally by id prefix, page by page",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only ids starting with this, e.g. \"doc1#\""
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default namespace when omitted)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.upsert_vectors",
+      "title": "Upsert vectors",
+      "description": "Insert or overwrite up to 1000 vectors by id ({id, values, sparseValues?, metadata?}) (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "vectors": {
+            "type": "array",
+            "description": "e.g. [{\"id\": \"a\", \"values\": [0.1, 0.2], \"metadata\": {\"genre\": \"drama\"}}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "vectors"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.update_vectors",
+      "title": "Update vectors",
+      "description": "Update one vector by vector_id (values, sparse values, merge metadata), or set metadata on every vector matching a filter (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "vector_id": {
+            "type": "string",
+            "description": "Vector to update (or use filter)"
+          },
+          "values": {
+            "type": "array",
+            "description": "New dense values (with vector_id only)",
+            "maxItems": 20000,
+            "items": {
+              "type": "number"
+            }
+          },
+          "sparse_values": {
+            "type": "object",
+            "description": "Sparse vector {indices: [int], values: [number]}"
+          },
+          "set_metadata": {
+            "type": "object",
+            "description": "Metadata fields to set (merged into existing metadata)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Update every vector matching this filter instead of one id (set_metadata only)"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "With filter: only return how many vectors would change"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.delete_vectors",
+      "title": "Delete vectors",
+      "description": "Delete vectors by ids, by metadata filter, or all vectors of a namespace (delete_all)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Vector ids to delete",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Delete every vector matching this filter"
+          },
+          "delete_all": {
+            "type": "boolean",
+            "description": "Delete every vector in the namespace"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.search_documents",
+      "title": "Search documents",
+      "description": "Search a document index: score_by clauses (dense_vector, sparse_vector, text, query_string, embed, sparse_embed), top_k matches with _score and fields",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "score_by": {
+            "type": "array",
+            "description": "e.g. [{\"type\": \"embed\", \"fields\": [\"content\"], \"query\": \"what is ML?\"}] or [{\"type\": \"dense_vector\", \"field\": \"embedding\", \"values\": [...]}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Fields to return ([\"*\"] for all; none by default)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace",
+          "score_by",
+          "top_k"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.fetch_documents",
+      "title": "Fetch documents",
+      "description": "Documents by ids, or by metadata filter page by page (`documents` is a map from _id to document)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Document ids (or use filter)",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Fetch documents matching this filter instead of ids"
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Fields to return (all by default)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.list_documents",
+      "title": "List documents",
+      "description": "Document ids in a namespace, optionally by id prefix, page by page",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only ids starting with this"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.upsert_documents",
+      "title": "Upsert documents",
+      "description": "Insert or overwrite documents by _id (at most 96 per call when the index embeds text; embedding is billed per call) (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "documents": {
+            "type": "array",
+            "description": "e.g. [{\"_id\": \"doc-1\", \"content\": \"text to embed\", \"category\": \"news\"}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace",
+          "documents"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.update_documents",
+      "title": "Update documents",
+      "description": "Patch documents by _id (documents), or set/remove metadata fields on every document matching a filter (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "documents": {
+            "type": "array",
+            "description": "Partial documents, e.g. [{\"_id\": \"doc-1\", \"category\": \"archive\"}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Patch every document matching this filter (with set_fields / remove_fields)"
+          },
+          "set_fields": {
+            "type": "object",
+            "description": "Metadata fields to set on filtered documents"
+          },
+          "remove_fields": {
+            "type": "array",
+            "description": "Metadata fields to remove from filtered documents",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.delete_documents",
+      "title": "Delete documents",
+      "description": "Delete documents by ids, by metadata filter, or all documents of a namespace (delete_all)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Document ids to delete",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Delete every document matching this filter"
+          },
+          "delete_all": {
+            "type": "boolean",
+            "description": "Delete every document in the namespace"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.search_records",
+      "title": "Search records (integrated index)",
+      "description": "Text search on a legacy integrated-embedding index: Pinecone embeds query_text, optional reranking; result.hits with _id, _score, fields",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "query_text": {
+            "type": "string",
+            "description": "Text to search for (or use query_vector / query_record_id)",
+            "minLength": 1
+          },
+          "query_vector": {
+            "type": "array",
+            "description": "Dense query vector instead of text",
+            "items": {
+              "type": "number"
+            }
+          },
+          "query_record_id": {
+            "type": "string",
+            "description": "Use this stored record as the query"
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return on each hit",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rerank": {
+            "type": "object",
+            "description": "e.g. {\"model\": \"bge-reranker-v2-m3\", \"rank_fields\": [\"chunk_text\"], \"top_n\": 5}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "namespace",
+          "top_k"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "pinecone.api_request",
+      "title": "Pinecone control plane API request",
+      "description": "Call any Pinecone control plane API endpoint that has no dedicated operation, e.g. path \"/indexes/<index_name>/backups\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/indexes/<index_name>/backups\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_indexes",
+      "description": "Indexes in the project with their host (use it as index_host), dimension or schema, status and deployment",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "describe_index",
+      "description": "One index: host (for index_host), status, schema/dimension and metric, deployment, deletion protection",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_name": {
+            "type": "string",
+            "description": "Index name"
+          }
+        },
+        "required": [
+          "index_name"
+        ]
+      }
+    },
+    {
+      "name": "describe_index_stats",
+      "description": "Vector count per namespace, dimension and fullness of the index",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Only count vectors matching this metadata filter (pod-based indexes only)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_namespaces",
+      "description": "Namespaces of the index with their record counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only namespaces starting with this prefix"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "query_vectors",
+      "description": "Nearest neighbours of a query vector (or of a stored vector by vector_id), with scores and optional metadata",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Number of matches",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "vector": {
+            "type": "array",
+            "description": "Query vector (same dimension as the index); or use vector_id",
+            "maxItems": 20000,
+            "items": {
+              "type": "number"
+            }
+          },
+          "vector_id": {
+            "type": "string",
+            "description": "Use this stored vector as the query instead of `vector`"
+          },
+          "sparse_vector": {
+            "type": "object",
+            "description": "Sparse vector {indices: [int], values: [number]}"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          },
+          "include_metadata": {
+            "type": "boolean",
+            "default": true
+          },
+          "include_values": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "top_k"
+        ]
+      }
+    },
+    {
+      "name": "fetch_vectors",
+      "description": "Vectors by id with values and metadata (`vectors` is a map from id to vector)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Vector ids",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default namespace when omitted)"
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      }
+    },
+    {
+      "name": "fetch_vectors_by_metadata",
+      "description": "Vectors whose metadata matches a filter, page by page (`vectors` is a map from id to vector)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "filter"
+        ]
+      }
+    },
+    {
+      "name": "list_vector_ids",
+      "description": "Vector ids in a namespace (serverless indexes), optionally by id prefix, page by page",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only ids starting with this, e.g. \"doc1#\""
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default namespace when omitted)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "upsert_vectors",
+      "description": "Insert or overwrite up to 1000 vectors by id ({id, values, sparseValues?, metadata?}) (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "vectors": {
+            "type": "array",
+            "description": "e.g. [{\"id\": \"a\", \"values\": [0.1, 0.2], \"metadata\": {\"genre\": \"drama\"}}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          }
+        },
+        "required": [
+          "vectors"
+        ]
+      }
+    },
+    {
+      "name": "update_vectors",
+      "description": "Update one vector by vector_id (values, sparse values, merge metadata), or set metadata on every vector matching a filter (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "vector_id": {
+            "type": "string",
+            "description": "Vector to update (or use filter)"
+          },
+          "values": {
+            "type": "array",
+            "description": "New dense values (with vector_id only)",
+            "maxItems": 20000,
+            "items": {
+              "type": "number"
+            }
+          },
+          "sparse_values": {
+            "type": "object",
+            "description": "Sparse vector {indices: [int], values: [number]}"
+          },
+          "set_metadata": {
+            "type": "object",
+            "description": "Metadata fields to set (merged into existing metadata)"
+          },
+          "filter": {
+            "type": "object",
+            "description": "Update every vector matching this filter instead of one id (set_metadata only)"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "With filter: only return how many vectors would change"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace (default: the \"\" default namespace)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "search_documents",
+      "description": "Search a document index: score_by clauses (dense_vector, sparse_vector, text, query_string, embed, sparse_embed), top_k matches with _score and fields",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "score_by": {
+            "type": "array",
+            "description": "e.g. [{\"type\": \"embed\", \"fields\": [\"content\"], \"query\": \"what is ML?\"}] or [{\"type\": \"dense_vector\", \"field\": \"embedding\", \"values\": [...]}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Fields to return ([\"*\"] for all; none by default)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          }
+        },
+        "required": [
+          "namespace",
+          "score_by",
+          "top_k"
+        ]
+      }
+    },
+    {
+      "name": "fetch_documents",
+      "description": "Documents by ids, or by metadata filter page by page (`documents` is a map from _id to document)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Document ids (or use filter)",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Fetch documents matching this filter instead of ids"
+          },
+          "include_fields": {
+            "type": "array",
+            "description": "Fields to return (all by default)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      }
+    },
+    {
+      "name": "list_documents",
+      "description": "Document ids in a namespace, optionally by id prefix, page by page",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only ids starting with this"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      }
+    },
+    {
+      "name": "upsert_documents",
+      "description": "Insert or overwrite documents by _id (at most 96 per call when the index embeds text; embedding is billed per call) (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "documents": {
+            "type": "array",
+            "description": "e.g. [{\"_id\": \"doc-1\", \"content\": \"text to embed\", \"category\": \"news\"}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "namespace",
+          "documents"
+        ]
+      }
+    },
+    {
+      "name": "update_documents",
+      "description": "Patch documents by _id (documents), or set/remove metadata fields on every document matching a filter (as an agent tool only when PINECONE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "documents": {
+            "type": "array",
+            "description": "Partial documents, e.g. [{\"_id\": \"doc-1\", \"category\": \"archive\"}]",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "filter": {
+            "type": "object",
+            "description": "Patch every document matching this filter (with set_fields / remove_fields)"
+          },
+          "set_fields": {
+            "type": "object",
+            "description": "Metadata fields to set on filtered documents"
+          },
+          "remove_fields": {
+            "type": "array",
+            "description": "Metadata fields to remove from filtered documents",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      }
+    },
+    {
+      "name": "search_records",
+      "description": "Text search on a legacy integrated-embedding index: Pinecone embeds query_text, optional reranking; result.hits with _id, _score, fields",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index_host": {
+            "type": "string",
+            "description": "Index host from describe_index (`host`), e.g. my-index-abc123.svc.aped-4627-b74a.pinecone.io; default PINECONE_INDEX_HOST"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Namespace name"
+          },
+          "query_text": {
+            "type": "string",
+            "description": "Text to search for (or use query_vector / query_record_id)",
+            "minLength": 1
+          },
+          "query_vector": {
+            "type": "array",
+            "description": "Dense query vector instead of text",
+            "items": {
+              "type": "number"
+            }
+          },
+          "query_record_id": {
+            "type": "string",
+            "description": "Use this stored record as the query"
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "filter": {
+            "type": "object",
+            "description": "Metadata filter, e.g. {\"genre\": {\"$eq\": \"drama\"}, \"year\": {\"$gte\": 2020}}"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Fields to return on each hit",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rerank": {
+            "type": "object",
+            "description": "e.g. {\"model\": \"bge-reranker-v2-m3\", \"rank_fields\": [\"chunk_text\"], \"top_n\": 5}"
+          }
+        },
+        "required": [
+          "namespace",
+          "top_k"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Pinecone control plane API endpoint that has no dedicated operation, e.g. path \"/indexes/<index_name>/backups\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/indexes/<index_name>/backups\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

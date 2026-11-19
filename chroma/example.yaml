@@ -1,0 +1,17 @@
+# Check the server, list collections and count the first collection's records. Read-only.
+#   graphrt run chroma/example.yaml --plugins .          (local server on http://localhost:8000)
+#   (Chroma Cloud: CHROMA_URL=https://api.trychroma.com CHROMA_API_KEY=... CHROMA_TENANT=<tenant id> CHROMA_DATABASE=<db>)
+version: "1"
+name: chroma-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: heartbeat, type: chroma.heartbeat }
+    - { id: collections, type: chroma.list_collections, limit: 10 }
+    - { id: count, type: chroma.count_records, collection_id: "{{#collections.data.0.id#}}" }
+    - { id: answer, type: answer, answer: "{{#collections.data.0.name#}} has {{#count.data#}} records" }
+  edges:
+    - { source: start, target: heartbeat }
+    - { source: heartbeat, target: collections }
+    - { source: collections, target: count }
+    - { source: count, target: answer }

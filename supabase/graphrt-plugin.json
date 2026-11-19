@@ -1,0 +1,1193 @@
+{
+  "name": "supabase",
+  "version": "0.1.0",
+  "description": "Supabase: table rows via the Data API (PostgREST) with safely encoded filters, inserts/updates/upserts and RPC, and Storage files",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SUPABASE_KEY",
+      "SUPABASE_URL",
+      "SUPABASE_USER_JWT",
+      "SUPABASE_TOOL_API_EXTRA_PATHS",
+      "SUPABASE_TOOL_ALLOW_WRITES",
+      "SUPABASE_DOWNLOAD_DIR",
+      "SUPABASE_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 130000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "supabase.get_api_schema",
+      "title": "Get Data API schema",
+      "description": "OpenAPI description of the exposed tables, views, columns and functions (needs a secret or service_role key since Feb 2026)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.select_rows",
+      "title": "Select rows",
+      "description": "Read rows of a table or view with filters, column selection (incl. related tables) and ordering; row level security applies to publishable/anon keys",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "filters": {
+            "type": "array",
+            "description": "Conditions, all must match: [{column, operator, value, negate?, language?}]. operator: eq, neq, gt, gte, lt, lte, like, ilike, match, imatch, in, is, isdistinct, fts, plfts, phfts, wfts, cs, cd, ov, sl, sr, nxr, nxl, adj. Values are quoted for you; \"in\" takes a list, \"is\" takes null/true/false/unknown, like/ilike use * as wildcard, language is for full-text operators. JSON columns: data->>city",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "order": {
+            "type": "string",
+            "description": "e.g. created_at.desc,id or score.desc.nullslast"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.insert_rows",
+      "title": "Insert rows",
+      "description": "Insert one or more rows and return them; missing columns get their defaults (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "rows": {
+            "type": "array",
+            "description": "Rows as objects of column: value",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "rows"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.upsert_rows",
+      "title": "Upsert rows",
+      "description": "Insert rows, or update (merge) or skip (ignore) rows whose primary key or on_conflict columns already exist (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "rows": {
+            "type": "array",
+            "description": "Rows including the key columns",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "on_conflict": {
+            "type": "string",
+            "description": "Columns of a UNIQUE constraint to match on, e.g. email (default the primary key)"
+          },
+          "duplicates": {
+            "type": "string",
+            "description": "merge updates existing rows, ignore leaves them",
+            "enum": [
+              "merge",
+              "ignore"
+            ],
+            "default": "merge"
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "rows"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.update_rows",
+      "title": "Update rows",
+      "description": "Set column values on every row matching the filters (at least one filter required) and return the changed rows (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "values": {
+            "type": "object",
+            "description": "Columns to set, e.g. {\"status\": \"done\"}"
+          },
+          "filters": {
+            "type": "array",
+            "description": "Conditions, all must match: [{column, operator, value, negate?, language?}]. operator: eq, neq, gt, gte, lt, lte, like, ilike, match, imatch, in, is, isdistinct, fts, plfts, phfts, wfts, cs, cd, ov, sl, sr, nxr, nxl, adj. Values are quoted for you; \"in\" takes a list, \"is\" takes null/true/false/unknown, like/ilike use * as wildcard, language is for full-text operators. JSON columns: data->>city",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "values",
+          "filters"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.delete_rows",
+      "title": "Delete rows",
+      "description": "Delete every row matching the filters (at least one filter required) and return the deleted rows",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "filters": {
+            "type": "array",
+            "description": "Conditions, all must match: [{column, operator, value, negate?, language?}]. operator: eq, neq, gt, gte, lt, lte, like, ilike, match, imatch, in, is, isdistinct, fts, plfts, phfts, wfts, cs, cd, ov, sl, sr, nxr, nxl, adj. Values are quoted for you; \"in\" takes a list, \"is\" takes null/true/false/unknown, like/ilike use * as wildcard, language is for full-text operators. JSON columns: data->>city",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "filters"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.call_function",
+      "title": "Call database function",
+      "description": "Call a Postgres function exposed by the Data API (RPC) with named arguments (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "function_name": {
+            "type": "string",
+            "description": "Function name"
+          },
+          "arguments": {
+            "type": "object",
+            "description": "Named arguments, e.g. {\"user_id\": 7}",
+            "default": {}
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "function_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.list_buckets",
+      "title": "List buckets",
+      "description": "Storage buckets of the project with their public flag, size limit and allowed MIME types",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.get_bucket",
+      "title": "Get bucket",
+      "description": "One storage bucket",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.list_objects",
+      "title": "List objects",
+      "description": "Files and folders under a prefix of a bucket (one level), with size and MIME type in metadata",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Folder to list, e.g. \"invoices/2026\" (\"\" for the root)",
+            "default": ""
+          },
+          "search": {
+            "type": "string",
+            "description": "Only names containing this text"
+          },
+          "sort_column": {
+            "type": "string",
+            "enum": [
+              "name",
+              "updated_at",
+              "created_at",
+              "last_accessed_at"
+            ]
+          },
+          "sort_order": {
+            "type": "string",
+            "description": "Needs sort_column",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.get_object_info",
+      "title": "Get object info",
+      "description": "Size, MIME type, ETag and timestamps of one file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "object_path": {
+            "type": "string",
+            "description": "Object path inside the bucket, e.g. invoices/2026/11.pdf"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket_id",
+          "object_path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.download_object",
+      "title": "Download object",
+      "description": "Download a file into SUPABASE_DOWNLOAD_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "object_path": {
+            "type": "string",
+            "description": "Object path inside the bucket, e.g. invoices/2026/11.pdf"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket_id",
+          "object_path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.upload_object",
+      "title": "Upload object",
+      "description": "Upload a file (https URL or a path inside SUPABASE_UPLOAD_DIR) to a bucket path; upsert overwrites (node only) (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "object_path": {
+            "type": "string",
+            "description": "Object path inside the bucket, e.g. invoices/2026/11.pdf"
+          },
+          "file": {
+            "type": "string",
+            "description": "File (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "upsert": {
+            "type": "boolean",
+            "description": "Overwrite an existing file (workflow nodes only)",
+            "default": false
+          },
+          "cache_control": {
+            "type": "string",
+            "description": "e.g. \"max-age=3600\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket_id",
+          "object_path",
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.delete_objects",
+      "title": "Delete objects",
+      "description": "Delete up to 1000 files of a bucket by path",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "paths": {
+            "type": "array",
+            "description": "Object paths",
+            "maxItems": 1000,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket_id",
+          "paths"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.create_signed_url",
+      "title": "Create signed URL",
+      "description": "A time-limited download URL for a private file (anyone with the link can read it)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "object_path": {
+            "type": "string",
+            "description": "Object path inside the bucket, e.g. invoices/2026/11.pdf"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Seconds the link is valid",
+            "minimum": 1,
+            "maximum": 604800
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket_id",
+          "object_path",
+          "expires_in"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "supabase.api_request",
+      "title": "Supabase project API (Data API /rest/v1, Storage /storage/v1) request",
+      "description": "Call any Supabase project API (Data API /rest/v1, Storage /storage/v1) endpoint that has no dedicated operation, e.g. path \"/rest/v1/<table>?select=id&id=eq.1\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/rest/v1/<table>?select=id&id=eq.1\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_api_schema",
+      "description": "OpenAPI description of the exposed tables, views, columns and functions (needs a secret or service_role key since Feb 2026)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "select_rows",
+      "description": "Read rows of a table or view with filters, column selection (incl. related tables) and ordering; row level security applies to publishable/anon keys",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "filters": {
+            "type": "array",
+            "description": "Conditions, all must match: [{column, operator, value, negate?, language?}]. operator: eq, neq, gt, gte, lt, lte, like, ilike, match, imatch, in, is, isdistinct, fts, plfts, phfts, wfts, cs, cd, ov, sl, sr, nxr, nxl, adj. Values are quoted for you; \"in\" takes a list, \"is\" takes null/true/false/unknown, like/ilike use * as wildcard, language is for full-text operators. JSON columns: data->>city",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "order": {
+            "type": "string",
+            "description": "e.g. created_at.desc,id or score.desc.nullslast"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": [
+          "table"
+        ]
+      }
+    },
+    {
+      "name": "insert_rows",
+      "description": "Insert one or more rows and return them; missing columns get their defaults (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "rows": {
+            "type": "array",
+            "description": "Rows as objects of column: value",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          }
+        },
+        "required": [
+          "table",
+          "rows"
+        ]
+      }
+    },
+    {
+      "name": "upsert_rows",
+      "description": "Insert rows, or update (merge) or skip (ignore) rows whose primary key or on_conflict columns already exist (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "rows": {
+            "type": "array",
+            "description": "Rows including the key columns",
+            "maxItems": 1000,
+            "items": {
+              "type": "object"
+            }
+          },
+          "on_conflict": {
+            "type": "string",
+            "description": "Columns of a UNIQUE constraint to match on, e.g. email (default the primary key)"
+          },
+          "duplicates": {
+            "type": "string",
+            "description": "merge updates existing rows, ignore leaves them",
+            "enum": [
+              "merge",
+              "ignore"
+            ],
+            "default": "merge"
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          }
+        },
+        "required": [
+          "table",
+          "rows"
+        ]
+      }
+    },
+    {
+      "name": "update_rows",
+      "description": "Set column values on every row matching the filters (at least one filter required) and return the changed rows (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "description": "Table or view name in the exposed schema"
+          },
+          "values": {
+            "type": "object",
+            "description": "Columns to set, e.g. {\"status\": \"done\"}"
+          },
+          "filters": {
+            "type": "array",
+            "description": "Conditions, all must match: [{column, operator, value, negate?, language?}]. operator: eq, neq, gt, gte, lt, lte, like, ilike, match, imatch, in, is, isdistinct, fts, plfts, phfts, wfts, cs, cd, ov, sl, sr, nxr, nxl, adj. Values are quoted for you; \"in\" takes a list, \"is\" takes null/true/false/unknown, like/ilike use * as wildcard, language is for full-text operators. JSON columns: data->>city",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "columns": {
+            "type": "string",
+            "description": "Columns to return in PostgREST select syntax, e.g. id,title,author:profiles(name) (default all)"
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          }
+        },
+        "required": [
+          "table",
+          "values",
+          "filters"
+        ]
+      }
+    },
+    {
+      "name": "call_function",
+      "description": "Call a Postgres function exposed by the Data API (RPC) with named arguments (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "function_name": {
+            "type": "string",
+            "description": "Function name"
+          },
+          "arguments": {
+            "type": "object",
+            "description": "Named arguments, e.g. {\"user_id\": 7}",
+            "default": {}
+          },
+          "db_schema": {
+            "type": "string",
+            "description": "Schema when the Data API exposes several (default public)"
+          }
+        },
+        "required": [
+          "function_name"
+        ]
+      }
+    },
+    {
+      "name": "list_buckets",
+      "description": "Storage buckets of the project with their public flag, size limit and allowed MIME types",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_bucket",
+      "description": "One storage bucket",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          }
+        },
+        "required": [
+          "bucket_id"
+        ]
+      }
+    },
+    {
+      "name": "list_objects",
+      "description": "Files and folders under a prefix of a bucket (one level), with size and MIME type in metadata",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Folder to list, e.g. \"invoices/2026\" (\"\" for the root)",
+            "default": ""
+          },
+          "search": {
+            "type": "string",
+            "description": "Only names containing this text"
+          },
+          "sort_column": {
+            "type": "string",
+            "enum": [
+              "name",
+              "updated_at",
+              "created_at",
+              "last_accessed_at"
+            ]
+          },
+          "sort_order": {
+            "type": "string",
+            "description": "Needs sort_column",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": [
+          "bucket_id"
+        ]
+      }
+    },
+    {
+      "name": "get_object_info",
+      "description": "Size, MIME type, ETag and timestamps of one file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "object_path": {
+            "type": "string",
+            "description": "Object path inside the bucket, e.g. invoices/2026/11.pdf"
+          }
+        },
+        "required": [
+          "bucket_id",
+          "object_path"
+        ]
+      }
+    },
+    {
+      "name": "download_object",
+      "description": "Download a file into SUPABASE_DOWNLOAD_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "object_path": {
+            "type": "string",
+            "description": "Object path inside the bucket, e.g. invoices/2026/11.pdf"
+          }
+        },
+        "required": [
+          "bucket_id",
+          "object_path"
+        ]
+      }
+    },
+    {
+      "name": "upload_object",
+      "description": "Upload a file (https URL or a path inside SUPABASE_UPLOAD_DIR) to a bucket path; upsert overwrites (node only) (as an agent tool only when SUPABASE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string",
+            "description": "Bucket id"
+          },
+          "object_path": {
+            "type": "string",
+            "description": "Object path inside the bucket, e.g. invoices/2026/11.pdf"
+          },
+          "file": {
+            "type": "string",
+            "description": "File (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "upsert": {
+            "type": "boolean",
+            "description": "Overwrite an existing file (workflow nodes only)",
+            "default": false
+          },
+          "cache_control": {
+            "type": "string",
+            "description": "e.g. \"max-age=3600\""
+          }
+        },
+        "required": [
+          "bucket_id",
+          "object_path",
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Supabase project API (Data API /rest/v1, Storage /storage/v1) endpoint that has no dedicated operation, e.g. path \"/rest/v1/<table>?select=id&id=eq.1\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/rest/v1/<table>?select=id&id=eq.1\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

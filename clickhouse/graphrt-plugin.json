@@ -1,0 +1,518 @@
+{
+  "name": "clickhouse",
+  "version": "0.1.0",
+  "description": "ClickHouse HTTP interface: read-only parameterised queries (readonly=1, time and result caps), databases, tables and columns, JSONEachRow inserts; DDL node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "CLICKHOUSE_URL",
+      "CLICKHOUSE_USER",
+      "CLICKHOUSE_PASSWORD",
+      "CLICKHOUSE_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 150000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "clickhouse.ping",
+      "title": "Ping server",
+      "description": "Health check: \"Ok.\" when the server is up (no authentication needed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickhouse.server_info",
+      "title": "Server info",
+      "description": "Server version, uptime, time zone, current user and default database",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickhouse.list_databases",
+      "title": "List databases",
+      "description": "Databases with their engine and comment",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickhouse.list_tables",
+      "title": "List tables",
+      "description": "Tables of a database with engine, row and byte counts, sorting key and comment",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name",
+            "default": "default"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickhouse.describe_table",
+      "title": "Describe table",
+      "description": "Columns of a table: name, type, default, comment, and whether it is in the primary or sorting key",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name",
+            "default": "default"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickhouse.query",
+      "title": "Run read-only query",
+      "description": "Run one read-only SQL statement (SELECT, SHOW, DESCRIBE, EXPLAIN) with readonly=1, a time limit and result caps; returns JSON {meta, data, rows, statistics}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement; use {name:Type} placeholders with `parameters` for values"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Values for {name:Type} placeholders, e.g. {\"user_id\": 7, \"tags\": [\"a\"]}"
+          },
+          "database": {
+            "type": "string",
+            "description": "Default database for unqualified table names"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 30,
+            "description": "Server-side time limit in seconds (max_execution_time, at most 120)"
+          },
+          "max_result_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 10000,
+            "description": "Row cap for the result"
+          },
+          "max_result_bytes": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 104857600,
+            "default": 10485760,
+            "description": "Uncompressed byte cap for the result (agent tools: at most 10485760)"
+          },
+          "result_overflow_mode": {
+            "type": "string",
+            "enum": [
+              "throw",
+              "break"
+            ],
+            "default": "throw",
+            "description": "throw: fail when a cap is hit; break: return the rows read so far"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickhouse.insert_rows",
+      "title": "Insert rows",
+      "description": "Insert rows (objects of column: value) into a table as JSONEachRow; returns written_rows (as an agent tool only when CLICKHOUSE_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Table name"
+          },
+          "database": {
+            "type": "string",
+            "description": "Database of the table (default: the user's default database)"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10000,
+            "description": "Rows, e.g. [{\"id\": 1, \"event\": \"signup\"}]"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 60,
+            "description": "Server-side time limit in seconds (max_execution_time, at most 120)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table",
+          "rows"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "clickhouse.execute",
+      "title": "Execute statement",
+      "description": "Run any SQL statement (INSERT ... SELECT, CREATE, ALTER, mutations, DROP, TRUNCATE) without readonly; returns JSON output, if any, and the write summary",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement; use {name:Type} placeholders with `parameters` for values"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Values for {name:Type} placeholders, e.g. {\"user_id\": 7, \"tags\": [\"a\"]}"
+          },
+          "database": {
+            "type": "string",
+            "description": "Default database for unqualified table names"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 60,
+            "description": "Server-side time limit in seconds (max_execution_time, at most 120)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "ping",
+      "description": "Health check: \"Ok.\" when the server is up (no authentication needed)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "server_info",
+      "description": "Server version, uptime, time zone, current user and default database",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_databases",
+      "description": "Databases with their engine and comment",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_tables",
+      "description": "Tables of a database with engine, row and byte counts, sorting key and comment",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name",
+            "default": "default"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "describe_table",
+      "description": "Columns of a table: name, type, default, comment, and whether it is in the primary or sorting key",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Database name",
+            "default": "default"
+          },
+          "table": {
+            "type": "string",
+            "description": "Table name"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      }
+    },
+    {
+      "name": "query",
+      "description": "Run one read-only SQL statement (SELECT, SHOW, DESCRIBE, EXPLAIN) with readonly=1, a time limit and result caps; returns JSON {meta, data, rows, statistics}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement; use {name:Type} placeholders with `parameters` for values"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Values for {name:Type} placeholders, e.g. {\"user_id\": 7, \"tags\": [\"a\"]}"
+          },
+          "database": {
+            "type": "string",
+            "description": "Default database for unqualified table names"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 30,
+            "description": "Server-side time limit in seconds (max_execution_time, at most 120)"
+          },
+          "max_result_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 10000,
+            "description": "Row cap for the result"
+          },
+          "max_result_bytes": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 104857600,
+            "default": 10485760,
+            "description": "Uncompressed byte cap for the result (agent tools: at most 10485760)"
+          },
+          "result_overflow_mode": {
+            "type": "string",
+            "enum": [
+              "throw",
+              "break"
+            ],
+            "default": "throw",
+            "description": "throw: fail when a cap is hit; break: return the rows read so far"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      }
+    },
+    {
+      "name": "insert_rows",
+      "description": "Insert rows (objects of column: value) into a table as JSONEachRow; returns written_rows (as an agent tool only when CLICKHOUSE_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Table name"
+          },
+          "database": {
+            "type": "string",
+            "description": "Database of the table (default: the user's default database)"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10000,
+            "description": "Rows, e.g. [{\"id\": 1, \"event\": \"signup\"}]"
+          },
+          "max_execution_time": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 60,
+            "description": "Server-side time limit in seconds (max_execution_time, at most 120)"
+          }
+        },
+        "required": [
+          "table",
+          "rows"
+        ]
+      }
+    }
+  ]
+}
