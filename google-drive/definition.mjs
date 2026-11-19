@@ -129,7 +129,7 @@ const writeOperations = [
     params: {
       file_id: FILE_ID,
       role: { in: "body", type: "string", required: true, enum: ["reader", "commenter", "writer", "fileOrganizer", "organizer"] },
-      type: { in: "body", type: "string", required: true, enum: ["user", "group", "domain", "anyone"] },
+      grantee_type: { in: "body", type: "string", required: true, enum: ["user", "group", "domain", "anyone"], wireName: "type", description: "Who gets access (sent as `type`)" },
       email_address: { in: "body", type: "string", wireName: "emailAddress", description: "For user and group" },
       domain: { in: "body", type: "string", description: "For domain" },
       send_notification_email: { in: "query", type: "boolean", wireName: "sendNotificationEmail" },

@@ -589,8 +589,9 @@
               "organizer"
             ]
           },
-          "type": {
+          "grantee_type": {
             "type": "string",
+            "description": "Who gets access (sent as `type`)",
             "enum": [
               "user",
               "group",
@@ -620,7 +621,7 @@
         "required": [
           "file_id",
           "role",
-          "type"
+          "grantee_type"
         ]
       },
       "outputs": [

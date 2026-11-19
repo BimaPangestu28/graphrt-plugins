@@ -113,5 +113,9 @@ npm test          # from the repo root
 Generated contract suite plus tests for query escaping, the multipart/related upload, size and directory limits,
 node-only operations and the 403 rate-limit mapping. Verified live only with an invalid token (`auth_error`).
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `share_file` parameter `type` is now `grantee_type` (still sent to the Drive API as `type`). graphrt takes `type` from every workflow node, so the old name could never be set from a node (the required field made the node fail to load); `share_file` is node only, so it was unusable before.
+
 ## License
 Apache-2.0
