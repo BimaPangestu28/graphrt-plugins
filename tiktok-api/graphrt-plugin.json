@@ -1,6 +1,6 @@
 {
   "name": "tiktok-api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "TikTok profile, videos and Content Posting (Open API), plus comments and DMs (Business API), via the official TikTok APIs",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -17,7 +17,10 @@
       "TIKTOK_BUSINESS_ID",
       "TIKTOK_CLIENT_KEY",
       "TIKTOK_CLIENT_SECRET",
-      "TIKTOK_REFRESH_TOKEN"
+      "TIKTOK_REFRESH_TOKEN",
+      "TIKTOK_TOOL_ALLOW_POST",
+      "TIKTOK_TOOL_ALLOW_ENGAGE",
+      "TIKTOK_TOOL_ALLOW_DM"
     ]
   },
   "limits": {
@@ -215,7 +218,7 @@
     {
       "kind": "tiktok-api.publish_video",
       "title": "Publish TikTok video",
-      "description": "Post a video from a public URL on a verified domain. mode=direct posts it (needs privacy_level); mode=inbox sends it to the creator's TikTok inbox as a draft to finish in the app.",
+      "description": "Post a video from a public URL on a verified domain. mode=direct posts it (needs privacy_level); mode=inbox sends it to the creator's TikTok inbox as a draft to finish in the app. (mode=direct as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1; drafts are always allowed)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -303,7 +306,7 @@
     {
       "kind": "tiktok-api.publish_photos",
       "title": "Publish TikTok photos",
-      "description": "Post 1-35 photos from public URLs on a verified domain. mode=direct posts them (needs privacy_level); mode=upload sends them to the creator's inbox to finish in the app.",
+      "description": "Post 1-35 photos from public URLs on a verified domain. mode=direct posts them (needs privacy_level); mode=upload sends them to the creator's inbox to finish in the app. (mode=direct as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1; drafts are always allowed)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -554,7 +557,7 @@
     {
       "kind": "tiktok-api.create_comment",
       "title": "Comment on TikTok video",
-      "description": "Post a comment on one of the business account's videos (Business API).",
+      "description": "Post a comment on one of the business account's videos (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -598,7 +601,7 @@
     {
       "kind": "tiktok-api.reply_to_comment",
       "title": "Reply to TikTok comment",
-      "description": "Reply to a comment on one of the business account's videos (Business API).",
+      "description": "Reply to a comment on one of the business account's videos (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -648,7 +651,7 @@
     {
       "kind": "tiktok-api.set_comment_hidden",
       "title": "Hide/unhide TikTok comment",
-      "description": "Hide or unhide a comment on the business account's video (Business API).",
+      "description": "Hide or unhide a comment on the business account's video (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -696,7 +699,7 @@
     {
       "kind": "tiktok-api.set_comment_liked",
       "title": "Like/unlike TikTok comment",
-      "description": "Like or unlike a comment as the business account (Business API).",
+      "description": "Like or unlike a comment as the business account (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -880,7 +883,7 @@
     {
       "kind": "tiktok-api.send_message",
       "title": "Send TikTok message",
-      "description": "Send a text direct message as the business account (Business API; restricted access, only within 48 hours of the user's last message).",
+      "description": "Send a text direct message as the business account (Business API; restricted access, only within 48 hours of the user's last message). (as an agent tool only when TIKTOK_TOOL_ALLOW_DM=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -1073,7 +1076,7 @@
     },
     {
       "name": "publish_video",
-      "description": "Post a video from a public URL on a verified domain. mode=direct posts it (needs privacy_level); mode=inbox sends it to the creator's TikTok inbox as a draft to finish in the app.",
+      "description": "Post a video from a public URL on a verified domain. mode=direct posts it (needs privacy_level); mode=inbox sends it to the creator's TikTok inbox as a draft to finish in the app. (mode=direct as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1; drafts are always allowed)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1143,7 +1146,7 @@
     },
     {
       "name": "publish_photos",
-      "description": "Post 1-35 photos from public URLs on a verified domain. mode=direct posts them (needs privacy_level); mode=upload sends them to the creator's inbox to finish in the app.",
+      "description": "Post 1-35 photos from public URLs on a verified domain. mode=direct posts them (needs privacy_level); mode=upload sends them to the creator's inbox to finish in the app. (mode=direct as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1; drafts are always allowed)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1322,7 +1325,7 @@
     },
     {
       "name": "create_comment",
-      "description": "Post a comment on one of the business account's videos (Business API).",
+      "description": "Post a comment on one of the business account's videos (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1348,7 +1351,7 @@
     },
     {
       "name": "reply_to_comment",
-      "description": "Reply to a comment on one of the business account's videos (Business API).",
+      "description": "Reply to a comment on one of the business account's videos (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1380,7 +1383,7 @@
     },
     {
       "name": "set_comment_hidden",
-      "description": "Hide or unhide a comment on the business account's video (Business API).",
+      "description": "Hide or unhide a comment on the business account's video (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1410,7 +1413,7 @@
     },
     {
       "name": "set_comment_liked",
-      "description": "Like or unlike a comment as the business account (Business API).",
+      "description": "Like or unlike a comment as the business account (Business API). (as an agent tool only when TIKTOK_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1430,27 +1433,6 @@
         "required": [
           "comment_id",
           "liked"
-        ]
-      }
-    },
-    {
-      "name": "delete_comment",
-      "description": "Delete a comment the business account owns or that is on its video (Business API).",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "business_id": {
-            "type": "string",
-            "description": "TikTok business account id / open_id (default: TIKTOK_BUSINESS_ID)"
-          },
-          "comment_id": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Comment id"
-          }
-        },
-        "required": [
-          "comment_id"
         ]
       }
     },
@@ -1522,7 +1504,7 @@
     },
     {
       "name": "send_message",
-      "description": "Send a text direct message as the business account (Business API; restricted access, only within 48 hours of the user's last message).",
+      "description": "Send a text direct message as the business account (Business API; restricted access, only within 48 hours of the user's last message). (as an agent tool only when TIKTOK_TOOL_ALLOW_DM=1)",
       "parameters": {
         "type": "object",
         "properties": {

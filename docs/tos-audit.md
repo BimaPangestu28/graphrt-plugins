@@ -147,8 +147,11 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - Official Open API and Business API.
   - `PULL_FROM_URL` needs a verified domain.
   - Token refresh is node only.
-- **Missing:** unattended agent posting doesn't fit the per-post consent UX. Keep a human confirmation step before
-  `publish_*` nodes. The plugin is also experimental because the Business API field names are unverified.
+- **Agent policy (tiktok-api 0.3.0, fixed):** direct posts, comments and replies need `TIKTOK_TOOL_ALLOW_POST=1` as
+  agent tools; inbox drafts (finished by the creator in the app) stay free. Comment moderation and likes need
+  `TIKTOK_TOOL_ALLOW_ENGAGE=1`, DMs need `TIKTOK_TOOL_ALLOW_DM=1`, and `delete_comment` is node only.
+- **Missing:** unattended posting still doesn't fit the per-post consent UX. Prefer inbox drafts for agents and keep a
+  human confirmation step before `publish_*` nodes. The plugin is also experimental because the Business API field names are unverified.
 
 ## threads-api and meta-api
 - **Risk: low.**

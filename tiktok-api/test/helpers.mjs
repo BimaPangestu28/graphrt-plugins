@@ -9,6 +9,10 @@ export const TEST_ENVIRONMENT = {
   TIKTOK_CLIENT_KEY: "client-key-env",
   TIKTOK_CLIENT_SECRET: "client-secret-env",
   GRAPHRT_POLL_INTERVAL_MS: "0",
+  // Most tests run operations as agent tools; agent-policy.test.mjs covers the refusals without these.
+  TIKTOK_TOOL_ALLOW_POST: "1",
+  TIKTOK_TOOL_ALLOW_ENGAGE: "1",
+  TIKTOK_TOOL_ALLOW_DM: "1",
 };
 
 export const OPEN_ORIGIN = "https://open.tiktokapis.com";

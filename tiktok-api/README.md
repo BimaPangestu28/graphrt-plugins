@@ -2,13 +2,18 @@
 
 **Status:** experimental · **ToS risk:** medium. Business API comment and DM field names come from a third-party client, not TikTok's docs; checked live only with an invalid token. See [plugin status](../README.md#plugin-status).
 
+> **0.3.0 (behaviour change for agents):** agent tools may no longer post directly, comment, reply, hide or like
+> comments, or send DMs by default. Direct posts, comments and replies need `TIKTOK_TOOL_ALLOW_POST=1`, comment
+> moderation and likes need `TIKTOK_TOOL_ALLOW_ENGAGE=1`, DMs need `TIKTOK_TOOL_ALLOW_DM=1`, and `delete_comment` is
+> node only. Inbox drafts and workflow nodes are unchanged. See [Agent policy](#agent-policy).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **TikTok APIs**. It uses two of them:
 
 - **Open API** (`open.tiktokapis.com`): profile, video list, Content Posting (video and photo posts) and token refresh.
 - **Business API** (`business-api.tiktok.com/open_api/v1.3`): comments and direct messages of a TikTok business account.
 
-Every operation is a workflow node and an agent tool.
+Every operation is a workflow node. Agent tools are limited by the [agent policy](#agent-policy).
 
 ## Features
 - **Profile and videos:** user info, list videos (cursor paging), query videos by id, creator posting settings
@@ -68,6 +73,9 @@ No `npm install` needed: the plugin has no dependencies.
 | `TIKTOK_CLIENT_KEY` | for `refresh_access_token` | App client key (can also be passed as `client_key`) |
 | `TIKTOK_CLIENT_SECRET` | for `refresh_access_token` | App client secret. Env only, never an argument |
 | `TIKTOK_REFRESH_TOKEN` | no | Default refresh token for `refresh_access_token` |
+| `TIKTOK_TOOL_ALLOW_POST` | no | `1` lets **agent tools** post directly (`mode=direct`), comment and reply (see [Agent policy](#agent-policy)) |
+| `TIKTOK_TOOL_ALLOW_ENGAGE` | no | `1` lets agent tools hide, unhide, like and unlike comments |
+| `TIKTOK_TOOL_ALLOW_DM` | no | `1` lets agent tools `send_message` |
 
 Each API needs only its own token. A run with only `TIKTOK_BUSINESS_ACCESS_TOKEN` can still use the comment and message
 operations. The Open API operations then fail with `auth_error`, and the message names `TIKTOK_ACCESS_TOKEN`. The same
@@ -118,12 +126,31 @@ graphrt run tiktok-api/example.yaml --plugins .
     errors while polling are retried automatically.
 - **Polling:** graphrt plugins can't receive webhooks. To react to new comments, run a workflow on a schedule that lists them.
 
+## Agent policy
+TikTok's [Content Sharing Guidelines](https://developers.tiktok.com/doc/content-sharing-guidelines) expect the
+creator to see and agree to every post, so agent tools start without public writes. Workflow nodes are never limited.
+
+| Operations | As an agent tool |
+|------------|------------------|
+| Profile, videos, creator info, `get_publish_status`, `list_comments`, `list_comment_replies`, `list_conversations`, `list_messages` | Always |
+| `publish_video` with `mode=inbox`, `publish_photos` with `mode=upload` (drafts the creator finishes in the app) | Always |
+| `publish_video` / `publish_photos` with `mode=direct` (the default), `create_comment`, `reply_to_comment` | Only with `TIKTOK_TOOL_ALLOW_POST=1` |
+| `set_comment_hidden`, `set_comment_liked` | Only with `TIKTOK_TOOL_ALLOW_ENGAGE=1` |
+| `send_message` | Only with `TIKTOK_TOOL_ALLOW_DM=1` |
+| `delete_comment`, `refresh_access_token` | Never (node only) |
+| `api_request` | GET only |
+
+- `send_message` has no recipient allowlist: its recipient is a Business API conversation id, not a user id, and
+  TikTok only lets the business answer within 48 hours of the user's last message, so it can only reach people who
+  wrote to the account recently.
+- A refused call fails with `permission_denied` and sends no request.
+
 ## Errors
 | Kind | When |
 |------|------|
 | `invalid_input` | Bad arguments, a privacy level the creator can't use, a missing `business_id`, `invalid_params`, `privacy_level_option_mismatch`, Business code 40002 |
 | `auth_error` | Missing token (the message names the env var), `access_token_invalid`, OAuth `invalid_grant`/`invalid_client`, Business codes 40101–40199 |
-| `permission_denied` | `scope_not_authorized`, `spam_risk_*`, `unaudited_client_*`, `url_ownership_unverified`, Business code 40001 |
+| `permission_denied` | Agent tool call without its opt-in ([Agent policy](#agent-policy)); `scope_not_authorized`, `spam_risk_*`, `unaudited_client_*`, `url_ownership_unverified`, Business code 40001 |
 | `rate_limited` | `rate_limit_exceeded`, HTTP 429, Business code 40100. Retried automatically for up to 60 s |
 | `not_found`, `api_error`, `network_error`, `timeout`, `cancelled` | As named. A failed publish (`FAILED`) is an `api_error` that includes TikTok's `fail_reason` and the `publish_id` |
 
@@ -134,6 +161,12 @@ From the repo root: `npm run sync` after changing `definition.mjs`, `operations/
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
 
 ## Changelog
+### 0.3.0
+- **Behaviour change for agents:** direct posts (`publish_video` / `publish_photos` with `mode=direct`),
+  `create_comment` and `reply_to_comment` need `TIKTOK_TOOL_ALLOW_POST=1` as agent tools; `set_comment_hidden` and
+  `set_comment_liked` need `TIKTOK_TOOL_ALLOW_ENGAGE=1`; `send_message` needs `TIKTOK_TOOL_ALLOW_DM=1`;
+  `delete_comment` is node only. Inbox drafts and workflow nodes are unchanged.
+
 ### 0.2.0
 - **Breaking:** `publish_video` and `publish_photos` parameter `title` is now `post_title` (still sent to TikTok as `post_info.title`). graphrt takes `title` from every workflow node, so the old name was silently dropped on nodes (posts went out without a caption); tool calls that passed `title` must use `post_title`.
 
