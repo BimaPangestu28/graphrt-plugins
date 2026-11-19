@@ -256,7 +256,7 @@ graphrt plugin install ./meta-api
   (after a catalog format change); it refuses to drop a plugin or change any version, `sha256` or `size_bytes`.
   `.github/workflows/release.yml` runs the same script on a `<name>-v<version>` tag push or by hand.
 
-Design notes and API research are in `docs/superpowers/`.
+Want to add a plugin? Read [CONTRIBUTING.md](CONTRIBUTING.md). Design notes and API research are in `docs/superpowers/`.
 
 ## License
 Apache-2.0
