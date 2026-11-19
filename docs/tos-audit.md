@@ -126,8 +126,11 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - Official REST API only.
   - It uses no browser automation and stores nothing.
   - The README now has a warning box.
-- **Missing:** post, comment and reaction tools have no opt-in. Have a person write or approve every post, for
-  example with a human-approval step before the node. There is no more permissive official alternative.
+  - linkedin-api 0.2.0: agent tools need `LINKEDIN_TOOL_ALLOW_POST=1` to create or edit posts and comments and
+    `LINKEDIN_TOOL_ALLOW_ENGAGE=1` for reactions; deletes are node only.
+- **Missing:** the agent opt-ins are **fixed** in linkedin-api 0.2.0. The terms still forbid automated posting even
+  with the opt-in, so have a person write or approve every post, for example with a human-approval step before the
+  node. There is no more permissive official alternative.
 
 ## tiktok-api
 - **Risk: medium.**

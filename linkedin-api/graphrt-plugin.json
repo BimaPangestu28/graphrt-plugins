@@ -1,6 +1,6 @@
 {
   "name": "linkedin-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LinkedIn member and organization posts, images, comments and reactions via the official LinkedIn REST API",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -14,7 +14,9 @@
     "env": [
       "LINKEDIN_ACCESS_TOKEN",
       "LINKEDIN_AUTHOR_URN",
-      "LINKEDIN_VERSION"
+      "LINKEDIN_VERSION",
+      "LINKEDIN_TOOL_ALLOW_POST",
+      "LINKEDIN_TOOL_ALLOW_ENGAGE"
     ]
   },
   "limits": {
@@ -52,7 +54,7 @@
     {
       "kind": "linkedin-api.create_post",
       "title": "Create LinkedIn post",
-      "description": "Publish a text post as a member or organization, optionally with an uploaded image or an article link. Returns the post URN.",
+      "description": "Publish a text post as a member or organization, optionally with an uploaded image or an article link. Returns the post URN. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -216,7 +218,7 @@
     {
       "kind": "linkedin-api.update_post",
       "title": "Update LinkedIn post",
-      "description": "Edit the text of a post.",
+      "description": "Edit the text of a post. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -378,7 +380,7 @@
     {
       "kind": "linkedin-api.create_comment",
       "title": "Comment on LinkedIn",
-      "description": "Comment on a post, or reply to a comment with parent_comment_urn.",
+      "description": "Comment on a post, or reply to a comment with parent_comment_urn. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -426,7 +428,7 @@
     {
       "kind": "linkedin-api.update_comment",
       "title": "Edit LinkedIn comment",
-      "description": "Edit the text of a comment made by the actor.",
+      "description": "Edit the text of a comment made by the actor. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -518,7 +520,7 @@
     {
       "kind": "linkedin-api.add_reaction",
       "title": "React on LinkedIn",
-      "description": "React to a post or comment (LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT).",
+      "description": "React to a post or comment (LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT). (as an agent tool only when LINKEDIN_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -568,7 +570,7 @@
     {
       "kind": "linkedin-api.remove_reaction",
       "title": "Remove LinkedIn reaction",
-      "description": "Remove the actor's reaction from a post or comment.",
+      "description": "Remove the actor's reaction from a post or comment. (as an agent tool only when LINKEDIN_TOOL_ALLOW_ENGAGE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -721,7 +723,7 @@
     },
     {
       "name": "create_post",
-      "description": "Publish a text post as a member or organization, optionally with an uploaded image or an article link. Returns the post URN.",
+      "description": "Publish a text post as a member or organization, optionally with an uploaded image or an article link. Returns the post URN. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -831,7 +833,7 @@
     },
     {
       "name": "update_post",
-      "description": "Edit the text of a post.",
+      "description": "Edit the text of a post. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -853,22 +855,6 @@
         "required": [
           "post_urn",
           "text"
-        ]
-      }
-    },
-    {
-      "name": "delete_post",
-      "description": "Delete a post. A retry after a server error that finds it gone reports already_absent.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "post_urn": {
-            "type": "string",
-            "description": "Post URN, e.g. \"urn:li:share:123\" or \"urn:li:ugcPost:123\""
-          }
-        },
-        "required": [
-          "post_urn"
         ]
       }
     },
@@ -921,7 +907,7 @@
     },
     {
       "name": "create_comment",
-      "description": "Comment on a post, or reply to a comment with parent_comment_urn.",
+      "description": "Comment on a post, or reply to a comment with parent_comment_urn. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -951,7 +937,7 @@
     },
     {
       "name": "update_comment",
-      "description": "Edit the text of a comment made by the actor.",
+      "description": "Edit the text of a comment made by the actor. (as an agent tool only when LINKEDIN_TOOL_ALLOW_POST=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -981,33 +967,8 @@
       }
     },
     {
-      "name": "delete_comment",
-      "description": "Delete a comment (the actor's own, or one on the actor's organization post).",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "target_urn": {
-            "type": "string",
-            "description": "Post or comment URN, e.g. \"urn:li:share:123\", \"urn:li:ugcPost:123\" or \"urn:li:comment:(urn:li:activity:1,2)\""
-          },
-          "comment_id": {
-            "type": "string",
-            "description": "Comment id, or its full URN \"urn:li:comment:(urn:li:activity:1,2)\""
-          },
-          "actor": {
-            "type": "string",
-            "description": "urn:li:person:... or urn:li:organization:... acting (default: LINKEDIN_AUTHOR_URN)"
-          }
-        },
-        "required": [
-          "target_urn",
-          "comment_id"
-        ]
-      }
-    },
-    {
       "name": "add_reaction",
-      "description": "React to a post or comment (LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT).",
+      "description": "React to a post or comment (LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT). (as an agent tool only when LINKEDIN_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1039,7 +1000,7 @@
     },
     {
       "name": "remove_reaction",
-      "description": "Remove the actor's reaction from a post or comment.",
+      "description": "Remove the actor's reaction from a post or comment. (as an agent tool only when LINKEDIN_TOOL_ALLOW_ENGAGE=1)",
       "parameters": {
         "type": "object",
         "properties": {

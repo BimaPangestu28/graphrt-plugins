@@ -2,17 +2,23 @@
 
 **Status:** beta · **ToS risk:** high. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
+> **0.2.0 (behaviour change for agents):** agent tools may no longer post, comment or react by default. Creating or
+> editing posts and comments needs `LINKEDIN_TOOL_ALLOW_POST=1`, reactions need `LINKEDIN_TOOL_ALLOW_ENGAGE=1`, and
+> `delete_post` / `delete_comment` are node only. Workflow nodes are unchanged. See [Agent policy](#agent-policy).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **LinkedIn REST API**
 (`https://api.linkedin.com/rest`). It publishes and manages posts as a member or an organization, uploads images,
-and reads and writes comments and reactions. Every operation is a workflow node and an agent tool.
+and reads and writes comments and reactions. Every operation is a workflow node. Agent tools are limited by the
+[agent policy](#agent-policy).
 
 > **Warning:** LinkedIn's [API Terms of Use](https://www.linkedin.com/legal/l/api-terms-of-use) (section 3.1) forbid
 > using the APIs "to automate posting on the LinkedIn Services", and the
 > [User Agreement](https://www.linkedin.com/legal/user-agreement) (section 8.2) bars bots that post, comment, like
 > or share. LinkedIn can revoke the app and restrict the member. Have a person write or approve **every** post,
-> comment and reaction (for example a human approval step before the node), and don't let an agent post on its own:
-> today the post, comment and reaction tools have no opt-in. There is no more permissive official alternative. See
+> comment and reaction (for example a human approval step before the node), and don't let an agent post on its own.
+> Agent tools can't post, comment or react unless you set the opt-ins in [Agent policy](#agent-policy); leave them
+> unset. There is no more permissive official alternative. See
 > [docs/tos-audit.md](../docs/tos-audit.md#linkedin-api).
 
 ## Features
@@ -63,6 +69,8 @@ No `npm install` needed: the plugin has no dependencies.
 |---------|----------|-------------|
 | `LINKEDIN_ACCESS_TOKEN` | yes | OAuth 2.0 access token |
 | `LINKEDIN_AUTHOR_URN` | no | Default author/actor for posts, comments, reactions and image uploads: `urn:li:person:<sub>` (from `get_userinfo`) or `urn:li:organization:<id>` |
+| `LINKEDIN_TOOL_ALLOW_POST` | no | `1` lets **agent tools** create and edit posts and comments (see [Agent policy](#agent-policy); LinkedIn's terms forbid automated posting) |
+| `LINKEDIN_TOOL_ALLOW_ENGAGE` | no | `1` lets agent tools add and remove reactions |
 | `LINKEDIN_VERSION` | no | API version header `Linkedin-Version`, `YYYYMM`, default `202611`. LinkedIn retires versions after about a year; an inactive one fails with `invalid_input` |
 
 graphrt starts plugins with a clean environment, and only these variables are passed through. A node can also take
@@ -100,19 +108,33 @@ graphrt run linkedin-api/example.yaml --plugins .
 - **`api_request`** takes no custom headers, so it cannot set `X-RestLi-Method`. Rest.li calls that need it
   (`PARTIAL_UPDATE`, `BATCH_*`, and some finders and deletes) fail through it; use the dedicated operations for those.
   As an agent tool it is GET-only; other methods only work from workflow nodes.
-- **Deletes** (`delete_post`, `delete_comment`, `remove_reaction`): when a delete is retried after a server error or
+- **Deletes** (`delete_post` and `delete_comment`, both node only, and `remove_reaction`): when a delete is retried after a server error or
   network failure and the retry gets 404, the first attempt most likely went through, so the operation succeeds with
   `already_absent: true`. A 404 on the first attempt is still `not_found`.
 - **Images:** `upload_image` accepts JPEG, PNG and GIF only. The URL and every redirect must be https on a public host
   (loopback, private and link-local addresses are refused).
 - **Polling:** graphrt plugins can't receive webhooks. To react to new comments, run a workflow on a schedule that lists them.
 
+## Agent policy
+LinkedIn's API Terms forbid using the APIs "to automate posting", so agent tools start read-only. Workflow nodes are
+never limited; put a human approval step before them.
+
+| Operations | As an agent tool |
+|------------|------------------|
+| `get_userinfo`, `get_post`, `list_organization_posts`, `list_comments`, `list_reactions`, `upload_image` | Always |
+| `create_post`, `update_post`, `create_comment` (including replies), `update_comment` | Only with `LINKEDIN_TOOL_ALLOW_POST=1` |
+| `add_reaction`, `remove_reaction` | Only with `LINKEDIN_TOOL_ALLOW_ENGAGE=1` |
+| `delete_post`, `delete_comment` | Never (node only) |
+| `api_request` | GET only |
+
+A refused call fails with `permission_denied` and sends no request. LinkedIn has no direct-message API in this plugin.
+
 ## Errors
 | Kind | When |
 |------|------|
 | `invalid_input` | Bad arguments or URNs, missing author, HTTP 400/422, or an inactive `LINKEDIN_VERSION` (426 `NONEXISTENT_VERSION`) |
 | `auth_error` | Missing, invalid, expired or revoked token (HTTP 401, serviceErrorCode 65600–65604) |
-| `permission_denied` | Missing scope, Community Management approval or organization role (HTTP 403, `ACCESS_DENIED`) |
+| `permission_denied` | Agent tool call without its opt-in ([Agent policy](#agent-policy)); missing scope, Community Management approval or organization role (HTTP 403, `ACCESS_DENIED`) |
 | `rate_limited` | HTTP 429. On LinkedIn this usually means a **daily** app or member limit was hit, not a short burst: the brief automatic retries rarely help, and the limit resets at midnight UTC. Check usage in the Developer Portal (Analytics tab) |
 | `not_found`, `api_error`, `network_error`, `cancelled` | As named |
 
@@ -121,6 +143,12 @@ Messages include LinkedIn's `serviceErrorCode` and `code` when present.
 ## Development
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
+
+## Changelog
+### 0.2.0
+- **Behaviour change for agents:** `create_post`, `update_post`, `create_comment` and `update_comment` need
+  `LINKEDIN_TOOL_ALLOW_POST=1` as agent tools, `add_reaction` and `remove_reaction` need
+  `LINKEDIN_TOOL_ALLOW_ENGAGE=1`, and `delete_post` / `delete_comment` are node only. Workflow nodes are unchanged.
 
 ## License
 Apache-2.0
