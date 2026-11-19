@@ -245,9 +245,13 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
 - **Mitigation:**
   - whatsapp-api 0.3.0 adds a per-process limiter for agent tool sends: `WHATSAPP_TOOL_SEND_RATE_LIMIT` per minute
     (default 20, `0` turns it off), plus the 6 s pair spacing.
+  - whatsapp-api 0.4.0: agent tool sends of every message type (text, replies, templates, media, location,
+    interactive messages and reactions) need `WHATSAPP_TOOL_ALLOW_SEND=1` and the recipient in
+    `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST` (exact E.164 numbers, or `+digits*` prefixes of at least 4 digits; unset
+    refuses every agent send). `mark_as_read` stays free. Deletes are node only.
   - qontak, twilio and vonage tool sends need an opt-in and a recipient allowlist.
-- **Missing:** whatsapp-api tool sends still need no opt-in or recipient allowlist; the rate limiter bounds the
-  damage. Adding `WHATSAPP_TOOL_ALLOW_SEND` and an allowlist (as qontak has) is the recommended follow-up.
+- **Missing:** nothing for agent sends (**fixed** in whatsapp-api 0.4.0). Recipients' opt-in to the business is
+  still the user's responsibility.
 
 ## Everything else
 The other plugins use official APIs as the providers intend: databases, storage, AI models, developer tools,

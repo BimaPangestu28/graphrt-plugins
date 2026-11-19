@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-api",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "WhatsApp Business Cloud API: send messages and templates, manage media, templates and the business profile",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -16,7 +16,9 @@
       "WHATSAPP_PHONE_NUMBER_ID",
       "WHATSAPP_BUSINESS_ACCOUNT_ID",
       "WHATSAPP_GRAPH_VERSION",
-      "WHATSAPP_TOOL_SEND_RATE_LIMIT"
+      "WHATSAPP_TOOL_SEND_RATE_LIMIT",
+      "WHATSAPP_TOOL_ALLOW_SEND",
+      "WHATSAPP_TOOL_RECIPIENT_ALLOWLIST"
     ]
   },
   "limits": {
@@ -27,7 +29,7 @@
     {
       "kind": "whatsapp-api.send_text",
       "title": "Send WhatsApp text",
-      "description": "Send a text message. Only allowed within 24 h of the recipient's last message; otherwise use send_template.",
+      "description": "Send a text message. Only allowed within 24 h of the recipient's last message; otherwise use send_template. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -79,7 +81,7 @@
     {
       "kind": "whatsapp-api.send_template",
       "title": "Send WhatsApp template",
-      "description": "Send an approved message template. Required for the first message and outside the 24 h window.",
+      "description": "Send an approved message template. Required for the first message and outside the 24 h window. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -134,7 +136,7 @@
     {
       "kind": "whatsapp-api.send_media",
       "title": "Send WhatsApp media",
-      "description": "Send an image, video, audio, document or sticker by public https link or uploaded media_id. 24 h window rules apply.",
+      "description": "Send an image, video, audio, document or sticker by public https link or uploaded media_id. 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -204,7 +206,7 @@
     {
       "kind": "whatsapp-api.send_location",
       "title": "Send WhatsApp location",
-      "description": "Send a location pin. 24 h window rules apply.",
+      "description": "Send a location pin. 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -262,7 +264,7 @@
     {
       "kind": "whatsapp-api.send_interactive_buttons",
       "title": "Send WhatsApp reply buttons",
-      "description": "Send a message with up to 3 quick-reply buttons (title up to 20 characters). 24 h window rules apply.",
+      "description": "Send a message with up to 3 quick-reply buttons (title up to 20 characters). 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -323,7 +325,7 @@
     {
       "kind": "whatsapp-api.send_interactive_list",
       "title": "Send WhatsApp list",
-      "description": "Send a list message: a button that opens up to 10 rows grouped in sections. 24 h window rules apply.",
+      "description": "Send a list message: a button that opens up to 10 rows grouped in sections. 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -391,7 +393,7 @@
     {
       "kind": "whatsapp-api.send_reaction",
       "title": "Send WhatsApp reaction",
-      "description": "React to a message with an emoji, or remove your reaction.",
+      "description": "React to a message with an emoji, or remove your reaction. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -1057,7 +1059,7 @@
   "tools": [
     {
       "name": "send_text",
-      "description": "Send a text message. Only allowed within 24 h of the recipient's last message; otherwise use send_template.",
+      "description": "Send a text message. Only allowed within 24 h of the recipient's last message; otherwise use send_template. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1091,7 +1093,7 @@
     },
     {
       "name": "send_template",
-      "description": "Send an approved message template. Required for the first message and outside the 24 h window.",
+      "description": "Send an approved message template. Required for the first message and outside the 24 h window. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1128,7 +1130,7 @@
     },
     {
       "name": "send_media",
-      "description": "Send an image, video, audio, document or sticker by public https link or uploaded media_id. 24 h window rules apply.",
+      "description": "Send an image, video, audio, document or sticker by public https link or uploaded media_id. 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1180,7 +1182,7 @@
     },
     {
       "name": "send_location",
-      "description": "Send a location pin. 24 h window rules apply.",
+      "description": "Send a location pin. 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1220,7 +1222,7 @@
     },
     {
       "name": "send_interactive_buttons",
-      "description": "Send a message with up to 3 quick-reply buttons (title up to 20 characters). 24 h window rules apply.",
+      "description": "Send a message with up to 3 quick-reply buttons (title up to 20 characters). 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1263,7 +1265,7 @@
     },
     {
       "name": "send_interactive_list",
-      "description": "Send a list message: a button that opens up to 10 rows grouped in sections. 24 h window rules apply.",
+      "description": "Send a list message: a button that opens up to 10 rows grouped in sections. 24 h window rules apply. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1313,7 +1315,7 @@
     },
     {
       "name": "send_reaction",
-      "description": "React to a message with an emoji, or remove your reaction.",
+      "description": "React to a message with an emoji, or remove your reaction. (as an agent tool only when WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient is in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1413,26 +1415,6 @@
     {
       "name": "get_media_url",
       "description": "Get the download URL, MIME type, size and sha256 of a media id. The URL expires after 5 minutes and needs the access token to download.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "media_id": {
-            "type": "string",
-            "description": "Media id"
-          },
-          "phone_number_id": {
-            "type": "string",
-            "description": "Optional: only succeed if the media belongs to this phone number id"
-          }
-        },
-        "required": [
-          "media_id"
-        ]
-      }
-    },
-    {
-      "name": "delete_media",
-      "description": "Delete uploaded media by id.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1568,30 +1550,6 @@
           "category",
           "language",
           "components"
-        ]
-      }
-    },
-    {
-      "name": "delete_template",
-      "description": "Delete a template by name (all languages), or only one language version by name plus template_id.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "business_account_id": {
-            "type": "string",
-            "description": "WhatsApp Business Account id (default: WHATSAPP_BUSINESS_ACCOUNT_ID)"
-          },
-          "name": {
-            "type": "string",
-            "description": "Template name"
-          },
-          "template_id": {
-            "type": "string",
-            "description": "Template id (hsm_id) to delete just that version"
-          }
-        },
-        "required": [
-          "name"
         ]
       }
     },
