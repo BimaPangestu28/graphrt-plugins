@@ -1,0 +1,1122 @@
+{
+  "name": "dropbox",
+  "version": "0.1.0",
+  "description": "Dropbox: list, search and read metadata, download to a directory, upload up to 150 MB, folders, move/copy (agents: opt-in and a path allowlist); deletes and links node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "DROPBOX_APP_SECRET",
+      "DROPBOX_APP_KEY",
+      "DROPBOX_REFRESH_TOKEN",
+      "DROPBOX_TOOL_PATH_ALLOWLIST",
+      "DROPBOX_DOWNLOAD_DIR",
+      "DROPBOX_UPLOAD_DIR",
+      "DROPBOX_TOOL_ALLOW_MOVE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "dropbox.get_current_account",
+      "title": "Current account",
+      "description": "The signed-in user's account: name, email, account type, root namespace",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.get_space_usage",
+      "title": "Space usage",
+      "description": "Used and allocated storage in bytes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.list_folder",
+      "title": "List folder",
+      "description": "Entries of a folder (\"\" for the root); returns entries, cursor and has_more (continue with list_folder_continue)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Folder path, \"\" for the root, or \"id:...\"",
+            "default": ""
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "Include every subfolder's contents (default false)"
+          },
+          "include_deleted": {
+            "type": "boolean",
+            "description": "Include deleted entries (default false)"
+          },
+          "include_mounted_folders": {
+            "type": "boolean",
+            "description": "Include shared and team folders (default true)"
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "Approximate maximum entries per page (Dropbox may return fewer)",
+            "minimum": 1,
+            "maximum": 2000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.list_folder_continue",
+      "title": "List folder (next page)",
+      "description": "Next page of list_folder (or changes since an earlier cursor)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "cursor from the previous response (when has_more is true)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.get_metadata",
+      "title": "Get metadata",
+      "description": "Metadata of a file or folder (.tag file|folder|deleted, id, path_display, size, server_modified, rev)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dropbox path such as \"/Reports/q3.pdf\", or \"id:...\" from metadata",
+            "minLength": 1
+          },
+          "include_deleted": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.search",
+      "title": "Search",
+      "description": "Search file and folder names (and content on paid plans); returns matches, cursor and has_more (continue with search_continue)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text (max 1000 characters)",
+            "minLength": 1
+          },
+          "folder_path": {
+            "type": "string",
+            "description": "Only search in this folder"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum matches (default 100)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "filename_only": {
+            "type": "boolean",
+            "description": "Match names only, not content"
+          },
+          "file_status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deleted"
+            ]
+          },
+          "file_extensions": {
+            "type": "array",
+            "description": "e.g. [\"pdf\", \"docx\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "file_categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "image",
+                "document",
+                "pdf",
+                "spreadsheet",
+                "presentation",
+                "audio",
+                "video",
+                "folder",
+                "paper",
+                "others"
+              ]
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.search_continue",
+      "title": "Search (next page)",
+      "description": "Next page of search",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "cursor from the previous response (when has_more is true)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.download_file",
+      "title": "Download file",
+      "description": "Download a file's content into $DROPBOX_DOWNLOAD_DIR (up to 500 MB); returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dropbox path such as \"/Reports/q3.pdf\", or \"id:...\" from metadata",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file up to 150 MB (https URL, or an absolute path inside $DROPBOX_UPLOAD_DIR) to a Dropbox path",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "path": {
+            "type": "string",
+            "description": "Destination path including the name, e.g. \"/Reports/q3.pdf\"",
+            "minLength": 1
+          },
+          "mode": {
+            "type": "string",
+            "description": "add (default: keep the existing file) or overwrite",
+            "enum": [
+              "add",
+              "overwrite"
+            ]
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "With mode add: rename instead of failing on a conflict"
+          },
+          "mute": {
+            "type": "boolean",
+            "description": "Do not notify the user's devices"
+          },
+          "strict_conflict": {
+            "type": "boolean",
+            "description": "Treat an identical existing file as a conflict too"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file",
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.create_folder",
+      "title": "Create folder",
+      "description": "Create a folder at a path",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Folder path, e.g. \"/Reports/2026\"",
+            "minLength": 1
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "Rename on conflict instead of failing"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.move",
+      "title": "Move",
+      "description": "Move or rename a file or folder (as an agent tool only when DROPBOX_TOOL_ALLOW_MOVE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from_path": {
+            "type": "string",
+            "description": "Path or id of the file or folder to move/copy",
+            "minLength": 1
+          },
+          "to_path": {
+            "type": "string",
+            "description": "Destination path including the name, e.g. \"/Archive/q3.pdf\"",
+            "minLength": 1
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "Rename on conflict instead of failing (default false)"
+          },
+          "allow_ownership_transfer": {
+            "type": "boolean",
+            "description": "Allow moves that change the content's owner (default false)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "from_path",
+          "to_path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.copy",
+      "title": "Copy",
+      "description": "Copy a file or folder (as an agent tool only when DROPBOX_TOOL_ALLOW_MOVE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from_path": {
+            "type": "string",
+            "description": "Path or id of the file or folder to move/copy",
+            "minLength": 1
+          },
+          "to_path": {
+            "type": "string",
+            "description": "Destination path including the name, e.g. \"/Archive/q3.pdf\"",
+            "minLength": 1
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "Rename on conflict instead of failing (default false)"
+          },
+          "allow_ownership_transfer": {
+            "type": "boolean",
+            "description": "Allow moves that change the content's owner (default false)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "from_path",
+          "to_path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.delete",
+      "title": "Delete",
+      "description": "Delete a file or folder (restorable from Dropbox's deleted files for a while)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dropbox path such as \"/Reports/q3.pdf\", or \"id:...\" from metadata",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.create_shared_link",
+      "title": "Create shared link",
+      "description": "Create a shared link to a file or folder (who can open it depends on settings and the account's defaults)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dropbox path such as \"/Reports/q3.pdf\", or \"id:...\" from metadata",
+            "minLength": 1
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "public",
+              "team",
+              "no_one"
+            ]
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "editor"
+            ]
+          },
+          "expires": {
+            "type": "string",
+            "description": "UTC time \"2026-12-31T23:59:59Z\" (paid plans)"
+          },
+          "allow_download": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.list_shared_links",
+      "title": "List shared links",
+      "description": "Shared links of a path, or all of the user's links without a path; returns links, cursor and has_more",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "direct_only": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.get_temporary_link",
+      "title": "Temporary link",
+      "description": "A 4-hour direct download link to a file (anyone with it can download)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dropbox path such as \"/Reports/q3.pdf\", or \"id:...\" from metadata",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "dropbox.api_request",
+      "title": "Dropbox API v2 request",
+      "description": "Call any Dropbox API v2 endpoint that has no dedicated operation, e.g. path \"/files/list_folder\". Only the API's own host is allowed. Every Dropbox endpoint is a POST (method \"POST\", JSON body), so this works from workflow nodes only.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/files/list_folder\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_current_account",
+      "description": "The signed-in user's account: name, email, account type, root namespace",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_space_usage",
+      "description": "Used and allocated storage in bytes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_folder",
+      "description": "Entries of a folder (\"\" for the root); returns entries, cursor and has_more (continue with list_folder_continue)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Folder path, \"\" for the root, or \"id:...\"",
+            "default": ""
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "Include every subfolder's contents (default false)"
+          },
+          "include_deleted": {
+            "type": "boolean",
+            "description": "Include deleted entries (default false)"
+          },
+          "include_mounted_folders": {
+            "type": "boolean",
+            "description": "Include shared and team folders (default true)"
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "Approximate maximum entries per page (Dropbox may return fewer)",
+            "minimum": 1,
+            "maximum": 2000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_folder_continue",
+      "description": "Next page of list_folder (or changes since an earlier cursor)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "cursor from the previous response (when has_more is true)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      }
+    },
+    {
+      "name": "get_metadata",
+      "description": "Metadata of a file or folder (.tag file|folder|deleted, id, path_display, size, server_modified, rev)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dropbox path such as \"/Reports/q3.pdf\", or \"id:...\" from metadata",
+            "minLength": 1
+          },
+          "include_deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search file and folder names (and content on paid plans); returns matches, cursor and has_more (continue with search_continue)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text (max 1000 characters)",
+            "minLength": 1
+          },
+          "folder_path": {
+            "type": "string",
+            "description": "Only search in this folder"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum matches (default 100)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "filename_only": {
+            "type": "boolean",
+            "description": "Match names only, not content"
+          },
+          "file_status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deleted"
+            ]
+          },
+          "file_extensions": {
+            "type": "array",
+            "description": "e.g. [\"pdf\", \"docx\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "file_categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "image",
+                "document",
+                "pdf",
+                "spreadsheet",
+                "presentation",
+                "audio",
+                "video",
+                "folder",
+                "paper",
+                "others"
+              ]
+            }
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "search_continue",
+      "description": "Next page of search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "cursor from the previous response (when has_more is true)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "cursor"
+        ]
+      }
+    },
+    {
+      "name": "download_file",
+      "description": "Download a file's content into $DROPBOX_DOWNLOAD_DIR (up to 500 MB); returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dropbox path such as \"/Reports/q3.pdf\", or \"id:...\" from metadata",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file up to 150 MB (https URL, or an absolute path inside $DROPBOX_UPLOAD_DIR) to a Dropbox path",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "path": {
+            "type": "string",
+            "description": "Destination path including the name, e.g. \"/Reports/q3.pdf\"",
+            "minLength": 1
+          },
+          "mode": {
+            "type": "string",
+            "description": "add (default: keep the existing file) or overwrite",
+            "enum": [
+              "add",
+              "overwrite"
+            ]
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "With mode add: rename instead of failing on a conflict"
+          },
+          "mute": {
+            "type": "boolean",
+            "description": "Do not notify the user's devices"
+          },
+          "strict_conflict": {
+            "type": "boolean",
+            "description": "Treat an identical existing file as a conflict too"
+          }
+        },
+        "required": [
+          "file",
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "create_folder",
+      "description": "Create a folder at a path",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Folder path, e.g. \"/Reports/2026\"",
+            "minLength": 1
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "Rename on conflict instead of failing"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "move",
+      "description": "Move or rename a file or folder (as an agent tool only when DROPBOX_TOOL_ALLOW_MOVE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_path": {
+            "type": "string",
+            "description": "Path or id of the file or folder to move/copy",
+            "minLength": 1
+          },
+          "to_path": {
+            "type": "string",
+            "description": "Destination path including the name, e.g. \"/Archive/q3.pdf\"",
+            "minLength": 1
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "Rename on conflict instead of failing (default false)"
+          },
+          "allow_ownership_transfer": {
+            "type": "boolean",
+            "description": "Allow moves that change the content's owner (default false)"
+          }
+        },
+        "required": [
+          "from_path",
+          "to_path"
+        ]
+      }
+    },
+    {
+      "name": "copy",
+      "description": "Copy a file or folder (as an agent tool only when DROPBOX_TOOL_ALLOW_MOVE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_path": {
+            "type": "string",
+            "description": "Path or id of the file or folder to move/copy",
+            "minLength": 1
+          },
+          "to_path": {
+            "type": "string",
+            "description": "Destination path including the name, e.g. \"/Archive/q3.pdf\"",
+            "minLength": 1
+          },
+          "autorename": {
+            "type": "boolean",
+            "description": "Rename on conflict instead of failing (default false)"
+          },
+          "allow_ownership_transfer": {
+            "type": "boolean",
+            "description": "Allow moves that change the content's owner (default false)"
+          }
+        },
+        "required": [
+          "from_path",
+          "to_path"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Dropbox API v2 endpoint that has no dedicated operation, e.g. path \"/files/list_folder\". Only the API's own host is allowed. Every Dropbox endpoint is a POST (method \"POST\", JSON body), so this works from workflow nodes only.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/files/list_folder\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

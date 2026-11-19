@@ -1,0 +1,1660 @@
+{
+  "name": "trello",
+  "version": "0.1.0",
+  "description": "Trello: boards, lists, cards, comments, checklists, labels and members; agent writes limited to allowed boards, deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "TRELLO_TOKEN",
+      "TRELLO_API_KEY",
+      "TRELLO_TOOL_BOARD_ALLOWLIST"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "trello.get_me",
+      "title": "Current member",
+      "description": "The member who owns the token",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_boards",
+      "title": "List boards",
+      "description": "Boards of the current member",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "open",
+              "closed",
+              "members",
+              "organization",
+              "public",
+              "starred"
+            ],
+            "default": "open"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated board fields, e.g. name,url,closed"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.get_board",
+      "title": "Get board",
+      "description": "One board",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_lists",
+      "title": "List lists",
+      "description": "Lists (columns) of a board",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "open",
+              "closed",
+              "none"
+            ],
+            "default": "open"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_board_cards",
+      "title": "Board cards",
+      "description": "Open cards of a board",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_list_cards",
+      "title": "List cards",
+      "description": "Cards in one list",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.get_card",
+      "title": "Get card",
+      "description": "One card",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.search",
+      "title": "Search",
+      "description": "Search cards (and optionally boards) by text, with Trello's search operators (e.g. label:urgent due:week)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text",
+            "minLength": 1
+          },
+          "model_types": {
+            "type": "array",
+            "description": "What to search",
+            "items": {
+              "type": "string",
+              "enum": [
+                "actions",
+                "boards",
+                "cards",
+                "members",
+                "organizations"
+              ]
+            },
+            "default": [
+              "cards"
+            ]
+          },
+          "board_ids": {
+            "type": "array",
+            "description": "Only these boards (default: all of the member's boards)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cards_limit": {
+            "type": "integer",
+            "description": "Maximum cards (default 10)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "partial": {
+            "type": "boolean",
+            "description": "Match the start of words"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_card_actions",
+      "title": "Card comments and actions",
+      "description": "Actions on a card; by default its comments (filter commentCard), newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Action types, comma-separated (e.g. commentCard,updateCard), or all",
+            "default": "commentCard"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_card_checklists",
+      "title": "Card checklists",
+      "description": "Checklists of a card with their items",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_board_labels",
+      "title": "Board labels",
+      "description": "Labels defined on a board",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.list_board_members",
+      "title": "Board members",
+      "description": "Members of a board (ids for card assignment)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.create_list",
+      "title": "Create list",
+      "description": "Add a list (column) to a board (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "list_position": {
+            "type": "string",
+            "description": "Position on the board: top, bottom or a positive number"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "board_id",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.create_card",
+      "title": "Create card",
+      "description": "Create a card in a list (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Card name",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Card description (markdown)"
+          },
+          "card_position": {
+            "type": "string",
+            "description": "Position in the list: top, bottom or a positive number"
+          },
+          "due": {
+            "type": "string",
+            "description": "Due date, ISO 8601, e.g. 2026-12-01T09:00:00Z"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start date, ISO 8601"
+          },
+          "due_complete": {
+            "type": "boolean",
+            "description": "Whether the due date is done"
+          },
+          "member_ids": {
+            "type": "array",
+            "description": "Member ids (board members) assigned to the card",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids of the board",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.update_card",
+      "title": "Update card",
+      "description": "Change a card's name, description, dates, list (move within the board), members or labels, or archive it (closed: true) (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "name": {
+            "type": "string",
+            "description": "Card name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Card description (markdown)"
+          },
+          "card_position": {
+            "type": "string",
+            "description": "Position in the list: top, bottom or a positive number"
+          },
+          "due": {
+            "type": "string",
+            "description": "Due date, ISO 8601, e.g. 2026-12-01T09:00:00Z"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start date, ISO 8601"
+          },
+          "due_complete": {
+            "type": "boolean",
+            "description": "Whether the due date is done"
+          },
+          "member_ids": {
+            "type": "array",
+            "description": "Member ids (board members) assigned to the card",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids of the board",
+            "items": {
+              "type": "string"
+            }
+          },
+          "list_id": {
+            "type": "string",
+            "description": "Move to this list"
+          },
+          "closed": {
+            "type": "boolean",
+            "description": "true archives the card, false restores it"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.add_comment",
+      "title": "Add comment",
+      "description": "Comment on a card (board members may be notified of @mentions) (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment text (markdown)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.create_checklist",
+      "title": "Create checklist",
+      "description": "Add a checklist to a card (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checklist_position": {
+            "type": "string",
+            "description": "Position on the card: top, bottom or a positive number"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.add_checklist_item",
+      "title": "Add checklist item",
+      "description": "Add an item to a checklist (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "checklist_id": {
+            "type": "string",
+            "description": "Checklist id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item_position": {
+            "type": "string",
+            "description": "Position in the checklist: top, bottom or a positive number"
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "due": {
+            "type": "string",
+            "description": "Due date, ISO 8601, e.g. 2026-12-01T09:00:00Z"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "checklist_id",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.update_checklist_item",
+      "title": "Update checklist item",
+      "description": "Check or uncheck a checklist item, or rename it (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "check_item_id": {
+            "type": "string",
+            "description": "Checklist item id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "incomplete"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id",
+          "check_item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.add_label_to_card",
+      "title": "Add label",
+      "description": "Add one of the board's labels to a card (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "label_id": {
+            "type": "string",
+            "description": "Label id (list_board_labels)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id",
+          "label_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.add_member_to_card",
+      "title": "Assign member",
+      "description": "Assign a board member to a card (the member must already be on the board) (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "member_id": {
+            "type": "string",
+            "description": "Member id (list_board_members)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id",
+          "member_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.delete_card",
+      "title": "Delete card",
+      "description": "Delete a card permanently (archive it with update_card closed: true instead)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "trello.api_request",
+      "title": "Trello REST API request",
+      "description": "Call any Trello REST API endpoint that has no dedicated operation, e.g. path \"/boards/{board_id}/actions\". Only the API's own host is allowed. Agent tools may only read boards, lists, cards, checklists, labels, actions, organizations, search and members (no tokens, webhooks or applications, and no tokens or webhooks query keys).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/boards/{board_id}/actions\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "The member who owns the token",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_boards",
+      "description": "Boards of the current member",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "open",
+              "closed",
+              "members",
+              "organization",
+              "public",
+              "starred"
+            ],
+            "default": "open"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated board fields, e.g. name,url,closed"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_board",
+      "description": "One board",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      }
+    },
+    {
+      "name": "list_lists",
+      "description": "Lists (columns) of a board",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "open",
+              "closed",
+              "none"
+            ],
+            "default": "open"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      }
+    },
+    {
+      "name": "list_board_cards",
+      "description": "Open cards of a board",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      }
+    },
+    {
+      "name": "list_list_cards",
+      "description": "Cards in one list",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "get_card",
+      "description": "One card",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated fields to return, e.g. name,url (default: Trello's default set)"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search cards (and optionally boards) by text, with Trello's search operators (e.g. label:urgent due:week)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text",
+            "minLength": 1
+          },
+          "model_types": {
+            "type": "array",
+            "description": "What to search",
+            "items": {
+              "type": "string",
+              "enum": [
+                "actions",
+                "boards",
+                "cards",
+                "members",
+                "organizations"
+              ]
+            },
+            "default": [
+              "cards"
+            ]
+          },
+          "board_ids": {
+            "type": "array",
+            "description": "Only these boards (default: all of the member's boards)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cards_limit": {
+            "type": "integer",
+            "description": "Maximum cards (default 10)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "partial": {
+            "type": "boolean",
+            "description": "Match the start of words"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "list_card_actions",
+      "description": "Actions on a card; by default its comments (filter commentCard), newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Action types, comma-separated (e.g. commentCard,updateCard), or all",
+            "default": "commentCard"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      }
+    },
+    {
+      "name": "list_card_checklists",
+      "description": "Checklists of a card with their items",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      }
+    },
+    {
+      "name": "list_board_labels",
+      "description": "Labels defined on a board",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      }
+    },
+    {
+      "name": "list_board_members",
+      "description": "Members of a board (ids for card assignment)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id or short link (from the board URL)"
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      }
+    },
+    {
+      "name": "create_list",
+      "description": "Add a list (column) to a board (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Board id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "list_position": {
+            "type": "string",
+            "description": "Position on the board: top, bottom or a positive number"
+          }
+        },
+        "required": [
+          "board_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "create_card",
+      "description": "Create a card in a list (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "List id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Card name",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Card description (markdown)"
+          },
+          "card_position": {
+            "type": "string",
+            "description": "Position in the list: top, bottom or a positive number"
+          },
+          "due": {
+            "type": "string",
+            "description": "Due date, ISO 8601, e.g. 2026-12-01T09:00:00Z"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start date, ISO 8601"
+          },
+          "due_complete": {
+            "type": "boolean",
+            "description": "Whether the due date is done"
+          },
+          "member_ids": {
+            "type": "array",
+            "description": "Member ids (board members) assigned to the card",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids of the board",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_card",
+      "description": "Change a card's name, description, dates, list (move within the board), members or labels, or archive it (closed: true) (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "name": {
+            "type": "string",
+            "description": "Card name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Card description (markdown)"
+          },
+          "card_position": {
+            "type": "string",
+            "description": "Position in the list: top, bottom or a positive number"
+          },
+          "due": {
+            "type": "string",
+            "description": "Due date, ISO 8601, e.g. 2026-12-01T09:00:00Z"
+          },
+          "start": {
+            "type": "string",
+            "description": "Start date, ISO 8601"
+          },
+          "due_complete": {
+            "type": "boolean",
+            "description": "Whether the due date is done"
+          },
+          "member_ids": {
+            "type": "array",
+            "description": "Member ids (board members) assigned to the card",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Label ids of the board",
+            "items": {
+              "type": "string"
+            }
+          },
+          "list_id": {
+            "type": "string",
+            "description": "Move to this list"
+          },
+          "closed": {
+            "type": "boolean",
+            "description": "true archives the card, false restores it"
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      }
+    },
+    {
+      "name": "add_comment",
+      "description": "Comment on a card (board members may be notified of @mentions) (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment text (markdown)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "card_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "create_checklist",
+      "description": "Add a checklist to a card (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checklist_position": {
+            "type": "string",
+            "description": "Position on the card: top, bottom or a positive number"
+          }
+        },
+        "required": [
+          "card_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "add_checklist_item",
+      "description": "Add an item to a checklist (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "checklist_id": {
+            "type": "string",
+            "description": "Checklist id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item_position": {
+            "type": "string",
+            "description": "Position in the checklist: top, bottom or a positive number"
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "due": {
+            "type": "string",
+            "description": "Due date, ISO 8601, e.g. 2026-12-01T09:00:00Z"
+          }
+        },
+        "required": [
+          "checklist_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_checklist_item",
+      "description": "Check or uncheck a checklist item, or rename it (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "check_item_id": {
+            "type": "string",
+            "description": "Checklist item id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "incomplete"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "check_item_id"
+        ]
+      }
+    },
+    {
+      "name": "add_label_to_card",
+      "description": "Add one of the board's labels to a card (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "label_id": {
+            "type": "string",
+            "description": "Label id (list_board_labels)"
+          }
+        },
+        "required": [
+          "card_id",
+          "label_id"
+        ]
+      }
+    },
+    {
+      "name": "add_member_to_card",
+      "description": "Assign a board member to a card (the member must already be on the board) (agent tools: only on boards in TRELLO_TOOL_BOARD_ALLOWLIST)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Card id or short link"
+          },
+          "member_id": {
+            "type": "string",
+            "description": "Member id (list_board_members)"
+          }
+        },
+        "required": [
+          "card_id",
+          "member_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Trello REST API endpoint that has no dedicated operation, e.g. path \"/boards/{board_id}/actions\". Only the API's own host is allowed. Agent tools may only read boards, lists, cards, checklists, labels, actions, organizations, search and members (no tokens, webhooks or applications, and no tokens or webhooks query keys).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/boards/{board_id}/actions\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

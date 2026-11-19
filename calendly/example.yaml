@@ -1,0 +1,16 @@
+# Show the current user's active event types and next booked events. Read-only.
+#   CALENDLY_ACCESS_TOKEN=... graphrt run calendly/example.yaml --plugins .
+version: "1"
+name: calendly-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: calendly.get_me }
+    - { id: event_types, type: calendly.list_event_types, user: "{{#me.data.uri#}}", active: true }
+    - { id: upcoming, type: calendly.list_scheduled_events, user: "{{#me.data.uri#}}", status: active, min_start_time: "2026-11-19T00:00:00Z", sort: "start_time:asc", limit: 10 }
+    - { id: answer, type: answer, answer: "Event types: {{#event_types.data#}} | Upcoming: {{#upcoming.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: event_types }
+    - { source: event_types, target: upcoming }
+    - { source: upcoming, target: answer }

@@ -1,0 +1,15 @@
+# Show the drive's quota and the files in its root folder. Read-only.
+#   MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=... MICROSOFT_REFRESH_TOKEN=... MICROSOFT_TENANT_ID=... \
+#     graphrt run onedrive/example.yaml --plugins .
+version: "1"
+name: onedrive-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: drive, type: onedrive.get_drive }
+    - { id: root, type: onedrive.list_root_children, select: [name, size, lastModifiedDateTime], limit: 20 }
+    - { id: answer, type: answer, answer: "Quota: {{#drive.data.quota#}} | Root: {{#root.data#}}" }
+  edges:
+    - { source: start, target: drive }
+    - { source: drive, target: root }
+    - { source: root, target: answer }

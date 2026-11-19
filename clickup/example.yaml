@@ -1,0 +1,14 @@
+# List your ClickUp workspaces and the spaces of the first one. Read-only.
+#   CLICKUP_API_TOKEN=pk_... graphrt run clickup/example.yaml --plugins . --trust-plugin clickup
+version: "1"
+name: clickup-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: workspaces, type: clickup.list_teams }
+    - { id: spaces, type: clickup.list_spaces, team_id: "{{#workspaces.data.0.id#}}" }
+    - { id: answer, type: answer, answer: "Workspace {{#workspaces.data.0.name#}} has spaces: {{#spaces.data#}}" }
+  edges:
+    - { source: start, target: workspaces }
+    - { source: workspaces, target: spaces }
+    - { source: spaces, target: answer }

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-zoom",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Zoom users, meetings, past meetings and cloud recordings (Server-to-Server OAuth)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

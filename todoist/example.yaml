@@ -1,0 +1,14 @@
+# Show today's and overdue Todoist tasks and your projects. Read-only.
+#   TODOIST_API_TOKEN=... graphrt run todoist/example.yaml --plugins . --trust-plugin todoist
+version: "1"
+name: todoist-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: due, type: todoist.filter_tasks, query: "today | overdue", limit: 20 }
+    - { id: projects, type: todoist.list_projects }
+    - { id: answer, type: answer, answer: "Due: {{#due.data#}} | Projects: {{#projects.data#}}" }
+  edges:
+    - { source: start, target: due }
+    - { source: due, target: projects }
+    - { source: projects, target: answer }

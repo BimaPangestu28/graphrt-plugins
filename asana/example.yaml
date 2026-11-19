@@ -1,0 +1,20 @@
+# Show who you are and your incomplete tasks in your first workspace. Read-only.
+#   ASANA_ACCESS_TOKEN=... graphrt run asana/example.yaml --plugins .
+version: "1"
+name: asana-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: asana.get_me, opt_fields: [name, workspaces.name] }
+    - id: tasks
+      type: asana.list_tasks
+      assignee: me
+      workspace_gid: "{{#me.data.workspaces.0.gid#}}"
+      completed_since: now
+      opt_fields: [name, due_on, permalink_url]
+      limit: 10
+    - { id: answer, type: answer, answer: "{{#me.data.name#}}: {{#tasks.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: tasks }
+    - { source: tasks, target: answer }

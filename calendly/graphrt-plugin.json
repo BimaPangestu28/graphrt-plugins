@@ -1,0 +1,1178 @@
+{
+  "name": "calendly",
+  "version": "0.1.0",
+  "description": "Calendly: current user, event types and open times, scheduled events and invitees, availability and busy times, single-use links and bookings (agent opt-in), cancel (node only)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "CALENDLY_ACCESS_TOKEN",
+      "CALENDLY_TOOL_ALLOW_SCHEDULING_LINK",
+      "CALENDLY_TOOL_ALLOW_BOOKING"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "calendly.get_me",
+      "title": "Current user",
+      "description": "The token's user; data.uri and data.current_organization feed the user/organization filters",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.get_user",
+      "title": "Get user",
+      "description": "One user",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_uuid": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user_uuid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.list_organization_memberships",
+      "title": "Organization members",
+      "description": "Members of an organization (or the memberships of one user)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization: uuid or https://api.calendly.com/... URI"
+          },
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "user"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.list_event_types",
+      "title": "List event types",
+      "description": "Event types of a user or organization (set one of them)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "organization": {
+            "type": "string",
+            "description": "Organization: uuid or https://api.calendly.com/... URI"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sort": {
+            "type": "string",
+            "description": "e.g. name:asc (default), position:asc, created_at:desc"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.get_event_type",
+      "title": "Get event type",
+      "description": "One event type with its scheduling_url, duration and questions",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_type_uuid": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_type_uuid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.list_available_times",
+      "title": "Available times",
+      "description": "Open start times of an event type in a range of at most 7 days",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Range start (in the future), ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "Range end (at most 7 days after start), ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_type",
+          "start_time",
+          "end_time"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.list_scheduled_events",
+      "title": "List scheduled events",
+      "description": "Booked events of a user or organization (set one of them), filtered by time, status or invitee email",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "organization": {
+            "type": "string",
+            "description": "Organization: uuid or https://api.calendly.com/... URI"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group: uuid or https://api.calendly.com/... URI"
+          },
+          "invitee_email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "canceled"
+            ]
+          },
+          "min_start_time": {
+            "type": "string",
+            "description": "Start at or after, ISO 8601 UTC"
+          },
+          "max_start_time": {
+            "type": "string",
+            "description": "Start before, ISO 8601 UTC"
+          },
+          "sort": {
+            "type": "string",
+            "description": "start_time:asc or start_time:desc"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.get_scheduled_event",
+      "title": "Get scheduled event",
+      "description": "One booked event with its location and invitee counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "Scheduled event: uuid or https://api.calendly.com/... URI"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_uuid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.list_invitees",
+      "title": "List invitees",
+      "description": "Invitees of a scheduled event with their answers",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "Scheduled event: uuid or https://api.calendly.com/... URI"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "canceled"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string",
+            "description": "created_at:asc (default) or created_at:desc"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_uuid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.get_invitee",
+      "title": "Get invitee",
+      "description": "One invitee of a scheduled event",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "Scheduled event: uuid or https://api.calendly.com/... URI"
+          },
+          "invitee_uuid": {
+            "type": "string",
+            "description": "Invitee: uuid or https://api.calendly.com/... URI"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_uuid",
+          "invitee_uuid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.list_availability_schedules",
+      "title": "Availability schedules",
+      "description": "A user's availability schedules (working hours rules)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.list_busy_times",
+      "title": "Busy times",
+      "description": "A user's busy intervals (Calendly events and connected calendars) in a range of at most 7 days",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Range start, ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "Range end (at most 7 days after start), ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user",
+          "start_time",
+          "end_time"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.create_scheduling_link",
+      "title": "Create single-use link",
+      "description": "Create a booking link for one event of an event type (data.booking_url) (as an agent tool only when CALENDLY_TOOL_ALLOW_SCHEDULING_LINK=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.book_meeting",
+      "title": "Book meeting",
+      "description": "Book an invitee into an open time of an event type (Calendly sends the usual confirmations and calendar invitations; paid plans) (as an agent tool only when CALENDLY_TOOL_ALLOW_BOOKING=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "One of list_available_times' start_time values, ISO 8601 UTC"
+          },
+          "invitee_email": {
+            "type": "string"
+          },
+          "invitee_timezone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "invitee_name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "object",
+            "description": "Location choice of the event type, e.g. {\"kind\":\"zoom_conference\"}"
+          },
+          "questions_and_answers": {
+            "type": "array",
+            "description": "e.g. [{\"question\":\"Topic\",\"answer\":\"Pricing\",\"position\":0}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "event_guests": {
+            "type": "array",
+            "description": "Guest emails (they are invited too)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_type",
+          "start_time",
+          "invitee_email",
+          "invitee_timezone"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.cancel_event",
+      "title": "Cancel event",
+      "description": "Cancel a scheduled event (Calendly emails the invitees)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "Scheduled event: uuid or https://api.calendly.com/... URI"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_uuid"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "calendly.api_request",
+      "title": "Calendly API request",
+      "description": "Call any Calendly API endpoint that has no dedicated operation, e.g. path \"/users/me\". Only the API's own host is allowed. Agent tools may only read users, event types, scheduled events, invitees, availability and memberships (invitee cancel/reschedule links are removed).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/users/me\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "The token's user; data.uri and data.current_organization feed the user/organization filters",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_user",
+      "description": "One user",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_uuid": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          }
+        },
+        "required": [
+          "user_uuid"
+        ]
+      }
+    },
+    {
+      "name": "list_organization_memberships",
+      "description": "Members of an organization (or the memberships of one user)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "string",
+            "description": "Organization: uuid or https://api.calendly.com/... URI"
+          },
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "user"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_event_types",
+      "description": "Event types of a user or organization (set one of them)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "organization": {
+            "type": "string",
+            "description": "Organization: uuid or https://api.calendly.com/... URI"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sort": {
+            "type": "string",
+            "description": "e.g. name:asc (default), position:asc, created_at:desc"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_event_type",
+      "description": "One event type with its scheduling_url, duration and questions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_type_uuid": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          }
+        },
+        "required": [
+          "event_type_uuid"
+        ]
+      }
+    },
+    {
+      "name": "list_available_times",
+      "description": "Open start times of an event type in a range of at most 7 days",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Range start (in the future), ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "Range end (at most 7 days after start), ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          }
+        },
+        "required": [
+          "event_type",
+          "start_time",
+          "end_time"
+        ]
+      }
+    },
+    {
+      "name": "list_scheduled_events",
+      "description": "Booked events of a user or organization (set one of them), filtered by time, status or invitee email",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "organization": {
+            "type": "string",
+            "description": "Organization: uuid or https://api.calendly.com/... URI"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group: uuid or https://api.calendly.com/... URI"
+          },
+          "invitee_email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "canceled"
+            ]
+          },
+          "min_start_time": {
+            "type": "string",
+            "description": "Start at or after, ISO 8601 UTC"
+          },
+          "max_start_time": {
+            "type": "string",
+            "description": "Start before, ISO 8601 UTC"
+          },
+          "sort": {
+            "type": "string",
+            "description": "start_time:asc or start_time:desc"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_scheduled_event",
+      "description": "One booked event with its location and invitee counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "Scheduled event: uuid or https://api.calendly.com/... URI"
+          }
+        },
+        "required": [
+          "event_uuid"
+        ]
+      }
+    },
+    {
+      "name": "list_invitees",
+      "description": "Invitees of a scheduled event with their answers",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "Scheduled event: uuid or https://api.calendly.com/... URI"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "canceled"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string",
+            "description": "created_at:asc (default) or created_at:desc"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": [
+          "event_uuid"
+        ]
+      }
+    },
+    {
+      "name": "get_invitee",
+      "description": "One invitee of a scheduled event",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "Scheduled event: uuid or https://api.calendly.com/... URI"
+          },
+          "invitee_uuid": {
+            "type": "string",
+            "description": "Invitee: uuid or https://api.calendly.com/... URI"
+          }
+        },
+        "required": [
+          "event_uuid",
+          "invitee_uuid"
+        ]
+      }
+    },
+    {
+      "name": "list_availability_schedules",
+      "description": "A user's availability schedules (working hours rules)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          }
+        },
+        "required": [
+          "user"
+        ]
+      }
+    },
+    {
+      "name": "list_busy_times",
+      "description": "A user's busy intervals (Calendly events and connected calendars) in a range of at most 7 days",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User: uuid or https://api.calendly.com/... URI"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Range start, ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "Range end (at most 7 days after start), ISO 8601 UTC, e.g. 2026-12-01T00:00:00Z"
+          }
+        },
+        "required": [
+          "user",
+          "start_time",
+          "end_time"
+        ]
+      }
+    },
+    {
+      "name": "create_scheduling_link",
+      "description": "Create a booking link for one event of an event type (data.booking_url) (as an agent tool only when CALENDLY_TOOL_ALLOW_SCHEDULING_LINK=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      }
+    },
+    {
+      "name": "book_meeting",
+      "description": "Book an invitee into an open time of an event type (Calendly sends the usual confirmations and calendar invitations; paid plans) (as an agent tool only when CALENDLY_TOOL_ALLOW_BOOKING=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "Event type: uuid or https://api.calendly.com/... URI"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "One of list_available_times' start_time values, ISO 8601 UTC"
+          },
+          "invitee_email": {
+            "type": "string"
+          },
+          "invitee_timezone": {
+            "type": "string",
+            "description": "IANA time zone, e.g. Asia/Jakarta"
+          },
+          "invitee_name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "object",
+            "description": "Location choice of the event type, e.g. {\"kind\":\"zoom_conference\"}"
+          },
+          "questions_and_answers": {
+            "type": "array",
+            "description": "e.g. [{\"question\":\"Topic\",\"answer\":\"Pricing\",\"position\":0}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "event_guests": {
+            "type": "array",
+            "description": "Guest emails (they are invited too)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "event_type",
+          "start_time",
+          "invitee_email",
+          "invitee_timezone"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Calendly API endpoint that has no dedicated operation, e.g. path \"/users/me\". Only the API's own host is allowed. Agent tools may only read users, event types, scheduled events, invitees, availability and memberships (invitee cancel/reschedule links are removed).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/users/me\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1266 @@
+{
+  "name": "onedrive",
+  "version": "0.1.0",
+  "description": "OneDrive (Microsoft Graph): browse, search, download to a directory, upload up to 250 MB, folders, rename/move/copy (agents: folder allowlist), sharing links and deletes node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MICROSOFT_CLIENT_SECRET",
+      "MICROSOFT_CLIENT_ID",
+      "MICROSOFT_REFRESH_TOKEN",
+      "MICROSOFT_TENANT_ID",
+      "ONEDRIVE_TOOL_FOLDER_ALLOWLIST",
+      "ONEDRIVE_DOWNLOAD_DIR",
+      "ONEDRIVE_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 600000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "onedrive.get_drive",
+      "title": "Get drive",
+      "description": "The user's OneDrive: id, type (personal or business), owner and storage quota",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.list_drives",
+      "title": "List drives",
+      "description": "Drives the user can reach directly (usually one)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.list_root_children",
+      "title": "List root",
+      "description": "Files and folders in the root of the drive",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "name",
+              "size",
+              "file",
+              "folder",
+              "parentReference",
+              "createdDateTime",
+              "lastModifiedDateTime",
+              "lastModifiedBy",
+              "webUrl"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. name, lastModifiedDateTime desc (personal accounts support name and size only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.list_children",
+      "title": "List folder",
+      "description": "Files and folders in a folder",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "name",
+              "size",
+              "file",
+              "folder",
+              "parentReference",
+              "createdDateTime",
+              "lastModifiedDateTime",
+              "lastModifiedBy",
+              "webUrl"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. name, lastModifiedDateTime desc (personal accounts support name and size only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.get_item",
+      "title": "Get item",
+      "description": "Metadata of a file or folder by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.get_item_by_path",
+      "title": "Get item by path",
+      "description": "Metadata of a file or folder by its path from the root, e.g. \"Documents/Reports/q3.pdf\"",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_path": {
+            "type": "string",
+            "description": "Path below the root without a leading slash, e.g. \"Documents/q3.pdf\""
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.search",
+      "title": "Search",
+      "description": "Search the drive's file names, metadata and content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "name",
+              "size",
+              "file",
+              "folder",
+              "parentReference",
+              "createdDateTime",
+              "lastModifiedDateTime",
+              "lastModifiedBy",
+              "webUrl"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.list_permissions",
+      "title": "List sharing",
+      "description": "Who a file or folder is shared with (roles, users, link type and scope; link URLs are left out for agents)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file up to 250 MB (https URL, or an absolute path inside $ONEDRIVE_UPLOAD_DIR) into a folder, creating or replacing it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Parent folder id, or \"root\""
+          },
+          "file_name": {
+            "type": "string",
+            "description": "File name in OneDrive, e.g. report.pdf"
+          },
+          "file": {
+            "type": "string",
+            "description": "File (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "conflict_behavior": {
+            "type": "string",
+            "description": "When the name exists: replace (default), rename or fail",
+            "enum": [
+              "fail",
+              "replace",
+              "rename"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "parent_id",
+          "file_name",
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.create_folder",
+      "title": "Create folder",
+      "description": "Create a folder in a parent folder (parent_id root for the top level)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Parent folder id, or \"root\""
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conflict_behavior": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "replace",
+              "rename"
+            ],
+            "default": "fail"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "parent_id",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.update_item",
+      "title": "Rename or move",
+      "description": "Rename a file or folder, change its description, or move it to another folder",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Folder id to move into, or \"root\""
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.copy_item",
+      "title": "Copy item",
+      "description": "Copy a file or folder (asynchronous: Graph answers 202 and copies in the background)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Destination folder id (default: the same folder)"
+          },
+          "parent_drive_id": {
+            "type": "string",
+            "description": "Destination drive id, when it is another drive"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the copy (required when copying into the same folder)"
+          },
+          "conflict_behavior": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "replace",
+              "rename"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.create_sharing_link",
+      "title": "Create sharing link",
+      "description": "Create a view, edit or embed link (anonymous links let anyone with the URL open the item)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "link_type": {
+            "type": "string",
+            "enum": [
+              "view",
+              "edit",
+              "embed"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "description": "Who the link works for (default depends on the tenant)",
+            "enum": [
+              "anonymous",
+              "organization",
+              "users"
+            ]
+          },
+          "expiration_date_time": {
+            "type": "string",
+            "description": "ISO 8601 expiry"
+          },
+          "password": {
+            "type": "string",
+            "description": "Link password (personal OneDrive only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id",
+          "link_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.invite",
+      "title": "Share with people",
+      "description": "Give people access to an item and optionally email them an invitation",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "recipients": {
+            "type": "array",
+            "description": "e.g. [{\"email\": \"ada@example.com\"}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write"
+              ]
+            }
+          },
+          "require_sign_in": {
+            "type": "boolean",
+            "default": true
+          },
+          "send_invitation": {
+            "type": "boolean",
+            "default": false
+          },
+          "message": {
+            "type": "string",
+            "description": "Invitation text (max 2000 characters)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id",
+          "recipients",
+          "roles"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.delete_item",
+      "title": "Delete item",
+      "description": "Move a file or folder to the recycle bin",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.download_item",
+      "title": "Download file",
+      "description": "Download a file's content into $ONEDRIVE_DOWNLOAD_DIR (up to 250 MB); returns {item, path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "File item id (from list_children, search or get_item)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "onedrive.api_request",
+      "title": "Microsoft Graph request",
+      "description": "Call any Microsoft Graph endpoint that has no dedicated operation, e.g. path \"/me/drive/root/delta\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/drive/root/delta\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_drive",
+      "description": "The user's OneDrive: id, type (personal or business), owner and storage quota",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_drives",
+      "description": "Drives the user can reach directly (usually one)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_root_children",
+      "description": "Files and folders in the root of the drive",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "name",
+              "size",
+              "file",
+              "folder",
+              "parentReference",
+              "createdDateTime",
+              "lastModifiedDateTime",
+              "lastModifiedBy",
+              "webUrl"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. name, lastModifiedDateTime desc (personal accounts support name and size only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_children",
+      "description": "Files and folders in a folder",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "name",
+              "size",
+              "file",
+              "folder",
+              "parentReference",
+              "createdDateTime",
+              "lastModifiedDateTime",
+              "lastModifiedBy",
+              "webUrl"
+            ]
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. name, lastModifiedDateTime desc (personal accounts support name and size only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "get_item",
+      "description": "Metadata of a file or folder by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "get_item_by_path",
+      "description": "Metadata of a file or folder by its path from the root, e.g. \"Documents/Reports/q3.pdf\"",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_path": {
+            "type": "string",
+            "description": "Path below the root without a leading slash, e.g. \"Documents/q3.pdf\""
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "item_path"
+        ]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search the drive's file names, metadata and content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "name",
+              "size",
+              "file",
+              "folder",
+              "parentReference",
+              "createdDateTime",
+              "lastModifiedDateTime",
+              "lastModifiedBy",
+              "webUrl"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "list_permissions",
+      "description": "Who a file or folder is shared with (roles, users, link type and scope; link URLs are left out for agents)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file up to 250 MB (https URL, or an absolute path inside $ONEDRIVE_UPLOAD_DIR) into a folder, creating or replacing it",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Parent folder id, or \"root\""
+          },
+          "file_name": {
+            "type": "string",
+            "description": "File name in OneDrive, e.g. report.pdf"
+          },
+          "file": {
+            "type": "string",
+            "description": "File (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "conflict_behavior": {
+            "type": "string",
+            "description": "When the name exists: replace (default), rename or fail",
+            "enum": [
+              "fail",
+              "replace",
+              "rename"
+            ]
+          }
+        },
+        "required": [
+          "parent_id",
+          "file_name",
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "create_folder",
+      "description": "Create a folder in a parent folder (parent_id root for the top level)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "Parent folder id, or \"root\""
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conflict_behavior": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "replace",
+              "rename"
+            ],
+            "default": "fail"
+          }
+        },
+        "required": [
+          "parent_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_item",
+      "description": "Rename a file or folder, change its description, or move it to another folder",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Folder id to move into, or \"root\""
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "copy_item",
+      "description": "Copy a file or folder (asynchronous: Graph answers 202 and copies in the background)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Item id (from list_children, search or get_item), or root"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Destination folder id (default: the same folder)"
+          },
+          "parent_drive_id": {
+            "type": "string",
+            "description": "Destination drive id, when it is another drive"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the copy (required when copying into the same folder)"
+          },
+          "conflict_behavior": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "replace",
+              "rename"
+            ]
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "download_item",
+      "description": "Download a file's content into $ONEDRIVE_DOWNLOAD_DIR (up to 250 MB); returns {item, path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "File item id (from list_children, search or get_item)"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Microsoft Graph endpoint that has no dedicated operation, e.g. path \"/me/drive/root/delta\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/drive/root/delta\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

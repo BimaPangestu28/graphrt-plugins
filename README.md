@@ -78,6 +78,14 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [bigquery](bigquery/) | Google BigQuery: datasets, tables and schemas, parameterised GoogleSQL with a bytes-billed cap on every query, free dry runs and paged typed results; agent tools run SELECT only (dry-run checked) unless opted in | 5 |
 | [firestore](firestore/) | Google Cloud Firestore: get, list and query documents (filters, ordering, collection groups) with plain JSON or typed values, create and update (agents opt-in), delete (node only) | 6 |
 | [snowflake](snowflake/) | Snowflake SQL API with key-pair JWT auth: statements with bindings, async polling and cancel, typed rows across result partitions; agent tools read-only (statement check, dedicated role) unless opted in | 4 |
+| [trello](trello/) | Trello: boards, lists, cards, comments, checklists, labels and members; agent writes only on boards in an allowlist, deletes node only | 23 |
+| [asana](asana/) | Asana: workspaces, projects, sections, tasks (list, search, create, update, complete, subtasks) and comments with a personal access token; agent tools assign only to me or user gids, deletes node only | 20 |
+| [clickup](clickup/) | ClickUp: workspaces, spaces, folders, lists, tasks (list, filter across a workspace, get, create, update), comments and time entries (read); task deletes are node only | 19 |
+| [todoist](todoist/) | Todoist API v1: projects, sections, tasks (filter, completed, create, Quick Add, update, move, complete, reopen), labels and comments; token fields stripped, deletes node only | 22 |
+| [zoom](zoom/) | Zoom (Server-to-Server OAuth): users, meetings (list, get, create, update; delete is node only), past meetings, instances and participants, cloud recordings; start links, recording links and passcodes hidden from agents | 14 |
+| [calendly](calendly/) | Calendly: current user, event types and open times, scheduled events and invitees, availability and busy times; single-use links and bookings are agent opt-in, cancel is node only | 16 |
+| [dropbox](dropbox/) | Dropbox: account, list and search files, metadata, download to a directory, upload up to 150 MB, folders, move/copy (agents: opt-in plus a path allowlist); delete, shared and temporary links node only | 17 |
+| [onedrive](onedrive/) | OneDrive via Microsoft Graph: browse, get by path, search, download to a directory, upload up to 250 MB, folders, rename/move/copy (agents: folder allowlist); sharing links, invites and deletes node only; download URLs never shown to agents | 17 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

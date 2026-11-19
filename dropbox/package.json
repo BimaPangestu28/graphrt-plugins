@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-dropbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Dropbox API v2 (list, search, metadata, download, upload, folders, move/copy, links)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

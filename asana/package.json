@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-asana",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Asana workspaces, projects, sections, tasks and comments",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
