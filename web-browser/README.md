@@ -122,7 +122,7 @@ too.
 - **Network failure:** the call fails with a retryable `network_error`.
 - **Cache:** results are kept per origin for an hour, up to 100 origins.
 
-**User agent:** a normal Chrome user agent with `graphrt-web-browser/0.2.0 (+https://github.com/BimaPangestu28/graphrt-plugins)`
+**User agent:** a normal Chrome user agent with `graphrt-web-browser/0.2.1 (+https://github.com/BimaPangestu28/graphrt-plugins)`
 appended, so sites can identify the plugin. You can replace it with `WEB_BROWSER_USER_AGENT`.
 
 ## Prerequisites
@@ -176,7 +176,7 @@ graphrt run web-browser/example.yaml --plugins .
 | `WEB_BROWSER_MAX_PAGES` | `2` | Pages open at the same time (1–4); more calls wait |
 | `WEB_BROWSER_MAX_DOWNLOAD_MB` | `15` | Bytes one operation may download in total (1–100) |
 | `WEB_BROWSER_USER_AGENT` | *(Chrome UA + plugin token)* | Replaces the user agent (one line, max 300 characters) |
-| `GRAPHRT_LIVE_VIEW_DIR` | *(unset)* | Set by a host that shows pages live (the graphrt desktop app): while an operation runs, its page is written there as a small JPEG (max 640×480, at most 2 per second) and deleted when it ends. Frames stay on the machine and are never logged |
+| `GRAPHRT_LIVE_VIEW_DIR` | *(unset)* | Set by a host that shows pages live (the graphrt desktop app): while an operation runs, its page is written there as a small JPEG (max 960×720, about 6 per second) and deleted when it ends. Frames stay on the machine and are never logged |
 
 There is deliberately no setting that allows private hosts.
 

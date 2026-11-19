@@ -1,6 +1,6 @@
 {
   "name": "google-maps-scraper",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Search Google Maps with a headless browser and extract business phone numbers (free, no API key)",
   "license": "Apache-2.0",
   "runtime": "process",

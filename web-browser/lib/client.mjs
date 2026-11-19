@@ -13,7 +13,7 @@ import { startEgressProxy } from "./egress-proxy.mjs";
 import { createRobotsChecker, ROBOTS_PRODUCT_TOKEN } from "./robots-checker.mjs";
 import { resolveSettings } from "./settings.mjs";
 
-export const PLUGIN_VERSION = "0.2.0";
+export const PLUGIN_VERSION = "0.2.1";
 export const PROJECT_URL = "https://github.com/BimaPangestu28/graphrt-plugins";
 const SCREENSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Names writeScreenshotFile generates: <ISO timestamp>-<host>-<8 hex>.png. Other files are never touched.
