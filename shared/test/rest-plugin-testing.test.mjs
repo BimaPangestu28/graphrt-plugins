@@ -16,10 +16,12 @@ test("the generated contract covers every promised behaviour", () => {
   const testNames = listContractTestNames(demoDefinition, DEMO_CONTRACT_CASES).join("\n");
   const expectedFragments = [
     "every operation has a contract case",
-    "get_item sends GET /items/i-1 with the credential in place",
+    "get_item sends GET https://api.example.com/v1/items/i-1 with the credential in place",
     "send_message refuses a missing required `text`",
     "get_item refuses path traversal in `item_id`",
     "redacts the credential from API errors",
+    "get_item redacts a credential echoed in a 200 body and Link header",
+    "maps API errors: messagePath and kindByCode token_expired -> auth_error",
     "api_request redacts the credential from responses",
     "api_request refuses POST as an agent tool",
     "send_message (unsafe) is never retried after a 5xx",
@@ -33,8 +35,21 @@ test("the generated contract covers every promised behaviour", () => {
     "generate_image job: done",
     "generate_image job: failed",
     "generate_image job: timeout",
+    "generate_image saves result URLs into $DEMO_OUTPUT_DIR",
   ];
   for (const expectedFragment of expectedFragments) assert.ok(testNames.includes(expectedFragment), `missing generated test: ${expectedFragment}`);
+});
+
+test("custom auth requires checkAuth, so the credential placement is always tested", () => {
+  const customDefinition = defineRestPlugin(demoSpec({ auth: { type: "custom", env: "DEMO_TOKEN", authorize: () => [] } }));
+  assert.throws(() => listContractTestNames(customDefinition, DEMO_CONTRACT_CASES), /checkAuth/);
+});
+
+test("error-in-2xx detectors and checkHint get generated tests", () => {
+  const okDefinition = defineRestPlugin(demoSpec({ errors: { okPath: "ok", errorPath: "failure", messagePath: "description" } }));
+  const testNames = listContractTestNames(okDefinition, DEMO_CONTRACT_CASES);
+  assert.ok(testNames.includes("detects an error inside a 200 response (okPath)"));
+  assert.ok(testNames.includes("detects an error inside a 200 response (errorPath)"));
 });
 
 function runFixtureVariant(variant) {
@@ -48,9 +63,11 @@ function runFixtureVariant(variant) {
 }
 
 for (const [variant, failingTest] of [
-  ["wrong-path", "get_item sends GET /items/WRONG"],
+  ["wrong-path", "get_item sends GET https://api.example.com/v1/items/WRONG"],
   ["missing-case", "every operation has a contract case"],
   ["wrong-json", "send_message sends POST"],
+  ["wrong-query", "list_cursor sends GET"],
+  ["wrong-data", "get_item sends GET"],
 ]) {
   test(`the generated contract fails for a ${variant} case`, () => {
     const fixtureRun = runFixtureVariant(variant);
@@ -59,3 +76,9 @@ for (const [variant, failingTest] of [
     assert.ok(failedLines.some((line) => line.includes(failingTest)), `expected "${failingTest}" to fail:\n${failedLines.join("\n")}`);
   });
 }
+
+test("an incomplete case (no request.query) stops the contract with a clear error", () => {
+  const fixtureRun = runFixtureVariant("missing-query");
+  assert.notEqual(fixtureRun.status, 0);
+  assert.match(fixtureRun.stdout + fixtureRun.stderr, /request\.query is required/);
+});

@@ -14,7 +14,7 @@ describeRestPluginContract(pluginDefinition, {
       args: { latitude: "-6.2", longitude: 106.85, hourly: ["uv_index"], temperature_unit: "Fahrenheit" },
       request: {
         method: "GET",
-        path: "/v1/forecast",
+        url: "https://api.open-meteo.com/v1/forecast",
         query: {
           latitude: "-6.2",
           longitude: "106.85",
@@ -27,11 +27,13 @@ describeRestPluginContract(pluginDefinition, {
         },
       },
       response: { body: { latitude: -6.2, current: { temperature_2m: 25.1 } } },
+      expect: { data: { latitude: -6.2, current: { temperature_2m: 25.1 } } },
     },
     search_locations: {
       args: { name: "Bandung", country_code: "ID", count: 3 },
-      request: { method: "GET", path: "/v1/search", query: { name: "Bandung", count: "3", language: "en", countryCode: "ID" } },
+      request: { method: "GET", url: "https://geocoding-api.open-meteo.com/v1/search", query: { name: "Bandung", count: "3", language: "en", countryCode: "ID" } },
       response: { body: { results: [{ name: "Bandung", latitude: -6.92, longitude: 107.6 }] } },
+      expect: { data: [{ name: "Bandung", latitude: -6.92, longitude: 107.6 }] },
     },
   },
 });
