@@ -19,7 +19,16 @@ export const TEST_ENVIRONMENT = {
   WHATSAPP_PHONE_NUMBER_ID: "111",
   WHATSAPP_BUSINESS_ACCOUNT_ID: "222",
   GRAPHRT_POLL_INTERVAL_MS: "0",
+  // Most tests run operations as agent tools; agent-policy.test.mjs covers the refusals without these.
+  WHATSAPP_TOOL_ALLOW_SEND: "1",
+  WHATSAPP_TOOL_RECIPIENT_ALLOWLIST: "+62812*",
+  WHATSAPP_TOOL_ALLOW_PROFILE: "1",
+  WHATSAPP_TOOL_ALLOW_TEMPLATES: "1",
 };
+
+const isNodeOnly = (operationName) => testDefinition().operations.find((operation) => operation.name === operationName)?.nodeOnly === true;
+// Node-only operations (deletes) are run the way graphrt runs them: as nodes.
+const callOptionsFor = (operationName) => ({ source: isNodeOnly(operationName) ? "node" : "tool" });
 
 /**
  * Runs one whatsapp-api operation against canned responses.
@@ -37,7 +46,7 @@ export async function runWithResponses(operationName, args, responses = [{ body:
     return recordingFetch(url, init);
   };
   const runOperation = createOperationRunner(testDefinition(resolveHostAddresses), environment, { fetchImpl: capturingFetch });
-  const output = await runOperation(operationName, args, { source: "tool" });
+  const output = await runOperation(operationName, args, callOptionsFor(operationName));
   return { output, calls: recordingFetch.calls, rawBodies };
 }
 
@@ -51,7 +60,7 @@ export async function runExpectingFailure(operationName, args, responses, enviro
   const recordingFetch = createRecordingFetch(responses);
   const runOperation = createOperationRunner(testDefinition(), environment, { fetchImpl: recordingFetch });
   try {
-    await runOperation(operationName, args, { source: "tool" });
+    await runOperation(operationName, args, callOptionsFor(operationName));
   } catch (error) {
     return { error, calls: recordingFetch.calls };
   }

@@ -5,6 +5,9 @@ import { pluginDefinition } from "../definition.mjs";
 export const TEST_ENVIRONMENT = {
   THREADS_ACCESS_TOKEN: "threads-token",
   GRAPHRT_POLL_INTERVAL_MS: "0",
+  // Most tests run operations as agent tools; agent-policy.test.mjs covers the refusals without these.
+  THREADS_TOOL_ALLOW_POST: "1",
+  THREADS_TOOL_ALLOW_ENGAGE: "1",
 };
 
 /**

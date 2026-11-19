@@ -106,8 +106,11 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - Official API v2 only.
   - It honours `x-rate-limit-reset`.
   - Token refresh is node only.
-- **Missing:** posts, replies, likes, reposts and DMs are agent tools with no opt-in or recipient allowlist. A future
-  change should gate tool writes behind `X_TOOL_ALLOW_WRITES`, as slack and discord do.
+  - x-api 0.2.0: agent tools need `X_TOOL_ALLOW_POST=1` for posts, replies, quotes and reposts,
+    `X_TOOL_ALLOW_ENGAGE=1` for likes and hiding replies, and `X_TOOL_ALLOW_DM=1` plus every recipient in
+    `X_TOOL_RECIPIENT_ALLOWLIST` (exact user or conversation ids) for DMs. `delete_post` is node only.
+- **Missing:** the agent opt-ins are **fixed** in x-api 0.2.0. The Automation Rules (no keyword auto-replies, no
+  trend posting) still depend on how the user configures the agent.
 
 ## linkedin-api
 - **Risk: high** (official API, but the terms forbid the use an agent plugin invites).
@@ -123,8 +126,11 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - Official REST API only.
   - It uses no browser automation and stores nothing.
   - The README now has a warning box.
-- **Missing:** post, comment and reaction tools have no opt-in. Have a person write or approve every post, for
-  example with a human-approval step before the node. There is no more permissive official alternative.
+  - linkedin-api 0.2.0: agent tools need `LINKEDIN_TOOL_ALLOW_POST=1` to create or edit posts and comments and
+    `LINKEDIN_TOOL_ALLOW_ENGAGE=1` for reactions; deletes are node only.
+- **Missing:** the agent opt-ins are **fixed** in linkedin-api 0.2.0. The terms still forbid automated posting even
+  with the opt-in, so have a person write or approve every post, for example with a human-approval step before the
+  node. There is no more permissive official alternative.
 
 ## tiktok-api
 - **Risk: medium.**
@@ -141,8 +147,11 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - Official Open API and Business API.
   - `PULL_FROM_URL` needs a verified domain.
   - Token refresh is node only.
-- **Missing:** unattended agent posting doesn't fit the per-post consent UX. Keep a human confirmation step before
-  `publish_*` nodes. The plugin is also experimental because the Business API field names are unverified.
+- **Agent policy (tiktok-api 0.3.0, fixed):** direct posts, comments and replies need `TIKTOK_TOOL_ALLOW_POST=1` as
+  agent tools; inbox drafts (finished by the creator in the app) stay free. Comment moderation and likes need
+  `TIKTOK_TOOL_ALLOW_ENGAGE=1`, DMs need `TIKTOK_TOOL_ALLOW_DM=1`, and `delete_comment` is node only.
+- **Missing:** unattended posting still doesn't fit the per-post consent UX. Prefer inbox drafts for agents and keep a
+  human confirmation step before `publish_*` nodes. The plugin is also experimental because the Business API field names are unverified.
 
 ## threads-api and meta-api
 - **Risk: low.**
@@ -158,8 +167,11 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
 - **Mitigation in the plugin:**
   - meta-api documents the 24 h window and the `HUMAN_AGENT` tag, and retries using Meta's regain-access estimate.
   - Both plugins use official Graph APIs only.
-- **Missing:** publishing and replies are agent tools with no opt-in. Low risk while the user owns the account, but
-  it is worth the same opt-in as x-api.
+- **Missing:** **fixed** for threads-api 0.3.0: publishing, replies and reposts need `THREADS_TOOL_ALLOW_POST=1` as
+  agent tools, reply moderation needs `THREADS_TOOL_ALLOW_ENGAGE=1`, and `delete_thread` is node only.
+  meta-api 0.2.0 (**fixed**): publishing and comment replies need `META_TOOL_ALLOW_POST=1`, comment moderation and
+  likes need `META_TOOL_ALLOW_ENGAGE=1`, `send_message` needs `META_TOOL_ALLOW_DM=1` and the recipient in
+  `META_TOOL_RECIPIENT_ALLOWLIST`, and deletes are node only.
 
 ## Marketplaces: shopee-api, tiktok-shop-api, lazada
 - **Risk: low** (official, partner-gated APIs). All three portals render with JavaScript only, so the terms text was
@@ -245,9 +257,14 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
 - **Mitigation:**
   - whatsapp-api 0.3.0 adds a per-process limiter for agent tool sends: `WHATSAPP_TOOL_SEND_RATE_LIMIT` per minute
     (default 20, `0` turns it off), plus the 6 s pair spacing.
+  - whatsapp-api 0.4.0: agent tool sends of every message type (text, replies, templates, media, location,
+    interactive messages and reactions) need `WHATSAPP_TOOL_ALLOW_SEND=1` and the recipient in
+    `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST` (exact E.164 numbers, or `+digits*` prefixes of at least 4 digits; unset
+    refuses every agent send). `mark_as_read` stays free. Deletes are node only. `update_business_profile` needs
+    `WHATSAPP_TOOL_ALLOW_PROFILE=1` and `create_template` needs `WHATSAPP_TOOL_ALLOW_TEMPLATES=1`.
   - qontak, twilio and vonage tool sends need an opt-in and a recipient allowlist.
-- **Missing:** whatsapp-api tool sends still need no opt-in or recipient allowlist; the rate limiter bounds the
-  damage. Adding `WHATSAPP_TOOL_ALLOW_SEND` and an allowlist (as qontak has) is the recommended follow-up.
+- **Missing:** nothing for agent sends (**fixed** in whatsapp-api 0.4.0). Recipients' opt-in to the business is
+  still the user's responsibility.
 
 ## Everything else
 The other plugins use official APIs as the providers intend: databases, storage, AI models, developer tools,

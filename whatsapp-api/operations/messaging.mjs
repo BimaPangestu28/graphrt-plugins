@@ -6,12 +6,23 @@
  * messages are only allowed inside that 24 h window. Recipients must have
  * opted in. Sends are POSTs, so the shared client never retries them after
  * an unknown outcome.
+ *
+ * Agent policy: every send (text, template, media, location, interactive, reaction, replies) from an agent tool
+ * needs WHATSAPP_TOOL_ALLOW_SEND=1 (checked in definition.mjs) and the recipient in
+ * WHATSAPP_TOOL_RECIPIENT_ALLOWLIST (checked here, before the rate limiter, so a refused send costs no budget).
+ * mark_as_read has no recipient and stays free. Workflow nodes are never limited.
  */
 import { pathSegment } from "../lib/shared/path.mjs";
 import { checkMaxLength, rejectInput, resolveId } from "../lib/client.mjs";
 import { buildButtonsInteractive, buildListInteractive } from "../lib/interactive.mjs";
 import { normalizePhoneNumber } from "../lib/phone-number.mjs";
+import { assertToolRecipientsAllowed } from "../lib/recipient-policy.mjs";
 import { readSendsPerMinute } from "../lib/send-rate-limiter.mjs";
+
+export const SEND_OPT_IN_ENV = "WHATSAPP_TOOL_ALLOW_SEND";
+export const RECIPIENT_ALLOWLIST_ENV = "WHATSAPP_TOOL_RECIPIENT_ALLOWLIST";
+export const SEND_OPERATION_NAMES = ["send_text", "send_template", "send_media", "send_location", "send_interactive_buttons", "send_interactive_list", "send_reaction"];
+const RECIPIENT_POLICY = { optInEnv: SEND_OPT_IN_ENV, allowlistEnv: RECIPIENT_ALLOWLIST_ENV, entryKind: "phone" };
 
 const MEDIA_TYPES = ["image", "video", "audio", "document", "sticker"];
 const CAPTIONED_MEDIA_TYPES = new Set(["image", "video", "document"]);
@@ -39,8 +50,11 @@ function buildEnvelope(args, messageType, messageContent) {
 function sendMessageRequest(buildMessage) {
   return async ({ client, args, environment, signal, source }) => {
     const messageBody = buildMessage(args);
-    // Messages to a person (not read receipts) from agent tools go through the per-process limiter.
-    if (source === "tool" && messageBody.to) client.sendRateLimiter.take({ recipient: messageBody.to, sendsPerMinute: readSendsPerMinute(environment) });
+    // Messages to a person (not read receipts) from agent tools: allowlisted recipient, then the per-process limiter.
+    if (source === "tool" && messageBody.to) {
+      assertToolRecipientsAllowed({ source, environment }, [`+${messageBody.to}`], RECIPIENT_POLICY);
+      client.sendRateLimiter.take({ recipient: messageBody.to, sendsPerMinute: readSendsPerMinute(environment) });
+    }
     const path = `/${pathSegment(phoneNumberIdOf(args, environment))}/messages`;
     return { data: await client.request({ method: "POST", path, json: messageBody, signal }) };
   };

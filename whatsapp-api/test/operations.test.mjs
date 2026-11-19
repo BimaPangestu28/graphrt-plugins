@@ -151,7 +151,7 @@ test("get_business_profile unwraps the single profile from data[]", async () => 
 });
 
 test("send operations need WHATSAPP_PHONE_NUMBER_ID or phone_number_id", async () => {
-  await rejectsWithKind(assert, runWithResponses("send_text", { to: TO, body: "x" }, undefined, { WHATSAPP_ACCESS_TOKEN: "t" }), "invalid_input", /WHATSAPP_PHONE_NUMBER_ID/);
+  await rejectsWithKind(assert, runWithResponses("send_text", { to: TO, body: "x" }, undefined, { WHATSAPP_ACCESS_TOKEN: "t", WHATSAPP_TOOL_ALLOW_SEND: "1", WHATSAPP_TOOL_RECIPIENT_ALLOWLIST: `+${TO}` }), "invalid_input", /WHATSAPP_PHONE_NUMBER_ID/);
 });
 
 test("template operations need WHATSAPP_BUSINESS_ACCOUNT_ID or business_account_id", async () => {
