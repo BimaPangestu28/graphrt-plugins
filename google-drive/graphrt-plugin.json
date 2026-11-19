@@ -1,0 +1,1276 @@
+{
+  "name": "google-drive",
+  "version": "0.1.0",
+  "description": "Google Drive: list and search files, export and download to a directory, upload, folders, copy, rename/move, sharing (node only) and shared drives (OAuth or service account)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "GOOGLE_DRIVE_UPLOAD_DIR",
+      "GOOGLE_DRIVE_TOOL_FOLDER_ALLOWLIST",
+      "GOOGLE_DRIVE_DOWNLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 360000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-drive.get_about",
+      "title": "Account and quota",
+      "description": "The signed-in user and storage quota",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "user(displayName,emailAddress),storageQuota"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.list_files",
+      "title": "List files",
+      "description": "Files matching a raw Drive query (q), e.g. \"'<folder id>' in parents and trashed = false\"",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Drive query; see search_files for plain fields"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. modifiedTime desc, name, folder,name"
+          },
+          "corpora": {
+            "type": "string",
+            "description": "Which files to search (default user)",
+            "enum": [
+              "user",
+              "drive",
+              "domain",
+              "allDrives"
+            ]
+          },
+          "drive_id": {
+            "type": "string",
+            "description": "Shared drive id (with corpora drive)"
+          },
+          "include_items_from_all_drives": {
+            "type": "boolean",
+            "default": true
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,parents,owners(emailAddress),webViewLink,trashed)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.search_files",
+      "title": "Search files",
+      "description": "Find files by name words, content words, type, folder or modification date (not trashed by default)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name_contains": {
+            "type": "string",
+            "description": "Words in the file name"
+          },
+          "full_text": {
+            "type": "string",
+            "description": "Words in the name, description or content"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Exact type, e.g. application/pdf or application/vnd.google-apps.folder"
+          },
+          "folder_id": {
+            "type": "string",
+            "description": "Only direct children of this folder"
+          },
+          "modified_after": {
+            "type": "string",
+            "description": "RFC 3339 date-time, e.g. 2026-11-01T00:00:00Z (a date alone is refused)"
+          },
+          "include_trashed": {
+            "type": "boolean",
+            "default": false
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. modifiedTime desc, name, folder,name"
+          },
+          "corpora": {
+            "type": "string",
+            "description": "Which files to search (default user)",
+            "enum": [
+              "user",
+              "drive",
+              "domain",
+              "allDrives"
+            ]
+          },
+          "drive_id": {
+            "type": "string",
+            "description": "Shared drive id (with corpora drive)"
+          },
+          "include_items_from_all_drives": {
+            "type": "boolean",
+            "default": true
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,parents,owners(emailAddress),webViewLink,trashed)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.get_file",
+      "title": "Get file",
+      "description": "Metadata of a file or folder",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,mimeType,size,modifiedTime,createdTime,parents,owners(emailAddress),webViewLink,trashed,description,exportLinks"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.export_file",
+      "title": "Export Google file",
+      "description": "Export a Google Docs/Sheets/Slides/Drawings file (e.g. to PDF, DOCX, CSV) into $GOOGLE_DRIVE_DOWNLOAD_DIR (Drive allows up to 10 MB)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "e.g. application/pdf, text/plain, text/csv, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id",
+          "mime_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.download_file",
+      "title": "Download file",
+      "description": "Download a stored (non-Google) file's content into $GOOGLE_DRIVE_DOWNLOAD_DIR; use export_file for Google Docs/Sheets/Slides",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.list_permissions",
+      "title": "List sharing",
+      "description": "Who a file or folder is shared with",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "permissions(id,type,role,emailAddress,domain,displayName,expirationTime)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.list_drives",
+      "title": "Shared drives",
+      "description": "Shared drives the user can see",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "e.g. name contains 'Finance'"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.create_folder",
+      "title": "Create folder",
+      "description": "Create a folder (in My Drive's root unless a parent is given)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_ids": {
+            "type": "array",
+            "description": "Parent folder id, as a one-item list",
+            "maxItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,webViewLink"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.copy_file",
+      "title": "Copy file",
+      "description": "Copy a file (e.g. a template) with a new name and folder",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parent_ids": {
+            "type": "array",
+            "description": "Folder for the copy, as a one-item list",
+            "maxItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,webViewLink"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.update_file",
+      "title": "Rename or move",
+      "description": "Rename a file, change its description or star, or move it between folders",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "add_parents": {
+            "type": "string",
+            "description": "Folder id to move into"
+          },
+          "remove_parents": {
+            "type": "string",
+            "description": "Folder id to move out of"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,parents,webViewLink"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.share_file",
+      "title": "Share file",
+      "description": "Give a user, group, domain or anyone access to a file or folder",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "reader",
+              "commenter",
+              "writer",
+              "fileOrganizer",
+              "organizer"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "group",
+              "domain",
+              "anyone"
+            ]
+          },
+          "email_address": {
+            "type": "string",
+            "description": "For user and group"
+          },
+          "domain": {
+            "type": "string",
+            "description": "For domain"
+          },
+          "send_notification_email": {
+            "type": "boolean"
+          },
+          "email_message": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id",
+          "role",
+          "type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.remove_permission",
+      "title": "Unshare",
+      "description": "Remove one permission from a file or folder",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "permission_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id",
+          "permission_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.trash_file",
+      "title": "Trash file",
+      "description": "Move a file or folder to the trash (restorable for 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.delete_file",
+      "title": "Delete file",
+      "description": "Delete a file permanently, skipping the trash",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file up to 5 MB (https URL, or an absolute path inside $GOOGLE_DRIVE_UPLOAD_DIR) into a folder, optionally converting it to a Google Docs/Sheets/Slides file",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "An https URL, or an absolute path inside $GOOGLE_DRIVE_UPLOAD_DIR"
+          },
+          "name": {
+            "type": "string",
+            "description": "File name in Drive (default: the source file's name)"
+          },
+          "folder_id": {
+            "type": "string",
+            "description": "Parent folder id (default: My Drive root)"
+          },
+          "description": {
+            "type": "string"
+          },
+          "convert_to": {
+            "type": "string",
+            "enum": [
+              "application/vnd.google-apps.document",
+              "application/vnd.google-apps.spreadsheet",
+              "application/vnd.google-apps.presentation"
+            ],
+            "description": "Convert to this Google type (e.g. .docx to a Google Doc)"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Media type of the content (default: from the file extension)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-drive.api_request",
+      "title": "Google Drive API request",
+      "description": "Call any Google Drive API endpoint that has no dedicated operation, e.g. path \"/files?q=starred%20%3D%20true\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/files?q=starred%20%3D%20true\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_about",
+      "description": "The signed-in user and storage quota",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "user(displayName,emailAddress),storageQuota"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "Files matching a raw Drive query (q), e.g. \"'<folder id>' in parents and trashed = false\"",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Drive query; see search_files for plain fields"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. modifiedTime desc, name, folder,name"
+          },
+          "corpora": {
+            "type": "string",
+            "description": "Which files to search (default user)",
+            "enum": [
+              "user",
+              "drive",
+              "domain",
+              "allDrives"
+            ]
+          },
+          "drive_id": {
+            "type": "string",
+            "description": "Shared drive id (with corpora drive)"
+          },
+          "include_items_from_all_drives": {
+            "type": "boolean",
+            "default": true
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,parents,owners(emailAddress),webViewLink,trashed)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "search_files",
+      "description": "Find files by name words, content words, type, folder or modification date (not trashed by default)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name_contains": {
+            "type": "string",
+            "description": "Words in the file name"
+          },
+          "full_text": {
+            "type": "string",
+            "description": "Words in the name, description or content"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Exact type, e.g. application/pdf or application/vnd.google-apps.folder"
+          },
+          "folder_id": {
+            "type": "string",
+            "description": "Only direct children of this folder"
+          },
+          "modified_after": {
+            "type": "string",
+            "description": "RFC 3339 date-time, e.g. 2026-11-01T00:00:00Z (a date alone is refused)"
+          },
+          "include_trashed": {
+            "type": "boolean",
+            "default": false
+          },
+          "order_by": {
+            "type": "string",
+            "description": "e.g. modifiedTime desc, name, folder,name"
+          },
+          "corpora": {
+            "type": "string",
+            "description": "Which files to search (default user)",
+            "enum": [
+              "user",
+              "drive",
+              "domain",
+              "allDrives"
+            ]
+          },
+          "drive_id": {
+            "type": "string",
+            "description": "Shared drive id (with corpora drive)"
+          },
+          "include_items_from_all_drives": {
+            "type": "boolean",
+            "default": true
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,parents,owners(emailAddress),webViewLink,trashed)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_file",
+      "description": "Metadata of a file or folder",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,mimeType,size,modifiedTime,createdTime,parents,owners(emailAddress),webViewLink,trashed,description,exportLinks"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "export_file",
+      "description": "Export a Google Docs/Sheets/Slides/Drawings file (e.g. to PDF, DOCX, CSV) into $GOOGLE_DRIVE_DOWNLOAD_DIR (Drive allows up to 10 MB)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "e.g. application/pdf, text/plain, text/csv, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          }
+        },
+        "required": [
+          "file_id",
+          "mime_type"
+        ]
+      }
+    },
+    {
+      "name": "download_file",
+      "description": "Download a stored (non-Google) file's content into $GOOGLE_DRIVE_DOWNLOAD_DIR; use export_file for Google Docs/Sheets/Slides",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "list_permissions",
+      "description": "Who a file or folder is shared with",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "permissions(id,type,role,emailAddress,domain,displayName,expirationTime)"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "list_drives",
+      "description": "Shared drives the user can see",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "e.g. name contains 'Finance'"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "create_folder",
+      "description": "Create a folder (in My Drive's root unless a parent is given)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_ids": {
+            "type": "array",
+            "description": "Parent folder id, as a one-item list",
+            "maxItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,webViewLink"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "copy_file",
+      "description": "Copy a file (e.g. a template) with a new name and folder",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parent_ids": {
+            "type": "array",
+            "description": "Folder for the copy, as a one-item list",
+            "maxItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,webViewLink"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "update_file",
+      "description": "Rename a file, change its description or star, or move it between folders",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "File or folder id (from its URL)"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "add_parents": {
+            "type": "string",
+            "description": "Folder id to move into"
+          },
+          "remove_parents": {
+            "type": "string",
+            "description": "Folder id to move out of"
+          },
+          "fields": {
+            "type": "string",
+            "description": "Fields to return (Drive partial response syntax)",
+            "default": "id,name,parents,webViewLink"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file up to 5 MB (https URL, or an absolute path inside $GOOGLE_DRIVE_UPLOAD_DIR) into a folder, optionally converting it to a Google Docs/Sheets/Slides file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "An https URL, or an absolute path inside $GOOGLE_DRIVE_UPLOAD_DIR"
+          },
+          "name": {
+            "type": "string",
+            "description": "File name in Drive (default: the source file's name)"
+          },
+          "folder_id": {
+            "type": "string",
+            "description": "Parent folder id (default: My Drive root)"
+          },
+          "description": {
+            "type": "string"
+          },
+          "convert_to": {
+            "type": "string",
+            "enum": [
+              "application/vnd.google-apps.document",
+              "application/vnd.google-apps.spreadsheet",
+              "application/vnd.google-apps.presentation"
+            ],
+            "description": "Convert to this Google type (e.g. .docx to a Google Doc)"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Media type of the content (default: from the file extension)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Drive API endpoint that has no dedicated operation, e.g. path \"/files?q=starred%20%3D%20true\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/files?q=starred%20%3D%20true\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

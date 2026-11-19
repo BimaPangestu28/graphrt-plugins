@@ -1,0 +1,14 @@
+# Show the account and the ten most recently modified PDFs. Read-only.
+#   GOOGLE_REFRESH_TOKEN=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... graphrt run google-drive/example.yaml --plugins .
+version: "1"
+name: google-drive-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: about, type: google-drive.get_about }
+    - { id: pdfs, type: google-drive.search_files, mime_type: application/pdf, order_by: modifiedTime desc, limit: 10 }
+    - { id: answer, type: answer, answer: "{{#about.data.user.emailAddress#}}: {{#pdfs.data#}}" }
+  edges:
+    - { source: start, target: about }
+    - { source: about, target: pdfs }
+    - { source: pdfs, target: answer }

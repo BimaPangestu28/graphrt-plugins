@@ -1,0 +1,1285 @@
+{
+  "name": "microsoft-teams",
+  "version": "0.1.0",
+  "description": "Microsoft Teams via Microsoft Graph: teams, channels, channel messages and replies, chats; agent sends need an opt-in",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MICROSOFT_CLIENT_SECRET",
+      "MICROSOFT_CLIENT_ID",
+      "MICROSOFT_REFRESH_TOKEN",
+      "MICROSOFT_TENANT_ID",
+      "MICROSOFT_TEAMS_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "microsoft-teams.get_me",
+      "title": "Signed-in user",
+      "description": "The signed-in user (who the refresh token belongs to)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_joined_teams",
+      "title": "My teams",
+      "description": "Teams the signed-in user is a member of",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.get_team",
+      "title": "Get team",
+      "description": "One team's settings",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_team_members",
+      "title": "Team members",
+      "description": "Members of a team",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_channels",
+      "title": "List channels",
+      "description": "Channels of a team",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.get_channel",
+      "title": "Get channel",
+      "description": "One channel",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_channel_members",
+      "title": "Channel members",
+      "description": "Members of a channel",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_channel_messages",
+      "title": "Channel messages",
+      "description": "Top-level messages of a channel, newest first (replies with list_message_replies or expand_replies)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "expand_replies": {
+            "type": "string",
+            "description": "replies: include up to 1000 replies per message",
+            "enum": [
+              "replies"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.get_channel_message",
+      "title": "Get channel message",
+      "description": "One channel message",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_message_replies",
+      "title": "Message replies",
+      "description": "Replies to a channel message",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.send_channel_message",
+      "title": "Post to channel",
+      "description": "Post a new message in a channel (as an agent tool only when MICROSOFT_TEAMS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message text, or HTML when content_type is html",
+            "minLength": 1
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject line (channel posts only)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.reply_to_channel_message",
+      "title": "Reply in channel",
+      "description": "Reply to a channel message (as an agent tool only when MICROSOFT_TEAMS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message text, or HTML when content_type is html",
+            "minLength": 1
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "message_id",
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_chats",
+      "title": "My chats",
+      "description": "1:1, group and meeting chats of the signed-in user",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "expand_members": {
+            "type": "string",
+            "description": "members: include the chat's members",
+            "enum": [
+              "members"
+            ]
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "lastMessagePreview/createdDateTime desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.get_chat",
+      "title": "Get chat",
+      "description": "One chat",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id, e.g. 19:...@unq.gbl.spaces"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.list_chat_messages",
+      "title": "Chat messages",
+      "description": "Messages of a chat",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id, e.g. 19:...@unq.gbl.spaces"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "createdDateTime desc",
+              "lastModifiedDateTime desc"
+            ]
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.send_chat_message",
+      "title": "Send chat message",
+      "description": "Send a message in a chat (as an agent tool only when MICROSOFT_TEAMS_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id, e.g. 19:...@unq.gbl.spaces"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message text, or HTML when content_type is html",
+            "minLength": 1
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "chat_id",
+          "content"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-teams.api_request",
+      "title": "Microsoft Graph (Teams) request",
+      "description": "Call any Microsoft Graph (Teams) endpoint that has no dedicated operation, e.g. path \"/me/joinedTeams\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/joinedTeams\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "The signed-in user (who the refresh token belongs to)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_joined_teams",
+      "description": "Teams the signed-in user is a member of",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_team",
+      "description": "One team's settings",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    {
+      "name": "list_team_members",
+      "description": "Members of a team",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    {
+      "name": "list_channels",
+      "description": "Channels of a team",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    {
+      "name": "get_channel",
+      "description": "One channel",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id"
+        ]
+      }
+    },
+    {
+      "name": "list_channel_members",
+      "description": "Members of a channel",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id"
+        ]
+      }
+    },
+    {
+      "name": "list_channel_messages",
+      "description": "Top-level messages of a channel, newest first (replies with list_message_replies or expand_replies)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "expand_replies": {
+            "type": "string",
+            "description": "replies: include up to 1000 replies per message",
+            "enum": [
+              "replies"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id"
+        ]
+      }
+    },
+    {
+      "name": "get_channel_message",
+      "description": "One channel message",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "list_message_replies",
+      "description": "Replies to a channel message",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "send_channel_message",
+      "description": "Post a new message in a channel (as an agent tool only when MICROSOFT_TEAMS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message text, or HTML when content_type is html",
+            "minLength": 1
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject line (channel posts only)"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "reply_to_channel_message",
+      "description": "Reply to a channel message (as an agent tool only when MICROSOFT_TEAMS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Team id (the Microsoft 365 group id)"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel id, e.g. 19:abc...@thread.tacv2"
+          },
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message text, or HTML when content_type is html",
+            "minLength": 1
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          }
+        },
+        "required": [
+          "team_id",
+          "channel_id",
+          "message_id",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "list_chats",
+      "description": "1:1, group and meeting chats of the signed-in user",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "expand_members": {
+            "type": "string",
+            "description": "members: include the chat's members",
+            "enum": [
+              "members"
+            ]
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "lastMessagePreview/createdDateTime desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_chat",
+      "description": "One chat",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id, e.g. 19:...@unq.gbl.spaces"
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      }
+    },
+    {
+      "name": "list_chat_messages",
+      "description": "Messages of a chat",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id, e.g. 19:...@unq.gbl.spaces"
+          },
+          "order_by": {
+            "type": "string",
+            "enum": [
+              "createdDateTime desc",
+              "lastModifiedDateTime desc"
+            ]
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      }
+    },
+    {
+      "name": "send_chat_message",
+      "description": "Send a message in a chat (as an agent tool only when MICROSOFT_TEAMS_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "Chat id, e.g. 19:...@unq.gbl.spaces"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message text, or HTML when content_type is html",
+            "minLength": 1
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text"
+          }
+        },
+        "required": [
+          "chat_id",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Microsoft Graph (Teams) endpoint that has no dedicated operation, e.g. path \"/me/joinedTeams\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/joinedTeams\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

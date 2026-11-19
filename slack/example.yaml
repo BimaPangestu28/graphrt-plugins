@@ -1,0 +1,14 @@
+# Check the bot token and list a few public channels. Read-only.
+#   SLACK_BOT_TOKEN=xoxb-... graphrt run slack/example.yaml --plugins .
+version: "1"
+name: slack-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: whoami, type: slack.auth_test }
+    - { id: channels, type: slack.list_conversations, limit: 5 }
+    - { id: answer, type: answer, answer: "Bot {{#whoami.data.user#}} in {{#whoami.data.team#}} sees: {{#channels.data#}}" }
+  edges:
+    - { source: start, target: whoami }
+    - { source: whoami, target: channels }
+    - { source: channels, target: answer }

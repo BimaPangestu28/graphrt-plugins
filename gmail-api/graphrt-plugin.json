@@ -1,0 +1,1394 @@
+{
+  "name": "gmail-api",
+  "version": "0.1.0",
+  "description": "Gmail API: search and read messages and threads, labels, drafts, attachments, and send mail (agent sends need an opt-in and an optional recipient allowlist)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "GMAIL_TOOL_RECIPIENT_ALLOWLIST",
+      "GMAIL_ATTACHMENT_DIR",
+      "GMAIL_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "gmail-api.get_profile",
+      "title": "Mailbox profile",
+      "description": "Address, message and thread totals and the current historyId",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.list_messages",
+      "title": "List messages",
+      "description": "Message ids matching a Gmail search (use get_message for content)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Gmail search, e.g. \"from:ada is:unread newer_than:7d\""
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Only items with all these labels, e.g. [INBOX, UNREAD]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_spam_trash": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.get_message",
+      "title": "Get message",
+      "description": "One message; format metadata with metadataHeaders is the cheapest way to read From/Subject",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Gmail message id"
+          },
+          "format": {
+            "type": "string",
+            "description": "full (parsed payload), metadata (headers only), minimal (ids and labels) or raw (base64url RFC 822)",
+            "enum": [
+              "full",
+              "metadata",
+              "minimal",
+              "raw"
+            ]
+          },
+          "metadata_headers": {
+            "type": "array",
+            "description": "With format metadata: only these headers, e.g. [From, Subject, Date]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.get_attachment",
+      "title": "Save attachment",
+      "description": "Download a message attachment into $GMAIL_ATTACHMENT_DIR (attachment ids are in the message payload parts)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Gmail message id"
+          },
+          "attachment_id": {
+            "type": "string",
+            "description": "body.attachmentId of the part"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id",
+          "attachment_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.send_message",
+      "title": "Send email",
+      "description": "Send an email from the signed-in account (as an agent tool only when GMAIL_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"] (plain addresses, no display names)"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (UTF-8 allowed, no line breaks)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body (with text, the message is multipart/alternative)"
+          },
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id, to add the message to a thread (also set in_reply_to)"
+          },
+          "in_reply_to": {
+            "type": "string",
+            "description": "Message-ID header of the message being answered, e.g. <abc@mail.gmail.com>"
+          },
+          "references": {
+            "type": "string",
+            "description": "References header (default: in_reply_to)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "subject"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.modify_message",
+      "title": "Change labels",
+      "description": "Add or remove labels on a message (mark read, star, archive)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Gmail message id"
+          },
+          "add_label_ids": {
+            "type": "array",
+            "description": "e.g. [STARRED]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remove_label_ids": {
+            "type": "array",
+            "description": "e.g. [UNREAD] to mark read, [INBOX] to archive",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.trash_message",
+      "title": "Trash message",
+      "description": "Move a message to Trash (deleted after 30 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Gmail message id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.list_threads",
+      "title": "List threads",
+      "description": "Thread ids and snippets matching a Gmail search",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Gmail search, e.g. \"from:ada is:unread newer_than:7d\""
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Only items with all these labels, e.g. [INBOX, UNREAD]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_spam_trash": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.get_thread",
+      "title": "Get thread",
+      "description": "A thread with all its messages",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id"
+          },
+          "format": {
+            "type": "string",
+            "description": "full (parsed payload), metadata (headers only), minimal (ids and labels) or raw (base64url RFC 822)",
+            "enum": [
+              "full",
+              "metadata",
+              "minimal"
+            ]
+          },
+          "metadata_headers": {
+            "type": "array",
+            "description": "With format metadata: only these headers, e.g. [From, Subject, Date]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "thread_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.modify_thread",
+      "title": "Change thread labels",
+      "description": "Add or remove labels on every message of a thread",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id"
+          },
+          "add_label_ids": {
+            "type": "array",
+            "description": "e.g. [STARRED]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remove_label_ids": {
+            "type": "array",
+            "description": "e.g. [UNREAD] to mark read, [INBOX] to archive",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "thread_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.list_labels",
+      "title": "List labels",
+      "description": "System and user labels (ids for label_ids)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.get_label",
+      "title": "Get label",
+      "description": "One label with message and thread counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "label_id": {
+            "type": "string",
+            "description": "Label id, e.g. INBOX or Label_12"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "label_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.create_label",
+      "title": "Create label",
+      "description": "Create a user label",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Label name; use / for nesting, e.g. Clients/Acme",
+            "minLength": 1
+          },
+          "label_list_visibility": {
+            "type": "string",
+            "enum": [
+              "labelShow",
+              "labelShowIfUnread",
+              "labelHide"
+            ]
+          },
+          "message_list_visibility": {
+            "type": "string",
+            "enum": [
+              "show",
+              "hide"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.list_drafts",
+      "title": "List drafts",
+      "description": "Draft ids",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Gmail search, e.g. \"from:ada is:unread newer_than:7d\""
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.get_draft",
+      "title": "Get draft",
+      "description": "One draft with its message",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "draft_id": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "description": "full (parsed payload), metadata (headers only), minimal (ids and labels) or raw (base64url RFC 822)",
+            "enum": [
+              "full",
+              "metadata",
+              "minimal",
+              "raw"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "draft_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.create_draft",
+      "title": "Create draft",
+      "description": "Save a draft without sending it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"] (plain addresses, no display names)"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (UTF-8 allowed, no line breaks)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body (with text, the message is multipart/alternative)"
+          },
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id, to add the message to a thread (also set in_reply_to)"
+          },
+          "in_reply_to": {
+            "type": "string",
+            "description": "Message-ID header of the message being answered, e.g. <abc@mail.gmail.com>"
+          },
+          "references": {
+            "type": "string",
+            "description": "References header (default: in_reply_to)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.send_draft",
+      "title": "Send draft",
+      "description": "Send an existing draft (its recipients are not checked against the allowlist)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "draft_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "draft_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "gmail-api.api_request",
+      "title": "Gmail API request",
+      "description": "Call any Gmail API endpoint that has no dedicated operation, e.g. path \"/history?startHistoryId=1\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/history?startHistoryId=1\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_profile",
+      "description": "Address, message and thread totals and the current historyId",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_messages",
+      "description": "Message ids matching a Gmail search (use get_message for content)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Gmail search, e.g. \"from:ada is:unread newer_than:7d\""
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Only items with all these labels, e.g. [INBOX, UNREAD]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_spam_trash": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_message",
+      "description": "One message; format metadata with metadataHeaders is the cheapest way to read From/Subject",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Gmail message id"
+          },
+          "format": {
+            "type": "string",
+            "description": "full (parsed payload), metadata (headers only), minimal (ids and labels) or raw (base64url RFC 822)",
+            "enum": [
+              "full",
+              "metadata",
+              "minimal",
+              "raw"
+            ]
+          },
+          "metadata_headers": {
+            "type": "array",
+            "description": "With format metadata: only these headers, e.g. [From, Subject, Date]",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "get_attachment",
+      "description": "Download a message attachment into $GMAIL_ATTACHMENT_DIR (attachment ids are in the message payload parts)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Gmail message id"
+          },
+          "attachment_id": {
+            "type": "string",
+            "description": "body.attachmentId of the part"
+          }
+        },
+        "required": [
+          "message_id",
+          "attachment_id"
+        ]
+      }
+    },
+    {
+      "name": "send_message",
+      "description": "Send an email from the signed-in account (as an agent tool only when GMAIL_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"] (plain addresses, no display names)"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (UTF-8 allowed, no line breaks)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body (with text, the message is multipart/alternative)"
+          },
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id, to add the message to a thread (also set in_reply_to)"
+          },
+          "in_reply_to": {
+            "type": "string",
+            "description": "Message-ID header of the message being answered, e.g. <abc@mail.gmail.com>"
+          },
+          "references": {
+            "type": "string",
+            "description": "References header (default: in_reply_to)"
+          }
+        },
+        "required": [
+          "to",
+          "subject"
+        ]
+      }
+    },
+    {
+      "name": "modify_message",
+      "description": "Add or remove labels on a message (mark read, star, archive)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Gmail message id"
+          },
+          "add_label_ids": {
+            "type": "array",
+            "description": "e.g. [STARRED]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remove_label_ids": {
+            "type": "array",
+            "description": "e.g. [UNREAD] to mark read, [INBOX] to archive",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "list_threads",
+      "description": "Thread ids and snippets matching a Gmail search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Gmail search, e.g. \"from:ada is:unread newer_than:7d\""
+          },
+          "label_ids": {
+            "type": "array",
+            "description": "Only items with all these labels, e.g. [INBOX, UNREAD]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_spam_trash": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_thread",
+      "description": "A thread with all its messages",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id"
+          },
+          "format": {
+            "type": "string",
+            "description": "full (parsed payload), metadata (headers only), minimal (ids and labels) or raw (base64url RFC 822)",
+            "enum": [
+              "full",
+              "metadata",
+              "minimal"
+            ]
+          },
+          "metadata_headers": {
+            "type": "array",
+            "description": "With format metadata: only these headers, e.g. [From, Subject, Date]",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "thread_id"
+        ]
+      }
+    },
+    {
+      "name": "modify_thread",
+      "description": "Add or remove labels on every message of a thread",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id"
+          },
+          "add_label_ids": {
+            "type": "array",
+            "description": "e.g. [STARRED]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remove_label_ids": {
+            "type": "array",
+            "description": "e.g. [UNREAD] to mark read, [INBOX] to archive",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "thread_id"
+        ]
+      }
+    },
+    {
+      "name": "list_labels",
+      "description": "System and user labels (ids for label_ids)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_label",
+      "description": "One label with message and thread counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "label_id": {
+            "type": "string",
+            "description": "Label id, e.g. INBOX or Label_12"
+          }
+        },
+        "required": [
+          "label_id"
+        ]
+      }
+    },
+    {
+      "name": "create_label",
+      "description": "Create a user label",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Label name; use / for nesting, e.g. Clients/Acme",
+            "minLength": 1
+          },
+          "label_list_visibility": {
+            "type": "string",
+            "enum": [
+              "labelShow",
+              "labelShowIfUnread",
+              "labelHide"
+            ]
+          },
+          "message_list_visibility": {
+            "type": "string",
+            "enum": [
+              "show",
+              "hide"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "list_drafts",
+      "description": "Draft ids",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Gmail search, e.g. \"from:ada is:unread newer_than:7d\""
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `maxResults`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_draft",
+      "description": "One draft with its message",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "draft_id": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "description": "full (parsed payload), metadata (headers only), minimal (ids and labels) or raw (base64url RFC 822)",
+            "enum": [
+              "full",
+              "metadata",
+              "minimal",
+              "raw"
+            ]
+          }
+        },
+        "required": [
+          "draft_id"
+        ]
+      }
+    },
+    {
+      "name": "create_draft",
+      "description": "Save a draft without sending it",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"] (plain addresses, no display names)"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject (UTF-8 allowed, no line breaks)"
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text body"
+          },
+          "html": {
+            "type": "string",
+            "description": "HTML body (with text, the message is multipart/alternative)"
+          },
+          "thread_id": {
+            "type": "string",
+            "description": "Gmail thread id, to add the message to a thread (also set in_reply_to)"
+          },
+          "in_reply_to": {
+            "type": "string",
+            "description": "Message-ID header of the message being answered, e.g. <abc@mail.gmail.com>"
+          },
+          "references": {
+            "type": "string",
+            "description": "References header (default: in_reply_to)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Gmail API endpoint that has no dedicated operation, e.g. path \"/history?startHistoryId=1\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/history?startHistoryId=1\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

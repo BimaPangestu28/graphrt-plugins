@@ -1,0 +1,15 @@
+# List the signed-in user's teams and the channels of the first one. Read-only.
+#   MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=... MICROSOFT_REFRESH_TOKEN=... MICROSOFT_TENANT_ID=... \
+#     graphrt run microsoft-teams/example.yaml --plugins .
+version: "1"
+name: microsoft-teams-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: teams, type: microsoft-teams.list_joined_teams }
+    - { id: channels, type: microsoft-teams.list_channels, team_id: "{{#teams.data.0.id#}}", select: [id, displayName] }
+    - { id: answer, type: answer, answer: "{{#teams.data.0.displayName#}}: {{#channels.data#}}" }
+  edges:
+    - { source: start, target: teams }
+    - { source: teams, target: channels }
+    - { source: channels, target: answer }
