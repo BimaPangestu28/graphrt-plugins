@@ -24,7 +24,7 @@ export function createPluginDefinition(dependencies = {}) {
   const trackOperation = (operation) => ({ ...operation, run: (runContext) => operationTracker.track(() => operation.run(runContext)) });
   return {
     name: "whatsapp-web",
-    version: "0.1.0",
+    version: "0.2.0",
     description: "Your personal WhatsApp through WhatsApp Web in a headless browser: read chats and messages, send text and files (low volume, rate limited)",
     tokenEnv: "WHATSAPP_WEB_PROFILE_DIR",
     extraEnv: [
