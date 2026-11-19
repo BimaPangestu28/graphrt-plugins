@@ -1,12 +1,17 @@
 /**
  * Publishes plugin releases and refreshes the `catalog` release.
  *
- * Usage: node scripts/publish-plugins.mjs [plugin-name...] [--target <git ref>] [--out <dir>] [--dry-run]
+ * Usage: node scripts/publish-plugins.mjs [plugin-name...] [--target <git ref>] [--out <dir>] [--dry-run] [--catalog-only]
  *   plugin-name  plugins to consider (default: all)
  *   --target     commit new release tags point at (default: HEAD); plugin files must
  *                be identical between this commit and the working tree
  *   --out        working directory for tarballs and catalog files (default: dist)
  *   --dry-run    pack, test and verify, print what would be published, change nothing
+ *   --catalog-only  skip testing, packing and plugin releases: rebuild `index.json` and
+ *                `SHA256SUMS` from the already-published tarballs (their own manifests and
+ *                READMEs) and upload them. Refuses when a plugin in the live catalog would be
+ *                dropped or change version, sha256, size or URL. Use it after changing the
+ *                catalog format; combine with --dry-run to only write the files.
  *
  * Steps: check generated files are in sync, run each plugin's tests (failing plugins
  * are skipped), pack and verify tarballs, create every missing `<name>-v<version>`
@@ -24,18 +29,18 @@ import { REPO_ROOT, findSharedPlugins } from "./plugins.mjs";
 import { packPlugins, writeCatalogFiles } from "./pack-plugins.mjs";
 import { verifyTarball } from "./verify-plugins.mjs";
 import {
-  CATALOG_TAG, MANIFEST_FILE_NAME, RELEASE_REPOSITORY, buildCatalogEntry, listPluginNames, releaseAssetUrl, releaseTagFor,
-  sha256Hex, tarballNameFor,
+  CATALOG_TAG, MANIFEST_FILE_NAME, RELEASE_REPOSITORY, buildCatalogEntry, describeTarballBytes, findCatalogRegressions, listPluginNames,
+  releaseAssetUrl, releaseTagFor, tarballNameFor,
 } from "./lib/plugin-package.mjs";
-import { readTarGz } from "./lib/tar-archive.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
 
 function parsePublishArguments(argumentList) {
-  const options = { pluginNames: [], target: "HEAD", outputDirectory: resolve(REPO_ROOT, "dist"), dryRun: false };
+  const options = { pluginNames: [], target: "HEAD", outputDirectory: resolve(REPO_ROOT, "dist"), dryRun: false, catalogOnly: false };
   const knownPlugins = listPluginNames();
   for (let index = 0; index < argumentList.length; index += 1) {
     const argument = argumentList[index];
     if (argument === "--dry-run") options.dryRun = true;
+    else if (argument === "--catalog-only") options.catalogOnly = true;
     else if (argument === "--target") options.target = argumentList[++index];
     else if (argument === "--out") options.outputDirectory = resolve(argumentList[++index] ?? "");
     else if (knownPlugins.includes(argument)) options.pluginNames.push(argument);
@@ -110,15 +115,16 @@ function viewRelease(releaseTag) {
   return JSON.parse(result.stdout);
 }
 
-/** Downloads a published tarball and describes it from its own bytes and manifest. */
+/** Downloads a published tarball and describes it from its own bytes, manifest and README. */
 function describePublishedTarball(releaseTag, tarballName, outputDirectory) {
   const downloadDirectory = join(outputDirectory, "published", releaseTag);
   mkdirSync(downloadDirectory, { recursive: true });
   runGhIdempotent(["release", "download", releaseTag, "-R", RELEASE_REPOSITORY, "-p", tarballName, "-D", downloadDirectory, "--clobber"]);
-  const tarballBytes = readFileSync(join(downloadDirectory, tarballName));
-  const manifestEntry = readTarGz(tarballBytes).find((entry) => entry.path.endsWith(`/${MANIFEST_FILE_NAME}`) && entry.path.split("/").length === 2);
-  if (!manifestEntry) throw new Error(`${releaseTag}: published tarball has no ${MANIFEST_FILE_NAME}`);
-  return { tarballName, sha256: sha256Hex(tarballBytes), sizeBytes: tarballBytes.length, manifest: JSON.parse(manifestEntry.content.toString("utf8")) };
+  try {
+    return describeTarballBytes(tarballName, readFileSync(join(downloadDirectory, tarballName)));
+  } catch (error) {
+    throw new Error(`${releaseTag}: published ${error.message}`);
+  }
 }
 
 function createPluginRelease(packed, targetCommit, outputDirectory) {
@@ -183,9 +189,27 @@ function uploadCatalog(catalogDirectory, targetCommit) {
     "--title", "Plugin catalog", "--notes", notes, "--latest"]);
 }
 
-function main() {
-  const options = parsePublishArguments(process.argv.slice(2));
-  const targetCommit = runCommand("git", ["rev-parse", "--verify", `${options.target}^{commit}`]).stdout.trim();
+/** Downloads the live catalog `index.json`, or returns null when there is no catalog release yet. */
+function downloadLiveCatalog(outputDirectory) {
+  if (!viewRelease(CATALOG_TAG)) return null;
+  const downloadDirectory = join(outputDirectory, "published", CATALOG_TAG);
+  mkdirSync(downloadDirectory, { recursive: true });
+  runGhIdempotent(["release", "download", CATALOG_TAG, "-R", RELEASE_REPOSITORY, "-p", "index.json", "-D", downloadDirectory, "--clobber"]);
+  return JSON.parse(readFileSync(join(downloadDirectory, "index.json"), "utf8"));
+}
+
+/** Rebuilds the catalog from published tarballs only; plugin releases are not touched. */
+function rebuildCatalogOnly(options) {
+  rmSync(options.outputDirectory, { recursive: true, force: true });
+  const released = collectOtherPublishedPlugins(new Set(), options.outputDirectory);
+  const liveCatalog = downloadLiveCatalog(options.outputDirectory);
+  const regressions = liveCatalog ? findCatalogRegressions(liveCatalog, released.map(({ catalogEntry }) => catalogEntry)) : [];
+  if (regressions.length > 0) throw new Error(`rebuilt catalog would change published plugins:\n${regressions.join("\n")}`);
+  return released;
+}
+
+/** Tests, packs and verifies plugins, then publishes missing releases; returns every published plugin. */
+function publishPlugins(options, targetCommit) {
   const { passing, skipped } = selectPassingPlugins(options.pluginNames);
   passing.forEach((pluginName) => assertPluginMatchesTarget(pluginName, targetCommit));
   rmSync(options.outputDirectory, { recursive: true, force: true });
@@ -193,11 +217,18 @@ function main() {
   for (const packed of packedPlugins) verifyTarball(packed.tarballPath, { graphrtBinary: process.env.GRAPHRT_BIN || null });
   const released = publishPluginReleases(packedPlugins, { targetCommit, outputDirectory: options.outputDirectory, dryRun: options.dryRun });
   released.push(...collectOtherPublishedPlugins(new Set(passing), options.outputDirectory));
+  return { released, skipped };
+}
+
+function main() {
+  const options = parsePublishArguments(process.argv.slice(2));
+  const targetCommit = runCommand("git", ["rev-parse", "--verify", `${options.target}^{commit}`]).stdout.trim();
+  const { released, skipped } = options.catalogOnly ? { released: rebuildCatalogOnly(options), skipped: [] } : publishPlugins(options, targetCommit);
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
   writeCatalogFiles(catalogDirectory, released);
   if (!options.dryRun) uploadCatalog(catalogDirectory, targetCommit);
-  console.log(JSON.stringify({ dryRun: options.dryRun, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256 })), skipped }, null, 2));
+  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256 })), skipped }, null, 2));
 }
 
 try {
