@@ -1,6 +1,6 @@
 {
   "name": "web-browser",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Read public web pages in a headless browser: readable text or markdown, links, CSS-selector extraction and screenshots. Public hosts only, robots.txt respected, no clicking or typing.",
   "license": "Apache-2.0",
   "runtime": "process",

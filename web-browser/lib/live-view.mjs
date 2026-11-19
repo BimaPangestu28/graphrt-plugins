@@ -25,11 +25,13 @@ import { mkdir, rename, rm, utimes, writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 export const LIVE_VIEW_DIRECTORY_VARIABLE = "GRAPHRT_LIVE_VIEW_DIR";
-export const DEFAULT_FRAME_INTERVAL_MS = 500;
+/** ~6 frames per second: smooth enough to follow scrolling, light on disk and CPU. */
+export const DEFAULT_FRAME_INTERVAL_MS = 166;
 export const DEFAULT_KEEP_ALIVE_MS = 5000;
-const MAX_FRAME_WIDTH = 640;
-const MAX_FRAME_HEIGHT = 480;
-const FRAME_QUALITY = 50;
+/** 960 px wide keeps text legible in a ~560 px view on a 2x screen; frames are ~75 KB. */
+const MAX_FRAME_WIDTH = 960;
+const MAX_FRAME_HEIGHT = 720;
+const FRAME_QUALITY = 60;
 /** Longer node ids are not encoded into file names; their frames show as "unknown node". */
 const MAX_NODE_ID_LENGTH = 100;
 const INACTIVE_LIVE_VIEW = Object.freeze({ stop: async () => {} });

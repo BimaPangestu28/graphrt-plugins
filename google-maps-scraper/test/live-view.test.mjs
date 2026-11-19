@@ -72,7 +72,7 @@ test("startLiveView starts a small JPEG screencast and writes the latest frame a
   const session = new FakeCdpSession();
   const liveView = await startLiveView(createFakePage(session), { directory, frameName: "page.abc", intervalMs: 20 });
   const startCommand = session.sentCommands.find((command) => command.method === "Page.startScreencast");
-  assert.deepEqual(startCommand.params, { format: "jpeg", quality: 50, maxWidth: 640, maxHeight: 480, everyNthFrame: 1 });
+  assert.deepEqual(startCommand.params, { format: "jpeg", quality: 60, maxWidth: 960, maxHeight: 720, everyNthFrame: 1 });
 
   session.paint("frame-1", 7);
   await sleep(40);
