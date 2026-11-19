@@ -67,12 +67,12 @@ function buildTemplateMessage(args) {
 function buildMediaMessage(args) {
   if (Boolean(args.link) === Boolean(args.media_id)) rejectInput("Pass exactly one of `link` or `media_id`");
   if (args.link && !/^https:\/\//i.test(args.link)) rejectInput("`link` must be an https URL");
-  if (args.caption && !CAPTIONED_MEDIA_TYPES.has(args.type)) rejectInput(`\`caption\` is only allowed for image, video and document, not ${args.type}`);
-  if (args.filename && args.type !== "document") rejectInput("`filename` is only allowed for documents");
+  if (args.caption && !CAPTIONED_MEDIA_TYPES.has(args.media_type)) rejectInput(`\`caption\` is only allowed for image, video and document, not ${args.media_type}`);
+  if (args.filename && args.media_type !== "document") rejectInput("`filename` is only allowed for documents");
   const mediaObject = args.media_id ? { id: args.media_id } : { link: args.link };
   if (args.caption) mediaObject.caption = args.caption;
   if (args.filename) mediaObject.filename = args.filename;
-  return buildEnvelope(args, args.type, mediaObject);
+  return buildEnvelope(args, args.media_type, mediaObject);
 }
 
 function buildLocationMessage(args) {
@@ -119,14 +119,14 @@ export const messagingOperations = [
     title: "Send WhatsApp media",
     description: "Send an image, video, audio, document or sticker by public https link or uploaded media_id. 24 h window rules apply.",
     properties: {
-      type: { type: "string", enum: MEDIA_TYPES },
+      media_type: { type: "string", enum: MEDIA_TYPES, description: "Kind of media (sent as the message `type`)" },
       link: { type: "string", description: "Public https URL of the file (instead of media_id)" },
       media_id: { type: "string", description: "Id from upload_media (instead of link)" },
       caption: { type: "string", description: "Caption (image, video, document only)" },
       filename: { type: "string", description: "File name shown to the recipient (document only)" },
       reply_to_message_id: REPLY_TO_PROPERTY,
     },
-    required: ["type"],
+    required: ["media_type"],
     buildMessage: buildMediaMessage,
   }),
   sendOperation({

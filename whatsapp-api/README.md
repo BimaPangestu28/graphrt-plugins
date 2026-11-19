@@ -114,5 +114,9 @@ are reported only through status webhooks, not to the send call.
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
 
+## Changelog
+### 0.2.0
+- **Breaking:** `send_media` and `upload_media` parameter `type` is now `media_type` (`send_media` still sends it to WhatsApp as the message `type`). graphrt takes `type` from every workflow node, so the old name could never be set from a node (the required field made the node fail to load); tool calls that passed `type` must use `media_type`.
+
 ## License
 Apache-2.0

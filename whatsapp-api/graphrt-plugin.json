@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "WhatsApp Business Cloud API: send messages and templates, manage media, templates and the business profile",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -142,7 +142,7 @@
             "type": "string",
             "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
           },
-          "type": {
+          "media_type": {
             "type": "string",
             "enum": [
               "image",
@@ -150,7 +150,8 @@
               "audio",
               "document",
               "sticker"
-            ]
+            ],
+            "description": "Kind of media (sent as the message `type`)"
           },
           "link": {
             "type": "string",
@@ -183,7 +184,7 @@
         },
         "required": [
           "to",
-          "type"
+          "media_type"
         ]
       },
       "outputs": [
@@ -493,7 +494,7 @@
             "type": "string",
             "description": "Public https URL of the file"
           },
-          "type": {
+          "media_type": {
             "type": "string",
             "enum": [
               "image",
@@ -502,7 +503,7 @@
               "document",
               "sticker"
             ],
-            "description": "How the file will be sent"
+            "description": "How the file will be sent (image, video, audio, document or sticker)"
           },
           "mime_type": {
             "type": "string",
@@ -523,7 +524,7 @@
         },
         "required": [
           "url",
-          "type"
+          "media_type"
         ]
       },
       "outputs": [
@@ -1134,7 +1135,7 @@
             "type": "string",
             "description": "Recipient in international E.164 format, e.g. \"6281234567890\" or \"+62 812-3456-7890\""
           },
-          "type": {
+          "media_type": {
             "type": "string",
             "enum": [
               "image",
@@ -1142,7 +1143,8 @@
               "audio",
               "document",
               "sticker"
-            ]
+            ],
+            "description": "Kind of media (sent as the message `type`)"
           },
           "link": {
             "type": "string",
@@ -1171,7 +1173,7 @@
         },
         "required": [
           "to",
-          "type"
+          "media_type"
         ]
       }
     },
@@ -1377,7 +1379,7 @@
             "type": "string",
             "description": "Public https URL of the file"
           },
-          "type": {
+          "media_type": {
             "type": "string",
             "enum": [
               "image",
@@ -1386,7 +1388,7 @@
               "document",
               "sticker"
             ],
-            "description": "How the file will be sent"
+            "description": "How the file will be sent (image, video, audio, document or sticker)"
           },
           "mime_type": {
             "type": "string",
@@ -1403,7 +1405,7 @@
         },
         "required": [
           "url",
-          "type"
+          "media_type"
         ]
       }
     },
