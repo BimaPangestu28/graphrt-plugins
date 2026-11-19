@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-threads-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "graphrt plugin: Threads profiles, posts, publishing and reply moderation via the Threads API",
   "type": "module",

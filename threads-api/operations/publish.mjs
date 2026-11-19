@@ -25,7 +25,7 @@ export const publishOperations = [
     name: "publish_thread",
     title: "Publish thread",
     description:
-      "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `container_id` instead of re-running, so nothing is posted twice.",
+      "Publish a Threads post: TEXT, IMAGE, VIDEO or CAROUSEL (2-20 items) from public media URLs, optionally as a reply or quote, with a poll, link, topic tag or reply controls. Waits for Threads to process the media (up to 6 minutes). If publishing fails after the container was made, retry with `existing_container_id` instead of re-running, so nothing is posted twice.",
     parameters: {
       type: "object",
       properties: {
@@ -55,7 +55,7 @@ export const publishOperations = [
         },
         link_attachment: { type: "string", description: "URL shown as a link preview (TEXT posts)" },
         topic_tag: { type: "string", description: "Topic tag, without #" },
-        container_id: { type: "string", description: "Publish this existing container (from a failed attempt) instead of creating a new one" },
+        existing_container_id: { type: "string", description: "Publish this existing container (the container_id from a failed attempt) instead of creating a new one" },
       },
     },
     run: publishThread,
@@ -64,13 +64,13 @@ export const publishOperations = [
 
 async function publishThread({ client, args, environment, signal }) {
   const containerSettings = { client, environment, signal, deadline: Date.now() + PUBLISH_DEADLINE_MS };
-  const containerId = args.container_id ?? (await createPostContainer(containerSettings, args));
-  if (args.container_id) await waitForContainer(containerSettings, containerId);
+  const containerId = args.existing_container_id ?? (await createPostContainer(containerSettings, args));
+  if (args.existing_container_id) await waitForContainer(containerSettings, containerId);
   try {
     const published = await client.request({ method: "POST", path: "/me/threads_publish", form: { creation_id: containerId }, signal });
     return { data: { id: published.id, container_id: containerId } };
   } catch (publishError) {
-    throw new PluginError(`${publishError.message} (container_id ${containerId}: retry with \`container_id\` to publish it without creating a duplicate)`, {
+    throw new PluginError(`${publishError.message} (container_id ${containerId}: retry with \`existing_container_id\` to publish it without creating a duplicate)`, {
       kind: publishError.kind ?? "api_error",
       retryable: false,
     });
