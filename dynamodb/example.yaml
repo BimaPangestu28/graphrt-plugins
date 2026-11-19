@@ -1,0 +1,15 @@
+# List DynamoDB tables and describe the first one. Read-only.
+#   export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=ap-southeast-1
+#   graphrt run dynamodb/example.yaml --plugins .
+version: "1"
+name: dynamodb-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: tables, type: dynamodb.list_tables, limit: 10 }
+    - { id: first, type: dynamodb.describe_table, table: "{{#tables.data.table_names.0#}}" }
+    - { id: answer, type: answer, answer: "Tables: {{#tables.data.table_names#}} | first: {{#first.data#}}" }
+  edges:
+    - { source: start, target: tables }
+    - { source: tables, target: first }
+    - { source: first, target: answer }

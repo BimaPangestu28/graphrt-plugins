@@ -73,6 +73,11 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [sentry](sentry/) | Sentry (sentry.io, us/de region): organizations, projects, releases, issues and events with stack traces; resolve, ignore (archive) and assign are agent opt-in, delete node only | 14 |
 | [vercel](vercel/) | Vercel REST API: deployments (list, inspect, build logs, cancel), projects, domains and DNS config check; environment variables, redeploys and deletes node only, secrets unreachable by agent tools | 21 |
 | [cloudflare](cloudflare/) | Cloudflare API v4: accounts, zones, DNS records (agent create/update only for allowlisted names, delete node only), cache purge (node only), Workers with settings and deployments | 15 |
+| [s3](s3/) | Amazon S3 and S3-compatible storage (R2, MinIO) with built-in SigV4: list buckets and objects, metadata, downloads into an allowed directory, uploads, copies; agent tools read-only unless opted in, delete and presigned URLs node only | 8 |
+| [dynamodb](dynamodb/) | Amazon DynamoDB with built-in SigV4: list and describe tables, get, query, scan and batch-get with plain JSON or typed values, put/update (agents opt-in) and delete (node only) | 9 |
+| [bigquery](bigquery/) | Google BigQuery: datasets, tables and schemas, parameterised GoogleSQL with a bytes-billed cap on every query, free dry runs and paged typed results; agent tools run SELECT only (dry-run checked) unless opted in | 5 |
+| [firestore](firestore/) | Google Cloud Firestore: get, list and query documents (filters, ordering, collection groups) with plain JSON or typed values, create and update (agents opt-in), delete (node only) | 6 |
+| [snowflake](snowflake/) | Snowflake SQL API with key-pair JWT auth: statements with bindings, async polling and cancel, typed rows across result partitions; agent tools read-only (statement check, dedicated role) unless opted in | 4 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

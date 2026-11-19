@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-dynamodb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Amazon DynamoDB with SigV4 signing, read-only for agents by default",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

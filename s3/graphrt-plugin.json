@@ -1,0 +1,771 @@
+{
+  "name": "s3",
+  "version": "0.1.0",
+  "description": "Amazon S3 and S3-compatible storage (R2, MinIO): list buckets and objects, metadata, download to an allowed directory, upload, copy, delete and presigned URLs (SigV4)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "AWS_SECRET_ACCESS_KEY",
+      "S3_ACCESS_KEY_ID",
+      "S3_SECRET_ACCESS_KEY",
+      "S3_SESSION_TOKEN",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SESSION_TOKEN",
+      "S3_REGION",
+      "AWS_REGION",
+      "AWS_DEFAULT_REGION",
+      "S3_ENDPOINT",
+      "S3_FORCE_PATH_STYLE",
+      "S3_DOWNLOAD_DIR",
+      "S3_UPLOAD_DIR",
+      "S3_MAX_DOWNLOAD_BYTES",
+      "S3_MAX_UPLOAD_BYTES",
+      "S3_MAX_TEXT_BYTES",
+      "S3_TIMEOUT_MS",
+      "S3_TRANSFER_TIMEOUT_MS",
+      "S3_ALLOWED_BUCKETS",
+      "S3_EXPECTED_BUCKET_OWNER",
+      "S3_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 360000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "s3.list_buckets",
+      "title": "List buckets",
+      "description": "List the buckets the credentials can see (name, creation date, region)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "description": "Only buckets whose name starts with this"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "Maximum buckets per page (AWS only; other stores return all)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "s3.list_objects",
+      "title": "List objects",
+      "description": "List objects in a bucket (ListObjectsV2): keys, sizes, dates; prefix and delimiter for folders; paginated with next_cursor",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only keys that start with this, e.g. reports/2026/"
+          },
+          "delimiter": {
+            "type": "string",
+            "description": "Group keys by this character into common_prefixes, usually /"
+          },
+          "start_after": {
+            "type": "string",
+            "description": "Start listing after this key"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum keys per page (1 to 1000)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "s3.head_object",
+      "title": "Get object metadata",
+      "description": "Read an object's size, content type, ETag, dates and user metadata without downloading it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "s3.get_object",
+      "title": "Download object",
+      "description": "Download an object: output \"file\" streams it into S3_DOWNLOAD_DIR (size-capped) and returns the path; output \"text\" returns up to S3_MAX_TEXT_BYTES as UTF-8 text with a truncated flag",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "output": {
+            "type": "string",
+            "enum": [
+              "file",
+              "text"
+            ],
+            "default": "file",
+            "description": "file (save into S3_DOWNLOAD_DIR) or text (return the content, capped)"
+          },
+          "file_name": {
+            "type": "string",
+            "description": "File name inside S3_DOWNLOAD_DIR (default: the key's last segment); never overwrites an existing file"
+          },
+          "range": {
+            "type": "string",
+            "description": "Byte range, e.g. bytes=0-1023"
+          },
+          "version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "s3.put_object",
+      "title": "Upload object",
+      "description": "Upload an object from a file inside S3_UPLOAD_DIR or from text; replaces an existing object unless only_if_absent (as an agent tool only when S3_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Absolute path of a file inside S3_UPLOAD_DIR"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text content to upload (UTF-8), instead of file_path"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content-Type (default: from the file extension, text/plain for text)"
+          },
+          "cache_control": {
+            "type": "string",
+            "description": "Cache-Control header to store"
+          },
+          "content_disposition": {
+            "type": "string",
+            "description": "Content-Disposition header to store, e.g. attachment; filename=\"report.pdf\""
+          },
+          "storage_class": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "STANDARD_IA",
+              "ONEZONE_IA",
+              "INTELLIGENT_TIERING",
+              "GLACIER_IR",
+              "GLACIER",
+              "DEEP_ARCHIVE",
+              "REDUCED_REDUNDANCY"
+            ],
+            "description": "Storage class (AWS)"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "User metadata stored with the object as x-amz-meta-<name> headers, e.g. {\"source\": \"graphrt\"}"
+          },
+          "only_if_absent": {
+            "type": "boolean",
+            "default": false,
+            "description": "Fail with 412 instead of replacing an existing object (If-None-Match: *)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "s3.copy_object",
+      "title": "Copy object",
+      "description": "Copy an object (up to 5 GB) to another key or bucket on the server side (as an agent tool only when S3_TOOL_ALLOW_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "source_bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "source_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "source_version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          },
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination bucket"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination key"
+          },
+          "metadata_directive": {
+            "type": "string",
+            "enum": [
+              "COPY",
+              "REPLACE"
+            ],
+            "default": "COPY",
+            "description": "COPY keeps the source metadata; REPLACE uses metadata and content_type"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "User metadata stored with the object as x-amz-meta-<name> headers, e.g. {\"source\": \"graphrt\"}"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content-Type for the copy (with REPLACE)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "source_bucket",
+          "source_key",
+          "bucket",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "s3.delete_object",
+      "title": "Delete object",
+      "description": "Delete an object (or one version of it); workflow nodes only",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "s3.presign_get_url",
+      "title": "Presigned download URL",
+      "description": "Create a presigned GET URL that lets anyone holding it download the object until it expires; workflow nodes only",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          },
+          "expires_in_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 604800,
+            "default": 3600,
+            "description": "Lifetime in seconds (at most 7 days; temporary credentials expire sooner)"
+          },
+          "response_content_disposition": {
+            "type": "string",
+            "description": "Content-Disposition the download should get, e.g. attachment; filename=\"a.pdf\""
+          },
+          "response_content_type": {
+            "type": "string",
+            "description": "Content-Type the download should get"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_buckets",
+      "description": "List the buckets the credentials can see (name, creation date, region)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "description": "Only buckets whose name starts with this"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "Maximum buckets per page (AWS only; other stores return all)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_objects",
+      "description": "List objects in a bucket (ListObjectsV2): keys, sizes, dates; prefix and delimiter for folders; paginated with next_cursor",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Only keys that start with this, e.g. reports/2026/"
+          },
+          "delimiter": {
+            "type": "string",
+            "description": "Group keys by this character into common_prefixes, usually /"
+          },
+          "start_after": {
+            "type": "string",
+            "description": "Start listing after this key"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Maximum keys per page (1 to 1000)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        },
+        "required": [
+          "bucket"
+        ]
+      }
+    },
+    {
+      "name": "head_object",
+      "description": "Read an object's size, content type, ETag, dates and user metadata without downloading it",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "get_object",
+      "description": "Download an object: output \"file\" streams it into S3_DOWNLOAD_DIR (size-capped) and returns the path; output \"text\" returns up to S3_MAX_TEXT_BYTES as UTF-8 text with a truncated flag",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "output": {
+            "type": "string",
+            "enum": [
+              "file",
+              "text"
+            ],
+            "default": "file",
+            "description": "file (save into S3_DOWNLOAD_DIR) or text (return the content, capped)"
+          },
+          "file_name": {
+            "type": "string",
+            "description": "File name inside S3_DOWNLOAD_DIR (default: the key's last segment); never overwrites an existing file"
+          },
+          "range": {
+            "type": "string",
+            "description": "Byte range, e.g. bytes=0-1023"
+          },
+          "version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "put_object",
+      "description": "Upload an object from a file inside S3_UPLOAD_DIR or from text; replaces an existing object unless only_if_absent (as an agent tool only when S3_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Absolute path of a file inside S3_UPLOAD_DIR"
+          },
+          "text": {
+            "type": "string",
+            "description": "Text content to upload (UTF-8), instead of file_path"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content-Type (default: from the file extension, text/plain for text)"
+          },
+          "cache_control": {
+            "type": "string",
+            "description": "Cache-Control header to store"
+          },
+          "content_disposition": {
+            "type": "string",
+            "description": "Content-Disposition header to store, e.g. attachment; filename=\"report.pdf\""
+          },
+          "storage_class": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "STANDARD_IA",
+              "ONEZONE_IA",
+              "INTELLIGENT_TIERING",
+              "GLACIER_IR",
+              "GLACIER",
+              "DEEP_ARCHIVE",
+              "REDUCED_REDUNDANCY"
+            ],
+            "description": "Storage class (AWS)"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "User metadata stored with the object as x-amz-meta-<name> headers, e.g. {\"source\": \"graphrt\"}"
+          },
+          "only_if_absent": {
+            "type": "boolean",
+            "default": false,
+            "description": "Fail with 412 instead of replacing an existing object (If-None-Match: *)"
+          }
+        },
+        "required": [
+          "bucket",
+          "key"
+        ]
+      }
+    },
+    {
+      "name": "copy_object",
+      "description": "Copy an object (up to 5 GB) to another key or bucket on the server side (as an agent tool only when S3_TOOL_ALLOW_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source_bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Bucket name"
+          },
+          "source_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Object key, e.g. reports/2026/q3.pdf"
+          },
+          "source_version_id": {
+            "type": "string",
+            "description": "Object version id (versioned buckets)"
+          },
+          "bucket": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination bucket"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination key"
+          },
+          "metadata_directive": {
+            "type": "string",
+            "enum": [
+              "COPY",
+              "REPLACE"
+            ],
+            "default": "COPY",
+            "description": "COPY keeps the source metadata; REPLACE uses metadata and content_type"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "User metadata stored with the object as x-amz-meta-<name> headers, e.g. {\"source\": \"graphrt\"}"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content-Type for the copy (with REPLACE)"
+          }
+        },
+        "required": [
+          "source_bucket",
+          "source_key",
+          "bucket",
+          "key"
+        ]
+      }
+    }
+  ]
+}
