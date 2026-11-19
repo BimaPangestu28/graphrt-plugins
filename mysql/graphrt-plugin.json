@@ -1,0 +1,455 @@
+{
+  "name": "mysql",
+  "version": "0.1.0",
+  "description": "MySQL and MariaDB: parameterised queries in read-only transactions, writes and DDL (nodes, or agents with an opt-in), tables, columns and query plans",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MYSQL_URL",
+      "MYSQL_HOST",
+      "MYSQL_PORT",
+      "MYSQL_USER",
+      "MYSQL_PASSWORD",
+      "MYSQL_DATABASE",
+      "MYSQL_SSL_MODE",
+      "MYSQL_STATEMENT_TIMEOUT_MS",
+      "MYSQL_CONNECT_TIMEOUT_MS",
+      "MYSQL_MAX_RESULT_BYTES",
+      "MYSQL_POOL_MAX",
+      "MYSQL_TOOL_ALLOW_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "mysql.query",
+      "title": "Run a read-only query",
+      "description": "Runs one parameterised SQL statement in a READ ONLY transaction that is always rolled back, so it cannot change data. Returns rows (objects), fields, row_count and truncated",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement. Put values in `params` and refer to them with placeholders; never paste values into the SQL"
+          },
+          "params": {
+            "type": "array",
+            "maxItems": 1000,
+            "default": [],
+            "description": "Values for the placeholders (?), in order: strings, numbers, booleans, null or JSON objects"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most rows to return (default 500, at most 5000); `truncated` is true when more existed"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 600000,
+            "description": "Statement timeout in milliseconds (default from the plugin's *_STATEMENT_TIMEOUT_MS, 30000; agents can only lower it)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mysql.execute",
+      "title": "Run a write or DDL statement",
+      "description": "Runs one parameterised INSERT/UPDATE/DELETE/DDL statement (autocommitted). Returns affected_rows, changed_rows and insert_id. Agents need MYSQL_TOOL_ALLOW_WRITES=1",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement. Put values in `params` and refer to them with placeholders; never paste values into the SQL"
+          },
+          "params": {
+            "type": "array",
+            "maxItems": 1000,
+            "default": [],
+            "description": "Values for the placeholders (?), in order: strings, numbers, booleans, null or JSON objects"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most rows to return if the statement returns any (default 500, at most 5000)"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 600000,
+            "description": "The statement is killed (KILL QUERY) when it runs this long plus 5 s (default from MYSQL_STATEMENT_TIMEOUT_MS, 30000)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mysql.explain",
+      "title": "Explain a query plan",
+      "description": "Shows MySQL's plan for one statement (EXPLAIN), in a read-only transaction. With analyze (MySQL 8.0.18+) it also runs the statement, still read-only",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement. Put values in `params` and refer to them with placeholders; never paste values into the SQL"
+          },
+          "params": {
+            "type": "array",
+            "maxItems": 1000,
+            "default": [],
+            "description": "Values for the placeholders (?), in order: strings, numbers, booleans, null or JSON objects"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "traditional",
+              "json",
+              "tree"
+            ],
+            "default": "traditional",
+            "description": "Plan as table rows, MySQL's JSON plan or a text tree (ignored with analyze, which is always a tree)"
+          },
+          "analyze": {
+            "type": "boolean",
+            "default": false,
+            "description": "EXPLAIN ANALYZE: run the statement and report real timings (read-only, rolled back)"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 600000,
+            "description": "Statement timeout in milliseconds (default from the plugin's *_STATEMENT_TIMEOUT_MS, 30000; agents can only lower it)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mysql.list_tables",
+      "title": "List tables",
+      "description": "Lists tables (and views) in a database with approximate row counts. Without `schema`, the connection's database, or every non-system database when there is none",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Database (schema) name. Default: the connection's database"
+          },
+          "include_views": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include views"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 1000,
+            "description": "Most tables to return"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mysql.describe_table",
+      "title": "Describe a table",
+      "description": "Columns (type, nullable, default, key, extra, comment), primary key, indexes and foreign keys of one table or view",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Table or view name"
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Database (schema) name. Default: the connection's database"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "query",
+      "description": "Runs one parameterised SQL statement in a READ ONLY transaction that is always rolled back, so it cannot change data. Returns rows (objects), fields, row_count and truncated",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement. Put values in `params` and refer to them with placeholders; never paste values into the SQL"
+          },
+          "params": {
+            "type": "array",
+            "maxItems": 1000,
+            "default": [],
+            "description": "Values for the placeholders (?), in order: strings, numbers, booleans, null or JSON objects"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most rows to return (default 500, at most 5000); `truncated` is true when more existed"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 600000,
+            "description": "Statement timeout in milliseconds (default from the plugin's *_STATEMENT_TIMEOUT_MS, 30000; agents can only lower it)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      }
+    },
+    {
+      "name": "execute",
+      "description": "Runs one parameterised INSERT/UPDATE/DELETE/DDL statement (autocommitted). Returns affected_rows, changed_rows and insert_id. Agents need MYSQL_TOOL_ALLOW_WRITES=1",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement. Put values in `params` and refer to them with placeholders; never paste values into the SQL"
+          },
+          "params": {
+            "type": "array",
+            "maxItems": 1000,
+            "default": [],
+            "description": "Values for the placeholders (?), in order: strings, numbers, booleans, null or JSON objects"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 500,
+            "description": "Most rows to return if the statement returns any (default 500, at most 5000)"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 600000,
+            "description": "The statement is killed (KILL QUERY) when it runs this long plus 5 s (default from MYSQL_STATEMENT_TIMEOUT_MS, 30000)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      }
+    },
+    {
+      "name": "explain",
+      "description": "Shows MySQL's plan for one statement (EXPLAIN), in a read-only transaction. With analyze (MySQL 8.0.18+) it also runs the statement, still read-only",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One SQL statement. Put values in `params` and refer to them with placeholders; never paste values into the SQL"
+          },
+          "params": {
+            "type": "array",
+            "maxItems": 1000,
+            "default": [],
+            "description": "Values for the placeholders (?), in order: strings, numbers, booleans, null or JSON objects"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "traditional",
+              "json",
+              "tree"
+            ],
+            "default": "traditional",
+            "description": "Plan as table rows, MySQL's JSON plan or a text tree (ignored with analyze, which is always a tree)"
+          },
+          "analyze": {
+            "type": "boolean",
+            "default": false,
+            "description": "EXPLAIN ANALYZE: run the statement and report real timings (read-only, rolled back)"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 600000,
+            "description": "Statement timeout in milliseconds (default from the plugin's *_STATEMENT_TIMEOUT_MS, 30000; agents can only lower it)"
+          }
+        },
+        "required": [
+          "sql"
+        ]
+      }
+    },
+    {
+      "name": "list_tables",
+      "description": "Lists tables (and views) in a database with approximate row counts. Without `schema`, the connection's database, or every non-system database when there is none",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Database (schema) name. Default: the connection's database"
+          },
+          "include_views": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include views"
+          },
+          "max_rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 1000,
+            "description": "Most tables to return"
+          }
+        }
+      }
+    },
+    {
+      "name": "describe_table",
+      "description": "Columns (type, nullable, default, key, extra, comment), primary key, indexes and foreign keys of one table or view",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Table or view name"
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Database (schema) name. Default: the connection's database"
+          }
+        },
+        "required": [
+          "table"
+        ]
+      }
+    }
+  ]
+}
