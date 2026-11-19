@@ -1,0 +1,12 @@
+# Show the Replicate account of your token and the newest models. Read-only and free.
+#   REPLICATE_API_TOKEN=r8_... graphrt run replicate/example.yaml --plugins .
+version: "1"
+name: replicate-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: account, type: replicate.get_account }
+    - { id: answer, type: answer, answer: "Signed in as {{#account.data.username#}} ({{#account.data.type#}})" }
+  edges:
+    - { source: start, target: account }
+    - { source: account, target: answer }

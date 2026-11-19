@@ -1,0 +1,662 @@
+{
+  "name": "google-imagen",
+  "version": "0.1.0",
+  "description": "Google image generation via the Gemini API (Nano Banana models; Imagen is shut down): generate and edit images, saved to a local folder (paid per image)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GEMINI_API_KEY",
+      "GOOGLE_IMAGEN_UPLOAD_DIR",
+      "GOOGLE_IMAGEN_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-imagen.list_models",
+      "title": "List models",
+      "description": "List Gemini API models available to the key (image models have image in their name)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-imagen.get_model",
+      "title": "Get model",
+      "description": "Metadata of one model: version, token limits, supported actions",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-nano-banana-2.1"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-imagen.generate_image",
+      "title": "Generate image",
+      "description": "Generate an image from a prompt with a Gemini image model (paid, SynthID-watermarked). Saved to $GOOGLE_IMAGEN_OUTPUT_DIR; pass previous_interaction_id to edit the image of an earlier call",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate, or the change to make to the previous interaction's image",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Image model, e.g. gemini-nano-banana-2.1 (default), gemini-3.1-flash-image, gemini-3.1-flash-lite-image, gemini-3-pro-image",
+            "default": "gemini-nano-banana-2.1"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Output aspect ratio (1:4, 4:1, 1:8, 8:1 only on Nano Banana 2.1 and 3.1 Flash)",
+            "enum": [
+              "1:1",
+              "2:3",
+              "3:2",
+              "3:4",
+              "4:3",
+              "4:5",
+              "5:4",
+              "9:16",
+              "16:9",
+              "21:9",
+              "1:4",
+              "4:1",
+              "1:8",
+              "8:1"
+            ]
+          },
+          "image_size": {
+            "type": "string",
+            "description": "Output size (512 only on 3.1 Flash Image); larger costs more",
+            "enum": [
+              "512",
+              "1K",
+              "2K",
+              "4K"
+            ]
+          },
+          "previous_interaction_id": {
+            "type": "string",
+            "description": "Continue a previous interaction (multi-turn editing of its image) by its id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-imagen.create_interaction",
+      "title": "Create interaction",
+      "description": "Low-level Interactions API call with content blocks (text, base64 or URI images) for image generation or editing (paid). Generated images are saved to $GOOGLE_IMAGEN_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "array",
+            "description": "Content blocks, e.g. [{\"type\": \"text\", \"text\": \"Add a hat\"}, {\"type\": \"image\", \"mime_type\": \"image/png\", \"data\": \"<base64>\"}]",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "Image model, e.g. gemini-nano-banana-2.1 (default), gemini-3.1-flash-image, gemini-3.1-flash-lite-image, gemini-3-pro-image",
+            "default": "gemini-nano-banana-2.1"
+          },
+          "response_format": {
+            "type": "object",
+            "description": "e.g. {\"type\": \"image\", \"aspect_ratio\": \"16:9\", \"image_size\": \"2K\"}"
+          },
+          "previous_interaction_id": {
+            "type": "string",
+            "description": "Continue a previous interaction (multi-turn editing of its image) by its id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-imagen.get_interaction",
+      "title": "Get interaction",
+      "description": "A stored interaction with its steps; images in it are saved to $GOOGLE_IMAGEN_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "interaction_id": {
+            "type": "string",
+            "description": "Interaction id from generate_image"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "interaction_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-imagen.delete_interaction",
+      "title": "Delete interaction",
+      "description": "Delete a stored interaction permanently",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "interaction_id": {
+            "type": "string",
+            "description": "Interaction id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "interaction_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-imagen.api_request",
+      "title": "Gemini API request",
+      "description": "Call any Gemini API endpoint that has no dedicated operation, e.g. path \"/v1beta/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1beta/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-imagen.edit_image",
+      "title": "Edit image",
+      "description": "Edit or combine up to 14 images with a prompt using a Gemini image model (paid). Images: https URLs or files inside $GOOGLE_IMAGEN_UPLOAD_DIR. The result is saved like generate_image",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The edit to make, e.g. Put a party hat on the cat"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 14,
+            "description": "Input images: https URLs or absolute paths inside $GOOGLE_IMAGEN_UPLOAD_DIR (20 MB in total once base64-encoded, about 15 MB of files)"
+          },
+          "model": {
+            "type": "string",
+            "default": "gemini-nano-banana-2.1",
+            "description": "Image model, e.g. gemini-nano-banana-2.1, gemini-3-pro-image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "enum": [
+              "1:1",
+              "2:3",
+              "3:2",
+              "3:4",
+              "4:3",
+              "4:5",
+              "5:4",
+              "9:16",
+              "16:9",
+              "21:9",
+              "1:4",
+              "4:1",
+              "1:8",
+              "8:1"
+            ],
+            "description": "Output aspect ratio (default: from the input)"
+          },
+          "image_size": {
+            "type": "string",
+            "enum": [
+              "512",
+              "1K",
+              "2K",
+              "4K"
+            ],
+            "description": "Output size; larger costs more"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "images"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_models",
+      "description": "List Gemini API models available to the key (image models have image in their name)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_model",
+      "description": "Metadata of one model: version, token limits, supported actions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Model id without the models/ prefix, e.g. gemini-nano-banana-2.1"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      }
+    },
+    {
+      "name": "generate_image",
+      "description": "Generate an image from a prompt with a Gemini image model (paid, SynthID-watermarked). Saved to $GOOGLE_IMAGEN_OUTPUT_DIR; pass previous_interaction_id to edit the image of an earlier call",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate, or the change to make to the previous interaction's image",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Image model, e.g. gemini-nano-banana-2.1 (default), gemini-3.1-flash-image, gemini-3.1-flash-lite-image, gemini-3-pro-image",
+            "default": "gemini-nano-banana-2.1"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Output aspect ratio (1:4, 4:1, 1:8, 8:1 only on Nano Banana 2.1 and 3.1 Flash)",
+            "enum": [
+              "1:1",
+              "2:3",
+              "3:2",
+              "3:4",
+              "4:3",
+              "4:5",
+              "5:4",
+              "9:16",
+              "16:9",
+              "21:9",
+              "1:4",
+              "4:1",
+              "1:8",
+              "8:1"
+            ]
+          },
+          "image_size": {
+            "type": "string",
+            "description": "Output size (512 only on 3.1 Flash Image); larger costs more",
+            "enum": [
+              "512",
+              "1K",
+              "2K",
+              "4K"
+            ]
+          },
+          "previous_interaction_id": {
+            "type": "string",
+            "description": "Continue a previous interaction (multi-turn editing of its image) by its id"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "create_interaction",
+      "description": "Low-level Interactions API call with content blocks (text, base64 or URI images) for image generation or editing (paid). Generated images are saved to $GOOGLE_IMAGEN_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "array",
+            "description": "Content blocks, e.g. [{\"type\": \"text\", \"text\": \"Add a hat\"}, {\"type\": \"image\", \"mime_type\": \"image/png\", \"data\": \"<base64>\"}]",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "Image model, e.g. gemini-nano-banana-2.1 (default), gemini-3.1-flash-image, gemini-3.1-flash-lite-image, gemini-3-pro-image",
+            "default": "gemini-nano-banana-2.1"
+          },
+          "response_format": {
+            "type": "object",
+            "description": "e.g. {\"type\": \"image\", \"aspect_ratio\": \"16:9\", \"image_size\": \"2K\"}"
+          },
+          "previous_interaction_id": {
+            "type": "string",
+            "description": "Continue a previous interaction (multi-turn editing of its image) by its id"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "get_interaction",
+      "description": "A stored interaction with its steps; images in it are saved to $GOOGLE_IMAGEN_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "interaction_id": {
+            "type": "string",
+            "description": "Interaction id from generate_image"
+          }
+        },
+        "required": [
+          "interaction_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Gemini API endpoint that has no dedicated operation, e.g. path \"/v1beta/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1beta/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "edit_image",
+      "description": "Edit or combine up to 14 images with a prompt using a Gemini image model (paid). Images: https URLs or files inside $GOOGLE_IMAGEN_UPLOAD_DIR. The result is saved like generate_image",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The edit to make, e.g. Put a party hat on the cat"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 14,
+            "description": "Input images: https URLs or absolute paths inside $GOOGLE_IMAGEN_UPLOAD_DIR (20 MB in total once base64-encoded, about 15 MB of files)"
+          },
+          "model": {
+            "type": "string",
+            "default": "gemini-nano-banana-2.1",
+            "description": "Image model, e.g. gemini-nano-banana-2.1, gemini-3-pro-image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "enum": [
+              "1:1",
+              "2:3",
+              "3:2",
+              "3:4",
+              "4:3",
+              "4:5",
+              "5:4",
+              "9:16",
+              "16:9",
+              "21:9",
+              "1:4",
+              "4:1",
+              "1:8",
+              "8:1"
+            ],
+            "description": "Output aspect ratio (default: from the input)"
+          },
+          "image_size": {
+            "type": "string",
+            "enum": [
+              "512",
+              "1K",
+              "2K",
+              "4K"
+            ],
+            "description": "Output size; larger costs more"
+          }
+        },
+        "required": [
+          "prompt",
+          "images"
+        ]
+      }
+    }
+  ]
+}

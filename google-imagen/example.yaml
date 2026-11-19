@@ -1,0 +1,12 @@
+# List the Gemini API models your key can use (image models have "image" or "banana" in the name). Read-only, free.
+#   GEMINI_API_KEY=... graphrt run google-imagen/example.yaml --plugins .
+version: "1"
+name: google-imagen-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: models, type: google-imagen.list_models, limit: 100 }
+    - { id: answer, type: answer, answer: "Models: {{#models.data#}}" }
+  edges:
+    - { source: start, target: models }
+    - { source: models, target: answer }

@@ -1,0 +1,2542 @@
+{
+  "name": "stability-ai",
+  "version": "0.1.0",
+  "description": "Stability AI Stable Image: generate (Ultra, Core, SD 3.5), upscale, edit and control images, saved to a local folder (paid in credits)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "STABILITY_API_KEY",
+      "STABILITY_AI_OUTPUT_DIR",
+      "STABILITY_AI_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 360000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "stability-ai.get_account",
+      "title": "Get account",
+      "description": "The account (email, id, organizations) that owns the API key",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.get_balance",
+      "title": "Get credit balance",
+      "description": "Credit balance of the key's account or organization (1 credit = $0.01)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.generate_ultra",
+      "title": "Generate image (Stable Image Ultra)",
+      "description": "Highest-quality text-to-image (about 1 megapixel), optionally guided by an input image (8 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "description": "Optional starting image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "strength": {
+            "type": "number",
+            "description": "Influence of image, 0 (keep) to 1 (ignore); required with image",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.generate_core",
+      "title": "Generate image (Stable Image Core)",
+      "description": "Fast, low-cost text-to-image (3 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.generate_sd3",
+      "title": "Generate image (Stable Diffusion 3.5)",
+      "description": "Text-to-image or image-to-image with Stable Diffusion 3.5 Large (6.5 credits), Large Turbo (4) or Medium (3.5) (3.5-6.5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model (default sd3.5-large)",
+            "enum": [
+              "sd3.5-large",
+              "sd3.5-large-turbo",
+              "sd3.5-medium"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "description": "text-to-image (default) or image-to-image (needs image and strength)",
+            "enum": [
+              "text-to-image",
+              "image-to-image"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "description": "Starting image for image-to-image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "strength": {
+            "type": "number",
+            "description": "Influence of image, 0-1 (image-to-image)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt, 1-10",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.upscale_fast",
+      "title": "Upscale image (fast)",
+      "description": "Upscale an image 4x in about a second (output up to 4 megapixels) (2 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (32-1536 px per side) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.upscale_conservative",
+      "title": "Upscale image (conservative)",
+      "description": "Upscale an image (64x64 to 1 megapixel) to 4 megapixels with minimal changes (40 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Describes the image, to guide the upscale",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "creativity": {
+            "type": "number",
+            "description": "How much detail to invent, 0.2-0.5 (default 0.35)",
+            "minimum": 0.2,
+            "maximum": 0.5
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.upscale_creative",
+      "title": "Upscale image (creative, async)",
+      "description": "Re-imagine and upscale a degraded image (under 1 megapixel) to up to 4K, waiting for the async job (60 credits). The image is saved to $STABILITY_AI_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (64x64 to 1 megapixel) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Describes the image, to guide the upscale",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "creativity": {
+            "type": "number",
+            "description": "How much detail to invent, 0.1-0.5 (default 0.3)",
+            "minimum": 0.1,
+            "maximum": 0.5
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.get_result",
+      "title": "Get async result",
+      "description": "Fetch an async generation by id (results are kept 24 hours): {id, status: \"in-progress\"} while running, else the image saved to $STABILITY_AI_OUTPUT_DIR with seed and finish_reason",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "The 64-character id returned by an async operation"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.erase_object",
+      "title": "Erase object",
+      "description": "Remove unwanted objects marked by a mask (or the image's alpha channel) (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Mask: white marks what to erase (else the image's alpha channel is used) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-20, default 5)",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.inpaint",
+      "title": "Inpaint",
+      "description": "Fill or replace the masked area (or transparent area) of an image with new content from a prompt (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "mask": {
+            "type": "string",
+            "description": "Mask: white marks the area to repaint (else the image's alpha channel is used) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-100, default 5)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.outpaint",
+      "title": "Outpaint",
+      "description": "Extend an image in any direction (left/right/up/down pixels, at least one) (4 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to extend (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "left": {
+            "type": "integer",
+            "description": "Pixels to add on the left (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "right": {
+            "type": "integer",
+            "description": "Pixels to add on the right (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "up": {
+            "type": "integer",
+            "description": "Pixels to add at the top (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "down": {
+            "type": "integer",
+            "description": "Pixels to add at the bottom (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "creativity": {
+            "type": "number",
+            "description": "How creative the new content is, 0-1 (default 0.5)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Optional description of the new content"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.search_and_replace",
+      "title": "Search and replace",
+      "description": "Find an object by a short description and replace it with the prompt, no mask needed (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What to put in place of the found object",
+            "minLength": 1
+          },
+          "search_prompt": {
+            "type": "string",
+            "description": "Short description of the object to replace, e.g. glasses",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-20, default 3)",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image",
+          "prompt",
+          "search_prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.search_and_recolor",
+      "title": "Search and recolor",
+      "description": "Find an object by a short description and recolor it as the prompt says, no mask needed (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The new colors, e.g. a red leather jacket",
+            "minLength": 1
+          },
+          "select_prompt": {
+            "type": "string",
+            "description": "Short description of the object to recolor, e.g. jacket",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-20, default 3)",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image",
+          "prompt",
+          "select_prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.remove_background",
+      "title": "Remove background",
+      "description": "Cut the foreground out of an image with a transparent background (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to cut out (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.control_sketch",
+      "title": "Sketch to image",
+      "description": "Turn a sketch or line art into a finished image that follows its contours (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Control image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "control_strength": {
+            "type": "number",
+            "description": "How much the input image influences the result, 0-1 (default 0.7)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.control_structure",
+      "title": "Structure to image",
+      "description": "Generate an image that keeps the structure (layout, poses) of an input image (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Control image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "control_strength": {
+            "type": "number",
+            "description": "How much the input image influences the result, 0-1 (default 0.7)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.control_style",
+      "title": "Style guide",
+      "description": "Generate an image from a prompt in the style of an input image (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Style reference image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "fidelity": {
+            "type": "number",
+            "description": "How closely to follow the reference style, 0-1 (default 0.5)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stability-ai.api_request",
+      "title": "Stability AI REST API request",
+      "description": "Call any Stability AI REST API endpoint that has no dedicated operation, e.g. path \"/v1/user/balance\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/user/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_account",
+      "description": "The account (email, id, organizations) that owns the API key",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_balance",
+      "description": "Credit balance of the key's account or organization (1 credit = $0.01)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "generate_ultra",
+      "description": "Highest-quality text-to-image (about 1 megapixel), optionally guided by an input image (8 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "description": "Optional starting image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "strength": {
+            "type": "number",
+            "description": "Influence of image, 0 (keep) to 1 (ignore); required with image",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "generate_core",
+      "description": "Fast, low-cost text-to-image (3 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "generate_sd3",
+      "description": "Text-to-image or image-to-image with Stable Diffusion 3.5 Large (6.5 credits), Large Turbo (4) or Medium (3.5) (3.5-6.5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model (default sd3.5-large)",
+            "enum": [
+              "sd3.5-large",
+              "sd3.5-large-turbo",
+              "sd3.5-medium"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "description": "text-to-image (default) or image-to-image (needs image and strength)",
+            "enum": [
+              "text-to-image",
+              "image-to-image"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "description": "Starting image for image-to-image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "strength": {
+            "type": "number",
+            "description": "Influence of image, 0-1 (image-to-image)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "cfg_scale": {
+            "type": "number",
+            "description": "How strictly to follow the prompt, 1-10",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "upscale_fast",
+      "description": "Upscale an image 4x in about a second (output up to 4 megapixels) (2 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (32-1536 px per side) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "upscale_conservative",
+      "description": "Upscale an image (64x64 to 1 megapixel) to 4 megapixels with minimal changes (40 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Describes the image, to guide the upscale",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "creativity": {
+            "type": "number",
+            "description": "How much detail to invent, 0.2-0.5 (default 0.35)",
+            "minimum": 0.2,
+            "maximum": 0.5
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "upscale_creative",
+      "description": "Re-imagine and upscale a degraded image (under 1 megapixel) to up to 4K, waiting for the async job (60 credits). The image is saved to $STABILITY_AI_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (64x64 to 1 megapixel) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Describes the image, to guide the upscale",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "creativity": {
+            "type": "number",
+            "description": "How much detail to invent, 0.1-0.5 (default 0.3)",
+            "minimum": 0.1,
+            "maximum": 0.5
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "get_result",
+      "description": "Fetch an async generation by id (results are kept 24 hours): {id, status: \"in-progress\"} while running, else the image saved to $STABILITY_AI_OUTPUT_DIR with seed and finish_reason",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "The 64-character id returned by an async operation"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      }
+    },
+    {
+      "name": "erase_object",
+      "description": "Remove unwanted objects marked by a mask (or the image's alpha channel) (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Mask: white marks what to erase (else the image's alpha channel is used) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-20, default 5)",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "inpaint",
+      "description": "Fill or replace the masked area (or transparent area) of an image with new content from a prompt (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "mask": {
+            "type": "string",
+            "description": "Mask: white marks the area to repaint (else the image's alpha channel is used) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-100, default 5)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "outpaint",
+      "description": "Extend an image in any direction (left/right/up/down pixels, at least one) (4 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to extend (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "left": {
+            "type": "integer",
+            "description": "Pixels to add on the left (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "right": {
+            "type": "integer",
+            "description": "Pixels to add on the right (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "up": {
+            "type": "integer",
+            "description": "Pixels to add at the top (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "down": {
+            "type": "integer",
+            "description": "Pixels to add at the bottom (0-2000)",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "creativity": {
+            "type": "number",
+            "description": "How creative the new content is, 0-1 (default 0.5)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Optional description of the new content"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "search_and_replace",
+      "description": "Find an object by a short description and replace it with the prompt, no mask needed (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What to put in place of the found object",
+            "minLength": 1
+          },
+          "search_prompt": {
+            "type": "string",
+            "description": "Short description of the object to replace, e.g. glasses",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-20, default 3)",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image",
+          "prompt",
+          "search_prompt"
+        ]
+      }
+    },
+    {
+      "name": "search_and_recolor",
+      "description": "Find an object by a short description and recolor it as the prompt says, no mask needed (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The new colors, e.g. a red leather jacket",
+            "minLength": 1
+          },
+          "select_prompt": {
+            "type": "string",
+            "description": "Short description of the object to recolor, e.g. jacket",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "grow_mask": {
+            "type": "number",
+            "description": "Grow the mask edges by this many pixels to smooth the transition (0-20, default 3)",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image",
+          "prompt",
+          "select_prompt"
+        ]
+      }
+    },
+    {
+      "name": "remove_background",
+      "description": "Cut the foreground out of an image with a transparent background (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to cut out (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "control_sketch",
+      "description": "Turn a sketch or line art into a finished image that follows its contours (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Control image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "control_strength": {
+            "type": "number",
+            "description": "How much the input image influences the result, 0-1 (default 0.7)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "control_structure",
+      "description": "Generate an image that keeps the structure (layout, poses) of an input image (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Control image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "control_strength": {
+            "type": "number",
+            "description": "How much the input image influences the result, 0-1 (default 0.7)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "control_style",
+      "description": "Generate an image from a prompt in the style of an input image (5 credits). Saved to $STABILITY_AI_OUTPUT_DIR; returns {path, bytes, content_type}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What you wish to see in the output image (max 10000 characters)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Style reference image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What you do not wish to see in the output image"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "Aspect ratio of the output (default 1:1)",
+            "enum": [
+              "21:9",
+              "16:9",
+              "3:2",
+              "5:4",
+              "1:1",
+              "4:5",
+              "2:3",
+              "9:16",
+              "9:21"
+            ]
+          },
+          "fidelity": {
+            "type": "number",
+            "description": "How closely to follow the reference style, 0-1 (default 0.5)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Randomness seed, 0 for random (0-4294967294)",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "Guide the image towards a style",
+            "enum": [
+              "enhance",
+              "anime",
+              "photographic",
+              "digital-art",
+              "comic-book",
+              "fantasy-art",
+              "line-art",
+              "analog-film",
+              "neon-punk",
+              "isometric",
+              "low-poly",
+              "origami",
+              "modeling-compound",
+              "cinematic",
+              "3d-model",
+              "pixel-art",
+              "tile-texture"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp"
+            ]
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Stability AI REST API endpoint that has no dedicated operation, e.g. path \"/v1/user/balance\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/user/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
