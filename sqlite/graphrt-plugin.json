@@ -56,7 +56,7 @@
             "default": 500,
             "description": "Most rows to return (default 500, at most 5000); `truncated` is true when more existed"
           },
-          "timeout_ms": {
+          "statement_timeout_ms": {
             "type": "integer",
             "minimum": 100,
             "maximum": 600000,
@@ -111,7 +111,7 @@
             "default": 500,
             "description": "Most RETURNING rows to return (default 500, at most 5000)"
           },
-          "timeout_ms": {
+          "statement_timeout_ms": {
             "type": "integer",
             "minimum": 100,
             "maximum": 600000,
@@ -164,7 +164,7 @@
             "default": [],
             "description": "Values for the placeholders (? or ?1, ?2), in order: strings, numbers, booleans, null or JSON objects"
           },
-          "timeout_ms": {
+          "statement_timeout_ms": {
             "type": "integer",
             "minimum": 100,
             "maximum": 600000,
@@ -295,7 +295,7 @@
             "default": 500,
             "description": "Most rows to return (default 500, at most 5000); `truncated` is true when more existed"
           },
-          "timeout_ms": {
+          "statement_timeout_ms": {
             "type": "integer",
             "minimum": 100,
             "maximum": 600000,
@@ -336,7 +336,7 @@
             "default": 500,
             "description": "Most RETURNING rows to return (default 500, at most 5000)"
           },
-          "timeout_ms": {
+          "statement_timeout_ms": {
             "type": "integer",
             "minimum": 100,
             "maximum": 600000,
@@ -375,7 +375,7 @@
             "default": [],
             "description": "Values for the placeholders (? or ?1, ?2), in order: strings, numbers, booleans, null or JSON objects"
           },
-          "timeout_ms": {
+          "statement_timeout_ms": {
             "type": "integer",
             "minimum": 100,
             "maximum": 600000,

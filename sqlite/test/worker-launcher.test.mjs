@@ -35,7 +35,7 @@ test("real worker: query works, an endless statement is killed at the timeout, a
     assert.deepEqual(output.data.rows, [{ name: "kopi" }, { name: "teh" }]);
 
     const timeoutStartedAt = Date.now();
-    await assert.rejects(runOperation("query", { sql: ENDLESS_COUNT, timeout_ms: 300 }, AS_TOOL), { kind: "timeout" });
+    await assert.rejects(runOperation("query", { sql: ENDLESS_COUNT, statement_timeout_ms: 300 }, AS_TOOL), { kind: "timeout" });
     assert.ok(Date.now() - timeoutStartedAt < 3000);
 
     const abortController = new AbortController();

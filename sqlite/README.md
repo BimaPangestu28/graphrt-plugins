@@ -39,7 +39,7 @@ There is nothing to `npm install`.
 |----------|---------|---------|
 | `SQLITE_ALLOWED_DIRS` | (required) | Comma-separated directories (absolute or `~/...`) that database files may be opened from, including subdirectories |
 | `SQLITE_PATH` | (none) | Default database file, used when a call has no `database` |
-| `SQLITE_STATEMENT_TIMEOUT_MS` | `30000` | Default statement timeout (100 to 600000). Nodes may pass any `timeout_ms`; for agent tool calls this value is also the ceiling. |
+| `SQLITE_STATEMENT_TIMEOUT_MS` | `30000` | Default statement timeout (100 to 600000). Nodes may pass any `statement_timeout_ms`; for agent tool calls this value is also the ceiling. |
 | `SQLITE_BUSY_TIMEOUT_MS` | `5000` | How long to wait for a lock held by another connection (0 to 60000) |
 | `SQLITE_MAX_RESULT_BYTES` | `1000000` | Most JSON bytes of returned rows per call (1000 to 8000000) |
 | `SQLITE_TOOL_ALLOW_WRITES` | (off) | `1` lets agents call `execute` |
@@ -104,7 +104,7 @@ graphrt run sqlite/example.yaml --plugins .
 - **Caps:** at most `max_rows` rows (default 500, at most 5000) and `SQLITE_MAX_RESULT_BYTES` of JSON per call.
   Rows are read one at a time and reading stops at either cap; `truncated` / `truncated_reason` say so.
 - **Timeouts and cancel:** node:sqlite cannot interrupt a statement, so every call runs in its own short-lived
-  worker process (about 30 ms of overhead). At `timeout_ms`, on cancel or when a tool deadline passes, the worker is
+  worker process (about 30 ms of overhead). At `statement_timeout_ms`, on cancel or when a tool deadline passes, the worker is
   killed with SIGKILL. An interrupted write is rolled back from SQLite's journal the next time the file is opened;
   the error says the statement may or may not have been applied. The worker's stdout is discarded, so it can never
   disturb the plugin protocol.
@@ -117,11 +117,15 @@ graphrt run sqlite/example.yaml --plugins .
 | `permission_denied` | A write in a read-only call, `ATTACH` / `VACUUM INTO`, or `execute` from a tool without the opt-in |
 | `not_found` | The file is missing or outside `SQLITE_ALLOWED_DIRS`, or an unknown table, column or function |
 | `invalid_input` | Bad arguments, a relative path, not a regular file, syntax errors, several statements, constraint failures, not a database file |
-| `timeout` | `timeout_ms` reached; the worker was killed |
+| `timeout` | `statement_timeout_ms` reached; the worker was killed |
 | `cancelled` | The run was cancelled or the tool deadline passed |
 | `rate_limited` | The file stayed locked longer than `SQLITE_BUSY_TIMEOUT_MS` (retryable) |
 | `setup_required` | `SQLITE_ALLOWED_DIRS` not set, or Node.js older than 22.13 |
 | `api_error` | Anything else SQLite refused (I/O errors, corrupt files, disk full) |
+
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** the `query`, `execute` and `explain` parameter `timeout_ms` is now `statement_timeout_ms`. graphrt takes `timeout_ms` from every workflow node as the node's own run timeout, so the old name never reached the plugin from a node (it limited the whole node instead of the statement); tool calls that passed `timeout_ms` must use `statement_timeout_ms`. A node may still set graphrt's `timeout_ms` alongside it.
 
 ## License
 Apache-2.0

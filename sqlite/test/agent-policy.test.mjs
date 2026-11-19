@@ -17,8 +17,8 @@ test("SQLITE_STATEMENT_TIMEOUT_MS is a ceiling for tool calls but not for nodes"
   withSqliteRunner({ environment: { SQLITE_STATEMENT_TIMEOUT_MS: "2000" } }, async ({ runOperation, requests }) => {
     await createShopDatabase(runOperation);
     const before = requests.length;
-    await runOperation("query", { sql: "SELECT 1", timeout_ms: 600000 }, { source: "tool" });
-    await runOperation("query", { sql: "SELECT 1", timeout_ms: 1500 }, { source: "tool" });
-    await runOperation("query", { sql: "SELECT 1", timeout_ms: 600000 }, { source: "node" });
+    await runOperation("query", { sql: "SELECT 1", statement_timeout_ms: 600000 }, { source: "tool" });
+    await runOperation("query", { sql: "SELECT 1", statement_timeout_ms: 1500 }, { source: "tool" });
+    await runOperation("query", { sql: "SELECT 1", statement_timeout_ms: 600000 }, { source: "node" });
     assert.deepEqual(requests.slice(before).map((entry) => entry.options.timeoutMs), [2000, 1500, 600000]);
   }));
