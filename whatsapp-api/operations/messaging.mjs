@@ -11,6 +11,7 @@ import { pathSegment } from "../lib/shared/path.mjs";
 import { checkMaxLength, rejectInput, resolveId } from "../lib/client.mjs";
 import { buildButtonsInteractive, buildListInteractive } from "../lib/interactive.mjs";
 import { normalizePhoneNumber } from "../lib/phone-number.mjs";
+import { readSendsPerMinute } from "../lib/send-rate-limiter.mjs";
 
 const MEDIA_TYPES = ["image", "video", "audio", "document", "sticker"];
 const CAPTIONED_MEDIA_TYPES = new Set(["image", "video", "document"]);
@@ -36,8 +37,10 @@ function buildEnvelope(args, messageType, messageContent) {
 }
 
 function sendMessageRequest(buildMessage) {
-  return async ({ client, args, environment, signal }) => {
+  return async ({ client, args, environment, signal, source }) => {
     const messageBody = buildMessage(args);
+    // Messages to a person (not read receipts) from agent tools go through the per-process limiter.
+    if (source === "tool" && messageBody.to) client.sendRateLimiter.take({ recipient: messageBody.to, sendsPerMinute: readSendsPerMinute(environment) });
     const path = `/${pathSegment(phoneNumberIdOf(args, environment))}/messages`;
     return { data: await client.request({ method: "POST", path, json: messageBody, signal }) };
   };

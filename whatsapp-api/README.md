@@ -40,6 +40,7 @@ No `npm install` needed: the plugin has no dependencies.
 | `WHATSAPP_PHONE_NUMBER_ID` | for messaging, media upload and profile | Sending phone number id (not the phone number itself) |
 | `WHATSAPP_BUSINESS_ACCOUNT_ID` | for templates and `list_phone_numbers` | WhatsApp Business Account id |
 | `WHATSAPP_GRAPH_VERSION` | no | Graph API version, default `v26.0` |
+| `WHATSAPP_TOOL_SEND_RATE_LIMIT` | no | Most messages **agent tools** may send per minute from this plugin process, default `20`; `0` turns the client-side limits off (see [Rate limits](#rate-limits)). Workflow nodes are not limited |
 
 graphrt starts plugins with a clean environment, and only these variables are passed through. Each operation
 also takes `phone_number_id` / `business_account_id` to override the defaults. A node can take `access_token`
@@ -78,6 +79,28 @@ The example only reads (phone numbers and business profile); it sends nothing.
 - **No automatic resend.** Sends are POSTs. If a send fails with an unknown outcome (a timeout or a 5xx), the
   plugin does not retry it, so the message is never sent twice. Check before sending again.
 
+### Rate limits
+WhatsApp enforces these limits itself (checked against Meta's docs on 2026-11-19):
+
+| Limit | Value | Error when exceeded |
+|-------|-------|---------------------|
+| [Messaging limit](https://developers.facebook.com/docs/whatsapp/messaging-limits) | Unique users you can start a conversation with (template messages outside the 24 h window) in a rolling 24 h: 250, then 2,000, 10,000, 100,000 and unlimited. The limit is **shared by every number in the business portfolio**. Business verification (or 2,000 delivered high-quality templates in 30 days) unlocks 2,000; after that the limit goes up one level within about 6 h when quality is high and you used at least half of it in the last 7 days | The send is refused |
+| [Throughput](https://developers.facebook.com/docs/whatsapp/throughput) | 80 messages per second per number by default; raised automatically to 1,000/s for numbers on an unlimited portfolio with high volume and a quality rating of yellow or better | 130429 (`rate_limited`, retried for up to 60 s) |
+| [Pair rate limit](https://developers.facebook.com/docs/whatsapp/cloud-api/overview) | One message every 6 s to the same WhatsApp user (short bursts are allowed and borrowed from future capacity) | 131056 (`rate_limited`, not retried) |
+| [Spam rate limit](https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes) | Meta restricts numbers that send low-quality or unwanted messages | 131048 (`permission_denied`): stop sending and check the number's quality rating |
+
+An agent stuck in a loop could hit these in seconds and hurt the number's quality rating. So **agent tool calls**
+get client-side limits, kept in memory for the life of the plugin process:
+
+- at most `WHATSAPP_TOOL_SEND_RATE_LIMIT` messages a minute (default 20) across every send operation (`send_text`,
+  `send_template`, `send_media`, `send_location`, the interactive messages and `send_reaction`);
+- one message every 6 s to the same recipient, so the pair rate limit is never hit from the plugin side.
+
+A refused call fails with `rate_limited` (retryable, with the wait in the message) and never reaches WhatsApp.
+`mark_as_read` is not counted. Workflow nodes are not limited, because the workflow author sets their volume.
+Set `WHATSAPP_TOOL_SEND_RATE_LIMIT=0` to turn both client-side limits off. The messaging-limit tier can't be checked
+from the plugin; read it in WhatsApp Manager.
+
 ### Incoming messages
 Incoming messages, button replies and delivery or read statuses arrive **only by webhook**. graphrt plugins can't
 receive webhooks, so this plugin can't read your inbox. To react to messages, run your own webhook receiver
@@ -104,7 +127,7 @@ receive webhooks, so this plugin can't read your inbox. To react to messages, ru
 | `invalid_input` | Bad arguments or phone numbers; Graph 100; WhatsApp 131008/131009 (bad parameters), 131021 (sending to yourself), 131047 (outside the 24 h window, use a template), 131051/131053 (unsupported message or media), 132000/132001/132005/132012 (template problems), 133010 (number not registered) |
 | `auth_error` | Missing, invalid or expired token (Graph 0, 102, 190; HTTP 401) |
 | `permission_denied` | Missing permission (3, 10, 200–299, 131005); account or number restricted (368, 131031, 131048); billing (131042); template paused or disabled (132007, 132015, 132016) |
-| `rate_limited` | Throttling (4, 80007, 130429) is retried automatically for up to 60 s. Per-recipient pair limit (131056) is not retried; wait before messaging that person again |
+| `rate_limited` | Throttling (4, 80007, 130429) is retried automatically for up to 60 s. Per-recipient pair limit (131056) is not retried; wait before messaging that person again. Agent sends over the [client-side limits](#rate-limits) (retryable, nothing was sent) |
 | `not_found`, `api_error`, `network_error`, `timeout`, `cancelled` | As named |
 
 Delivery failures that happen after WhatsApp accepts a message (for example 131026, recipient not on WhatsApp)
@@ -115,6 +138,11 @@ From the repo root: `npm run sync` after changing `definition.mjs`, `operations/
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
 
 ## Changelog
+### 0.3.0
+- Agent tool sends are rate limited per plugin process: `WHATSAPP_TOOL_SEND_RATE_LIMIT` per minute (default 20) and
+  one message every 6 s to the same recipient. `0` turns the limits off. Workflow nodes are unchanged.
+- The README documents Meta's current messaging limits, throughput and pair rate limit.
+
 ### 0.2.0
 - **Breaking:** `send_media` and `upload_media` parameter `type` is now `media_type` (`send_media` still sends it to WhatsApp as the message `type`). graphrt takes `type` from every workflow node, so the old name could never be set from a node (the required field made the node fail to load); tool calls that passed `type` must use `media_type`.
 
