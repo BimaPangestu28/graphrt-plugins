@@ -260,7 +260,8 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - whatsapp-api 0.4.0: agent tool sends of every message type (text, replies, templates, media, location,
     interactive messages and reactions) need `WHATSAPP_TOOL_ALLOW_SEND=1` and the recipient in
     `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST` (exact E.164 numbers, or `+digits*` prefixes of at least 4 digits; unset
-    refuses every agent send). `mark_as_read` stays free. Deletes are node only.
+    refuses every agent send). `mark_as_read` stays free. Deletes are node only. `update_business_profile` needs
+    `WHATSAPP_TOOL_ALLOW_PROFILE=1` and `create_template` needs `WHATSAPP_TOOL_ALLOW_TEMPLATES=1`.
   - qontak, twilio and vonage tool sends need an opt-in and a recipient allowlist.
 - **Missing:** nothing for agent sends (**fixed** in whatsapp-api 0.4.0). Recipients' opt-in to the business is
   still the user's responsibility.

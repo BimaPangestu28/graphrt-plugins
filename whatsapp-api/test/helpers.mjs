@@ -22,6 +22,8 @@ export const TEST_ENVIRONMENT = {
   // Most tests run operations as agent tools; agent-policy.test.mjs covers the refusals without these.
   WHATSAPP_TOOL_ALLOW_SEND: "1",
   WHATSAPP_TOOL_RECIPIENT_ALLOWLIST: "+62812*",
+  WHATSAPP_TOOL_ALLOW_PROFILE: "1",
+  WHATSAPP_TOOL_ALLOW_TEMPLATES: "1",
 };
 
 const isNodeOnly = (operationName) => testDefinition().operations.find((operation) => operation.name === operationName)?.nodeOnly === true;

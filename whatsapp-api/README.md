@@ -3,8 +3,9 @@
 **Status:** beta · **ToS risk:** low. Official Cloud API; checked live only with an invalid token (190); sends are tested with fakes only. See [plugin status](../README.md#plugin-status).
 
 > **0.4.0 (behaviour change for agents):** agent tool sends now need `WHATSAPP_TOOL_ALLOW_SEND=1` **and** the
-> recipient in `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST`, and `delete_media` / `delete_template` are node only. Workflow
-> nodes are unchanged. See [Agent policy](#agent-policy).
+> recipient in `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST`, `update_business_profile` needs `WHATSAPP_TOOL_ALLOW_PROFILE=1`,
+> `create_template` needs `WHATSAPP_TOOL_ALLOW_TEMPLATES=1`, and `delete_media` / `delete_template` are node only.
+> Workflow nodes are unchanged. See [Agent policy](#agent-policy).
 
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **WhatsApp Business Cloud API**. It
@@ -48,6 +49,8 @@ No `npm install` needed: the plugin has no dependencies.
 | `WHATSAPP_GRAPH_VERSION` | no | Graph API version, default `v26.0` |
 | `WHATSAPP_TOOL_ALLOW_SEND` | no | `1` lets **agent tools** send messages (see [Agent policy](#agent-policy)). Workflow nodes don't need it |
 | `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST` | with `WHATSAPP_TOOL_ALLOW_SEND` | Comma-separated numbers agent tools may message: full E.164 numbers (`+6281234567890`, matched exactly) or prefixes with at least 4 digits (`+62812*`). Unset refuses every agent send |
+| `WHATSAPP_TOOL_ALLOW_PROFILE` | no | `1` lets agent tools `update_business_profile` (the public business profile) |
+| `WHATSAPP_TOOL_ALLOW_TEMPLATES` | no | `1` lets agent tools `create_template` (templates can later be broadcast) |
 | `WHATSAPP_TOOL_SEND_RATE_LIMIT` | no | Most messages **agent tools** may send per minute from this plugin process, default `20`; `0` turns the client-side limits off (see [Rate limits](#rate-limits)). Workflow nodes are not limited |
 
 graphrt starts plugins with a clean environment, and only these variables are passed through. Each operation
@@ -130,8 +133,12 @@ receive webhooks, so this plugin can't read your inbox. To react to messages, ru
 - You can also skip uploading and pass a public https `link` to `send_media`.
 
 ## Agent policy
-- Reads (`get_media_url`, templates, phone numbers, business profile), `upload_media`, `create_template`,
-  `update_business_profile` and `mark_as_read` are tools. `api_request` is GET only for tools.
+- Reads (`get_media_url`, templates, phone numbers, business profile), `upload_media` and `mark_as_read` are
+  tools. `api_request` is GET only for tools.
+- `update_business_profile` changes the public business profile (about, description, websites, email, photo), so it
+  is a tool only with `WHATSAPP_TOOL_ALLOW_PROFILE=1`.
+- `create_template` submits a template that can later be broadcast, so it is a tool only with
+  `WHATSAPP_TOOL_ALLOW_TEMPLATES=1`.
 - Every send is a tool only with `WHATSAPP_TOOL_ALLOW_SEND=1` **and** the recipient in
   `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST`: `send_text` (including replies with `reply_to_message_id`), `send_template`,
   `send_media`, `send_location`, `send_interactive_buttons`, `send_interactive_list` and `send_reaction`.
@@ -142,14 +149,14 @@ receive webhooks, so this plugin can't read your inbox. To react to messages, ru
   - A refused send fails with `permission_denied`, reaches no API and does not use up the
     [rate limit](#rate-limits) budget.
 - `delete_media` and `delete_template` are node only.
-- Workflow nodes are never limited by the opt-in, the allowlist or the rate limits.
+- Workflow nodes are never limited by the opt-ins, the allowlist or the rate limits.
 
 ## Errors
 | Kind | When |
 |------|------|
 | `invalid_input` | Bad arguments or phone numbers; Graph 100; WhatsApp 131008/131009 (bad parameters), 131021 (sending to yourself), 131047 (outside the 24 h window, use a template), 131051/131053 (unsupported message or media), 132000/132001/132005/132012 (template problems), 133010 (number not registered) |
 | `auth_error` | Missing, invalid or expired token (Graph 0, 102, 190; HTTP 401) |
-| `permission_denied` | Agent send without the opt-in or to a number outside the allowlist ([Agent policy](#agent-policy)); missing permission (3, 10, 200–299, 131005); account or number restricted (368, 131031, 131048); billing (131042); template paused or disabled (132007, 132015, 132016) |
+| `permission_denied` | Agent tool call without its opt-in, or a send to a number outside the allowlist ([Agent policy](#agent-policy)); missing permission (3, 10, 200–299, 131005); account or number restricted (368, 131031, 131048); billing (131042); template paused or disabled (132007, 132015, 132016) |
 | `rate_limited` | Throttling (4, 80007, 130429) is retried automatically for up to 60 s. Per-recipient pair limit (131056) is not retried; wait before messaging that person again. Agent sends over the [client-side limits](#rate-limits) (retryable, nothing was sent) |
 | `not_found`, `api_error`, `network_error`, `timeout`, `cancelled` | As named |
 
@@ -165,6 +172,8 @@ From the repo root: `npm run sync` after changing `definition.mjs`, `operations/
 - **Behaviour change for agents:** agent tool sends of every message type need `WHATSAPP_TOOL_ALLOW_SEND=1` and the
   recipient in `WHATSAPP_TOOL_RECIPIENT_ALLOWLIST` (exact E.164 numbers or `+digits*` prefixes of at least 4 digits).
   `mark_as_read` stays free. `delete_media` and `delete_template` are node only. Workflow nodes are unchanged.
+- **Behaviour change for agents:** `update_business_profile` needs `WHATSAPP_TOOL_ALLOW_PROFILE=1` and
+  `create_template` needs `WHATSAPP_TOOL_ALLOW_TEMPLATES=1` as agent tools. `upload_media` stays free.
 
 ### 0.3.0
 - Agent tool sends are rate limited per plugin process: `WHATSAPP_TOOL_SEND_RATE_LIMIT` per minute (default 20) and

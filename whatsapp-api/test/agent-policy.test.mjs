@@ -86,6 +86,41 @@ test("a refused agent send does not use up the per-minute send budget", async ()
   assert.equal(calls.length, 1);
 });
 
+const ACCOUNT_WRITE_CASES = [
+  ["update_business_profile", { about: "Buka 24 jam" }, "WHATSAPP_TOOL_ALLOW_PROFILE"],
+  ["create_template", { name: "order_update", category: "UTILITY", language: "id", components: [{ type: "BODY", text: "Pesanan dikirim" }] }, "WHATSAPP_TOOL_ALLOW_TEMPLATES"],
+];
+
+for (const [operationName, args, optInEnv] of ACCOUNT_WRITE_CASES) {
+  test(`${operationName} as a tool is refused without ${optInEnv}=1, before any request`, async () => {
+    // The send opt-in and the other account opt-in do not unlock it.
+    const otherOptIns = { WHATSAPP_TOOL_ALLOW_PROFILE: "1", WHATSAPP_TOOL_ALLOW_TEMPLATES: "1", [optInEnv]: undefined };
+    const { runOperation, calls } = createRunner({ ...ALLOWED_ENVIRONMENT, ...otherOptIns });
+    await assert.rejects(runOperation(operationName, args, { source: "tool" }), isPermissionDenied(new RegExp(`${optInEnv}=1`)));
+    assert.equal(calls.length, 0);
+  });
+
+  test(`${operationName} as a tool runs with ${optInEnv}=1`, async () => {
+    const { runOperation, calls } = createRunner({ ...BASE_ENVIRONMENT, [optInEnv]: "1" });
+    await runOperation(operationName, args, { source: "tool" });
+    assert.equal(calls.length, 1);
+  });
+
+  test(`${operationName} as a workflow node needs no opt-in`, async () => {
+    const { runOperation, calls } = createRunner(BASE_ENVIRONMENT);
+    await runOperation(operationName, args, { source: "node" });
+    assert.equal(calls.length, 1);
+  });
+}
+
+test("upload_media stays a free tool", async () => {
+  const recordingFetch = createRecordingFetch([{ body: "x", headers: { "content-type": "image/jpeg" } }, { body: { id: "media-1" } }]);
+  const definition = createPluginDefinition({ resolveHostAddresses: createFakeResolver() });
+  const runOperation = createOperationRunner(definition, BASE_ENVIRONMENT, { fetchImpl: recordingFetch });
+  await runOperation("upload_media", { url: "https://img.test/a.jpg", media_type: "image" }, { source: "tool" });
+  assert.equal(recordingFetch.calls.length, 2);
+});
+
 test("mark_as_read stays a free tool: no opt-in or allowlist needed", async () => {
   const { runOperation, calls } = createRunner(BASE_ENVIRONMENT);
   await runOperation("mark_as_read", { message_id: "wamid.A" }, { source: "tool" });
@@ -107,6 +142,10 @@ test("the manifest passes the policy envs through and tool descriptions name the
   const manifest = buildManifest(createPluginDefinition());
   assert.ok(manifest.permissions.env.includes("WHATSAPP_TOOL_ALLOW_SEND"));
   assert.ok(manifest.permissions.env.includes("WHATSAPP_TOOL_RECIPIENT_ALLOWLIST"));
+  assert.ok(manifest.permissions.env.includes("WHATSAPP_TOOL_ALLOW_PROFILE"));
+  assert.ok(manifest.permissions.env.includes("WHATSAPP_TOOL_ALLOW_TEMPLATES"));
+  assert.match(manifest.tools.find((tool) => tool.name === "update_business_profile").description, /WHATSAPP_TOOL_ALLOW_PROFILE=1/);
+  assert.match(manifest.tools.find((tool) => tool.name === "create_template").description, /WHATSAPP_TOOL_ALLOW_TEMPLATES=1/);
   const sendTool = manifest.tools.find((tool) => tool.name === "send_text");
   assert.match(sendTool.description, /WHATSAPP_TOOL_ALLOW_SEND=1/);
   assert.match(sendTool.description, /WHATSAPP_TOOL_RECIPIENT_ALLOWLIST/);

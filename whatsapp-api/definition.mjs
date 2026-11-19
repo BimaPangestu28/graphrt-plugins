@@ -4,7 +4,9 @@
  * webhook, so they are out of scope (see README).
  *
  * Agent policy (README "Agent policy"): sends from agent tools need WHATSAPP_TOOL_ALLOW_SEND=1 and the recipient
- * in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST; deletes are node only; mark_as_read and reads are free tools.
+ * in WHATSAPP_TOOL_RECIPIENT_ALLOWLIST; update_business_profile needs WHATSAPP_TOOL_ALLOW_PROFILE=1 and
+ * create_template WHATSAPP_TOOL_ALLOW_TEMPLATES=1; deletes are node only; mark_as_read, upload_media and reads are
+ * free tools.
  */
 import { createWhatsAppClient } from "./lib/client.mjs";
 import { createApiRequestOperation } from "./lib/shared/api-request-operation.mjs";
@@ -31,7 +33,7 @@ export function createPluginDefinition(dependencies = {}) {
     version: "0.4.0",
     description: "WhatsApp Business Cloud API: send messages and templates, manage media, templates and the business profile",
     tokenEnv: "WHATSAPP_ACCESS_TOKEN",
-    extraEnv: ["WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_GRAPH_VERSION", SEND_RATE_LIMIT_VARIABLE, SEND_OPT_IN_ENV, RECIPIENT_ALLOWLIST_ENV],
+    extraEnv: ["WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_GRAPH_VERSION", SEND_RATE_LIMIT_VARIABLE, SEND_OPT_IN_ENV, RECIPIENT_ALLOWLIST_ENV, PROFILE_OPT_IN_ENV, TEMPLATES_OPT_IN_ENV],
     // upload_media may download and upload up to 100 MB.
     limits: { timeout_ms: 300000 },
     createClient: (clientOptions) => ({
@@ -53,8 +55,14 @@ export function createPluginDefinition(dependencies = {}) {
 
 const requireSendOptIn = requireToolOptIn(SEND_OPT_IN_ENV, `the recipient is in ${RECIPIENT_ALLOWLIST_ENV}`);
 
+// The public business profile and new templates (which can later be broadcast) need their own opt-ins.
+export const PROFILE_OPT_IN_ENV = "WHATSAPP_TOOL_ALLOW_PROFILE";
+export const TEMPLATES_OPT_IN_ENV = "WHATSAPP_TOOL_ALLOW_TEMPLATES";
+
 const AGENT_POLICY = {
   ...wrapEach(SEND_OPERATION_NAMES, requireSendOptIn),
+  update_business_profile: requireToolOptIn(PROFILE_OPT_IN_ENV),
+  create_template: requireToolOptIn(TEMPLATES_OPT_IN_ENV),
   ...wrapEach(["delete_media", "delete_template"], makeNodeOnly),
 };
 

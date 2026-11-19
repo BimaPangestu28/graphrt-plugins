@@ -18,7 +18,9 @@
       "WHATSAPP_GRAPH_VERSION",
       "WHATSAPP_TOOL_SEND_RATE_LIMIT",
       "WHATSAPP_TOOL_ALLOW_SEND",
-      "WHATSAPP_TOOL_RECIPIENT_ALLOWLIST"
+      "WHATSAPP_TOOL_RECIPIENT_ALLOWLIST",
+      "WHATSAPP_TOOL_ALLOW_PROFILE",
+      "WHATSAPP_TOOL_ALLOW_TEMPLATES"
     ]
   },
   "limits": {
@@ -725,7 +727,7 @@
     {
       "kind": "whatsapp-api.create_template",
       "title": "Create WhatsApp template",
-      "description": "Submit a new message template for review. Components with parameters need example values.",
+      "description": "Submit a new message template for review. Components with parameters need example values. (as an agent tool only when WHATSAPP_TOOL_ALLOW_TEMPLATES=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -920,7 +922,7 @@
     {
       "kind": "whatsapp-api.update_business_profile",
       "title": "Update WhatsApp business profile",
-      "description": "Change business profile fields of a phone number. Only the fields you pass are changed.",
+      "description": "Change business profile fields of a phone number. Only the fields you pass are changed. (as an agent tool only when WHATSAPP_TOOL_ALLOW_PROFILE=1)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -1501,7 +1503,7 @@
     },
     {
       "name": "create_template",
-      "description": "Submit a new message template for review. Components with parameters need example values.",
+      "description": "Submit a new message template for review. Components with parameters need example values. (as an agent tool only when WHATSAPP_TOOL_ALLOW_TEMPLATES=1)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1600,7 +1602,7 @@
     },
     {
       "name": "update_business_profile",
-      "description": "Change business profile fields of a phone number. Only the fields you pass are changed.",
+      "description": "Change business profile fields of a phone number. Only the fields you pass are changed. (as an agent tool only when WHATSAPP_TOOL_ALLOW_PROFILE=1)",
       "parameters": {
         "type": "object",
         "properties": {

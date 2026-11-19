@@ -20,9 +20,9 @@ Nodes also accept an optional `access_token`. **Bold** parameters are required.
 | `delete_media` | Delete uploaded media by id. | **media_id**, phone_number_id |
 | `list_templates` | List the WABA's message templates, optionally filtered by status, name, category or language. | business_account_id, status, name, category, language, fields, limit, cursor |
 | `get_template` | Read one message template by id (status, category, components). | **template_id**, fields |
-| `create_template` | Submit a new message template for review. Components with parameters need example values. | business_account_id, **name**, **category**, **language**, **components**, parameter_format, allow_category_change |
+| `create_template` | Submit a new message template for review. Components with parameters need example values. (as an agent tool only when WHATSAPP_TOOL_ALLOW_TEMPLATES=1) | business_account_id, **name**, **category**, **language**, **components**, parameter_format, allow_category_change |
 | `delete_template` | Delete a template by name (all languages), or only one language version by name plus template_id. | business_account_id, **name**, template_id |
 | `list_phone_numbers` | List the phone numbers on the WhatsApp Business Account with their display number, verified name and quality rating. | business_account_id, fields, limit, cursor |
 | `get_business_profile` | Read the business profile (about, address, description, email, websites, vertical, picture) of a phone number. | phone_number_id, fields |
-| `update_business_profile` | Change business profile fields of a phone number. Only the fields you pass are changed. | phone_number_id, about, address, description, email, websites, vertical, profile_picture_handle |
+| `update_business_profile` | Change business profile fields of a phone number. Only the fields you pass are changed. (as an agent tool only when WHATSAPP_TOOL_ALLOW_PROFILE=1) | phone_number_id, about, address, description, email, websites, vertical, profile_picture_handle |
 | `api_request` | Call any WhatsApp Cloud API (Graph) endpoint that has no dedicated operation, e.g. path "/{phone-number-id}". Only the API's own host is allowed. | method, **path**, query, body |
