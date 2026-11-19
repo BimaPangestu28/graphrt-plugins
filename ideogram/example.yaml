@@ -1,0 +1,12 @@
+# Show the daily Ideogram API usage and spend since 1 November 2026. Read-only and free.
+#   IDEOGRAM_API_KEY=... graphrt run ideogram/example.yaml --plugins .
+version: "1"
+name: ideogram-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: usage, type: ideogram.get_usage, start_time: "2026-11-01T00:00:00Z", bucket_width: 1d }
+    - { id: answer, type: answer, answer: "Usage: {{#usage.data#}}" }
+  edges:
+    - { source: start, target: usage }
+    - { source: usage, target: answer }

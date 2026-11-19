@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-ideogram",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Ideogram API v2 image generation, editing and description",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

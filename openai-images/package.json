@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-openai-images",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: OpenAI Images API (GPT Image and DALL·E generations and edits)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,612 @@
+{
+  "name": "fal-ai",
+  "version": "0.1.0",
+  "description": "fal.ai: run any fal model through the queue (waits for the result, saves media files), check, fetch or cancel requests, search models and prices (paid per run)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "FAL_KEY",
+      "FAL_AI_EXTRA_DOWNLOAD_HOSTS",
+      "FAL_AI_OUTPUT_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 360000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "fal-ai.run_model",
+      "title": "Run model",
+      "description": "Run a fal model through the queue and wait for the result (paid), e.g. model_id fal-ai/flux/schnell. Media URLs in the result are saved to $FAL_AI_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model endpoint id, optionally with a sub-path, e.g. fal-ai/flux/dev or fal-ai/flux-pro/v1.1-ultra"
+          },
+          "input": {
+            "type": "object",
+            "description": "Model inputs from the model's API page, e.g. {\"prompt\": \"a red fox\", \"image_size\": \"landscape_4_3\"}"
+          },
+          "priority": {
+            "type": "string",
+            "description": "Queue priority within your own queue (default normal)",
+            "enum": [
+              "normal",
+              "low"
+            ]
+          },
+          "start_timeout": {
+            "type": "integer",
+            "description": "Give up (504) if no runner starts within this many seconds",
+            "minimum": 1
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "model_id",
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fal-ai.get_request_status",
+      "title": "Get request status",
+      "description": "Status of a queued request: IN_QUEUE (with queue_position), IN_PROGRESS or COMPLETED (with error and error_type when it failed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "First part of the model id, e.g. fal-ai"
+          },
+          "app": {
+            "type": "string",
+            "description": "Second part of the model id without any sub-path, e.g. flux for fal-ai/flux/dev"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "request_id returned by run_model"
+          },
+          "logs": {
+            "type": "integer",
+            "description": "1 to include logs (only for the app owner)",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "app",
+          "request_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fal-ai.get_request_result",
+      "title": "Get request result",
+      "description": "Result of a completed request (kept 1 hour, or 6 minutes when 10 KB or larger); media URLs are saved to $FAL_AI_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "First part of the model id, e.g. fal-ai"
+          },
+          "app": {
+            "type": "string",
+            "description": "Second part of the model id without any sub-path, e.g. flux for fal-ai/flux/dev"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "request_id returned by run_model"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "app",
+          "request_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fal-ai.cancel_request",
+      "title": "Cancel request",
+      "description": "Cancel a queued request (it never runs) or ask a running one to stop; repeating it is harmless",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "First part of the model id, e.g. fal-ai"
+          },
+          "app": {
+            "type": "string",
+            "description": "Second part of the model id without any sub-path, e.g. flux for fal-ai/flux/dev"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "request_id returned by run_model"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "owner",
+          "app",
+          "request_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fal-ai.search_models",
+      "title": "Search models",
+      "description": "Search fal model endpoints by text or category, or look up specific endpoint ids (with their OpenAPI schema when expanded)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Free-text search over name, description and category"
+          },
+          "category": {
+            "type": "string",
+            "description": "Category, e.g. text-to-image, image-to-video, training"
+          },
+          "status": {
+            "type": "string",
+            "description": "Only active or deprecated models (default both)",
+            "enum": [
+              "active",
+              "deprecated"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "description": "Order (default relevant)",
+            "enum": [
+              "relevant",
+              "recent"
+            ]
+          },
+          "endpoint_id": {
+            "type": "array",
+            "description": "Look up these endpoint ids, e.g. [fal-ai/flux/dev]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expand": {
+            "type": "string",
+            "description": "openapi-3.0 adds each model's input/output schema",
+            "enum": [
+              "openapi-3.0",
+              "enterprise_status"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fal-ai.get_pricing",
+      "title": "Get pricing",
+      "description": "Unit price of model endpoints (per image, video second, megapixel or GPU second) for your account",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "endpoint_id": {
+            "type": "array",
+            "description": "Endpoint ids, e.g. [fal-ai/flux/dev]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "endpoint_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "fal-ai.estimate_cost",
+      "title": "Estimate cost",
+      "description": "Estimate the cost of planned calls (historical_api_price: per call) or outputs (unit_price: per billing unit)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "estimate_type": {
+            "type": "string",
+            "description": "historical_api_price takes call_quantity, unit_price takes unit_quantity",
+            "enum": [
+              "historical_api_price",
+              "unit_price"
+            ]
+          },
+          "endpoints": {
+            "type": "object",
+            "description": "Endpoint ids to quantities, e.g. {\"fal-ai/flux/dev\": {\"unit_quantity\": 50}} or {\"fal-ai/flux/dev\": {\"call_quantity\": 100}}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "estimate_type",
+          "endpoints"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "run_model",
+      "description": "Run a fal model through the queue and wait for the result (paid), e.g. model_id fal-ai/flux/schnell. Media URLs in the result are saved to $FAL_AI_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Model endpoint id, optionally with a sub-path, e.g. fal-ai/flux/dev or fal-ai/flux-pro/v1.1-ultra"
+          },
+          "input": {
+            "type": "object",
+            "description": "Model inputs from the model's API page, e.g. {\"prompt\": \"a red fox\", \"image_size\": \"landscape_4_3\"}"
+          },
+          "priority": {
+            "type": "string",
+            "description": "Queue priority within your own queue (default normal)",
+            "enum": [
+              "normal",
+              "low"
+            ]
+          },
+          "start_timeout": {
+            "type": "integer",
+            "description": "Give up (504) if no runner starts within this many seconds",
+            "minimum": 1
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for the job to finish (default true); false returns the job id at once"
+          }
+        },
+        "required": [
+          "model_id",
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "get_request_status",
+      "description": "Status of a queued request: IN_QUEUE (with queue_position), IN_PROGRESS or COMPLETED (with error and error_type when it failed)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "First part of the model id, e.g. fal-ai"
+          },
+          "app": {
+            "type": "string",
+            "description": "Second part of the model id without any sub-path, e.g. flux for fal-ai/flux/dev"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "request_id returned by run_model"
+          },
+          "logs": {
+            "type": "integer",
+            "description": "1 to include logs (only for the app owner)",
+            "enum": [
+              0,
+              1
+            ]
+          }
+        },
+        "required": [
+          "owner",
+          "app",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "name": "get_request_result",
+      "description": "Result of a completed request (kept 1 hour, or 6 minutes when 10 KB or larger); media URLs are saved to $FAL_AI_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "First part of the model id, e.g. fal-ai"
+          },
+          "app": {
+            "type": "string",
+            "description": "Second part of the model id without any sub-path, e.g. flux for fal-ai/flux/dev"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "request_id returned by run_model"
+          }
+        },
+        "required": [
+          "owner",
+          "app",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "name": "cancel_request",
+      "description": "Cancel a queued request (it never runs) or ask a running one to stop; repeating it is harmless",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "First part of the model id, e.g. fal-ai"
+          },
+          "app": {
+            "type": "string",
+            "description": "Second part of the model id without any sub-path, e.g. flux for fal-ai/flux/dev"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "request_id returned by run_model"
+          }
+        },
+        "required": [
+          "owner",
+          "app",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "name": "search_models",
+      "description": "Search fal model endpoints by text or category, or look up specific endpoint ids (with their OpenAPI schema when expanded)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Free-text search over name, description and category"
+          },
+          "category": {
+            "type": "string",
+            "description": "Category, e.g. text-to-image, image-to-video, training"
+          },
+          "status": {
+            "type": "string",
+            "description": "Only active or deprecated models (default both)",
+            "enum": [
+              "active",
+              "deprecated"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "description": "Order (default relevant)",
+            "enum": [
+              "relevant",
+              "recent"
+            ]
+          },
+          "endpoint_id": {
+            "type": "array",
+            "description": "Look up these endpoint ids, e.g. [fal-ai/flux/dev]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expand": {
+            "type": "string",
+            "description": "openapi-3.0 adds each model's input/output schema",
+            "enum": [
+              "openapi-3.0",
+              "enterprise_status"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_pricing",
+      "description": "Unit price of model endpoints (per image, video second, megapixel or GPU second) for your account",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "endpoint_id": {
+            "type": "array",
+            "description": "Endpoint ids, e.g. [fal-ai/flux/dev]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "endpoint_id"
+        ]
+      }
+    },
+    {
+      "name": "estimate_cost",
+      "description": "Estimate the cost of planned calls (historical_api_price: per call) or outputs (unit_price: per billing unit)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "estimate_type": {
+            "type": "string",
+            "description": "historical_api_price takes call_quantity, unit_price takes unit_quantity",
+            "enum": [
+              "historical_api_price",
+              "unit_price"
+            ]
+          },
+          "endpoints": {
+            "type": "object",
+            "description": "Endpoint ids to quantities, e.g. {\"fal-ai/flux/dev\": {\"unit_quantity\": 50}} or {\"fal-ai/flux/dev\": {\"call_quantity\": 100}}"
+          }
+        },
+        "required": [
+          "estimate_type",
+          "endpoints"
+        ]
+      }
+    }
+  ]
+}

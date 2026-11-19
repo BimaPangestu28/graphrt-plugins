@@ -1,0 +1,12 @@
+# Look up the price of FLUX.1 [dev] and [schnell] on fal. Read-only and free (nothing is generated).
+#   FAL_KEY=... graphrt run fal-ai/example.yaml --plugins .
+version: "1"
+name: fal-ai-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: pricing, type: fal-ai.get_pricing, endpoint_id: [fal-ai/flux/dev, fal-ai/flux/schnell] }
+    - { id: answer, type: answer, answer: "Prices: {{#pricing.data#}}" }
+  edges:
+    - { source: start, target: pricing }
+    - { source: pricing, target: answer }

@@ -50,6 +50,12 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [replicate-video](replicate-video/) | Replicate predictions for video models (Veo, Kling, Hailuo, Wan, ...): run and wait with long time limits and downloads, prediction status, model discovery (paid per model; cancel and webhooks node only) | 13 |
 | [kling](kling/) | Kling AI (official API): text, image and omni video with Kling 4.0/3.0/2.x as polled tasks with downloads, task queries and resource packages (paid per second; callbacks node only) | 10 |
 | [minimax-video](minimax-video/) | MiniMax video: H3 text/image/reference to video (V2) and Hailuo 2.3 (V1) as polled tasks with downloads, task status and file retrieval (paid; delete and callbacks node only) | 10 |
+| [openai-images](openai-images/) | OpenAI Images: generate and edit images with GPT Image and DALL·E (masks, reference images), saved to a local folder (paid per call) | 5 |
+| [stability-ai](stability-ai/) | Stability AI Stable Image: generate (Ultra, Core, SD 3.5), upscale (incl. async creative), edit and control images, saved to a local folder (paid in credits) | 19 |
+| [replicate](replicate/) | Replicate: run official models, versions and deployments as predictions (waits for the job, downloads outputs), search and browse models (paid per run) | 16 |
+| [fal-ai](fal-ai/) | fal.ai: run any fal model through the queue (waits, saves media), check, fetch or cancel requests, search models and prices (paid per run) | 7 |
+| [ideogram](ideogram/) | Ideogram: generate (4.5 and 3.0), remix, precise edit, inpaint, reframe, upscale, remove background and describe images, with free dry-run price quotes (paid per image) | 12 |
+| [google-imagen](google-imagen/) | Google image generation via the Gemini Interactions API (Nano Banana models; Imagen itself is shut down): generate, multi-turn and multi-image edits, saved to a local folder (paid per image) | 8 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

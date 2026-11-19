@@ -1,0 +1,12 @@
+# Show the credit balance of your Stability AI key. Read-only and free.
+#   STABILITY_API_KEY=sk-... graphrt run stability-ai/example.yaml --plugins .
+version: "1"
+name: stability-ai-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: balance, type: stability-ai.get_balance }
+    - { id: answer, type: answer, answer: "Credits left: {{#balance.data.credits#}}" }
+  edges:
+    - { source: start, target: balance }
+    - { source: balance, target: answer }

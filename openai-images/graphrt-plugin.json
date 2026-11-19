@@ -1,0 +1,835 @@
+{
+  "name": "openai-images",
+  "version": "0.1.0",
+  "description": "OpenAI Images: generate and edit images with GPT Image and DALL·E models, saved to a local folder (paid)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "OPENAI_API_KEY",
+      "OPENAI_IMAGES_OUTPUT_DIR",
+      "OPENAI_IMAGES_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 360000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "openai-images.list_models",
+      "title": "List models",
+      "description": "List the models this API key can use (image models start with gpt-image, chatgpt-image or dall-e)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-images.generate_image",
+      "title": "Generate image",
+      "description": "Generate images from a text prompt (paid). Images are saved to $OPENAI_IMAGES_OUTPUT_DIR; the result lists saved_files",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate (max 32000 characters for GPT Image, 4000 for dall-e-3)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. gpt-image-2, gpt-image-1.5, gpt-image-1-mini, chatgpt-image-latest (dall-e-3 / dall-e-2 for generations only)",
+            "default": "gpt-image-2"
+          },
+          "n": {
+            "type": "integer",
+            "description": "Number of images (default 1; dall-e-3 supports only 1)",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), 1024x1024, 1536x1024, 1024x1536; gpt-image-2 models also take WIDTHxHEIGHT (multiples of 16, max 3840x2160)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "auto (default); low/medium/high for GPT Image; xhigh/max only on 2.5 models; standard/hd for dall-e-3. Higher quality costs more",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "standard",
+              "hd"
+            ]
+          },
+          "background": {
+            "type": "string",
+            "description": "transparent needs output_format png or webp (GPT Image only)",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (GPT Image only, default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "gif",
+              "svg"
+            ]
+          },
+          "output_compression": {
+            "type": "integer",
+            "description": "0-100 compression for jpeg/webp (GPT Image only)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "moderation": {
+            "type": "string",
+            "description": "Content moderation level (GPT Image only, default auto)",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "safety_identifier": {
+            "type": "string",
+            "description": "Stable hashed id of your end user, for OpenAI abuse monitoring (max 128 characters)"
+          },
+          "style": {
+            "type": "string",
+            "description": "dall-e-3 only",
+            "enum": [
+              "vivid",
+              "natural"
+            ]
+          },
+          "response_format": {
+            "type": "string",
+            "description": "dall-e models only (GPT Image always returns base64); URLs expire after 60 minutes",
+            "enum": [
+              "url",
+              "b64_json"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-images.edit_image",
+      "title": "Edit image",
+      "description": "Edit an image (or create a variation of it) from a prompt, optionally limited to a transparent-mask area (paid). Upload: https URL or a file inside $OPENAI_IMAGES_UPLOAD_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (png, webp or jpg, under 50 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "PNG with the same size as image; fully transparent areas are edited (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The edit to make (max 32000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. gpt-image-2, gpt-image-1.5, gpt-image-1-mini, chatgpt-image-latest (dall-e-3 / dall-e-2 for generations only)",
+            "default": "gpt-image-2"
+          },
+          "n": {
+            "type": "integer",
+            "description": "Number of images (default 1; dall-e-3 supports only 1)",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), 1024x1024, 1536x1024, 1024x1536; gpt-image-2 models also take WIDTHxHEIGHT (multiples of 16, max 3840x2160)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "auto (default); low/medium/high for GPT Image; xhigh/max only on 2.5 models; standard/hd for dall-e-3. Higher quality costs more",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "standard",
+              "hd"
+            ]
+          },
+          "background": {
+            "type": "string",
+            "description": "transparent needs output_format png or webp (GPT Image only)",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (GPT Image only, default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "gif",
+              "svg"
+            ]
+          },
+          "output_compression": {
+            "type": "integer",
+            "description": "0-100 compression for jpeg/webp (GPT Image only)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "moderation": {
+            "type": "string",
+            "description": "Content moderation level (GPT Image only, default auto)",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "safety_identifier": {
+            "type": "string",
+            "description": "Stable hashed id of your end user, for OpenAI abuse monitoring (max 128 characters)"
+          },
+          "input_fidelity": {
+            "type": "string",
+            "description": "How closely to keep faces and details of the input (gpt-image-1.5; omit for gpt-image-2)",
+            "enum": [
+              "low",
+              "high"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-images.edit_image_from_references",
+      "title": "Edit image from references",
+      "description": "Edit or combine up to 16 images given as URLs, data URLs or uploaded file ids (GPT Image models, paid). The first image is the one edited",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "images": {
+            "type": "array",
+            "description": "Input images, e.g. [{\"image_url\": \"https://example.com/a.png\"}, {\"file_id\": \"file-abc\"}]",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "image_url": {
+                  "type": "string"
+                },
+                "file_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "mask": {
+            "type": "object",
+            "description": "Optional mask for the first image: {\"image_url\": \"...\"} or {\"file_id\": \"...\"}"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The edit to make (max 32000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. gpt-image-2, gpt-image-1.5, gpt-image-1-mini, chatgpt-image-latest (dall-e-3 / dall-e-2 for generations only)",
+            "default": "gpt-image-2"
+          },
+          "n": {
+            "type": "integer",
+            "description": "Number of images (default 1; dall-e-3 supports only 1)",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), 1024x1024, 1536x1024, 1024x1536; gpt-image-2 models also take WIDTHxHEIGHT (multiples of 16, max 3840x2160)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "auto (default); low/medium/high for GPT Image; xhigh/max only on 2.5 models; standard/hd for dall-e-3. Higher quality costs more",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "standard",
+              "hd"
+            ]
+          },
+          "background": {
+            "type": "string",
+            "description": "transparent needs output_format png or webp (GPT Image only)",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (GPT Image only, default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "gif",
+              "svg"
+            ]
+          },
+          "output_compression": {
+            "type": "integer",
+            "description": "0-100 compression for jpeg/webp (GPT Image only)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "moderation": {
+            "type": "string",
+            "description": "Content moderation level (GPT Image only, default auto)",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "safety_identifier": {
+            "type": "string",
+            "description": "Stable hashed id of your end user, for OpenAI abuse monitoring (max 128 characters)"
+          },
+          "input_fidelity": {
+            "type": "string",
+            "description": "How closely to keep faces and details of the inputs (gpt-image-1.5; omit for gpt-image-2)",
+            "enum": [
+              "low",
+              "high"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "images",
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "openai-images.api_request",
+      "title": "OpenAI API request",
+      "description": "Call any OpenAI API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_models",
+      "description": "List the models this API key can use (image models start with gpt-image, chatgpt-image or dall-e)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "generate_image",
+      "description": "Generate images from a text prompt (paid). Images are saved to $OPENAI_IMAGES_OUTPUT_DIR; the result lists saved_files",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "What to generate (max 32000 characters for GPT Image, 4000 for dall-e-3)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. gpt-image-2, gpt-image-1.5, gpt-image-1-mini, chatgpt-image-latest (dall-e-3 / dall-e-2 for generations only)",
+            "default": "gpt-image-2"
+          },
+          "n": {
+            "type": "integer",
+            "description": "Number of images (default 1; dall-e-3 supports only 1)",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), 1024x1024, 1536x1024, 1024x1536; gpt-image-2 models also take WIDTHxHEIGHT (multiples of 16, max 3840x2160)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "auto (default); low/medium/high for GPT Image; xhigh/max only on 2.5 models; standard/hd for dall-e-3. Higher quality costs more",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "standard",
+              "hd"
+            ]
+          },
+          "background": {
+            "type": "string",
+            "description": "transparent needs output_format png or webp (GPT Image only)",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (GPT Image only, default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "gif",
+              "svg"
+            ]
+          },
+          "output_compression": {
+            "type": "integer",
+            "description": "0-100 compression for jpeg/webp (GPT Image only)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "moderation": {
+            "type": "string",
+            "description": "Content moderation level (GPT Image only, default auto)",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "safety_identifier": {
+            "type": "string",
+            "description": "Stable hashed id of your end user, for OpenAI abuse monitoring (max 128 characters)"
+          },
+          "style": {
+            "type": "string",
+            "description": "dall-e-3 only",
+            "enum": [
+              "vivid",
+              "natural"
+            ]
+          },
+          "response_format": {
+            "type": "string",
+            "description": "dall-e models only (GPT Image always returns base64); URLs expire after 60 minutes",
+            "enum": [
+              "url",
+              "b64_json"
+            ]
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "edit_image",
+      "description": "Edit an image (or create a variation of it) from a prompt, optionally limited to a transparent-mask area (paid). Upload: https URL or a file inside $OPENAI_IMAGES_UPLOAD_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to edit (png, webp or jpg, under 50 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "PNG with the same size as image; fully transparent areas are edited (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The edit to make (max 32000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. gpt-image-2, gpt-image-1.5, gpt-image-1-mini, chatgpt-image-latest (dall-e-3 / dall-e-2 for generations only)",
+            "default": "gpt-image-2"
+          },
+          "n": {
+            "type": "integer",
+            "description": "Number of images (default 1; dall-e-3 supports only 1)",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), 1024x1024, 1536x1024, 1024x1536; gpt-image-2 models also take WIDTHxHEIGHT (multiples of 16, max 3840x2160)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "auto (default); low/medium/high for GPT Image; xhigh/max only on 2.5 models; standard/hd for dall-e-3. Higher quality costs more",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "standard",
+              "hd"
+            ]
+          },
+          "background": {
+            "type": "string",
+            "description": "transparent needs output_format png or webp (GPT Image only)",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (GPT Image only, default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "gif",
+              "svg"
+            ]
+          },
+          "output_compression": {
+            "type": "integer",
+            "description": "0-100 compression for jpeg/webp (GPT Image only)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "moderation": {
+            "type": "string",
+            "description": "Content moderation level (GPT Image only, default auto)",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "safety_identifier": {
+            "type": "string",
+            "description": "Stable hashed id of your end user, for OpenAI abuse monitoring (max 128 characters)"
+          },
+          "input_fidelity": {
+            "type": "string",
+            "description": "How closely to keep faces and details of the input (gpt-image-1.5; omit for gpt-image-2)",
+            "enum": [
+              "low",
+              "high"
+            ]
+          }
+        },
+        "required": [
+          "image",
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "edit_image_from_references",
+      "description": "Edit or combine up to 16 images given as URLs, data URLs or uploaded file ids (GPT Image models, paid). The first image is the one edited",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "images": {
+            "type": "array",
+            "description": "Input images, e.g. [{\"image_url\": \"https://example.com/a.png\"}, {\"file_id\": \"file-abc\"}]",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "image_url": {
+                  "type": "string"
+                },
+                "file_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "mask": {
+            "type": "object",
+            "description": "Optional mask for the first image: {\"image_url\": \"...\"} or {\"file_id\": \"...\"}"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The edit to make (max 32000 characters)",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "description": "Model, e.g. gpt-image-2, gpt-image-1.5, gpt-image-1-mini, chatgpt-image-latest (dall-e-3 / dall-e-2 for generations only)",
+            "default": "gpt-image-2"
+          },
+          "n": {
+            "type": "integer",
+            "description": "Number of images (default 1; dall-e-3 supports only 1)",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), 1024x1024, 1536x1024, 1024x1536; gpt-image-2 models also take WIDTHxHEIGHT (multiples of 16, max 3840x2160)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "auto (default); low/medium/high for GPT Image; xhigh/max only on 2.5 models; standard/hd for dall-e-3. Higher quality costs more",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "standard",
+              "hd"
+            ]
+          },
+          "background": {
+            "type": "string",
+            "description": "transparent needs output_format png or webp (GPT Image only)",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "output_format": {
+            "type": "string",
+            "description": "Output format (GPT Image only, default png)",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "gif",
+              "svg"
+            ]
+          },
+          "output_compression": {
+            "type": "integer",
+            "description": "0-100 compression for jpeg/webp (GPT Image only)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "moderation": {
+            "type": "string",
+            "description": "Content moderation level (GPT Image only, default auto)",
+            "enum": [
+              "auto",
+              "low"
+            ]
+          },
+          "safety_identifier": {
+            "type": "string",
+            "description": "Stable hashed id of your end user, for OpenAI abuse monitoring (max 128 characters)"
+          },
+          "input_fidelity": {
+            "type": "string",
+            "description": "How closely to keep faces and details of the inputs (gpt-image-1.5; omit for gpt-image-2)",
+            "enum": [
+              "low",
+              "high"
+            ]
+          }
+        },
+        "required": [
+          "images",
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any OpenAI API endpoint that has no dedicated operation, e.g. path \"/models\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/models\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

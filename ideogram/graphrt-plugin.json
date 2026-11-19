@@ -1,0 +1,1396 @@
+{
+  "name": "ideogram",
+  "version": "0.1.0",
+  "description": "Ideogram: generate (4.5 and 3.0), remix, precise edit, inpaint, reframe, upscale, remove background and describe images, saved to a local folder (paid per image)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "IDEOGRAM_API_KEY",
+      "IDEOGRAM_OUTPUT_DIR",
+      "IDEOGRAM_UPLOAD_DIR"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 300000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "ideogram.generate_image",
+      "title": "Generate image (Ideogram 4.5)",
+      "description": "Generate images with Ideogram 4.5 (strong typography and prompt fidelity), or edit a source image by prompt ($0.03-0.22 per image by quality). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What to generate, or the edit instruction when an image is given (natural language or an Ideogram JSON prompt)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Optional source image to edit (the first of `images`) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Optional mask for the source image: black = edit, white = keep (same size as the image) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), \"source\" (with an image) or WIDTHxHEIGHT from the supported 1K/2K presets, e.g. 1024x1024, 2048x2048"
+          },
+          "quality": {
+            "type": "string",
+            "description": "very_low (with a source image only), low, medium or high (default high without, medium with a source image); priced by quality"
+          },
+          "background": {
+            "type": "string",
+            "description": "Output background",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Prompt rewriting: auto (default), on or off",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.generate_image_v3",
+      "title": "Generate image (Ideogram 3.0)",
+      "description": "Generate images with Ideogram 3.0, with style types, presets, style codes and a style reference ($0.03 turbo, $0.06 default, $0.09 quality per image). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What to generate",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What to leave out (the prompt takes precedence)"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "e.g. 1x1, 16x9, 9x16, 4x3 (do not combine with resolution)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Exact resolution, e.g. 1024x1024 or 1280x768"
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Automatic prompt rewriting, e.g. AUTO (default), ON or OFF"
+          },
+          "style_type": {
+            "type": "string",
+            "description": "e.g. AUTO, GENERAL, REALISTIC, DESIGN, FICTION"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "style_codes": {
+            "type": "array",
+            "description": "8-character hex style codes",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "style_reference_image": {
+            "type": "string",
+            "description": "Optional style reference image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.remix_image",
+      "title": "Remix image (Ideogram 3.0)",
+      "description": "Transform an image with a prompt (Ideogram 3.0, billed at the 3.0 generation rate). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "How to transform the image",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to transform (max 50 MB; saved to your account as the remix source) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "image_weight": {
+            "type": "integer",
+            "description": "How closely to follow the source, 1-100 (default chosen from the prompt)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What to leave out"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "e.g. 1x1, 16x9 (omit to keep the source shape)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Exact resolution (omit to keep the source shape)"
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Automatic prompt rewriting, e.g. AUTO (default), ON or OFF"
+          },
+          "style_type": {
+            "type": "string",
+            "description": "e.g. AUTO, GENERAL, REALISTIC, DESIGN, FICTION"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "style_codes": {
+            "type": "array",
+            "description": "8-character hex style codes",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "style_reference_image": {
+            "type": "string",
+            "description": "Optional style reference image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.precise_edit",
+      "title": "Precise edit (Ideogram 4.5)",
+      "description": "Change only what the prompt says and copy every other pixel exactly, optionally limited by a mask ($0.008-0.22 per image by quality). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The edit instruction, e.g. Change the jacket to red leather. Keep everything else the same.",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to edit (max 50 MB; output keeps its size) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Optional mask: black = edit, white = keep (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "reference_image": {
+            "type": "string",
+            "description": "Optional reference image (product, material, style) to guide the edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "very_low, low, medium or high (the only price factor)"
+          },
+          "context_window": {
+            "type": "string",
+            "description": "Region to edit for images over 4.2 megapixels, e.g. none (whole image)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.inpaint_image",
+      "title": "Inpaint (Ideogram 3.0)",
+      "description": "Repaint the black area of a mask with new content (Ideogram 3.0, billed at the 3.0 generation rate). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What the repainted area should show",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Source image (max 25 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Black-and-white mask of the same size; black marks the region to repaint (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Automatic prompt rewriting, e.g. AUTO (default), ON or OFF"
+          },
+          "style_type": {
+            "type": "string",
+            "description": "e.g. AUTO, GENERAL, REALISTIC, DESIGN, FICTION"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "style_codes": {
+            "type": "array",
+            "description": "8-character hex style codes",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image",
+          "mask"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.reframe_image",
+      "title": "Reframe (Ideogram 3.0)",
+      "description": "Extend an image to a new resolution/aspect ratio, filling the new area (billed at the 3.0 generation rate). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to reframe (max 25 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Target resolution, e.g. 1536x640 or 1024x1024",
+            "minLength": 1
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image",
+          "resolution"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.upscale_image",
+      "title": "Upscale image",
+      "description": "Upscale an image 2x, 4x or 8x with the model Ideogram picks (priced by the chosen model; use dry_run for a quote). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (max 50 MB; not stored) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "upscale_factor": {
+            "type": "string",
+            "description": "2x, 4x or 8x (output at most 8192 px per side)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.remove_background",
+      "title": "Remove background",
+      "description": "Cut out the foreground with a transparent background ($0.01). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Source image (max 25 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "private": {
+            "type": "boolean",
+            "description": "Keep the result out of Ideogram's public gallery (default: your plan's setting)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.describe_image",
+      "title": "Describe image (Ideogram 4.0)",
+      "description": "Turn an image into a structured Ideogram 4.0 JSON prompt (subjects, text, layout) to regenerate or edit it ($0.01)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to describe (max 10 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "include_bbox": {
+            "type": "boolean",
+            "description": "Include bounding boxes (default true)"
+          },
+          "include_style_descriptions": {
+            "type": "boolean",
+            "description": "Include a free-form style description (default false)"
+          },
+          "include_tags": {
+            "type": "boolean",
+            "description": "Include free-form tags (default false)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.get_generation",
+      "title": "Get generation",
+      "description": "Status (pending, completed, failed) and images of a generation by generation_id; completed image URLs are saved to $IDEOGRAM_OUTPUT_DIR",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "generation_id from an earlier response"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.get_usage",
+      "title": "Get usage and spend",
+      "description": "Usage and spend of the API account in daily or hourly buckets",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "description": "Start of the range, RFC 3339, e.g. 2026-11-01T00:00:00Z"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "End of the range (exclusive, default now)"
+          },
+          "bucket_width": {
+            "type": "string",
+            "description": "1d (up to 92 days, default) or 1h (up to 168 hours)",
+            "enum": [
+              "1d",
+              "1h"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "description": "api and/or app usage (default both)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "api",
+                "app"
+              ]
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "start_time"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ideogram.api_request",
+      "title": "Ideogram API request",
+      "description": "Call any Ideogram API endpoint that has no dedicated operation, e.g. path \"/v2/account/usage?start_time=2026-11-01T00:00:00Z\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/account/usage?start_time=2026-11-01T00:00:00Z\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "generate_image",
+      "description": "Generate images with Ideogram 4.5 (strong typography and prompt fidelity), or edit a source image by prompt ($0.03-0.22 per image by quality). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What to generate, or the edit instruction when an image is given (natural language or an Ideogram JSON prompt)",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Optional source image to edit (the first of `images`) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Optional mask for the source image: black = edit, white = keep (same size as the image) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "size": {
+            "type": "string",
+            "description": "auto (default), \"source\" (with an image) or WIDTHxHEIGHT from the supported 1K/2K presets, e.g. 1024x1024, 2048x2048"
+          },
+          "quality": {
+            "type": "string",
+            "description": "very_low (with a source image only), low, medium or high (default high without, medium with a source image); priced by quality"
+          },
+          "background": {
+            "type": "string",
+            "description": "Output background",
+            "enum": [
+              "auto",
+              "transparent",
+              "opaque"
+            ]
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Prompt rewriting: auto (default), on or off",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "generate_image_v3",
+      "description": "Generate images with Ideogram 3.0, with style types, presets, style codes and a style reference ($0.03 turbo, $0.06 default, $0.09 quality per image). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What to generate",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What to leave out (the prompt takes precedence)"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "e.g. 1x1, 16x9, 9x16, 4x3 (do not combine with resolution)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Exact resolution, e.g. 1024x1024 or 1280x768"
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Automatic prompt rewriting, e.g. AUTO (default), ON or OFF"
+          },
+          "style_type": {
+            "type": "string",
+            "description": "e.g. AUTO, GENERAL, REALISTIC, DESIGN, FICTION"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "style_codes": {
+            "type": "array",
+            "description": "8-character hex style codes",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "style_reference_image": {
+            "type": "string",
+            "description": "Optional style reference image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "remix_image",
+      "description": "Transform an image with a prompt (Ideogram 3.0, billed at the 3.0 generation rate). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "How to transform the image",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to transform (max 50 MB; saved to your account as the remix source) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "image_weight": {
+            "type": "integer",
+            "description": "How closely to follow the source, 1-100 (default chosen from the prompt)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "What to leave out"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "description": "e.g. 1x1, 16x9 (omit to keep the source shape)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Exact resolution (omit to keep the source shape)"
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Automatic prompt rewriting, e.g. AUTO (default), ON or OFF"
+          },
+          "style_type": {
+            "type": "string",
+            "description": "e.g. AUTO, GENERAL, REALISTIC, DESIGN, FICTION"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "style_codes": {
+            "type": "array",
+            "description": "8-character hex style codes",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "style_reference_image": {
+            "type": "string",
+            "description": "Optional style reference image (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "precise_edit",
+      "description": "Change only what the prompt says and copy every other pixel exactly, optionally limited by a mask ($0.008-0.22 per image by quality). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The edit instruction, e.g. Change the jacket to red leather. Keep everything else the same.",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to edit (max 50 MB; output keeps its size) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Optional mask: black = edit, white = keep (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "reference_image": {
+            "type": "string",
+            "description": "Optional reference image (product, material, style) to guide the edit (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "quality": {
+            "type": "string",
+            "description": "very_low, low, medium or high (the only price factor)"
+          },
+          "context_window": {
+            "type": "string",
+            "description": "Region to edit for images over 4.2 megapixels, e.g. none (whole image)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "inpaint_image",
+      "description": "Repaint the black area of a mask with new content (Ideogram 3.0, billed at the 3.0 generation rate). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "What the repainted area should show",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "description": "Source image (max 25 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "mask": {
+            "type": "string",
+            "description": "Black-and-white mask of the same size; black marks the region to repaint (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "magic_prompt": {
+            "type": "string",
+            "description": "Automatic prompt rewriting, e.g. AUTO (default), ON or OFF"
+          },
+          "style_type": {
+            "type": "string",
+            "description": "e.g. AUTO, GENERAL, REALISTIC, DESIGN, FICTION"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "style_codes": {
+            "type": "array",
+            "description": "8-character hex style codes",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "enable_copyright_detection": {
+            "type": "boolean",
+            "description": "Run likeness and logo checks; flagged images come back with is_image_safe false (adds latency)"
+          }
+        },
+        "required": [
+          "prompt",
+          "image",
+          "mask"
+        ]
+      }
+    },
+    {
+      "name": "reframe_image",
+      "description": "Extend an image to a new resolution/aspect ratio, filling the new area (billed at the 3.0 generation rate). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to reframe (max 25 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "Target resolution, e.g. 1536x640 or 1024x1024",
+            "minLength": 1
+          },
+          "rendering_speed": {
+            "type": "string",
+            "description": "Speed/quality tier, e.g. TURBO, DEFAULT or QUALITY (priced differently)"
+          },
+          "style_preset": {
+            "type": "string",
+            "description": "A predefined style preset name (cannot be combined with style_codes)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          },
+          "num_images": {
+            "type": "integer",
+            "description": "Number of images (default 1); each image is billed",
+            "minimum": 1,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "image",
+          "resolution"
+        ]
+      }
+    },
+    {
+      "name": "upscale_image",
+      "description": "Upscale an image 2x, 4x or 8x with the model Ideogram picks (priced by the chosen model; use dry_run for a quote). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Image to upscale (max 50 MB; not stored) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "upscale_factor": {
+            "type": "string",
+            "description": "2x, 4x or 8x (output at most 8192 px per side)"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Random seed for reproducible results",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "remove_background",
+      "description": "Cut out the foreground with a transparent background ($0.01). Images are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "true: validate and price the request without generating or billing (returns a price quote)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Source image (max 25 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "private": {
+            "type": "boolean",
+            "description": "Keep the result out of Ideogram's public gallery (default: your plan's setting)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "describe_image",
+      "description": "Turn an image into a structured Ideogram 4.0 JSON prompt (subjects, text, layout) to regenerate or edit it ($0.01)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to describe (max 10 MB) (an https URL, or an absolute path inside the plugin's upload directory)"
+          },
+          "include_bbox": {
+            "type": "boolean",
+            "description": "Include bounding boxes (default true)"
+          },
+          "include_style_descriptions": {
+            "type": "boolean",
+            "description": "Include a free-form style description (default false)"
+          },
+          "include_tags": {
+            "type": "boolean",
+            "description": "Include free-form tags (default false)"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      }
+    },
+    {
+      "name": "get_generation",
+      "description": "Status (pending, completed, failed) and images of a generation by generation_id; completed image URLs are saved to $IDEOGRAM_OUTPUT_DIR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "generation_id": {
+            "type": "string",
+            "description": "generation_id from an earlier response"
+          }
+        },
+        "required": [
+          "generation_id"
+        ]
+      }
+    },
+    {
+      "name": "get_usage",
+      "description": "Usage and spend of the API account in daily or hourly buckets",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "description": "Start of the range, RFC 3339, e.g. 2026-11-01T00:00:00Z"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "End of the range (exclusive, default now)"
+          },
+          "bucket_width": {
+            "type": "string",
+            "description": "1d (up to 92 days, default) or 1h (up to 168 hours)",
+            "enum": [
+              "1d",
+              "1h"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "description": "api and/or app usage (default both)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "api",
+                "app"
+              ]
+            }
+          }
+        },
+        "required": [
+          "start_time"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Ideogram API endpoint that has no dedicated operation, e.g. path \"/v2/account/usage?start_time=2026-11-01T00:00:00Z\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/account/usage?start_time=2026-11-01T00:00:00Z\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
