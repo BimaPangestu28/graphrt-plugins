@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-web-search",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: web and news search through Tavily, Brave Search or SerpAPI",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-rajaongkir",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: RajaOngkir (Komerce) Indonesian shipping costs, destinations and waybill tracking",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

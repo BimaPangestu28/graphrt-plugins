@@ -1,0 +1,17 @@
+# Bitcoin and Ethereum prices in USD and IDR. Read-only; works without a key (public API) or with a Demo key.
+#   graphrt run coingecko/example.yaml --plugins .
+#   COINGECKO_API_KEY=CG-... graphrt run coingecko/example.yaml --plugins .
+version: "1"
+name: coingecko-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: prices
+      type: coingecko.get_simple_price
+      ids: [bitcoin, ethereum]
+      vs_currencies: [usd, idr]
+      include_24hr_change: true
+    - { id: answer, type: answer, answer: "BTC {{#prices.data.bitcoin.usd#}} USD / {{#prices.data.bitcoin.idr#}} IDR; ETH {{#prices.data.ethereum.usd#}} USD" }
+  edges:
+    - { source: start, target: prices }
+    - { source: prices, target: answer }

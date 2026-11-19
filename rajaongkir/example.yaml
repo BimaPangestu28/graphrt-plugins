@@ -1,0 +1,23 @@
+# Find RajaOngkir destination ids for two places, then quote JNE, SiCepat and J&T for 1 kg. Read-only (each call
+# counts toward the plan's daily hits).
+#   RAJAONGKIR_API_KEY=... graphrt run rajaongkir/example.yaml --plugins .
+version: "1"
+name: rajaongkir-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: origin, type: rajaongkir.search_domestic_destinations, search: coblong, limit: 1 }
+    - { id: destination, type: rajaongkir.search_domestic_destinations, search: "12440", limit: 1 }
+    - id: cost
+      type: rajaongkir.calculate_domestic_cost
+      origin: "{{#origin.data.0.id#}}"
+      destination: "{{#destination.data.0.id#}}"
+      weight: 1000
+      courier: "jne:sicepat:jnt"
+      price: lowest
+    - { id: answer, type: answer, answer: "{{#origin.data.0.label#}} -> {{#destination.data.0.label#}}: {{#cost.data#}}" }
+  edges:
+    - { source: start, target: origin }
+    - { source: origin, target: destination }
+    - { source: destination, target: cost }
+    - { source: cost, target: answer }

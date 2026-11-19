@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-shipper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Shipper.id logistics locations, rates, orders, pickups, labels and tracking",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

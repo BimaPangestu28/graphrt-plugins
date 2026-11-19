@@ -1,0 +1,12 @@
+# Geocode an address in Jakarta. A read, but billed by Google (Geocoding: 10,000 free a month, then $5 per 1,000).
+#   GOOGLE_MAPS_API_KEY=AIza... graphrt run google-maps-platform/example.yaml --plugins .
+version: "1"
+name: google-maps-platform-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: geocoded, type: google-maps-platform.geocode_address, address: "Monas, Gambir, Jakarta Pusat", region_code: ID }
+    - { id: answer, type: answer, answer: "{{#geocoded.data.results.0.formattedAddress#}}: {{#geocoded.data.results.0.location#}}" }
+  edges:
+    - { source: start, target: geocoded }
+    - { source: geocoded, target: answer }

@@ -1,0 +1,813 @@
+{
+  "name": "rajaongkir",
+  "version": "0.1.0",
+  "description": "RajaOngkir by Komerce: Indonesian shipping cost quotes (domestic and international), destination search and waybill tracking",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "RAJAONGKIR_API_KEY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "rajaongkir.search_domestic_destinations",
+      "title": "Search domestic destinations",
+      "description": "Find destination ids for cost quotes by city, district, village or postal code: id, label, province/city/district/subdistrict, zip_code",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "City, district, village or postal code, e.g. coblong or 40132",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "search"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.search_international_destinations",
+      "title": "Search international destinations",
+      "description": "Find country ids for international quotes: country_id, country_name",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Country name, e.g. malaysia",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "search"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.list_provinces",
+      "title": "List provinces",
+      "description": "Indonesian provinces: id, name",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.list_cities",
+      "title": "List cities",
+      "description": "Cities and regencies in a province: id, name, zip_code",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "province_id": {
+            "type": "string",
+            "description": "Province id from list_provinces"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "province_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.list_districts",
+      "title": "List districts",
+      "description": "Districts (kecamatan) in a city: id, name, zip_code",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "city_id": {
+            "type": "string",
+            "description": "City id from list_cities"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "city_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.list_subdistricts",
+      "title": "List subdistricts",
+      "description": "Subdistricts (kelurahan/desa) in a district: id, name, zip_code",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "district_id": {
+            "type": "string",
+            "description": "District id from list_districts"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "district_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.calculate_domestic_cost",
+      "title": "Domestic shipping cost",
+      "description": "Shipping cost quotes per courier and service: name, code, service, description, cost (IDR), etd",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": "Origin id from search_domestic_destinations"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Destination id from search_domestic_destinations"
+          },
+          "weight": {
+            "type": "integer",
+            "description": "Weight in grams",
+            "minimum": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier codes separated by \":\", e.g. \"jne:sicepat:jnt:anteraja:pos:tiki\""
+          },
+          "price": {
+            "type": "string",
+            "description": "Sort by price",
+            "enum": [
+              "lowest",
+              "highest"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "courier"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.calculate_district_cost",
+      "title": "Domestic cost by district",
+      "description": "Shipping cost quotes between two districts (ids from list_districts): name, code, service, cost, etd",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": "Origin district id from list_districts"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Destination district id from list_districts"
+          },
+          "weight": {
+            "type": "integer",
+            "description": "Weight in grams",
+            "minimum": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier codes separated by \":\", e.g. \"jne:sicepat:jnt:anteraja:pos:tiki\""
+          },
+          "price": {
+            "type": "string",
+            "description": "Sort by price",
+            "enum": [
+              "lowest",
+              "highest"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "courier"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.calculate_international_cost",
+      "title": "International shipping cost",
+      "description": "International quotes from Indonesia: name, code, service, cost, currency, etd",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": "Origin id from search_domestic_destinations"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Country id from search_international_destinations"
+          },
+          "weight": {
+            "type": "integer",
+            "description": "Weight in grams",
+            "minimum": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier codes separated by \":\", e.g. \"jne:sicepat:jnt:anteraja:pos:tiki\""
+          },
+          "price": {
+            "type": "string",
+            "description": "Sort by price",
+            "enum": [
+              "lowest",
+              "highest"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "courier"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.track_waybill",
+      "title": "Track a waybill",
+      "description": "Tracking of a waybill (resi): delivered, summary, details, delivery_status and manifest history",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "awb": {
+            "type": "string",
+            "description": "Waybill (resi) number",
+            "minLength": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier code: jne, pos, tiki, sap, ninja, jnt, wahana, lion, spx"
+          },
+          "last_phone_number": {
+            "type": "string",
+            "description": "Last 5 digits of the receiver's phone (needed by some couriers, e.g. JNE)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "awb",
+          "courier"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "rajaongkir.api_request",
+      "title": "RajaOngkir (Komerce) API request",
+      "description": "Call any RajaOngkir (Komerce) API endpoint that has no dedicated operation, e.g. path \"/destination/province\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/destination/province\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_domestic_destinations",
+      "description": "Find destination ids for cost quotes by city, district, village or postal code: id, label, province/city/district/subdistrict, zip_code",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "City, district, village or postal code, e.g. coblong or 40132",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          }
+        },
+        "required": [
+          "search"
+        ]
+      }
+    },
+    {
+      "name": "search_international_destinations",
+      "description": "Find country ids for international quotes: country_id, country_name",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Country name, e.g. malaysia",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          }
+        },
+        "required": [
+          "search"
+        ]
+      }
+    },
+    {
+      "name": "list_provinces",
+      "description": "Indonesian provinces: id, name",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_cities",
+      "description": "Cities and regencies in a province: id, name, zip_code",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "province_id": {
+            "type": "string",
+            "description": "Province id from list_provinces"
+          }
+        },
+        "required": [
+          "province_id"
+        ]
+      }
+    },
+    {
+      "name": "list_districts",
+      "description": "Districts (kecamatan) in a city: id, name, zip_code",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city_id": {
+            "type": "string",
+            "description": "City id from list_cities"
+          }
+        },
+        "required": [
+          "city_id"
+        ]
+      }
+    },
+    {
+      "name": "list_subdistricts",
+      "description": "Subdistricts (kelurahan/desa) in a district: id, name, zip_code",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "district_id": {
+            "type": "string",
+            "description": "District id from list_districts"
+          }
+        },
+        "required": [
+          "district_id"
+        ]
+      }
+    },
+    {
+      "name": "calculate_domestic_cost",
+      "description": "Shipping cost quotes per courier and service: name, code, service, description, cost (IDR), etd",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": "Origin id from search_domestic_destinations"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Destination id from search_domestic_destinations"
+          },
+          "weight": {
+            "type": "integer",
+            "description": "Weight in grams",
+            "minimum": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier codes separated by \":\", e.g. \"jne:sicepat:jnt:anteraja:pos:tiki\""
+          },
+          "price": {
+            "type": "string",
+            "description": "Sort by price",
+            "enum": [
+              "lowest",
+              "highest"
+            ]
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "courier"
+        ]
+      }
+    },
+    {
+      "name": "calculate_district_cost",
+      "description": "Shipping cost quotes between two districts (ids from list_districts): name, code, service, cost, etd",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": "Origin district id from list_districts"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Destination district id from list_districts"
+          },
+          "weight": {
+            "type": "integer",
+            "description": "Weight in grams",
+            "minimum": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier codes separated by \":\", e.g. \"jne:sicepat:jnt:anteraja:pos:tiki\""
+          },
+          "price": {
+            "type": "string",
+            "description": "Sort by price",
+            "enum": [
+              "lowest",
+              "highest"
+            ]
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "courier"
+        ]
+      }
+    },
+    {
+      "name": "calculate_international_cost",
+      "description": "International quotes from Indonesia: name, code, service, cost, currency, etd",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": "Origin id from search_domestic_destinations"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Country id from search_international_destinations"
+          },
+          "weight": {
+            "type": "integer",
+            "description": "Weight in grams",
+            "minimum": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier codes separated by \":\", e.g. \"jne:sicepat:jnt:anteraja:pos:tiki\""
+          },
+          "price": {
+            "type": "string",
+            "description": "Sort by price",
+            "enum": [
+              "lowest",
+              "highest"
+            ]
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "courier"
+        ]
+      }
+    },
+    {
+      "name": "track_waybill",
+      "description": "Tracking of a waybill (resi): delivered, summary, details, delivery_status and manifest history",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "awb": {
+            "type": "string",
+            "description": "Waybill (resi) number",
+            "minLength": 1
+          },
+          "courier": {
+            "type": "string",
+            "description": "Courier code: jne, pos, tiki, sap, ninja, jnt, wahana, lion, spx"
+          },
+          "last_phone_number": {
+            "type": "string",
+            "description": "Last 5 digits of the receiver's phone (needed by some couriers, e.g. JNE)"
+          }
+        },
+        "required": [
+          "awb",
+          "courier"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any RajaOngkir (Komerce) API endpoint that has no dedicated operation, e.g. path \"/destination/province\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/destination/province\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

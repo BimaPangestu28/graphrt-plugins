@@ -108,6 +108,15 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [google-forms](google-forms/) | Google Forms: read forms and responses (paged, timestamp filters), create forms, batch edits and publish/close behind opt-ins, Pub/Sub watches node only (OAuth or service account) | 11 |
 | [google-analytics](google-analytics/) | Google Analytics 4 (read-only): reports with plain dimension/metric names, realtime, pivot and batch reports, metadata and compatibility, accounts, properties and data streams (OAuth or service account) | 11 |
 | [pipedrive](pipedrive/) | Pipedrive CRM (API v2/v1, API token, optional company domain): persons, organizations, deals and activities (list, get, search, create, update), pipelines, stages and notes; deletes are node only, agent api_request limited to CRM read paths | 32 |
+| [biteship](biteship/) | Biteship Indonesian shipping: courier rates, couriers, area search, order tracking and public waybill tracking; booking and cancelling orders node only | 10 |
+| [rajaongkir](rajaongkir/) | RajaOngkir by Komerce (current API): Indonesian shipping cost quotes (domestic, by district, international), destination search and waybill tracking | 11 |
+| [shipper](shipper/) | Shipper.id logistics API v3: locations, domestic rates, orders with tracking and labels; creating and cancelling orders and pickups node only | 15 |
+| [web-search](web-search/) | Provider-agnostic web and news search through Tavily, Brave Search or SerpAPI (provider and key from env; paid per query, never retried after an unknown outcome) | 2 |
+| [news-api](news-api/) | NewsAPI.org: search news articles and blogs, top headlines by country, category or source, and news sources | 4 |
+| [wikipedia](wikipedia/) | Wikipedia in any language (no API key): search, page summaries, plain-text content (capped), media lists, nearby pages and language links | 7 |
+| [coingecko](coingecko/) | CoinGecko crypto data (public, Demo or Pro key): prices, ranked markets, coin details, market charts, OHLC, search, trending, categories and global stats | 15 |
+| [currency-rates](currency-rates/) | Exchange rates from Frankfurter (ECB and other central banks, no API key): latest, historical, time series, pair rates and amount conversion | 9 |
+| [google-maps-platform](google-maps-platform/) | Google Maps Platform (billed per call; cheap default field masks, never retried after an unknown outcome): Places (New) text and nearby search, details, autocomplete, photos; Geocoding v4; Routes routes and matrices (agent matrices capped) | 9 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

@@ -1,0 +1,1529 @@
+{
+  "name": "coingecko",
+  "version": "0.1.0",
+  "description": "CoinGecko crypto data (public, Demo or Pro key): prices, markets, coin details, charts, OHLC, search, trending and global stats",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "COINGECKO_API_KEY",
+      "COINGECKO_API_PLAN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "coingecko.get_simple_price",
+      "title": "Coin prices",
+      "description": "Current prices of coins in one or more currencies: {coin_id: {usd: 62673, usd_24h_change: ...}}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "description": "Coin ids, e.g. [bitcoin, ethereum] (or use names/symbols)",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "names": {
+            "type": "array",
+            "description": "Coin names, e.g. [Bitcoin]",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "symbols": {
+            "type": "array",
+            "description": "Coin symbols, e.g. [btc, eth] (top coins by market cap win ties)",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "vs_currencies": {
+            "type": "array",
+            "description": "Quote currencies, e.g. [usd, idr]",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_market_cap": {
+            "type": "boolean",
+            "description": "Add market caps"
+          },
+          "include_24hr_vol": {
+            "type": "boolean",
+            "description": "Add 24h volumes"
+          },
+          "include_24hr_change": {
+            "type": "boolean",
+            "description": "Add 24h price change percentages"
+          },
+          "include_last_updated_at": {
+            "type": "boolean",
+            "description": "Add last update times (UNIX seconds)"
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "vs_currencies"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_token_price",
+      "title": "Token prices by contract",
+      "description": "Current prices of tokens by contract address on a platform: {contract_address: {usd: ...}}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "platform_id": {
+            "type": "string",
+            "description": "Asset platform id, e.g. ethereum, binance-smart-chain, solana"
+          },
+          "contract_addresses": {
+            "type": "array",
+            "description": "Token contract addresses",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "vs_currencies": {
+            "type": "array",
+            "description": "Quote currencies, e.g. [usd]",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_market_cap": {
+            "type": "boolean",
+            "description": "Add market caps"
+          },
+          "include_24hr_vol": {
+            "type": "boolean",
+            "description": "Add 24h volumes"
+          },
+          "include_24hr_change": {
+            "type": "boolean",
+            "description": "Add 24h price change percentages"
+          },
+          "include_last_updated_at": {
+            "type": "boolean",
+            "description": "Add last update times (UNIX seconds)"
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "platform_id",
+          "contract_addresses",
+          "vs_currencies"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.list_supported_vs_currencies",
+      "title": "Supported quote currencies",
+      "description": "Currency codes usable as vs_currency (usd, idr, eur, btc, ...)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.list_coins",
+      "title": "List coins",
+      "description": "Every coin's id, symbol and name (large: about 17,000 entries), optionally with contract addresses per platform",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "include_platform": {
+            "type": "boolean",
+            "description": "Add contract addresses per platform"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_coins_markets",
+      "title": "Coin market data",
+      "description": "Coins ranked with price, market cap, volume, 24h high/low, price change and supply; paginated",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these coin ids",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "names": {
+            "type": "array",
+            "description": "Only these coin names",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "symbols": {
+            "type": "array",
+            "description": "Only these symbols",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string",
+            "description": "Only this category id, e.g. layer-1, meme-token (see list_categories)"
+          },
+          "order": {
+            "type": "string",
+            "description": "Sort order (default market_cap_desc)",
+            "enum": [
+              "market_cap_desc",
+              "market_cap_asc",
+              "volume_desc",
+              "volume_asc",
+              "id_asc",
+              "id_desc"
+            ]
+          },
+          "sparkline": {
+            "type": "boolean",
+            "description": "Add 7-day sparkline prices"
+          },
+          "price_change_percentage": {
+            "type": "array",
+            "description": "Extra price change windows: 1h, 24h, 7d, 14d, 30d, 200d, 1y",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "vs_currency"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_coin",
+      "title": "Coin details",
+      "description": "One coin: description, links, categories, genesis date, market_data (price, ATH, supply) and more",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "localization": {
+            "type": "boolean",
+            "description": "Include names and descriptions in every language (large)",
+            "default": false
+          },
+          "tickers": {
+            "type": "boolean",
+            "description": "Include exchange tickers (large)",
+            "default": false
+          },
+          "market_data": {
+            "type": "boolean",
+            "description": "Include market data",
+            "default": true
+          },
+          "community_data": {
+            "type": "boolean",
+            "description": "Include community data",
+            "default": false
+          },
+          "developer_data": {
+            "type": "boolean",
+            "description": "Include developer data",
+            "default": false
+          },
+          "sparkline": {
+            "type": "boolean",
+            "description": "Include the 7-day sparkline",
+            "default": false
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "coin_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_market_chart",
+      "title": "Coin market chart",
+      "description": "Historical prices, market caps and volumes for the last N days: arrays of [UNIX ms, value]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "days": {
+            "type": "string",
+            "description": "Days back, e.g. \"1\", \"30\", \"365\" or \"max\" (1 day: 5-minute data, 2-90: hourly, more: daily)"
+          },
+          "interval": {
+            "type": "string",
+            "description": "daily: force daily points",
+            "enum": [
+              "daily"
+            ]
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "coin_id",
+          "vs_currency",
+          "days"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_market_chart_range",
+      "title": "Coin market chart (date range)",
+      "description": "Historical prices, market caps and volumes between two dates: arrays of [UNIX ms, value]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Start: YYYY-MM-DD, ISO date-time or UNIX seconds"
+          },
+          "to": {
+            "type": "string",
+            "description": "End: YYYY-MM-DD, ISO date-time or UNIX seconds"
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "coin_id",
+          "vs_currency",
+          "from",
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_ohlc",
+      "title": "Coin OHLC candles",
+      "description": "Open/high/low/close candles: arrays of [UNIX ms, open, high, low, close]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "days": {
+            "type": "string",
+            "description": "Days back (candle size grows with the range)",
+            "enum": [
+              "1",
+              "7",
+              "14",
+              "30",
+              "90",
+              "180",
+              "365"
+            ]
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "coin_id",
+          "vs_currency",
+          "days"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.search",
+      "title": "Search coins",
+      "description": "Find coins, exchanges, categories and NFTs by name or symbol; coins[] has id, name, symbol, market_cap_rank",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Name or symbol, e.g. pepe",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_trending",
+      "title": "Trending coins",
+      "description": "Coins, NFTs and categories trending on CoinGecko in the last 24 hours",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_global",
+      "title": "Global crypto market",
+      "description": "Total market cap and volume per currency, market cap percentages (BTC dominance), number of coins and markets",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.list_categories",
+      "title": "Coin categories",
+      "description": "Categories with market cap, 24h change, volume and top coins",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "string",
+            "description": "Sort order",
+            "enum": [
+              "market_cap_desc",
+              "market_cap_asc",
+              "name_desc",
+              "name_asc",
+              "market_cap_change_24h_desc",
+              "market_cap_change_24h_asc"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.get_exchange_rates",
+      "title": "BTC exchange rates",
+      "description": "The value of 1 BTC in fiat currencies, crypto and commodities: {usd: {name, unit, value, type}}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "coingecko.api_request",
+      "title": "CoinGecko API request",
+      "description": "Call any CoinGecko API endpoint that has no dedicated operation, e.g. path \"/coins/bitcoin/tickers\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/coins/bitcoin/tickers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_simple_price",
+      "description": "Current prices of coins in one or more currencies: {coin_id: {usd: 62673, usd_24h_change: ...}}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "description": "Coin ids, e.g. [bitcoin, ethereum] (or use names/symbols)",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "names": {
+            "type": "array",
+            "description": "Coin names, e.g. [Bitcoin]",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "symbols": {
+            "type": "array",
+            "description": "Coin symbols, e.g. [btc, eth] (top coins by market cap win ties)",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "vs_currencies": {
+            "type": "array",
+            "description": "Quote currencies, e.g. [usd, idr]",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_market_cap": {
+            "type": "boolean",
+            "description": "Add market caps"
+          },
+          "include_24hr_vol": {
+            "type": "boolean",
+            "description": "Add 24h volumes"
+          },
+          "include_24hr_change": {
+            "type": "boolean",
+            "description": "Add 24h price change percentages"
+          },
+          "include_last_updated_at": {
+            "type": "boolean",
+            "description": "Add last update times (UNIX seconds)"
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          }
+        },
+        "required": [
+          "vs_currencies"
+        ]
+      }
+    },
+    {
+      "name": "get_token_price",
+      "description": "Current prices of tokens by contract address on a platform: {contract_address: {usd: ...}}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "platform_id": {
+            "type": "string",
+            "description": "Asset platform id, e.g. ethereum, binance-smart-chain, solana"
+          },
+          "contract_addresses": {
+            "type": "array",
+            "description": "Token contract addresses",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "vs_currencies": {
+            "type": "array",
+            "description": "Quote currencies, e.g. [usd]",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_market_cap": {
+            "type": "boolean",
+            "description": "Add market caps"
+          },
+          "include_24hr_vol": {
+            "type": "boolean",
+            "description": "Add 24h volumes"
+          },
+          "include_24hr_change": {
+            "type": "boolean",
+            "description": "Add 24h price change percentages"
+          },
+          "include_last_updated_at": {
+            "type": "boolean",
+            "description": "Add last update times (UNIX seconds)"
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          }
+        },
+        "required": [
+          "platform_id",
+          "contract_addresses",
+          "vs_currencies"
+        ]
+      }
+    },
+    {
+      "name": "list_supported_vs_currencies",
+      "description": "Currency codes usable as vs_currency (usd, idr, eur, btc, ...)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_coins",
+      "description": "Every coin's id, symbol and name (large: about 17,000 entries), optionally with contract addresses per platform",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "include_platform": {
+            "type": "boolean",
+            "description": "Add contract addresses per platform"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_coins_markets",
+      "description": "Coins ranked with price, market cap, volume, 24h high/low, price change and supply; paginated",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these coin ids",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "names": {
+            "type": "array",
+            "description": "Only these coin names",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "symbols": {
+            "type": "array",
+            "description": "Only these symbols",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string",
+            "description": "Only this category id, e.g. layer-1, meme-token (see list_categories)"
+          },
+          "order": {
+            "type": "string",
+            "description": "Sort order (default market_cap_desc)",
+            "enum": [
+              "market_cap_desc",
+              "market_cap_asc",
+              "volume_desc",
+              "volume_asc",
+              "id_asc",
+              "id_desc"
+            ]
+          },
+          "sparkline": {
+            "type": "boolean",
+            "description": "Add 7-day sparkline prices"
+          },
+          "price_change_percentage": {
+            "type": "array",
+            "description": "Extra price change windows: 1h, 24h, 7d, 14d, 30d, 200d, 1y",
+            "maxItems": 250,
+            "items": {
+              "type": "string"
+            }
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 100
+          }
+        },
+        "required": [
+          "vs_currency"
+        ]
+      }
+    },
+    {
+      "name": "get_coin",
+      "description": "One coin: description, links, categories, genesis date, market_data (price, ATH, supply) and more",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "localization": {
+            "type": "boolean",
+            "description": "Include names and descriptions in every language (large)",
+            "default": false
+          },
+          "tickers": {
+            "type": "boolean",
+            "description": "Include exchange tickers (large)",
+            "default": false
+          },
+          "market_data": {
+            "type": "boolean",
+            "description": "Include market data",
+            "default": true
+          },
+          "community_data": {
+            "type": "boolean",
+            "description": "Include community data",
+            "default": false
+          },
+          "developer_data": {
+            "type": "boolean",
+            "description": "Include developer data",
+            "default": false
+          },
+          "sparkline": {
+            "type": "boolean",
+            "description": "Include the 7-day sparkline",
+            "default": false
+          }
+        },
+        "required": [
+          "coin_id"
+        ]
+      }
+    },
+    {
+      "name": "get_market_chart",
+      "description": "Historical prices, market caps and volumes for the last N days: arrays of [UNIX ms, value]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "days": {
+            "type": "string",
+            "description": "Days back, e.g. \"1\", \"30\", \"365\" or \"max\" (1 day: 5-minute data, 2-90: hourly, more: daily)"
+          },
+          "interval": {
+            "type": "string",
+            "description": "daily: force daily points",
+            "enum": [
+              "daily"
+            ]
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          }
+        },
+        "required": [
+          "coin_id",
+          "vs_currency",
+          "days"
+        ]
+      }
+    },
+    {
+      "name": "get_market_chart_range",
+      "description": "Historical prices, market caps and volumes between two dates: arrays of [UNIX ms, value]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Start: YYYY-MM-DD, ISO date-time or UNIX seconds"
+          },
+          "to": {
+            "type": "string",
+            "description": "End: YYYY-MM-DD, ISO date-time or UNIX seconds"
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          }
+        },
+        "required": [
+          "coin_id",
+          "vs_currency",
+          "from",
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "get_ohlc",
+      "description": "Open/high/low/close candles: arrays of [UNIX ms, open, high, low, close]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "coin_id": {
+            "type": "string",
+            "description": "CoinGecko coin id, e.g. bitcoin (see search or list_coins)"
+          },
+          "vs_currency": {
+            "type": "string",
+            "description": "Quote currency, e.g. usd, idr, eur, btc (see list_supported_vs_currencies)"
+          },
+          "days": {
+            "type": "string",
+            "description": "Days back (candle size grows with the range)",
+            "enum": [
+              "1",
+              "7",
+              "14",
+              "30",
+              "90",
+              "180",
+              "365"
+            ]
+          },
+          "precision": {
+            "type": "string",
+            "description": "Decimal places of prices, or full",
+            "enum": [
+              "full",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
+            ]
+          }
+        },
+        "required": [
+          "coin_id",
+          "vs_currency",
+          "days"
+        ]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Find coins, exchanges, categories and NFTs by name or symbol; coins[] has id, name, symbol, market_cap_rank",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Name or symbol, e.g. pepe",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "get_trending",
+      "description": "Coins, NFTs and categories trending on CoinGecko in the last 24 hours",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_global",
+      "description": "Total market cap and volume per currency, market cap percentages (BTC dominance), number of coins and markets",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_categories",
+      "description": "Categories with market cap, 24h change, volume and top coins",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "string",
+            "description": "Sort order",
+            "enum": [
+              "market_cap_desc",
+              "market_cap_asc",
+              "name_desc",
+              "name_asc",
+              "market_cap_change_24h_desc",
+              "market_cap_change_24h_asc"
+            ]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_exchange_rates",
+      "description": "The value of 1 BTC in fiat currencies, crypto and commodities: {usd: {name, unit, value, type}}",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any CoinGecko API endpoint that has no dedicated operation, e.g. path \"/coins/bitcoin/tickers\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/coins/bitcoin/tickers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

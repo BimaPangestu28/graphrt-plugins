@@ -1,0 +1,12 @@
+# Search the web and print the top result. Read-only, but each search is billed by the provider.
+#   WEB_SEARCH_PROVIDER=tavily WEB_SEARCH_API_KEY=tvly-... graphrt run web-search/example.yaml --plugins .
+version: "1"
+name: web-search-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: found, type: web-search.search, query: Borobudur temple opening hours, max_results: 3 }
+    - { id: answer, type: answer, answer: "[{{#found.data.provider#}}] {{#found.data.results.0.title#}} - {{#found.data.results.0.url#}}" }
+  edges:
+    - { source: start, target: found }
+    - { source: found, target: answer }

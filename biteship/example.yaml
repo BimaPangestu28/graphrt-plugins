@@ -1,0 +1,12 @@
+# Find Biteship area ids for a district. Read-only; works with a test key (biteship_test.).
+#   BITESHIP_API_KEY=biteship_test.... graphrt run biteship/example.yaml --plugins .
+version: "1"
+name: biteship-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: areas, type: biteship.search_areas, input: Kebayoran Baru }
+    - { id: answer, type: answer, answer: "{{#areas.data.0.id#}}: {{#areas.data.0.name#}} ({{#areas.data.0.postal_code#}})" }
+  edges:
+    - { source: start, target: areas }
+    - { source: areas, target: answer }

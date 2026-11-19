@@ -1,0 +1,560 @@
+{
+  "name": "news-api",
+  "version": "0.1.0",
+  "description": "NewsAPI.org: search news articles and blogs, top headlines by country or category, and news sources",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "NEWSAPI_API_KEY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "news-api.search_articles",
+      "title": "Search articles",
+      "description": "Search news articles and blog posts (title, description, url, source, author, publishedAt, content truncated to 200 chars)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Keywords; \"exact phrase\", +must, -exclude, AND/OR/NOT and parentheses (max 500 chars)"
+          },
+          "search_in": {
+            "type": "array",
+            "description": "Fields the query must match (default all)",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "title",
+                "description",
+                "content"
+              ]
+            }
+          },
+          "sources": {
+            "type": "array",
+            "description": "Source ids (max 20, see list_sources)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "domains": {
+            "type": "array",
+            "description": "Only these domains, e.g. [bbc.co.uk, techcrunch.com]",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_domains": {
+            "type": "array",
+            "description": "Leave out these domains",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "from": {
+            "type": "string",
+            "description": "Oldest article, ISO 8601 date or date-time, e.g. 2026-11-01"
+          },
+          "to": {
+            "type": "string",
+            "description": "Newest article, ISO 8601 date or date-time"
+          },
+          "language": {
+            "type": "string",
+            "description": "Article language (default all)",
+            "enum": [
+              "ar",
+              "de",
+              "en",
+              "es",
+              "fr",
+              "he",
+              "it",
+              "nl",
+              "no",
+              "pt",
+              "ru",
+              "sv",
+              "ud",
+              "zh"
+            ]
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Order (default publishedAt)",
+            "enum": [
+              "relevancy",
+              "popularity",
+              "publishedAt"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "news-api.get_top_headlines",
+      "title": "Top headlines",
+      "description": "Breaking headlines by country, category, source or keyword (sources cannot be combined with country or category)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "description": "2-letter country code, e.g. us, id, gb"
+          },
+          "category": {
+            "type": "string",
+            "description": "News category",
+            "enum": [
+              "business",
+              "entertainment",
+              "general",
+              "health",
+              "science",
+              "sports",
+              "technology"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "description": "Source ids (not with country or category)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "string",
+            "description": "Keywords; \"exact phrase\", +must, -exclude, AND/OR/NOT and parentheses (max 500 chars)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "news-api.list_sources",
+      "title": "List news sources",
+      "description": "Sources that publish top headlines: id, name, description, url, category, language, country",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Only this category",
+            "enum": [
+              "business",
+              "entertainment",
+              "general",
+              "health",
+              "science",
+              "sports",
+              "technology"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Only this language",
+            "enum": [
+              "ar",
+              "de",
+              "en",
+              "es",
+              "fr",
+              "he",
+              "it",
+              "nl",
+              "no",
+              "pt",
+              "ru",
+              "sv",
+              "ud",
+              "zh"
+            ]
+          },
+          "country": {
+            "type": "string",
+            "description": "Only this 2-letter country code"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "news-api.api_request",
+      "title": "NewsAPI request",
+      "description": "Call any NewsAPI endpoint that has no dedicated operation, e.g. path \"/v2/top-headlines?country=us\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/top-headlines?country=us\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_articles",
+      "description": "Search news articles and blog posts (title, description, url, source, author, publishedAt, content truncated to 200 chars)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Keywords; \"exact phrase\", +must, -exclude, AND/OR/NOT and parentheses (max 500 chars)"
+          },
+          "search_in": {
+            "type": "array",
+            "description": "Fields the query must match (default all)",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "title",
+                "description",
+                "content"
+              ]
+            }
+          },
+          "sources": {
+            "type": "array",
+            "description": "Source ids (max 20, see list_sources)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "domains": {
+            "type": "array",
+            "description": "Only these domains, e.g. [bbc.co.uk, techcrunch.com]",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_domains": {
+            "type": "array",
+            "description": "Leave out these domains",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "from": {
+            "type": "string",
+            "description": "Oldest article, ISO 8601 date or date-time, e.g. 2026-11-01"
+          },
+          "to": {
+            "type": "string",
+            "description": "Newest article, ISO 8601 date or date-time"
+          },
+          "language": {
+            "type": "string",
+            "description": "Article language (default all)",
+            "enum": [
+              "ar",
+              "de",
+              "en",
+              "es",
+              "fr",
+              "he",
+              "it",
+              "nl",
+              "no",
+              "pt",
+              "ru",
+              "sv",
+              "ud",
+              "zh"
+            ]
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Order (default publishedAt)",
+            "enum": [
+              "relevancy",
+              "popularity",
+              "publishedAt"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_top_headlines",
+      "description": "Breaking headlines by country, category, source or keyword (sources cannot be combined with country or category)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "description": "2-letter country code, e.g. us, id, gb"
+          },
+          "category": {
+            "type": "string",
+            "description": "News category",
+            "enum": [
+              "business",
+              "entertainment",
+              "general",
+              "health",
+              "science",
+              "sports",
+              "technology"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "description": "Source ids (not with country or category)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "string",
+            "description": "Keywords; \"exact phrase\", +must, -exclude, AND/OR/NOT and parentheses (max 500 chars)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_sources",
+      "description": "Sources that publish top headlines: id, name, description, url, category, language, country",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Only this category",
+            "enum": [
+              "business",
+              "entertainment",
+              "general",
+              "health",
+              "science",
+              "sports",
+              "technology"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Only this language",
+            "enum": [
+              "ar",
+              "de",
+              "en",
+              "es",
+              "fr",
+              "he",
+              "it",
+              "nl",
+              "no",
+              "pt",
+              "ru",
+              "sv",
+              "ud",
+              "zh"
+            ]
+          },
+          "country": {
+            "type": "string",
+            "description": "Only this 2-letter country code"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any NewsAPI endpoint that has no dedicated operation, e.g. path \"/v2/top-headlines?country=us\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/top-headlines?country=us\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
