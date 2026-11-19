@@ -1,0 +1,1990 @@
+{
+  "name": "microsoft-graph",
+  "version": "0.1.0",
+  "description": "Microsoft Graph: Outlook mail (list, read, send, drafts, replies), calendar events and users; agent sends need an opt-in and an optional recipient allowlist",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MICROSOFT_CLIENT_SECRET",
+      "MICROSOFT_CLIENT_ID",
+      "MICROSOFT_REFRESH_TOKEN",
+      "MICROSOFT_TENANT_ID",
+      "MICROSOFT_GRAPH_TOOL_RECIPIENT_ALLOWLIST",
+      "MICROSOFT_GRAPH_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "microsoft-graph.get_me",
+      "title": "Signed-in user",
+      "description": "Profile of the signed-in user",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.list_users",
+      "title": "List users",
+      "description": "Users of the organization (work accounts; needs User.ReadBasic.All)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. startswith(displayName,'Ada')"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.get_user",
+      "title": "Get user",
+      "description": "One user by id or userPrincipalName",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.list_mail_folders",
+      "title": "Mail folders",
+      "description": "Top-level mail folders with item counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.list_messages",
+      "title": "List messages",
+      "description": "Messages in all folders, or in one folder (well-known names: inbox, sentitems, drafts, archive)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. isRead eq false"
+          },
+          "search": {
+            "type": "string",
+            "description": "KQL search, quoted, e.g. \"\\\"from:ada subject:invoice\\\"\" (no $orderby with $search)"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. receivedDateTime desc"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "from",
+              "toRecipients",
+              "ccRecipients",
+              "receivedDateTime",
+              "isRead",
+              "hasAttachments",
+              "bodyPreview",
+              "conversationId",
+              "webLink"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.list_folder_messages",
+      "title": "Folder messages",
+      "description": "Messages of one mail folder (id or well-known name such as inbox)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "folder_id": {
+            "type": "string",
+            "description": "Folder id or inbox, sentitems, drafts, archive, deleteditems, junkemail"
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. isRead eq false"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. receivedDateTime desc"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "from",
+              "toRecipients",
+              "ccRecipients",
+              "receivedDateTime",
+              "isRead",
+              "hasAttachments",
+              "bodyPreview",
+              "conversationId",
+              "webLink"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "folder_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.get_message",
+      "title": "Get message",
+      "description": "One message with its body",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "body_format": {
+            "type": "string",
+            "description": "Body format of the returned message",
+            "enum": [
+              "outlook.body-content-type=\"text\"",
+              "outlook.body-content-type=\"html\""
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.send_mail",
+      "title": "Send mail",
+      "description": "Send an email as the signed-in user (Graph answers 202 with no body) (as an agent tool only when MICROSOFT_GRAPH_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"]"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject"
+          },
+          "body": {
+            "type": "string",
+            "description": "Message body"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Whether body is plain text or HTML"
+          },
+          "importance": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          },
+          "save_to_sent_items": {
+            "type": "boolean",
+            "default": true,
+            "description": "Keep a copy in Sent Items"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.create_draft",
+      "title": "Create draft",
+      "description": "Save a draft in Drafts without sending it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"]"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject"
+          },
+          "body": {
+            "type": "string",
+            "description": "Message body"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Whether body is plain text or HTML"
+          },
+          "importance": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.send_draft",
+      "title": "Send draft",
+      "description": "Send an existing draft",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.reply_to_message",
+      "title": "Reply",
+      "description": "Reply to the sender (or everyone with reply_all) with a comment (as an agent tool only when MICROSOFT_GRAPH_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "reply_kind": {
+            "type": "string",
+            "description": "reply (sender only) or replyAll",
+            "enum": [
+              "reply",
+              "replyAll"
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "description": "Reply text, added above the quoted message"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id",
+          "reply_kind",
+          "comment"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.update_message",
+      "title": "Update message",
+      "description": "Mark read or unread, set categories or the follow-up flag",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "is_read": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "flag_status": {
+            "type": "string",
+            "enum": [
+              "notFlagged",
+              "flagged",
+              "complete"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.move_message",
+      "title": "Move message",
+      "description": "Move a message to another folder (the moved message gets a new id)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "destination_id": {
+            "type": "string",
+            "description": "Folder id or well-known name, e.g. archive"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id",
+          "destination_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.delete_message",
+      "title": "Delete message",
+      "description": "Move a message to Deleted Items",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.list_calendars",
+      "title": "List calendars",
+      "description": "Calendars of the signed-in user",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.list_events",
+      "title": "List events",
+      "description": "Events of the default calendar as stored (recurring events appear once; use calendar_view for occurrences)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. isRead eq false"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. start/dateTime"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "start",
+              "end",
+              "location",
+              "organizer",
+              "attendees",
+              "isOnlineMeeting",
+              "onlineMeeting",
+              "webLink",
+              "showAs"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.calendar_view",
+      "title": "Calendar view",
+      "description": "Event occurrences between two times (recurrences expanded), in UTC",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_date_time": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-01T00:00:00Z"
+          },
+          "end_date_time": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-08T00:00:00Z"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. start/dateTime"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "start",
+              "end",
+              "location",
+              "organizer",
+              "attendees",
+              "isOnlineMeeting",
+              "onlineMeeting",
+              "webLink",
+              "showAs"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "start_date_time",
+          "end_date_time"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.get_event",
+      "title": "Get event",
+      "description": "One event",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Event id"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.create_event",
+      "title": "Create event",
+      "description": "Create an event in the default calendar, without attendees (so no invitation is sent)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_date_time": {
+            "type": "string",
+            "description": "Start, local time without offset, e.g. 2026-12-01T09:00:00"
+          },
+          "start_time_zone": {
+            "type": "string",
+            "description": "Windows or IANA time zone of the time, e.g. Asia/Jakarta",
+            "default": "UTC"
+          },
+          "end_date_time": {
+            "type": "string",
+            "description": "End, local time without offset, e.g. 2026-12-01T09:00:00"
+          },
+          "end_time_zone": {
+            "type": "string",
+            "description": "Windows or IANA time zone of the time, e.g. Asia/Jakarta",
+            "default": "UTC"
+          },
+          "body": {
+            "type": "string",
+            "description": "Event description"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "is_online_meeting": {
+            "type": "boolean",
+            "description": "Add a Teams meeting link"
+          },
+          "show_as": {
+            "type": "string",
+            "enum": [
+              "free",
+              "tentative",
+              "busy",
+              "oof",
+              "workingElsewhere"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "subject",
+          "start_date_time",
+          "end_date_time"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.update_event",
+      "title": "Update event",
+      "description": "Change an event's subject, time, location or description (attendees are notified of changes) (as an agent tool only when MICROSOFT_GRAPH_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Event id"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "description": "Event description"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "is_online_meeting": {
+            "type": "boolean",
+            "description": "Add a Teams meeting link"
+          },
+          "show_as": {
+            "type": "string",
+            "enum": [
+              "free",
+              "tentative",
+              "busy",
+              "oof",
+              "workingElsewhere"
+            ]
+          },
+          "start_date_time": {
+            "type": "string"
+          },
+          "start_time_zone": {
+            "type": "string"
+          },
+          "end_date_time": {
+            "type": "string"
+          },
+          "end_time_zone": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.delete_event",
+      "title": "Delete event",
+      "description": "Delete an event (attendees get a cancellation)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Event id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "microsoft-graph.api_request",
+      "title": "Microsoft Graph request",
+      "description": "Call any Microsoft Graph endpoint that has no dedicated operation, e.g. path \"/me/mailFolders/inbox\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/mailFolders/inbox\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_me",
+      "description": "Profile of the signed-in user",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_users",
+      "description": "Users of the organization (work accounts; needs User.ReadBasic.All)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. startswith(displayName,'Ada')"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_user",
+      "description": "One user by id or userPrincipalName",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      }
+    },
+    {
+      "name": "list_mail_folders",
+      "description": "Top-level mail folders with item counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_messages",
+      "description": "Messages in all folders, or in one folder (well-known names: inbox, sentitems, drafts, archive)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. isRead eq false"
+          },
+          "search": {
+            "type": "string",
+            "description": "KQL search, quoted, e.g. \"\\\"from:ada subject:invoice\\\"\" (no $orderby with $search)"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. receivedDateTime desc"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "from",
+              "toRecipients",
+              "ccRecipients",
+              "receivedDateTime",
+              "isRead",
+              "hasAttachments",
+              "bodyPreview",
+              "conversationId",
+              "webLink"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_folder_messages",
+      "description": "Messages of one mail folder (id or well-known name such as inbox)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "folder_id": {
+            "type": "string",
+            "description": "Folder id or inbox, sentitems, drafts, archive, deleteditems, junkemail"
+          },
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. isRead eq false"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. receivedDateTime desc"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "from",
+              "toRecipients",
+              "ccRecipients",
+              "receivedDateTime",
+              "isRead",
+              "hasAttachments",
+              "bodyPreview",
+              "conversationId",
+              "webLink"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": [
+          "folder_id"
+        ]
+      }
+    },
+    {
+      "name": "get_message",
+      "description": "One message with its body",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "body_format": {
+            "type": "string",
+            "description": "Body format of the returned message",
+            "enum": [
+              "outlook.body-content-type=\"text\"",
+              "outlook.body-content-type=\"html\""
+            ]
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "send_mail",
+      "description": "Send an email as the signed-in user (Graph answers 202 with no body) (as an agent tool only when MICROSOFT_GRAPH_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"]"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject"
+          },
+          "body": {
+            "type": "string",
+            "description": "Message body"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Whether body is plain text or HTML"
+          },
+          "importance": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          },
+          "save_to_sent_items": {
+            "type": "boolean",
+            "default": true,
+            "description": "Keep a copy in Sent Items"
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ]
+      }
+    },
+    {
+      "name": "create_draft",
+      "description": "Save a draft in Drafts without sending it",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Recipient addresses, e.g. [\"ada@example.com\"]"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Cc addresses"
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Bcc addresses"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject"
+          },
+          "body": {
+            "type": "string",
+            "description": "Message body"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ],
+            "default": "text",
+            "description": "Whether body is plain text or HTML"
+          },
+          "importance": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          },
+          "reply_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Reply-To addresses"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "reply_to_message",
+      "description": "Reply to the sender (or everyone with reply_all) with a comment (as an agent tool only when MICROSOFT_GRAPH_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "reply_kind": {
+            "type": "string",
+            "description": "reply (sender only) or replyAll",
+            "enum": [
+              "reply",
+              "replyAll"
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "description": "Reply text, added above the quoted message"
+          }
+        },
+        "required": [
+          "message_id",
+          "reply_kind",
+          "comment"
+        ]
+      }
+    },
+    {
+      "name": "update_message",
+      "description": "Mark read or unread, set categories or the follow-up flag",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "is_read": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "flag_status": {
+            "type": "string",
+            "enum": [
+              "notFlagged",
+              "flagged",
+              "complete"
+            ]
+          }
+        },
+        "required": [
+          "message_id"
+        ]
+      }
+    },
+    {
+      "name": "move_message",
+      "description": "Move a message to another folder (the moved message gets a new id)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "description": "Message id"
+          },
+          "destination_id": {
+            "type": "string",
+            "description": "Folder id or well-known name, e.g. archive"
+          }
+        },
+        "required": [
+          "message_id",
+          "destination_id"
+        ]
+      }
+    },
+    {
+      "name": "list_calendars",
+      "description": "Calendars of the signed-in user",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_events",
+      "description": "Events of the default calendar as stored (recurring events appear once; use calendar_view for occurrences)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "OData filter, e.g. isRead eq false"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. start/dateTime"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "start",
+              "end",
+              "location",
+              "organizer",
+              "attendees",
+              "isOnlineMeeting",
+              "onlineMeeting",
+              "webLink",
+              "showAs"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "calendar_view",
+      "description": "Event occurrences between two times (recurrences expanded), in UTC",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_date_time": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-01T00:00:00Z"
+          },
+          "end_date_time": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-12-08T00:00:00Z"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "OData order, e.g. start/dateTime"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "id",
+              "subject",
+              "start",
+              "end",
+              "location",
+              "organizer",
+              "attendees",
+              "isOnlineMeeting",
+              "onlineMeeting",
+              "webLink",
+              "showAs"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `$top`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25
+          }
+        },
+        "required": [
+          "start_date_time",
+          "end_date_time"
+        ]
+      }
+    },
+    {
+      "name": "get_event",
+      "description": "One event",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Event id"
+          },
+          "select": {
+            "type": "array",
+            "description": "Properties to return",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    {
+      "name": "create_event",
+      "description": "Create an event in the default calendar, without attendees (so no invitation is sent)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_date_time": {
+            "type": "string",
+            "description": "Start, local time without offset, e.g. 2026-12-01T09:00:00"
+          },
+          "start_time_zone": {
+            "type": "string",
+            "description": "Windows or IANA time zone of the time, e.g. Asia/Jakarta",
+            "default": "UTC"
+          },
+          "end_date_time": {
+            "type": "string",
+            "description": "End, local time without offset, e.g. 2026-12-01T09:00:00"
+          },
+          "end_time_zone": {
+            "type": "string",
+            "description": "Windows or IANA time zone of the time, e.g. Asia/Jakarta",
+            "default": "UTC"
+          },
+          "body": {
+            "type": "string",
+            "description": "Event description"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "is_online_meeting": {
+            "type": "boolean",
+            "description": "Add a Teams meeting link"
+          },
+          "show_as": {
+            "type": "string",
+            "enum": [
+              "free",
+              "tentative",
+              "busy",
+              "oof",
+              "workingElsewhere"
+            ]
+          }
+        },
+        "required": [
+          "subject",
+          "start_date_time",
+          "end_date_time"
+        ]
+      }
+    },
+    {
+      "name": "update_event",
+      "description": "Change an event's subject, time, location or description (attendees are notified of changes) (as an agent tool only when MICROSOFT_GRAPH_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Event id"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "description": "Event description"
+          },
+          "body_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "html"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "is_online_meeting": {
+            "type": "boolean",
+            "description": "Add a Teams meeting link"
+          },
+          "show_as": {
+            "type": "string",
+            "enum": [
+              "free",
+              "tentative",
+              "busy",
+              "oof",
+              "workingElsewhere"
+            ]
+          },
+          "start_date_time": {
+            "type": "string"
+          },
+          "start_time_zone": {
+            "type": "string"
+          },
+          "end_date_time": {
+            "type": "string"
+          },
+          "end_time_zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Microsoft Graph endpoint that has no dedicated operation, e.g. path \"/me/mailFolders/inbox\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/me/mailFolders/inbox\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

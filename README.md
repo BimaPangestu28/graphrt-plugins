@@ -32,6 +32,13 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [sqlite](sqlite/) | SQLite files in allowed directories (built-in node:sqlite, Node.js 22.13+): parameterised queries on read-only connections, a killable worker per call for timeouts, writes and DDL (nodes, or agents with an opt-in), tables, columns and plans | 5 |
 | [mongodb](mongodb/) | MongoDB: find, count, distinct and aggregate with Extended JSON, list databases and collections, insert/update/replace/delete; agent tools read-only unless opted in, never server-side JavaScript | 14 |
 | [redis](redis/) | Redis: binary-safe strings, hashes, lists, sets, sorted sets, streams, SCAN and publish with an optional key prefix; agent tools read-only unless opted in, a node-only `command` escape hatch with a denylist | 31 |
+| [slack](slack/) | Slack Web API: conversations, history and threads, post/edit messages, reactions, users, file uploads and message search; agent posts need an opt-in, deletes are node only | 18 |
+| [discord](discord/) | Discord bot (REST API v10): servers, channels, messages, reactions, members and threads; agent sends need an opt-in, deletes are node only, no pings by default | 21 |
+| [microsoft-teams](microsoft-teams/) | Microsoft Teams via Microsoft Graph (delegated OAuth, any tenant): teams, channels, channel messages and replies, chats and members; agent sends need an opt-in | 17 |
+| [microsoft-graph](microsoft-graph/) | Microsoft Graph (delegated OAuth, any tenant): Outlook mail list/read/send/drafts/replies, calendar events and users; agent sends need an opt-in and an optional recipient allowlist, deletes are node only | 22 |
+| [gmail-api](gmail-api/) | Gmail API: search and read messages and threads, labels, drafts, attachments, and send with safely built MIME (OAuth or service account); agent sends need an opt-in and an optional recipient allowlist | 18 |
+| [google-docs](google-docs/) | Google Docs: read documents (with tabs), create, insert text, replace text for templates, raw batch updates behind an opt-in (OAuth or service account) | 6 |
+| [google-drive](google-drive/) | Google Drive: search (escaped queries) and list files, export and download to a directory, upload, folders, copy, rename/move, shared drives; sharing, trash and delete are node only (OAuth or service account) | 17 |
 | [telegram-bot](telegram-bot/) | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
 

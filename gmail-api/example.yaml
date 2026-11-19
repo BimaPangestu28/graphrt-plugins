@@ -1,0 +1,16 @@
+# Show the mailbox and the five newest unread messages in the inbox. Read-only.
+#   GOOGLE_REFRESH_TOKEN=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... graphrt run gmail-api/example.yaml --plugins .
+version: "1"
+name: gmail-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: profile, type: gmail-api.get_profile }
+    - { id: unread, type: gmail-api.list_messages, q: "is:unread in:inbox", limit: 5 }
+    - { id: first, type: gmail-api.get_message, message_id: "{{#unread.data.0.id#}}", format: metadata, metadata_headers: [From, Subject, Date] }
+    - { id: answer, type: answer, answer: "{{#profile.data.emailAddress#}}: newest unread {{#first.data.payload.headers#}}" }
+  edges:
+    - { source: start, target: profile }
+    - { source: profile, target: unread }
+    - { source: unread, target: first }
+    - { source: first, target: answer }

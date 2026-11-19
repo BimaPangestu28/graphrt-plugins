@@ -1,0 +1,13 @@
+# Read a document's title and revision. Read-only. The id is the sample document from Google's Docs API
+# quickstart; replace it with one of yours (from /document/d/<id>/edit).
+#   GOOGLE_REFRESH_TOKEN=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... graphrt run google-docs/example.yaml --plugins .
+version: "1"
+name: google-docs-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: doc, type: google-docs.get_document, document_id: 195j9eDD3ccgjQRttHhJPymLJUCOUjs-jmwTrekvdjFE }
+    - { id: answer, type: answer, answer: "{{#doc.data.title#}} (revision {{#doc.data.revisionId#}})" }
+  edges:
+    - { source: start, target: doc }
+    - { source: doc, target: answer }

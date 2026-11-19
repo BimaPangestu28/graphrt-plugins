@@ -1,0 +1,21 @@
+# Show the five newest unread messages and this week's events. Read-only.
+#   MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=... MICROSOFT_REFRESH_TOKEN=... MICROSOFT_TENANT_ID=... \
+#     graphrt run microsoft-graph/example.yaml --plugins .
+version: "1"
+name: microsoft-graph-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: unread
+      type: microsoft-graph.list_folder_messages
+      folder_id: inbox
+      filter: isRead eq false
+      order_by: receivedDateTime desc
+      select: [subject, from, receivedDateTime]
+      limit: 5
+    - { id: week, type: microsoft-graph.calendar_view, start_date_time: "2026-11-16T00:00:00Z", end_date_time: "2026-11-23T00:00:00Z", select: [subject, start, end] }
+    - { id: answer, type: answer, answer: "Unread: {{#unread.data#}} | Events: {{#week.data#}}" }
+  edges:
+    - { source: start, target: unread }
+    - { source: unread, target: week }
+    - { source: week, target: answer }

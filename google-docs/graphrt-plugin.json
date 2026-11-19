@@ -1,0 +1,517 @@
+{
+  "name": "google-docs",
+  "version": "0.1.0",
+  "description": "Google Docs: read documents (with tabs), create, insert text, replace text for templates, raw batch updates (OAuth or service account)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "GOOGLE_DOCS_TOOL_ALLOW_BATCH_UPDATE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-docs.get_document",
+      "title": "Get document",
+      "description": "A document's structure and text (body.content, or tabs[] with include_tabs_content)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "include_tabs_content": {
+            "type": "boolean",
+            "description": "Return every tab in tabs[] instead of only the first tab in body"
+          },
+          "suggestions_view_mode": {
+            "type": "string",
+            "enum": [
+              "DEFAULT_FOR_CURRENT_ACCESS",
+              "SUGGESTIONS_INLINE",
+              "PREVIEW_SUGGESTIONS_ACCEPTED",
+              "PREVIEW_WITHOUT_SUGGESTIONS"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "document_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-docs.create_document",
+      "title": "Create document",
+      "description": "Create an empty document with a title (in the root of the caller's Drive)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-docs.insert_text",
+      "title": "Insert text",
+      "description": "Insert text at an index, or append it at the end of the body",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text to insert; \\n starts a new paragraph"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "UTF-16 index to insert at (1 is the start of the body); default: the end of the body"
+          },
+          "tab_id": {
+            "type": "string",
+            "description": "Tab id (default: the first tab)"
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the document changed since this revisionId"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "document_id",
+          "text"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-docs.replace_all_text",
+      "title": "Replace text",
+      "description": "Replace every occurrence of a text, e.g. template placeholders like {{name}}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "find": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text to find, e.g. {{customer_name}}"
+          },
+          "replace_with": {
+            "type": "string",
+            "description": "Replacement text (required unless delete_matches is true)"
+          },
+          "delete_matches": {
+            "type": "boolean",
+            "description": "true deletes every match instead of replacing it (agent tools need GOOGLE_DOCS_TOOL_ALLOW_BATCH_UPDATE=1)"
+          },
+          "match_case": {
+            "type": "boolean",
+            "default": false
+          },
+          "tab_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only these tabs (default: all tabs)"
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the document changed since this revisionId"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "document_id",
+          "find"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-docs.batch_update",
+      "title": "Batch update",
+      "description": "Apply raw batchUpdate requests (formatting, tables, images, deletions, ...) (as an agent tool only when GOOGLE_DOCS_TOOL_ALLOW_BATCH_UPDATE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "requests": {
+            "type": "array",
+            "description": "batchUpdate requests, applied in order",
+            "maxItems": 500,
+            "items": {
+              "type": "object"
+            }
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the document changed since this revisionId"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "document_id",
+          "requests"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-docs.api_request",
+      "title": "Google Docs API request",
+      "description": "Call any Google Docs API endpoint that has no dedicated operation, e.g. path \"/documents/<id>\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/documents/<id>\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_document",
+      "description": "A document's structure and text (body.content, or tabs[] with include_tabs_content)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "include_tabs_content": {
+            "type": "boolean",
+            "description": "Return every tab in tabs[] instead of only the first tab in body"
+          },
+          "suggestions_view_mode": {
+            "type": "string",
+            "enum": [
+              "DEFAULT_FOR_CURRENT_ACCESS",
+              "SUGGESTIONS_INLINE",
+              "PREVIEW_SUGGESTIONS_ACCEPTED",
+              "PREVIEW_WITHOUT_SUGGESTIONS"
+            ]
+          }
+        },
+        "required": [
+          "document_id"
+        ]
+      }
+    },
+    {
+      "name": "create_document",
+      "description": "Create an empty document with a title (in the root of the caller's Drive)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "insert_text",
+      "description": "Insert text at an index, or append it at the end of the body",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text to insert; \\n starts a new paragraph"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "UTF-16 index to insert at (1 is the start of the body); default: the end of the body"
+          },
+          "tab_id": {
+            "type": "string",
+            "description": "Tab id (default: the first tab)"
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the document changed since this revisionId"
+          }
+        },
+        "required": [
+          "document_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "replace_all_text",
+      "description": "Replace every occurrence of a text, e.g. template placeholders like {{name}}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "find": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Text to find, e.g. {{customer_name}}"
+          },
+          "replace_with": {
+            "type": "string",
+            "description": "Replacement text (required unless delete_matches is true)"
+          },
+          "delete_matches": {
+            "type": "boolean",
+            "description": "true deletes every match instead of replacing it (agent tools need GOOGLE_DOCS_TOOL_ALLOW_BATCH_UPDATE=1)"
+          },
+          "match_case": {
+            "type": "boolean",
+            "default": false
+          },
+          "tab_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only these tabs (default: all tabs)"
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the document changed since this revisionId"
+          }
+        },
+        "required": [
+          "document_id",
+          "find"
+        ]
+      }
+    },
+    {
+      "name": "batch_update",
+      "description": "Apply raw batchUpdate requests (formatting, tables, images, deletions, ...) (as an agent tool only when GOOGLE_DOCS_TOOL_ALLOW_BATCH_UPDATE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document id (from its URL: /document/d/<id>/edit)"
+          },
+          "requests": {
+            "type": "array",
+            "description": "batchUpdate requests, applied in order",
+            "maxItems": 500,
+            "items": {
+              "type": "object"
+            }
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the document changed since this revisionId"
+          }
+        },
+        "required": [
+          "document_id",
+          "requests"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Docs API endpoint that has no dedicated operation, e.g. path \"/documents/<id>\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/documents/<id>\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

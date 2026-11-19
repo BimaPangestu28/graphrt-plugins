@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-slack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Slack Web API (conversations, messages, reactions, users, files, search)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

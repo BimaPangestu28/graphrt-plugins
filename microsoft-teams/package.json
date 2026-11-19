@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-microsoft-teams",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Microsoft Teams via Microsoft Graph (teams, channels, channel messages, chats)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

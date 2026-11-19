@@ -1,0 +1,1396 @@
+{
+  "name": "slack",
+  "version": "0.1.0",
+  "description": "Slack Web API: conversations, history and threads, post/edit messages (opt-in for agents), reactions, users, file uploads and message search",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SLACK_BOT_TOKEN",
+      "SLACK_USER_TOKEN",
+      "SLACK_UPLOAD_DIR",
+      "SLACK_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 180000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "slack.auth_test",
+      "title": "Check token",
+      "description": "Who the token belongs to: team, user and bot ids",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.list_conversations",
+      "title": "List conversations",
+      "description": "List channels the token can see (public by default; private, mpim and im with the matching scopes)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "description": "Conversation types (default public_channel)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "public_channel",
+                "private_channel",
+                "mpim",
+                "im"
+              ]
+            }
+          },
+          "exclude_archived": {
+            "type": "boolean",
+            "description": "Skip archived channels",
+            "default": true
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (Enterprise Grid org tokens only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.get_conversation_info",
+      "title": "Get conversation",
+      "description": "Details of one conversation: name, topic, purpose, membership",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "include_num_members": {
+            "type": "boolean",
+            "description": "Add num_members"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.get_conversation_history",
+      "title": "Channel history",
+      "description": "Messages of a conversation, newest first (thread replies are fetched with get_thread_replies)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "oldest": {
+            "type": "string",
+            "description": "Only messages after this ts (Unix seconds, e.g. 1731990000.000000)"
+          },
+          "latest": {
+            "type": "string",
+            "description": "Only messages before this ts"
+          },
+          "inclusive": {
+            "type": "boolean",
+            "description": "Include messages exactly at oldest/latest"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.get_thread_replies",
+      "title": "Thread replies",
+      "description": "A thread: the parent message followed by its replies",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "ts": {
+            "type": "string",
+            "description": "ts of the thread's parent message"
+          },
+          "oldest": {
+            "type": "string",
+            "description": "Only messages after this ts (Unix seconds, e.g. 1731990000.000000)"
+          },
+          "latest": {
+            "type": "string",
+            "description": "Only messages before this ts"
+          },
+          "inclusive": {
+            "type": "boolean",
+            "description": "Include messages exactly at oldest/latest"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "ts"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.get_permalink",
+      "title": "Message link",
+      "description": "Permanent URL of a message",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "message_ts": {
+            "type": "string",
+            "description": "Message ts"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "message_ts"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.get_reactions",
+      "title": "Get reactions",
+      "description": "Reactions on a message",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Message ts"
+          },
+          "full": {
+            "type": "boolean",
+            "description": "Return every reacting user"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "timestamp"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.list_users",
+      "title": "List users",
+      "description": "Members of the workspace (needs users:read; emails need users:read.email)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "include_locale": {
+            "type": "boolean"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (Enterprise Grid org tokens only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.get_user_info",
+      "title": "Get user",
+      "description": "Profile of one user",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User id, e.g. U0123456789"
+          },
+          "include_locale": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "user"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.lookup_user_by_email",
+      "title": "Find user by email",
+      "description": "Find a user by email address (needs users:read.email)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.post_message",
+      "title": "Post message",
+      "description": "Post a message to a channel, DM or thread (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Channel, DM or user id"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (mrkdwn); required unless blocks are given, and used as the notification fallback"
+          },
+          "blocks": {
+            "type": "array",
+            "description": "Block Kit blocks",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "thread_ts": {
+            "type": "string",
+            "description": "Parent message ts, to reply in its thread"
+          },
+          "reply_broadcast": {
+            "type": "boolean",
+            "description": "Also show a thread reply in the channel"
+          },
+          "unfurl_links": {
+            "type": "boolean"
+          },
+          "unfurl_media": {
+            "type": "boolean"
+          },
+          "mrkdwn": {
+            "type": "boolean",
+            "description": "Format text as mrkdwn (default true)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.update_message",
+      "title": "Edit message",
+      "description": "Replace the text or blocks of a message the token posted (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "ts": {
+            "type": "string",
+            "description": "ts of the message to edit"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (mrkdwn); required unless blocks are given, and used as the notification fallback"
+          },
+          "blocks": {
+            "type": "array",
+            "description": "Block Kit blocks",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "ts"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.delete_message",
+      "title": "Delete message",
+      "description": "Delete a message permanently",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "ts": {
+            "type": "string",
+            "description": "ts of the message"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "ts"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.add_reaction",
+      "title": "Add reaction",
+      "description": "Add an emoji reaction to a message (a repeat answers already_reacted)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Message ts"
+          },
+          "name": {
+            "type": "string",
+            "description": "Emoji name without colons, e.g. thumbsup"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "timestamp",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.remove_reaction",
+      "title": "Remove reaction",
+      "description": "Remove the token's emoji reaction from a message",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Message ts"
+          },
+          "name": {
+            "type": "string",
+            "description": "Emoji name without colons"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "channel",
+          "timestamp",
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.upload_file",
+      "title": "Upload file",
+      "description": "Upload a file (https URL, or an absolute path inside $SLACK_UPLOAD_DIR) and optionally share it in a channel or thread (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "An https URL, or an absolute path inside $SLACK_UPLOAD_DIR"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name shown in Slack (default: the source file's name)"
+          },
+          "title": {
+            "type": "string",
+            "description": "File title"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel to share the file in; without it the file stays private to the uploader"
+          },
+          "initial_comment": {
+            "type": "string",
+            "description": "Message posted with the file"
+          },
+          "thread_ts": {
+            "type": "string",
+            "description": "Parent message ts, to upload as a thread reply (needs channel_id)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.search_messages",
+      "title": "Search messages",
+      "description": "Search messages the user can see with Slack search syntax (in:#channel from:@user before:2026-01-01); needs a user token in SLACK_USER_TOKEN",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Search query, e.g. \"deploy in:#ops after:2026-11-01\""
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "score",
+              "timestamp"
+            ],
+            "description": "Default score"
+          },
+          "sort_dir": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "description": "Default desc"
+          },
+          "highlight": {
+            "type": "boolean",
+            "description": "Mark matches in the text"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Matches per page (sent as `count`)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "slack.api_request",
+      "title": "Slack Web API request",
+      "description": "Call any Slack Web API endpoint that has no dedicated operation, e.g. path \"/team.info\". Only the API's own host is allowed. Agent tools may only call read methods (*.list, *.info, *.history, *.replies, *.get*, *.lookup*).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/team.info\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "auth_test",
+      "description": "Who the token belongs to: team, user and bot ids",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_conversations",
+      "description": "List channels the token can see (public by default; private, mpim and im with the matching scopes)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "description": "Conversation types (default public_channel)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "public_channel",
+                "private_channel",
+                "mpim",
+                "im"
+              ]
+            }
+          },
+          "exclude_archived": {
+            "type": "boolean",
+            "description": "Skip archived channels",
+            "default": true
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (Enterprise Grid org tokens only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_conversation_info",
+      "description": "Details of one conversation: name, topic, purpose, membership",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "include_num_members": {
+            "type": "boolean",
+            "description": "Add num_members"
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      }
+    },
+    {
+      "name": "get_conversation_history",
+      "description": "Messages of a conversation, newest first (thread replies are fetched with get_thread_replies)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "oldest": {
+            "type": "string",
+            "description": "Only messages after this ts (Unix seconds, e.g. 1731990000.000000)"
+          },
+          "latest": {
+            "type": "string",
+            "description": "Only messages before this ts"
+          },
+          "inclusive": {
+            "type": "boolean",
+            "description": "Include messages exactly at oldest/latest"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 100
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      }
+    },
+    {
+      "name": "get_thread_replies",
+      "description": "A thread: the parent message followed by its replies",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "ts": {
+            "type": "string",
+            "description": "ts of the thread's parent message"
+          },
+          "oldest": {
+            "type": "string",
+            "description": "Only messages after this ts (Unix seconds, e.g. 1731990000.000000)"
+          },
+          "latest": {
+            "type": "string",
+            "description": "Only messages before this ts"
+          },
+          "inclusive": {
+            "type": "boolean",
+            "description": "Include messages exactly at oldest/latest"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 100
+          }
+        },
+        "required": [
+          "channel",
+          "ts"
+        ]
+      }
+    },
+    {
+      "name": "get_permalink",
+      "description": "Permanent URL of a message",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "message_ts": {
+            "type": "string",
+            "description": "Message ts"
+          }
+        },
+        "required": [
+          "channel",
+          "message_ts"
+        ]
+      }
+    },
+    {
+      "name": "get_reactions",
+      "description": "Reactions on a message",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Conversation id, e.g. C0123456789"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Message ts"
+          },
+          "full": {
+            "type": "boolean",
+            "description": "Return every reacting user"
+          }
+        },
+        "required": [
+          "channel",
+          "timestamp"
+        ]
+      }
+    },
+    {
+      "name": "list_users",
+      "description": "Members of the workspace (needs users:read; emails need users:read.email)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "include_locale": {
+            "type": "boolean"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "Workspace id (Enterprise Grid org tokens only)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_user_info",
+      "description": "Profile of one user",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "User id, e.g. U0123456789"
+          },
+          "include_locale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "user"
+        ]
+      }
+    },
+    {
+      "name": "lookup_user_by_email",
+      "description": "Find a user by email address (needs users:read.email)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "required": [
+          "email"
+        ]
+      }
+    },
+    {
+      "name": "post_message",
+      "description": "Post a message to a channel, DM or thread (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Channel, DM or user id"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (mrkdwn); required unless blocks are given, and used as the notification fallback"
+          },
+          "blocks": {
+            "type": "array",
+            "description": "Block Kit blocks",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "thread_ts": {
+            "type": "string",
+            "description": "Parent message ts, to reply in its thread"
+          },
+          "reply_broadcast": {
+            "type": "boolean",
+            "description": "Also show a thread reply in the channel"
+          },
+          "unfurl_links": {
+            "type": "boolean"
+          },
+          "unfurl_media": {
+            "type": "boolean"
+          },
+          "mrkdwn": {
+            "type": "boolean",
+            "description": "Format text as mrkdwn (default true)"
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      }
+    },
+    {
+      "name": "update_message",
+      "description": "Replace the text or blocks of a message the token posted (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "ts": {
+            "type": "string",
+            "description": "ts of the message to edit"
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text (mrkdwn); required unless blocks are given, and used as the notification fallback"
+          },
+          "blocks": {
+            "type": "array",
+            "description": "Block Kit blocks",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "channel",
+          "ts"
+        ]
+      }
+    },
+    {
+      "name": "add_reaction",
+      "description": "Add an emoji reaction to a message (a repeat answers already_reacted)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Message ts"
+          },
+          "name": {
+            "type": "string",
+            "description": "Emoji name without colons, e.g. thumbsup"
+          }
+        },
+        "required": [
+          "channel",
+          "timestamp",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "remove_reaction",
+      "description": "Remove the token's emoji reaction from a message",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Message ts"
+          },
+          "name": {
+            "type": "string",
+            "description": "Emoji name without colons"
+          }
+        },
+        "required": [
+          "channel",
+          "timestamp",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "upload_file",
+      "description": "Upload a file (https URL, or an absolute path inside $SLACK_UPLOAD_DIR) and optionally share it in a channel or thread (as an agent tool only when SLACK_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "An https URL, or an absolute path inside $SLACK_UPLOAD_DIR"
+          },
+          "filename": {
+            "type": "string",
+            "description": "File name shown in Slack (default: the source file's name)"
+          },
+          "title": {
+            "type": "string",
+            "description": "File title"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "Channel to share the file in; without it the file stays private to the uploader"
+          },
+          "initial_comment": {
+            "type": "string",
+            "description": "Message posted with the file"
+          },
+          "thread_ts": {
+            "type": "string",
+            "description": "Parent message ts, to upload as a thread reply (needs channel_id)"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    },
+    {
+      "name": "search_messages",
+      "description": "Search messages the user can see with Slack search syntax (in:#channel from:@user before:2026-01-01); needs a user token in SLACK_USER_TOKEN",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Search query, e.g. \"deploy in:#ops after:2026-11-01\""
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "score",
+              "timestamp"
+            ],
+            "description": "Default score"
+          },
+          "sort_dir": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "description": "Default desc"
+          },
+          "highlight": {
+            "type": "boolean",
+            "description": "Mark matches in the text"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Matches per page (sent as `count`)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Slack Web API endpoint that has no dedicated operation, e.g. path \"/team.info\". Only the API's own host is allowed. Agent tools may only call read methods (*.list, *.info, *.history, *.replies, *.get*, *.lookup*).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/team.info\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

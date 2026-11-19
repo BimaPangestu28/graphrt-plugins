@@ -1,0 +1,14 @@
+# Show the bot user and the servers it is in. Read-only.
+#   DISCORD_BOT_TOKEN=... graphrt run discord/example.yaml --plugins .
+version: "1"
+name: discord-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: me, type: discord.get_current_user }
+    - { id: guilds, type: discord.list_my_guilds, limit: 10 }
+    - { id: answer, type: answer, answer: "{{#me.data.username#}} is in: {{#guilds.data#}}" }
+  edges:
+    - { source: start, target: me }
+    - { source: me, target: guilds }
+    - { source: guilds, target: answer }
