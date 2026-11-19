@@ -1,0 +1,13 @@
+# Search Shipper areas named Kebayoran. Read-only.
+#   SHIPPER_API_KEY=... graphrt run shipper/example.yaml --plugins .
+#   (sandbox keys: add SHIPPER_ENVIRONMENT=sandbox)
+version: "1"
+name: shipper-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: areas, type: shipper.search_locations, keyword: Kebayoran, adm_level: 5, limit: 3 }
+    - { id: answer, type: answer, answer: "{{#areas.data.0.display_txt#}} | {{#areas.data.1.display_txt#}}" }
+  edges:
+    - { source: start, target: areas }
+    - { source: areas, target: answer }

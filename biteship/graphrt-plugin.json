@@ -1,0 +1,852 @@
+{
+  "name": "biteship",
+  "version": "0.1.0",
+  "description": "Biteship Indonesian shipping: courier rates, couriers, area search, orders (node only), cancellation (node only) and tracking",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "BITESHIP_API_KEY"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "biteship.get_rates",
+      "title": "Courier rates",
+      "description": "Shipping prices and ETAs from couriers between two places (area id, postal code or coordinates) for the items",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "origin_area_id": {
+            "type": "string",
+            "description": "origin area id from search_areas"
+          },
+          "origin_postal_code": {
+            "type": "integer",
+            "description": "origin postal code, e.g. 12440"
+          },
+          "origin_latitude": {
+            "type": "number",
+            "description": "origin latitude (needed for instant couriers such as gojek, grab)"
+          },
+          "origin_longitude": {
+            "type": "number",
+            "description": "origin longitude"
+          },
+          "destination_area_id": {
+            "type": "string",
+            "description": "destination area id from search_areas"
+          },
+          "destination_postal_code": {
+            "type": "integer",
+            "description": "destination postal code, e.g. 12440"
+          },
+          "destination_latitude": {
+            "type": "number",
+            "description": "destination latitude (needed for instant couriers such as gojek, grab)"
+          },
+          "destination_longitude": {
+            "type": "number",
+            "description": "destination longitude"
+          },
+          "couriers": {
+            "type": "string",
+            "description": "Comma-separated courier codes, e.g. \"jne,sicepat,jnt,anteraja,gojek\" (see list_couriers)"
+          },
+          "items": {
+            "type": "array",
+            "description": "Items: [{\"name\": \"Shirt\", \"value\": 150000, \"quantity\": 1, \"weight\": 300, \"length\": 30, \"width\": 20, \"height\": 2}] (value in IDR, weight in grams, sizes in cm)",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "courier_insurance": {
+            "type": "number",
+            "description": "Insured value in IDR"
+          },
+          "destination_cash_on_delivery": {
+            "type": "number",
+            "description": "COD amount in IDR (up to 15,000,000)"
+          },
+          "destination_cash_on_delivery_type": {
+            "type": "string",
+            "description": "COD settlement period",
+            "enum": [
+              "3_days",
+              "5_days",
+              "7_days"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "couriers",
+          "items"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.list_couriers",
+      "title": "List couriers",
+      "description": "Couriers and services available to the account: courier_code, courier_service_code, tier, duration, COD/insurance support",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.search_areas",
+      "title": "Search areas",
+      "description": "Find area ids for rates and orders by name or postal code: id, name, province/city/district, postal_code",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Place name or postal code, e.g. 'Kebayoran Baru' or 12120",
+            "minLength": 3
+          },
+          "countries": {
+            "type": "string",
+            "description": "Country code (ID)",
+            "default": "ID"
+          },
+          "search_type": {
+            "type": "string",
+            "description": "single: one search (default)",
+            "enum": [
+              "single",
+              "double"
+            ],
+            "default": "single"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.create_order",
+      "title": "Create order (book a courier)",
+      "description": "Book a courier pickup or drop-off for a shipment; the fee is charged to the Biteship balance. Returns id, status, courier.waybill_id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "shipper_contact_name": {
+            "type": "string",
+            "description": "Sender name on the label (default: account)"
+          },
+          "shipper_contact_phone": {
+            "type": "string",
+            "description": "Sender phone on the label"
+          },
+          "shipper_contact_email": {
+            "type": "string",
+            "description": "Sender email"
+          },
+          "shipper_organization": {
+            "type": "string",
+            "description": "Sender organization"
+          },
+          "origin_contact_name": {
+            "type": "string",
+            "description": "origin contact name"
+          },
+          "origin_contact_phone": {
+            "type": "string",
+            "description": "origin contact phone, e.g. 08123456789"
+          },
+          "origin_contact_email": {
+            "type": "string",
+            "description": "origin contact email"
+          },
+          "origin_address": {
+            "type": "string",
+            "description": "origin full address"
+          },
+          "origin_note": {
+            "type": "string",
+            "description": "origin address note, e.g. landmark"
+          },
+          "origin_postal_code": {
+            "type": "integer",
+            "description": "origin postal code"
+          },
+          "origin_area_id": {
+            "type": "string",
+            "description": "origin area id from search_areas"
+          },
+          "origin_coordinate": {
+            "type": "object",
+            "description": "origin {\"latitude\": ..., \"longitude\": ...} (required for instant couriers)"
+          },
+          "origin_collection_method": {
+            "type": "string",
+            "description": "pickup or drop_off",
+            "enum": [
+              "pickup",
+              "drop_off"
+            ]
+          },
+          "destination_contact_name": {
+            "type": "string",
+            "description": "destination contact name"
+          },
+          "destination_contact_phone": {
+            "type": "string",
+            "description": "destination contact phone, e.g. 08123456789"
+          },
+          "destination_contact_email": {
+            "type": "string",
+            "description": "destination contact email"
+          },
+          "destination_address": {
+            "type": "string",
+            "description": "destination full address"
+          },
+          "destination_note": {
+            "type": "string",
+            "description": "destination address note, e.g. landmark"
+          },
+          "destination_postal_code": {
+            "type": "integer",
+            "description": "destination postal code"
+          },
+          "destination_area_id": {
+            "type": "string",
+            "description": "destination area id from search_areas"
+          },
+          "destination_coordinate": {
+            "type": "object",
+            "description": "destination {\"latitude\": ..., \"longitude\": ...} (required for instant couriers)"
+          },
+          "destination_cash_on_delivery": {
+            "type": "number",
+            "description": "COD amount in IDR"
+          },
+          "destination_cash_on_delivery_type": {
+            "type": "string",
+            "description": "COD settlement period",
+            "enum": [
+              "3_days",
+              "5_days",
+              "7_days"
+            ]
+          },
+          "courier_company": {
+            "type": "string",
+            "description": "Courier code, e.g. jne (from get_rates)"
+          },
+          "courier_type": {
+            "type": "string",
+            "description": "Service code, e.g. reg (from get_rates courier_service_code)"
+          },
+          "courier_insurance": {
+            "type": "number",
+            "description": "Insured value in IDR"
+          },
+          "delivery_type": {
+            "type": "string",
+            "description": "now or scheduled",
+            "enum": [
+              "now",
+              "scheduled"
+            ]
+          },
+          "delivery_date": {
+            "type": "string",
+            "description": "Scheduled date, YYYY-MM-DD"
+          },
+          "delivery_time": {
+            "type": "string",
+            "description": "Scheduled time, HH:mm"
+          },
+          "order_note": {
+            "type": "string",
+            "description": "Note for the courier"
+          },
+          "reference_id": {
+            "type": "string",
+            "description": "Your unique order reference; a duplicate is refused, which makes retries safe"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Your own key-value data"
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": "array",
+            "description": "Items: [{\"name\": \"Shirt\", \"value\": 150000, \"quantity\": 1, \"weight\": 300, \"length\": 30, \"width\": 20, \"height\": 2}] (value in IDR, weight in grams, sizes in cm)",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "origin_contact_name",
+          "origin_contact_phone",
+          "origin_address",
+          "destination_contact_name",
+          "destination_contact_phone",
+          "destination_address",
+          "courier_company",
+          "courier_type",
+          "delivery_type",
+          "items"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.get_order",
+      "title": "Get order",
+      "description": "One order: status, courier (waybill_id, tracking_id, history), origin, destination, items and price",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Biteship order id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.cancel_order",
+      "title": "Cancel order",
+      "description": "Cancel a booked order (only before pickup); see list_cancellation_reasons",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Biteship order id"
+          },
+          "cancellation_reason_code": {
+            "type": "string",
+            "description": "Reason code, e.g. change_courier, others (see list_cancellation_reasons)"
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "description": "Free-text reason"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id",
+          "cancellation_reason_code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.list_cancellation_reasons",
+      "title": "Cancellation reasons",
+      "description": "Codes accepted by cancel_order with descriptions",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "lang": {
+            "type": "string",
+            "description": "Language of the descriptions",
+            "enum": [
+              "id",
+              "en"
+            ],
+            "default": "en"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.get_tracking",
+      "title": "Track an order",
+      "description": "Tracking of an order made through Biteship: status, waybill_id, link, courier driver, history [{note, status, updated_at}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "tracking_id": {
+            "type": "string",
+            "description": "courier.tracking_id of the order"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "tracking_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.track_waybill",
+      "title": "Track a waybill",
+      "description": "Public tracking of any waybill (also shipments not booked through Biteship): status and history",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "waybill_id": {
+            "type": "string",
+            "description": "Waybill (resi) number"
+          },
+          "courier_code": {
+            "type": "string",
+            "description": "Courier code, e.g. jne, sicepat, jnt"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "waybill_id",
+          "courier_code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "biteship.api_request",
+      "title": "Biteship API request",
+      "description": "Call any Biteship API endpoint that has no dedicated operation, e.g. path \"/v1/couriers\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/couriers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_rates",
+      "description": "Shipping prices and ETAs from couriers between two places (area id, postal code or coordinates) for the items",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin_area_id": {
+            "type": "string",
+            "description": "origin area id from search_areas"
+          },
+          "origin_postal_code": {
+            "type": "integer",
+            "description": "origin postal code, e.g. 12440"
+          },
+          "origin_latitude": {
+            "type": "number",
+            "description": "origin latitude (needed for instant couriers such as gojek, grab)"
+          },
+          "origin_longitude": {
+            "type": "number",
+            "description": "origin longitude"
+          },
+          "destination_area_id": {
+            "type": "string",
+            "description": "destination area id from search_areas"
+          },
+          "destination_postal_code": {
+            "type": "integer",
+            "description": "destination postal code, e.g. 12440"
+          },
+          "destination_latitude": {
+            "type": "number",
+            "description": "destination latitude (needed for instant couriers such as gojek, grab)"
+          },
+          "destination_longitude": {
+            "type": "number",
+            "description": "destination longitude"
+          },
+          "couriers": {
+            "type": "string",
+            "description": "Comma-separated courier codes, e.g. \"jne,sicepat,jnt,anteraja,gojek\" (see list_couriers)"
+          },
+          "items": {
+            "type": "array",
+            "description": "Items: [{\"name\": \"Shirt\", \"value\": 150000, \"quantity\": 1, \"weight\": 300, \"length\": 30, \"width\": 20, \"height\": 2}] (value in IDR, weight in grams, sizes in cm)",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "courier_insurance": {
+            "type": "number",
+            "description": "Insured value in IDR"
+          },
+          "destination_cash_on_delivery": {
+            "type": "number",
+            "description": "COD amount in IDR (up to 15,000,000)"
+          },
+          "destination_cash_on_delivery_type": {
+            "type": "string",
+            "description": "COD settlement period",
+            "enum": [
+              "3_days",
+              "5_days",
+              "7_days"
+            ]
+          }
+        },
+        "required": [
+          "couriers",
+          "items"
+        ]
+      }
+    },
+    {
+      "name": "list_couriers",
+      "description": "Couriers and services available to the account: courier_code, courier_service_code, tier, duration, COD/insurance support",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "search_areas",
+      "description": "Find area ids for rates and orders by name or postal code: id, name, province/city/district, postal_code",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Place name or postal code, e.g. 'Kebayoran Baru' or 12120",
+            "minLength": 3
+          },
+          "countries": {
+            "type": "string",
+            "description": "Country code (ID)",
+            "default": "ID"
+          },
+          "search_type": {
+            "type": "string",
+            "description": "single: one search (default)",
+            "enum": [
+              "single",
+              "double"
+            ],
+            "default": "single"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "get_order",
+      "description": "One order: status, courier (waybill_id, tracking_id, history), origin, destination, items and price",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Biteship order id"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "list_cancellation_reasons",
+      "description": "Codes accepted by cancel_order with descriptions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "lang": {
+            "type": "string",
+            "description": "Language of the descriptions",
+            "enum": [
+              "id",
+              "en"
+            ],
+            "default": "en"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_tracking",
+      "description": "Tracking of an order made through Biteship: status, waybill_id, link, courier driver, history [{note, status, updated_at}]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tracking_id": {
+            "type": "string",
+            "description": "courier.tracking_id of the order"
+          }
+        },
+        "required": [
+          "tracking_id"
+        ]
+      }
+    },
+    {
+      "name": "track_waybill",
+      "description": "Public tracking of any waybill (also shipments not booked through Biteship): status and history",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "waybill_id": {
+            "type": "string",
+            "description": "Waybill (resi) number"
+          },
+          "courier_code": {
+            "type": "string",
+            "description": "Courier code, e.g. jne, sicepat, jnt"
+          }
+        },
+        "required": [
+          "waybill_id",
+          "courier_code"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Biteship API endpoint that has no dedicated operation, e.g. path \"/v1/couriers\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/couriers\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

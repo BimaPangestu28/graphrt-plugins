@@ -1,0 +1,12 @@
+# Top 5 business headlines in the US. Read-only.
+#   NEWSAPI_API_KEY=... graphrt run news-api/example.yaml --plugins .
+version: "1"
+name: news-api-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: headlines, type: news-api.get_top_headlines, country: us, category: business, limit: 5 }
+    - { id: answer, type: answer, answer: "{{#headlines.data.0.title#}} ({{#headlines.data.0.source.name#}}) | {{#headlines.data.1.title#}}" }
+  edges:
+    - { source: start, target: headlines }
+    - { source: headlines, target: answer }

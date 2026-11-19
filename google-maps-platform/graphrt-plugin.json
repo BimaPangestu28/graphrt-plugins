@@ -1,0 +1,1144 @@
+{
+  "name": "google-maps-platform",
+  "version": "0.1.0",
+  "description": "Google Maps Platform (billed per call): Places API (New) search, details, autocomplete and photos; Geocoding v4; Routes routes and matrices",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_MAPS_API_KEY",
+      "GOOGLE_MAPS_TOOL_MAX_MATRIX_ELEMENTS",
+      "GOOGLE_MAPS_TOOL_ALLOW_EXPENSIVE_FIELDS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-maps-platform.search_text",
+      "title": "Search places by text",
+      "description": "Find places from a text query such as \"coffee near Monas Jakarta\": places with id, name, address, location, Maps URL",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "text_query": {
+            "type": "string",
+            "description": "What and where, e.g. 'pharmacy in Bandung'",
+            "minLength": 1
+          },
+          "included_type": {
+            "type": "string",
+            "description": "Only this place type, e.g. restaurant, lodging"
+          },
+          "strict_type_filtering": {
+            "type": "boolean",
+            "description": "Only return included_type"
+          },
+          "open_now": {
+            "type": "boolean",
+            "description": "Only places open now"
+          },
+          "min_rating": {
+            "type": "number",
+            "description": "Minimum average rating (0-5, steps of 0.5)",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "price_levels": {
+            "type": "array",
+            "description": "e.g. [PRICE_LEVEL_INEXPENSIVE, PRICE_LEVEL_MODERATE]",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            }
+          },
+          "location_bias": {
+            "type": "object",
+            "description": "{\"circle\": {\"center\": {\"latitude\": -6.2, \"longitude\": 106.8}, \"radius\": 5000}} or a rectangle"
+          },
+          "location_restriction": {
+            "type": "object",
+            "description": "{\"rectangle\": {\"low\": {...}, \"high\": {...}}} (not with location_bias)"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Two-letter region code that biases results, e.g. ID"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: id/displayName/formattedAddress/location are Pro; rating, phone, website, hours are Enterprise; reviews are Enterprise + Atmosphere; keep nextPageToken for paging",
+            "minLength": 1,
+            "default": "places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.types,places.primaryType,places.businessStatus,nextPageToken"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "text_query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.search_nearby",
+      "title": "Search places nearby",
+      "description": "Places of given types within a radius of a point, by popularity or distance",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "description": "Center latitude",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Center longitude",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "radius_meters": {
+            "type": "number",
+            "description": "Radius in meters (up to 50000)",
+            "minimum": 1,
+            "maximum": 50000
+          },
+          "included_types": {
+            "type": "array",
+            "description": "Place types, e.g. [restaurant, cafe]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "excluded_types": {
+            "type": "array",
+            "description": "Types to leave out",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_result_count": {
+            "type": "integer",
+            "description": "Maximum places (1-20, default 20)",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "rank_preference": {
+            "type": "string",
+            "description": "Order (default POPULARITY)",
+            "enum": [
+              "POPULARITY",
+              "DISTANCE"
+            ]
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Two-letter region code that biases results, e.g. ID"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: id/displayName/formattedAddress/location are Pro; rating, phone, website, hours are Enterprise; reviews are Enterprise + Atmosphere",
+            "minLength": 1,
+            "default": "places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.types,places.primaryType,places.businessStatus"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude",
+          "radius_meters"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.get_place",
+      "title": "Place details",
+      "description": "Details of one place by id; ask for rating, phone, website or opening hours through field_mask",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "place_id": {
+            "type": "string",
+            "description": "Place id from search_text, search_nearby or autocomplete"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Region code, e.g. ID"
+          },
+          "session_token": {
+            "type": "string",
+            "description": "Autocomplete session token, to bill the session as one"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: id/displayName/formattedAddress/location are Pro; rating, phone, website, hours are Enterprise; reviews are Enterprise + Atmosphere. Example: id,displayName,formattedAddress,location,googleMapsUri,types,primaryType,businessStatus,rating,nationalPhoneNumber,websiteUri,regularOpeningHours",
+            "minLength": 1,
+            "default": "id,displayName,formattedAddress,location,googleMapsUri,types,primaryType,businessStatus"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "place_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.autocomplete_places",
+      "title": "Autocomplete places",
+      "description": "Place and query predictions for partial input (suggestions[].placePrediction.placeId and text)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Text typed so far",
+            "minLength": 1
+          },
+          "included_primary_types": {
+            "type": "array",
+            "description": "Up to 5 types, or [(regions)] / [(cities)]",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "included_region_codes": {
+            "type": "array",
+            "description": "Only these regions, e.g. [id]",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_query_predictions": {
+            "type": "boolean",
+            "description": "Also suggest queries"
+          },
+          "location_bias": {
+            "type": "object",
+            "description": "{\"circle\": {\"center\": {\"latitude\": ..., \"longitude\": ...}, \"radius\": 5000}}"
+          },
+          "origin": {
+            "type": "object",
+            "description": "{\"latitude\": ..., \"longitude\": ...} to get distanceMeters"
+          },
+          "session_token": {
+            "type": "string",
+            "description": "Session token (a UUID) shared with the following get_place call"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Two-letter region code that biases results, e.g. ID"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.get_place_photo",
+      "title": "Place photo URL",
+      "description": "A short-lived photoUri for a photo from a place's photos[].name",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "photo_name": {
+            "type": "string",
+            "description": "photos[].name, e.g. places/ChIJ.../photos/Aap..."
+          },
+          "max_width_px": {
+            "type": "integer",
+            "description": "Maximum width in pixels (1-4800)",
+            "minimum": 1,
+            "maximum": 4800,
+            "default": 800
+          },
+          "max_height_px": {
+            "type": "integer",
+            "description": "Maximum height in pixels (1-4800)",
+            "minimum": 1,
+            "maximum": 4800
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "photo_name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.geocode_address",
+      "title": "Geocode an address",
+      "description": "Address to coordinates: results[] with placeId, formattedAddress, location {latitude, longitude}, addressComponents, types",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Address, e.g. 'Jl. M.H. Thamrin No.1, Jakarta'",
+            "minLength": 1
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Region code that biases results, e.g. ID"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.reverse_geocode",
+      "title": "Reverse geocode",
+      "description": "Coordinates to addresses: results[] with formattedAddress, placeId, addressComponents, types",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "description": "Latitude",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Region code, e.g. ID"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.compute_routes",
+      "title": "Compute a route",
+      "description": "Route between two waypoints (optionally via intermediates): distanceMeters, duration (e.g. '1234s'), localized values",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "object",
+            "description": "A waypoint: {\"address\": \"Monas, Jakarta\"}, {\"placeId\": \"ChIJ...\"} or {\"location\": {\"latLng\": {\"latitude\": -6.17, \"longitude\": 106.82}}}"
+          },
+          "destination": {
+            "type": "object",
+            "description": "A waypoint: {\"address\": \"Monas, Jakarta\"}, {\"placeId\": \"ChIJ...\"} or {\"location\": {\"latLng\": {\"latitude\": -6.17, \"longitude\": 106.82}}}"
+          },
+          "intermediates": {
+            "type": "array",
+            "description": "Stops in between (up to 25)",
+            "maxItems": 25,
+            "items": {
+              "type": "object"
+            }
+          },
+          "travel_mode": {
+            "type": "string",
+            "description": "Travel mode",
+            "enum": [
+              "DRIVE",
+              "BICYCLE",
+              "WALK",
+              "TWO_WHEELER",
+              "TRANSIT"
+            ],
+            "default": "DRIVE"
+          },
+          "routing_preference": {
+            "type": "string",
+            "description": "DRIVE/TWO_WHEELER only; TRAFFIC_AWARE* bills the Pro SKU",
+            "enum": [
+              "TRAFFIC_UNAWARE",
+              "TRAFFIC_AWARE",
+              "TRAFFIC_AWARE_OPTIMAL"
+            ]
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "units": {
+            "type": "string",
+            "description": "Units of localized values",
+            "enum": [
+              "METRIC",
+              "IMPERIAL"
+            ]
+          },
+          "compute_alternative_routes": {
+            "type": "boolean",
+            "description": "Also return alternatives"
+          },
+          "route_modifiers": {
+            "type": "object",
+            "description": "{\"avoidTolls\": true, \"avoidHighways\": false, \"avoidFerries\": true}"
+          },
+          "departure_time": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-11-20T08:00:00Z (traffic-aware routing)"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: add routes.polyline.encodedPolyline or routes.legs for more; traffic or 11+ intermediates bill Pro",
+            "minLength": 1,
+            "default": "routes.distanceMeters,routes.duration,routes.description,routes.localizedValues"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "origin",
+          "destination"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-maps-platform.compute_route_matrix",
+      "title": "Compute a route matrix",
+      "description": "Distance and duration for every origin-destination pair (billed per element): [{originIndex, destinationIndex, distanceMeters, duration, condition}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "origins": {
+            "type": "array",
+            "description": "Origins: [{\"waypoint\": ...}], where waypoint is A waypoint: {\"address\": \"Monas, Jakarta\"}, {\"placeId\": \"ChIJ...\"} or {\"location\": {\"latLng\": {\"latitude\": -6.17, \"longitude\": 106.82}}}",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "destinations": {
+            "type": "array",
+            "description": "Destinations: [{waypoint: ...}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "travel_mode": {
+            "type": "string",
+            "description": "Travel mode",
+            "enum": [
+              "DRIVE",
+              "BICYCLE",
+              "WALK",
+              "TWO_WHEELER",
+              "TRANSIT"
+            ],
+            "default": "DRIVE"
+          },
+          "routing_preference": {
+            "type": "string",
+            "description": "DRIVE/TWO_WHEELER only; TRAFFIC_AWARE* bills the Pro SKU",
+            "enum": [
+              "TRAFFIC_UNAWARE",
+              "TRAFFIC_AWARE",
+              "TRAFFIC_AWARE_OPTIMAL"
+            ]
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "units": {
+            "type": "string",
+            "description": "Units of localized values",
+            "enum": [
+              "METRIC",
+              "IMPERIAL"
+            ]
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: elements are Essentials, Pro with traffic",
+            "minLength": 1,
+            "default": "originIndex,destinationIndex,status,condition,distanceMeters,duration,localizedValues"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "origins",
+          "destinations"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_text",
+      "description": "Find places from a text query such as \"coffee near Monas Jakarta\": places with id, name, address, location, Maps URL",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text_query": {
+            "type": "string",
+            "description": "What and where, e.g. 'pharmacy in Bandung'",
+            "minLength": 1
+          },
+          "included_type": {
+            "type": "string",
+            "description": "Only this place type, e.g. restaurant, lodging"
+          },
+          "strict_type_filtering": {
+            "type": "boolean",
+            "description": "Only return included_type"
+          },
+          "open_now": {
+            "type": "boolean",
+            "description": "Only places open now"
+          },
+          "min_rating": {
+            "type": "number",
+            "description": "Minimum average rating (0-5, steps of 0.5)",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "price_levels": {
+            "type": "array",
+            "description": "e.g. [PRICE_LEVEL_INEXPENSIVE, PRICE_LEVEL_MODERATE]",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            }
+          },
+          "location_bias": {
+            "type": "object",
+            "description": "{\"circle\": {\"center\": {\"latitude\": -6.2, \"longitude\": 106.8}, \"radius\": 5000}} or a rectangle"
+          },
+          "location_restriction": {
+            "type": "object",
+            "description": "{\"rectangle\": {\"low\": {...}, \"high\": {...}}} (not with location_bias)"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Two-letter region code that biases results, e.g. ID"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: id/displayName/formattedAddress/location are Pro; rating, phone, website, hours are Enterprise; reviews are Enterprise + Atmosphere; keep nextPageToken for paging",
+            "minLength": 1,
+            "default": "places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.types,places.primaryType,places.businessStatus,nextPageToken"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "text_query"
+        ]
+      }
+    },
+    {
+      "name": "search_nearby",
+      "description": "Places of given types within a radius of a point, by popularity or distance",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "description": "Center latitude",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Center longitude",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "radius_meters": {
+            "type": "number",
+            "description": "Radius in meters (up to 50000)",
+            "minimum": 1,
+            "maximum": 50000
+          },
+          "included_types": {
+            "type": "array",
+            "description": "Place types, e.g. [restaurant, cafe]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "excluded_types": {
+            "type": "array",
+            "description": "Types to leave out",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_result_count": {
+            "type": "integer",
+            "description": "Maximum places (1-20, default 20)",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "rank_preference": {
+            "type": "string",
+            "description": "Order (default POPULARITY)",
+            "enum": [
+              "POPULARITY",
+              "DISTANCE"
+            ]
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Two-letter region code that biases results, e.g. ID"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: id/displayName/formattedAddress/location are Pro; rating, phone, website, hours are Enterprise; reviews are Enterprise + Atmosphere",
+            "minLength": 1,
+            "default": "places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.types,places.primaryType,places.businessStatus"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude",
+          "radius_meters"
+        ]
+      }
+    },
+    {
+      "name": "get_place",
+      "description": "Details of one place by id; ask for rating, phone, website or opening hours through field_mask",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "place_id": {
+            "type": "string",
+            "description": "Place id from search_text, search_nearby or autocomplete"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Region code, e.g. ID"
+          },
+          "session_token": {
+            "type": "string",
+            "description": "Autocomplete session token, to bill the session as one"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: id/displayName/formattedAddress/location are Pro; rating, phone, website, hours are Enterprise; reviews are Enterprise + Atmosphere. Example: id,displayName,formattedAddress,location,googleMapsUri,types,primaryType,businessStatus,rating,nationalPhoneNumber,websiteUri,regularOpeningHours",
+            "minLength": 1,
+            "default": "id,displayName,formattedAddress,location,googleMapsUri,types,primaryType,businessStatus"
+          }
+        },
+        "required": [
+          "place_id"
+        ]
+      }
+    },
+    {
+      "name": "autocomplete_places",
+      "description": "Place and query predictions for partial input (suggestions[].placePrediction.placeId and text)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Text typed so far",
+            "minLength": 1
+          },
+          "included_primary_types": {
+            "type": "array",
+            "description": "Up to 5 types, or [(regions)] / [(cities)]",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "included_region_codes": {
+            "type": "array",
+            "description": "Only these regions, e.g. [id]",
+            "maxItems": 15,
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_query_predictions": {
+            "type": "boolean",
+            "description": "Also suggest queries"
+          },
+          "location_bias": {
+            "type": "object",
+            "description": "{\"circle\": {\"center\": {\"latitude\": ..., \"longitude\": ...}, \"radius\": 5000}}"
+          },
+          "origin": {
+            "type": "object",
+            "description": "{\"latitude\": ..., \"longitude\": ...} to get distanceMeters"
+          },
+          "session_token": {
+            "type": "string",
+            "description": "Session token (a UUID) shared with the following get_place call"
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Two-letter region code that biases results, e.g. ID"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "get_place_photo",
+      "description": "A short-lived photoUri for a photo from a place's photos[].name",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "photo_name": {
+            "type": "string",
+            "description": "photos[].name, e.g. places/ChIJ.../photos/Aap..."
+          },
+          "max_width_px": {
+            "type": "integer",
+            "description": "Maximum width in pixels (1-4800)",
+            "minimum": 1,
+            "maximum": 4800,
+            "default": 800
+          },
+          "max_height_px": {
+            "type": "integer",
+            "description": "Maximum height in pixels (1-4800)",
+            "minimum": 1,
+            "maximum": 4800
+          }
+        },
+        "required": [
+          "photo_name"
+        ]
+      }
+    },
+    {
+      "name": "geocode_address",
+      "description": "Address to coordinates: results[] with placeId, formattedAddress, location {latitude, longitude}, addressComponents, types",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Address, e.g. 'Jl. M.H. Thamrin No.1, Jakarta'",
+            "minLength": 1
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Region code that biases results, e.g. ID"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      }
+    },
+    {
+      "name": "reverse_geocode",
+      "description": "Coordinates to addresses: results[] with formattedAddress, placeId, addressComponents, types",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "description": "Latitude",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results"
+          },
+          "region_code": {
+            "type": "string",
+            "description": "Region code, e.g. ID"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      }
+    },
+    {
+      "name": "compute_routes",
+      "description": "Route between two waypoints (optionally via intermediates): distanceMeters, duration (e.g. '1234s'), localized values",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "object",
+            "description": "A waypoint: {\"address\": \"Monas, Jakarta\"}, {\"placeId\": \"ChIJ...\"} or {\"location\": {\"latLng\": {\"latitude\": -6.17, \"longitude\": 106.82}}}"
+          },
+          "destination": {
+            "type": "object",
+            "description": "A waypoint: {\"address\": \"Monas, Jakarta\"}, {\"placeId\": \"ChIJ...\"} or {\"location\": {\"latLng\": {\"latitude\": -6.17, \"longitude\": 106.82}}}"
+          },
+          "intermediates": {
+            "type": "array",
+            "description": "Stops in between (up to 25)",
+            "maxItems": 25,
+            "items": {
+              "type": "object"
+            }
+          },
+          "travel_mode": {
+            "type": "string",
+            "description": "Travel mode",
+            "enum": [
+              "DRIVE",
+              "BICYCLE",
+              "WALK",
+              "TWO_WHEELER",
+              "TRANSIT"
+            ],
+            "default": "DRIVE"
+          },
+          "routing_preference": {
+            "type": "string",
+            "description": "DRIVE/TWO_WHEELER only; TRAFFIC_AWARE* bills the Pro SKU",
+            "enum": [
+              "TRAFFIC_UNAWARE",
+              "TRAFFIC_AWARE",
+              "TRAFFIC_AWARE_OPTIMAL"
+            ]
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "units": {
+            "type": "string",
+            "description": "Units of localized values",
+            "enum": [
+              "METRIC",
+              "IMPERIAL"
+            ]
+          },
+          "compute_alternative_routes": {
+            "type": "boolean",
+            "description": "Also return alternatives"
+          },
+          "route_modifiers": {
+            "type": "object",
+            "description": "{\"avoidTolls\": true, \"avoidHighways\": false, \"avoidFerries\": true}"
+          },
+          "departure_time": {
+            "type": "string",
+            "description": "RFC 3339 time, e.g. 2026-11-20T08:00:00Z (traffic-aware routing)"
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: add routes.polyline.encodedPolyline or routes.legs for more; traffic or 11+ intermediates bill Pro",
+            "minLength": 1,
+            "default": "routes.distanceMeters,routes.duration,routes.description,routes.localizedValues"
+          }
+        },
+        "required": [
+          "origin",
+          "destination"
+        ]
+      }
+    },
+    {
+      "name": "compute_route_matrix",
+      "description": "Distance and duration for every origin-destination pair (billed per element): [{originIndex, destinationIndex, distanceMeters, duration, condition}]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origins": {
+            "type": "array",
+            "description": "Origins: [{\"waypoint\": ...}], where waypoint is A waypoint: {\"address\": \"Monas, Jakarta\"}, {\"placeId\": \"ChIJ...\"} or {\"location\": {\"latLng\": {\"latitude\": -6.17, \"longitude\": 106.82}}}",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "destinations": {
+            "type": "array",
+            "description": "Destinations: [{waypoint: ...}]",
+            "maxItems": 50,
+            "items": {
+              "type": "object"
+            }
+          },
+          "travel_mode": {
+            "type": "string",
+            "description": "Travel mode",
+            "enum": [
+              "DRIVE",
+              "BICYCLE",
+              "WALK",
+              "TWO_WHEELER",
+              "TRANSIT"
+            ],
+            "default": "DRIVE"
+          },
+          "routing_preference": {
+            "type": "string",
+            "description": "DRIVE/TWO_WHEELER only; TRAFFIC_AWARE* bills the Pro SKU",
+            "enum": [
+              "TRAFFIC_UNAWARE",
+              "TRAFFIC_AWARE",
+              "TRAFFIC_AWARE_OPTIMAL"
+            ]
+          },
+          "language_code": {
+            "type": "string",
+            "description": "Language of the results, e.g. en, id"
+          },
+          "units": {
+            "type": "string",
+            "description": "Units of localized values",
+            "enum": [
+              "METRIC",
+              "IMPERIAL"
+            ]
+          },
+          "field_mask": {
+            "type": "string",
+            "description": "Comma-separated response fields (no spaces). The fields decide the billed SKU: elements are Essentials, Pro with traffic",
+            "minLength": 1,
+            "default": "originIndex,destinationIndex,status,condition,distanceMeters,duration,localizedValues"
+          }
+        },
+        "required": [
+          "origins",
+          "destinations"
+        ]
+      }
+    }
+  ]
+}

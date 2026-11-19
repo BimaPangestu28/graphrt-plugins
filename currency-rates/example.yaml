@@ -1,0 +1,12 @@
+# Convert 100 USD to IDR with today's reference rate. Read-only, no API key needed.
+#   graphrt run currency-rates/example.yaml --plugins .
+version: "1"
+name: currency-rates-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: converted, type: currency-rates.convert, amount: 100, from: USD, to: IDR }
+    - { id: answer, type: answer, answer: "{{#converted.data.amount#}} USD = {{#converted.data.result#}} IDR (rate {{#converted.data.rate#}} on {{#converted.data.date#}})" }
+  edges:
+    - { source: start, target: converted }
+    - { source: converted, target: answer }

@@ -1,0 +1,1107 @@
+{
+  "name": "shipper",
+  "version": "0.1.0",
+  "description": "Shipper.id logistics: locations, domestic rates, orders with tracking, labels; creating, cancelling and pickups node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SHIPPER_API_KEY",
+      "SHIPPER_ENVIRONMENT"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "shipper.search_locations",
+      "title": "Search locations",
+      "description": "Find areas by name: adm_level_1..5 (country to area) with ids, display_txt and postcodes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "Place name, at least 3 characters, e.g. Kebayoran",
+            "minLength": 3
+          },
+          "adm_level": {
+            "type": "integer",
+            "description": "Only this level: 1 country, 2 province, 3 city, 4 suburb, 5 area",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum results",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "keyword"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.list_countries",
+      "title": "List countries",
+      "description": "Countries: country_id, country_name (Indonesia is 228)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.list_provinces",
+      "title": "List provinces",
+      "description": "Provinces of a country",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "country_id": {
+            "type": "string",
+            "description": "Country id (Indonesia: 228)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "country_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.list_cities",
+      "title": "List cities",
+      "description": "Cities of a province",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "province_id": {
+            "type": "string",
+            "description": "Province id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "province_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.list_suburbs",
+      "title": "List suburbs",
+      "description": "Suburbs (kecamatan) of a city",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "city_id": {
+            "type": "string",
+            "description": "City id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "city_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.list_areas",
+      "title": "List areas",
+      "description": "Areas (kelurahan) of a suburb with postcode, lat and lng",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "suburb_id": {
+            "type": "string",
+            "description": "Suburb id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "suburb_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.get_domestic_rates",
+      "title": "Domestic rates",
+      "description": "Courier prices for a parcel: pricings[] with logistic {name, code}, rate {id, name, type}, final_price, insurance, min_day/max_day",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "object",
+            "description": "Origin: {\"area_id\": 4711, \"lat\": \"-6.2\", \"lng\": \"106.8\", \"suburb_id\": 482} (area from the location operations; lat/lng as strings)"
+          },
+          "destination": {
+            "type": "object",
+            "description": "Destination: {\"area_id\": 4711, \"lat\": \"-6.2\", \"lng\": \"106.8\", \"suburb_id\": 482} (area from the location operations; lat/lng as strings)"
+          },
+          "weight": {
+            "type": "number",
+            "description": "Weight in kg, more than 0, e.g. 1.5",
+            "minimum": 0.001
+          },
+          "package_length": {
+            "type": "number",
+            "description": "Length in cm"
+          },
+          "package_width": {
+            "type": "number",
+            "description": "Width in cm"
+          },
+          "package_height": {
+            "type": "number",
+            "description": "Height in cm"
+          },
+          "item_value": {
+            "type": "number",
+            "description": "Item value in IDR"
+          },
+          "item_categories": {
+            "type": "array",
+            "description": "Optional item categories, e.g. [\"Pakaian\"]: Cairan, Dokumen, Elektronik, Furnitur, Kosmetik, Makanan, Minuman, Pakaian, Sepatu, Spare Parts, Aksesoris, Dekorasi Rumah, Mainan, Obat dan Herbal, Garmen dan Tekstil, Buku, Lainnya",
+            "maxItems": 17,
+            "items": {
+              "type": "string",
+              "enum": [
+                "Cairan",
+                "Dokumen",
+                "Elektronik",
+                "Furnitur",
+                "Kosmetik",
+                "Makanan",
+                "Minuman",
+                "Pakaian",
+                "Sepatu",
+                "Spare Parts",
+                "Aksesoris",
+                "Dekorasi Rumah",
+                "Mainan",
+                "Obat dan Herbal",
+                "Garmen dan Tekstil",
+                "Buku",
+                "Lainnya"
+              ]
+            }
+          },
+          "for_order": {
+            "type": "boolean",
+            "description": "Only rates that can be ordered",
+            "default": true
+          },
+          "cod_amount": {
+            "type": "number",
+            "description": "COD amount in IDR: quotes couriers that support cash on delivery (the account must be whitelisted for COD)"
+          },
+          "rate_types": {
+            "type": "array",
+            "description": "Only these rate types",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "enum": [
+                "instant",
+                "regular",
+                "express",
+                "trucking",
+                "same-day"
+              ]
+            }
+          },
+          "sort_by": {
+            "type": "array",
+            "description": "Sort fields, e.g. [\"final_price\"]",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "package_length",
+          "package_width",
+          "package_height",
+          "item_value"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.create_order",
+      "title": "Create order",
+      "description": "Create a shipment order with a rate_id from get_domestic_rates; returns data.order_id. A courier is dispatched after request_pickup",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "consignee": {
+            "type": "object",
+            "description": "Receiver: {\"name\": \"Budi\", \"phone_number\": \"6281200000002\", \"email\": \"budi@example.com\"}"
+          },
+          "consigner": {
+            "type": "object",
+            "description": "Sender: {name, phone_number, email}"
+          },
+          "coverage": {
+            "type": "string",
+            "description": "Coverage",
+            "enum": [
+              "domestic",
+              "international"
+            ],
+            "default": "domestic"
+          },
+          "courier": {
+            "type": "object",
+            "description": "{\"rate_id\": 58, \"use_insurance\": false, \"cod\": false, \"cod_amount\": 0}"
+          },
+          "origin": {
+            "type": "object",
+            "description": "{\"area_id\": 4711, \"address\": \"Jl. Sudirman 1\", \"lat\": \"-6.2\", \"lng\": \"106.8\"}"
+          },
+          "destination": {
+            "type": "object",
+            "description": "{\"area_id\": 12345, \"address\": \"Jl. Asia Afrika 2\", \"lat\": \"...\", \"lng\": \"...\"}"
+          },
+          "package": {
+            "type": "object",
+            "description": "{\"weight\": 1, \"length\": 10, \"width\": 10, \"height\": 5, \"price\": 150000, \"package_type\": 2, \"items\": [{\"name\": \"Kemeja\", \"price\": 150000, \"qty\": 1}]}"
+          },
+          "external_id": {
+            "type": "string",
+            "description": "Your own order reference (lets you find the order with get_order_by_external_id)"
+          },
+          "payment_type": {
+            "type": "string",
+            "description": "How Shipper is paid",
+            "enum": [
+              "cash",
+              "postpay"
+            ],
+            "default": "postpay"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "consignee",
+          "consigner",
+          "courier",
+          "origin",
+          "destination",
+          "package"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.get_order",
+      "title": "Get order (with tracking)",
+      "description": "One order with awb_number, shipment_status and trackings [{shipper_status, logistic_status, created_date}]",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Shipper order id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.get_order_by_external_id",
+      "title": "Get order by external id",
+      "description": "The order created with your external_id, with its tracking",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "description": "external_id sent to create_order"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "external_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.cancel_order",
+      "title": "Cancel order",
+      "description": "Cancel an order before pickup",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Shipper order id"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the order is cancelled"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id",
+          "reason"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.request_pickup",
+      "title": "Request pickup",
+      "description": "Activate orders for pickup at a time: a courier is dispatched",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "description": "Order ids to pick up",
+            "maxItems": 30,
+            "items": {
+              "type": "string"
+            }
+          },
+          "pickup_time": {
+            "type": "string",
+            "description": "Pickup time, RFC 3339, e.g. 2026-11-20T10:00:00+07:00"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.create_label",
+      "title": "Shipping label",
+      "description": "A printable label (LBL) or receipt (RCP) for orders: data with the document URL",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "description": "Order ids",
+            "maxItems": 30,
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_type": {
+            "type": "string",
+            "description": "LBL label or RCP receipt",
+            "enum": [
+              "LBL",
+              "RCP"
+            ],
+            "default": "LBL"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shipper.api_request",
+      "title": "Shipper API v3 request",
+      "description": "Call any Shipper API v3 endpoint that has no dedicated operation, e.g. path \"/v3/location/countries\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v3/location/countries\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_locations",
+      "description": "Find areas by name: adm_level_1..5 (country to area) with ids, display_txt and postcodes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "Place name, at least 3 characters, e.g. Kebayoran",
+            "minLength": 3
+          },
+          "adm_level": {
+            "type": "integer",
+            "description": "Only this level: 1 country, 2 province, 3 city, 4 suburb, 5 area",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum results",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "keyword"
+        ]
+      }
+    },
+    {
+      "name": "list_countries",
+      "description": "Countries: country_id, country_name (Indonesia is 228)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_provinces",
+      "description": "Provinces of a country",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "country_id": {
+            "type": "string",
+            "description": "Country id (Indonesia: 228)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "country_id"
+        ]
+      }
+    },
+    {
+      "name": "list_cities",
+      "description": "Cities of a province",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "province_id": {
+            "type": "string",
+            "description": "Province id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "province_id"
+        ]
+      }
+    },
+    {
+      "name": "list_suburbs",
+      "description": "Suburbs (kecamatan) of a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city_id": {
+            "type": "string",
+            "description": "City id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "city_id"
+        ]
+      }
+    },
+    {
+      "name": "list_areas",
+      "description": "Areas (kelurahan) of a suburb with postcode, lat and lng",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "suburb_id": {
+            "type": "string",
+            "description": "Suburb id"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [
+          "suburb_id"
+        ]
+      }
+    },
+    {
+      "name": "get_domestic_rates",
+      "description": "Courier prices for a parcel: pricings[] with logistic {name, code}, rate {id, name, type}, final_price, insurance, min_day/max_day",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "object",
+            "description": "Origin: {\"area_id\": 4711, \"lat\": \"-6.2\", \"lng\": \"106.8\", \"suburb_id\": 482} (area from the location operations; lat/lng as strings)"
+          },
+          "destination": {
+            "type": "object",
+            "description": "Destination: {\"area_id\": 4711, \"lat\": \"-6.2\", \"lng\": \"106.8\", \"suburb_id\": 482} (area from the location operations; lat/lng as strings)"
+          },
+          "weight": {
+            "type": "number",
+            "description": "Weight in kg, more than 0, e.g. 1.5",
+            "minimum": 0.001
+          },
+          "package_length": {
+            "type": "number",
+            "description": "Length in cm"
+          },
+          "package_width": {
+            "type": "number",
+            "description": "Width in cm"
+          },
+          "package_height": {
+            "type": "number",
+            "description": "Height in cm"
+          },
+          "item_value": {
+            "type": "number",
+            "description": "Item value in IDR"
+          },
+          "item_categories": {
+            "type": "array",
+            "description": "Optional item categories, e.g. [\"Pakaian\"]: Cairan, Dokumen, Elektronik, Furnitur, Kosmetik, Makanan, Minuman, Pakaian, Sepatu, Spare Parts, Aksesoris, Dekorasi Rumah, Mainan, Obat dan Herbal, Garmen dan Tekstil, Buku, Lainnya",
+            "maxItems": 17,
+            "items": {
+              "type": "string",
+              "enum": [
+                "Cairan",
+                "Dokumen",
+                "Elektronik",
+                "Furnitur",
+                "Kosmetik",
+                "Makanan",
+                "Minuman",
+                "Pakaian",
+                "Sepatu",
+                "Spare Parts",
+                "Aksesoris",
+                "Dekorasi Rumah",
+                "Mainan",
+                "Obat dan Herbal",
+                "Garmen dan Tekstil",
+                "Buku",
+                "Lainnya"
+              ]
+            }
+          },
+          "for_order": {
+            "type": "boolean",
+            "description": "Only rates that can be ordered",
+            "default": true
+          },
+          "cod_amount": {
+            "type": "number",
+            "description": "COD amount in IDR: quotes couriers that support cash on delivery (the account must be whitelisted for COD)"
+          },
+          "rate_types": {
+            "type": "array",
+            "description": "Only these rate types",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "enum": [
+                "instant",
+                "regular",
+                "express",
+                "trucking",
+                "same-day"
+              ]
+            }
+          },
+          "sort_by": {
+            "type": "array",
+            "description": "Sort fields, e.g. [\"final_price\"]",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "weight",
+          "package_length",
+          "package_width",
+          "package_height",
+          "item_value"
+        ]
+      }
+    },
+    {
+      "name": "get_order",
+      "description": "One order with awb_number, shipment_status and trackings [{shipper_status, logistic_status, created_date}]",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Shipper order id"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "get_order_by_external_id",
+      "description": "The order created with your external_id, with its tracking",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "description": "external_id sent to create_order"
+          }
+        },
+        "required": [
+          "external_id"
+        ]
+      }
+    },
+    {
+      "name": "create_label",
+      "description": "A printable label (LBL) or receipt (RCP) for orders: data with the document URL",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "description": "Order ids",
+            "maxItems": 30,
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_type": {
+            "type": "string",
+            "description": "LBL label or RCP receipt",
+            "enum": [
+              "LBL",
+              "RCP"
+            ],
+            "default": "LBL"
+          }
+        },
+        "required": [
+          "order_ids"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Shipper API v3 endpoint that has no dedicated operation, e.g. path \"/v3/location/countries\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v3/location/countries\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

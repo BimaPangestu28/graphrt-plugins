@@ -1,0 +1,14 @@
+# Search Wikipedia for Borobudur and print the top hit's summary. Read-only, no API key needed.
+#   graphrt run wikipedia/example.yaml --plugins .
+version: "1"
+name: wikipedia-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: hits, type: wikipedia.search_pages, query: Borobudur temple, limit: 3 }
+    - { id: summary, type: wikipedia.get_page_summary, page_title: "{{#hits.data.0.title#}}" }
+    - { id: answer, type: answer, answer: "{{#summary.data.title#}}: {{#summary.data.extract#}}" }
+  edges:
+    - { source: start, target: hits }
+    - { source: hits, target: summary }
+    - { source: summary, target: answer }
