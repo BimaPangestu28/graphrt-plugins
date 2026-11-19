@@ -6,13 +6,13 @@ plugin is mostly data: you describe the base URL, the auth, the error format and
 parameters and response. The layer then gives you:
 
 - a normal plugin definition, so `npm run sync`, the manifest, `OPERATIONS.md`, nodes and tools work unchanged;
-- safe defaults: encoded path segments, credential redaction, retries only where they are safe, `api_request`
-  limited to GET for agent tools;
-- `limit`/`cursor` pagination, async job polling and media downloads without hand-written code;
+- safe defaults: encoded path segments, credential redaction everywhere (errors, data, cursors, job results),
+  retries only where they are safe, `api_request` limited to GET for agent tools;
+- pagination, async jobs, file uploads, binary and base64 media saved to disk, OAuth2, request signing;
 - a generated contract test suite (`describeRestPluginContract`).
 
-[`open-meteo/`](../open-meteo/) is the reference plugin. Hand-write a plugin only when it needs request signing,
-native protocols, local processes or flows the spec cannot express (see "Escape hatches").
+[`open-meteo/`](../open-meteo/) is the reference plugin. Hand-write a plugin only when it needs native protocols,
+local processes or flows the spec cannot express (see "Escape hatches").
 
 ## Plugin layout
 ```
@@ -48,7 +48,7 @@ export const pluginDefinition = defineRestPlugin({
   description: "Acme Tasks: list, create and complete tasks, render reports",
   apiName: "Acme Tasks API",          // used in the api_request description (default: name)
   extraEnv: ["ACME_REGION"],          // other env vars the plugin reads (added to permissions.env)
-  limits: { timeout_ms: 360000 },     // host timeout; raise it for long jobs (see "Jobs")
+  limits: { timeout_ms: 360000 },     // host timeout; every request, job and download must fit in it (see "Time budgets")
 
   // A string, or a function of the environment for regions or self-hosted URLs. Validate env values here:
   // a throw becomes an invalid_input error, and the result must be https (http only on localhost).
@@ -57,20 +57,25 @@ export const pluginDefinition = defineRestPlugin({
     if (!/^(us|eu)$/.test(region)) throw new Error("ACME_REGION must be us or eu");
     return `https://${region}.api.acme.example/v2`;
   },
+  allowedHostSuffix: ".acme.example",  // the resolved base URL's host must end with this (self-hosted/site URLs)
 
   // --- auth ----------------------------------------------------------------------------------
   // One of:
   //   { type: "bearer", env }                       Authorization: Bearer <env>
   //   { type: "header", header, env, prefix? }      <header>: <prefix><env>
-  //   { type: "query", param, env }                 ?<param>=<env> (redacted from errors)
+  //   { type: "query", param, env }                 ?<param>=<env>
   //   { type: "basic", userEnv, passwordEnv }       Basic user:password
   //   { type: "basic", tokenEnv, user: "api" }      Basic api:<token>   (Mailgun style)
   //   { type: "basic", tokenEnv, password: "" }     Basic <token>:      (Stripe style)
+  //   { type: "oauth2", grant: "client_credentials" | "refresh_token", tokenUrl, clientIdEnv, clientSecretEnv,
+  //     refreshTokenEnv?, scope?, audience?, clientAuth?: "body" | "basic" }   (see "OAuth2")
   //   { type: "none" }                              public API: no secrets, no node access_token
-  //   { type: "custom", env?, authorize }           authorize({headers, query, credential, environment}) => secrets[]
+  //   { type: "custom", env?, authorize }           request signing (see "Custom auth and signing")
   // A node may pass `access_token` to override the credential; agent tools never can.
   auth: { type: "bearer", env: "ACME_TOKEN" },
   defaultHeaders: { "acme-version": "2026-10-01" },
+  idempotencyKeyHeader: "Idempotency-Key",   // optional: every unsafe POST/PUT/PATCH/DELETE gets a fresh key per call
+  toolOutput: { maxChars: 50000 },           // optional: truncation for agent tools (default maxChars 100000; false = off)
 
   // --- errors --------------------------------------------------------------------------------
   // Without this block the shared client still maps statuses (401 auth_error, 404 not_found, 429 rate_limited...)
@@ -97,22 +102,16 @@ export const pluginDefinition = defineRestPlugin({
       title: "List tasks",
       description: "List tasks in a project, newest first",
       method: "GET",                    // default GET
-      // baseUrl: "https://search.acme.example/v1",   // optional: this operation lives on another host of the API
       path: "/projects/{project_id}/tasks",
       params: {
         // in: "path" | "query" | "body" | "header"; type: string | integer | number | boolean | array | object
-        // Also: required, description, enum, min, max, minLength, maxItems, items, default, wireName.
-        project_id: { in: "path", type: "string", required: true, description: "Project id" },  // always one encoded segment
+        // Also: required, description, enum, min, max, minLength, maxItems, items, default, wireName, style, file.
+        project_id: { in: "path", type: "string", required: true, description: "Project id" },  // one encoded segment
         status: { in: "query", type: "string", enum: ["open", "done"], description: "Filter by status" },
-        labels: { in: "query", type: "array", items: { type: "string" }, description: "Sent as labels=a,b" },
-        include_archived: { in: "query", type: "boolean", wireName: "archived" },     // API name differs
+        labels: { in: "query", type: "array", items: { type: "string" }, style: "repeat" },   // labels=a&labels=b
+        include_archived: { in: "query", type: "boolean", wireName: "archived" },             // API name differs
       },
-      // dataPath picks `data`. One pagination style generates `limit` and `cursor` params and `next_cursor`:
-      //   cursorPath + cursorParam (+ limitParam, hasMorePath)   cursor in the body, e.g. Stripe/Notion
-      //   nextLinkHeader: true (+ limitParam)                     RFC 8288 Link header, e.g. GitHub
-      //   pagePagination: { pageParam, sizeParam, firstPage?, totalPagesPath? }
-      //   offsetPagination: { offsetParam, limitParam?, totalPath? }
-      // maxLimit/defaultLimit bound `limit`; paramsIn ("query" | "body") defaults to query for GET, body otherwise.
+      // dataPath picks `data`; one pagination style generates `limit` and `cursor` params and `next_cursor`.
       response: { dataPath: "data", cursorPath: "meta.next_cursor", cursorParam: "cursor", limitParam: "page_size", hasMorePath: "meta.has_more", maxLimit: 100 },
     },
 
@@ -125,7 +124,8 @@ export const pluginDefinition = defineRestPlugin({
       path: "/projects/{project_id}/tasks",
       // write: "read" (GET/HEAD only) | "idempotent" (PUT/DELETE, or a POST that only reads) | "unsafe" (creates or sends).
       // Every non-GET operation must declare it. "unsafe" requests are never retried after a 5xx or network error,
-      // and their errors say "outcome unknown ... check before retrying" plus checkHint.
+      // and their errors say "outcome unknown ... check before retrying" plus checkHint (unless an
+      // idempotency key makes the retry safe, see below).
       write: "unsafe",
       checkHint: "list_tasks for the project and look for the title",
       params: {
@@ -133,9 +133,8 @@ export const pluginDefinition = defineRestPlugin({
         title: { in: "body", type: "string", required: true, minLength: 1, wireName: "task.title" },   // {"task":{"title":...}}
         due: { in: "body", type: "string", description: "YYYY-MM-DD", wireName: "task.due_on" },
         notify: { in: "body", type: "boolean", default: false },
-        idempotency_key: { in: "header", type: "string", wireName: "Idempotency-Key" },
       },
-      // bodyMode: "json" (default) | "form" (x-www-form-urlencoded) | "raw" (one object param is the whole body)
+      constants: { headers: { Accept: "application/vnd.acme+json" }, body: { "task.source": "graphrt" } },
     },
 
     // --- a node-only destructive write ---------------------------------------------------------------
@@ -158,6 +157,7 @@ export const pluginDefinition = defineRestPlugin({
       method: "POST",
       path: "/tasks/{task_id}/notify",
       write: "unsafe",
+      idempotencyKeyHeader: false,      // this endpoint rejects the header
       toolPolicy: "optIn:ACME_TOOL_ALLOW_NOTIFY",   // tool calls refused unless ACME_TOOL_ALLOW_NOTIFY=1; nodes unaffected
       params: { task_id: { in: "path", type: "string", required: true }, message: { in: "body", type: "string", required: true } },
     },
@@ -180,35 +180,159 @@ export const pluginDefinition = defineRestPlugin({
         errorPath: "error.message",
         resultPath: "files",            // what `result` holds when done
         intervalMs: 3000,               // GRAPHRT_POLL_INTERVAL_MS overrides it in tests
-        timeoutMs: 300000,              // capped at limits.timeout_ms - 15 s so the timeout error reaches the caller
+        timeoutMs: 300000,              // must fit in limits.timeout_ms - 15 s (checked at load)
       },
-      // A generated `wait` param (default true): false returns {job_id, response} at once.
-      // Saves every https URL at urlPaths into $ACME_REPORT_DIR (absolute path) with the public-https checks
-      // (https only, public hosts only on every redirect hop, size cap). Unset env = no download.
-      download: { saveTo: { urlPaths: ["[].url"], envDir: "ACME_REPORT_DIR", maxBytes: 50 * 1024 * 1024 } },
+      // Saves every https URL at urlPaths (and base64 fields at base64Paths) into $ACME_REPORT_DIR.
+      download: { saveTo: { urlPaths: ["[].url"], envDir: "ACME_REPORT_DIR", maxBytes: 50 * 1024 * 1024, maxFiles: 5 } },
     },
   ],
 });
 ```
 
+## Reference
+
+### Parameters and encodings
+- **Path:** `{name}` is always one encoded segment (`a/b` becomes `a%2Fb`; `.` and `..` are refused). `{+name}`
+  keeps slashes for file paths, encoding each segment and refusing empty, `.` and `..` segments.
+- **Query arrays:** `style: "comma"` (default, `ids=a,b`), `"repeat"` (`ids=a&ids=b`) or `"brackets"` (`ids[]=a&ids[]=b`).
+- **Headers:** `wireName` must be a valid header name; values with CR, LF or NUL are refused (`invalid_input`).
+- **Body modes** (`bodyMode`):
+  - `json` (default): dotted `wireName`s nest (`"message.text"`), `contentType` overrides `application/json`
+    (e.g. `"application/merge-patch+json"`).
+  - `form`: x-www-form-urlencoded with bracket nesting, Stripe style: `metadata.order` becomes `metadata[order]=`,
+    arrays become `tags[]=` (`formArrays: "brackets"`, default), `tags=` (`"repeat"`) or `tags[0]=` (`"indexed"`);
+    arrays of objects are always indexed (`items[0][price]=`).
+  - `raw`: one object/array body param is the whole JSON body.
+  - `text`: one body param; a string is sent as is (`text/plain; charset=utf-8` unless `contentType`), an array as
+    NDJSON (one JSON value per line, e.g. Elasticsearch `_bulk` with `contentType: "application/x-ndjson"`).
+  - `multipart`: body params become fields; params with `file: true` are files (see below).
+- **Constants:** `constants: {query, body, headers}` adds fixed values (a GraphQL query, `stream: false`,
+  `Accept`, `OpenAI-Beta`). They are applied after the params, cannot collide with a param of the same name, and
+  `body` keys may be dotted paths.
+- **Path syntax** (dataPath, cursorPath, urlPaths, ...): dots separate keys, `\.` is a literal dot, `["key"]` quotes
+  any key (`["@odata.nextLink"]`), `[]` flattens an array (`data[].url`). Writing a dotted wireName creates objects
+  for every missing segment, also numeric ones: `items.0.id` gives `{"items": {"0": {"id": ...}}}`, not an array.
+- **GET bodies:** Node's fetch refuses any body on GET/HEAD, so body params on GET are rejected at load. Use POST
+  with `write: "idempotent"` for search endpoints that accept it (Elasticsearch `_search`, Notion `query`).
+
+### Multipart file inputs
+```js
+{ name: "transcribe", method: "POST", write: "idempotent", bodyMode: "multipart", path: "/audio/transcriptions",
+  multipart: { fileDirEnv: "OPENAI_UPLOAD_DIR", maxFileBytes: 25 * 1024 * 1024 },
+  params: { file: { in: "body", type: "string", file: true, required: true }, model: { in: "body", type: "string", default: "whisper-1" } } }
+```
+A file argument is an https URL (downloaded with the public-https checks and the size cap) or an absolute local
+path. Local paths only work when `$fileDirEnv` names a directory. Both sides are resolved with realpath (symlinks
+cannot leave it), and the target must be a regular file within `maxFileBytes` (default 25 MB).
+
+### Pagination styles (`response`)
+| Style | Fields | API examples |
+|---|---|---|
+| Cursor field | `cursorPath`, `cursorParam`, `limitParam?`, `hasMorePath?` | Notion (`next_cursor`, `start_cursor`), Slack |
+| Last item id | `lastItemCursor: {itemIdPath, param, hasMorePath?}`, `limitParam?` | Stripe (`starting_after` = last item's `id`, `has_more`) |
+| Link header | `nextLinkHeader: true`, `limitParam?` | GitHub, GitLab |
+| Next URL in body | `nextUrlPath`, `limitParam?` | Microsoft Graph (`["@odata.nextLink"]`), Spotify (`next`) |
+| Page number | `pagePagination: {pageParam, sizeParam?, firstPage? (1), totalPagesPath?}` | WooCommerce, many CRMs |
+| Offset | `offsetPagination: {offsetParam, limitParam?, totalPath?}` | Airtable-style, SQL APIs |
+
+`maxLimit`/`defaultLimit` bound the generated `limit`. `paramsIn` ("query" or "body") defaults to query for GET and
+body otherwise. Body pagination is refused at load on GET and with raw, text and multipart bodies. Next-page URLs
+(Link and next URL) must be on the base URL's origin and under its path, and they are redacted. With query auth,
+the credential is set again when the cursor is followed.
+
+### Jobs
+- The create request is the write. `job.poll` is `{path}` (template with `{id}` and path params) or `{urlPath}`
+  (the create response holds the status URL, e.g. Replicate `urls.get`, fal `status_url`).
+- `job.result` (`{path}` or `{urlPath}`, e.g. fal `response_url`) fetches the result after the job is done, and
+  `resultPath` then reads from that response.
+- URLs from responses must be https on the base URL's host or a host in `job.allowedHosts`. The credential is sent
+  to them, so list only the API's own hosts.
+- One deadline covers the create request, polling, the result fetch and downloads: it starts with the call and is
+  `job.timeoutMs`, capped at `limits.timeout_ms - 15 s`.
+- Any failure after create (timeout, failure status, cancellation, refused URL) names the job id and its status or
+  result URLs, keeps its kind and is `retryable: false`, because a retry would start (and pay for) a second job.
+- `wait: false` returns `{job_id, response}` at once.
+
+### Media
+- **Downloads:** `download.saveTo: {urlPaths?, base64Paths?, envDir, maxBytes? (200 MB), maxFiles? (10, max 50)}`.
+  - URLs are fetched with the public-https checks: https only, public hosts only on every redirect hop, size cap,
+    no credential.
+  - Base64 fields (`data[].b64_json`, `candidates[].content.parts[].inlineData.data`, or `data:` URLs) are decoded,
+    typed by magic bytes, and replaced in the result by `"[saved to <path>]"`.
+  - A file that cannot be saved (refused, failed, over `maxFiles`, past the deadline) becomes `{url | source, error}`
+    and the rest of the result is still returned.
+  - With `envDir` unset nothing is saved and `saved_files` is `[]`.
+- **Binary responses:** `response: {binary: {envDir, maxBytes?}}` streams the whole body (audio, images, video) to
+  `$envDir` and returns `{path, bytes, content_type}`. The env var is required, and it cannot be combined with
+  dataPath, pagination, jobs or downloads.
+
+### OAuth2
+```js
+auth: { type: "oauth2", grant: "refresh_token", tokenUrl: "https://oauth2.googleapis.com/token",
+        clientIdEnv: "GOOGLE_CLIENT_ID", clientSecretEnv: "GOOGLE_CLIENT_SECRET", refreshTokenEnv: "GOOGLE_REFRESH_TOKEN" }
+```
+- Grants: `client_credentials` (`scope`, `audience` optional) and `refresh_token`.
+- Client credentials go in the form body, or in a Basic header with `clientAuth: "basic"`.
+- Tokens are cached in memory until a minute before `expires_in`, and concurrent calls share one token request.
+- A 401 from the API refreshes once and retries. A rotated refresh token is kept in memory.
+- Client secret, refresh token and access tokens are redacted. Token endpoint errors are `auth_error` (5xx:
+  retryable `api_error`).
+- A node's `access_token` is used as a Bearer token directly, without the token endpoint.
+
+### Custom auth and signing
+`authorize({method, url, headers, query, body, credential, environment})` runs after the URL (including any query)
+and the encoded body are final, so it can compute HMAC or SigV4-style signatures. It sets headers (the URL cannot be
+changed), may be async, and returns extra secrets to redact. `body` is the exact string sent (a FormData for
+multipart). `credential` is the value of `auth.env`, or a node's `access_token`.
+
+### Idempotency keys
+With `idempotencyKeyHeader` (plugin-level, or per operation; `false` turns it off), every unsafe request that has a
+body method gets a fresh UUID per call. The same key is sent on every retry, so the shared client may retry 5xx and
+network failures. When all retries fail, the error is `retryable: false` and names the key, because a new call would
+use a new key.
+
+### Operations on other hosts
+`baseUrl` on an operation sends it to another host of the same API (Open-Meteo geocoding). The credential is sent
+there too unless `sendCredential: false` (public CDNs). `api_request` always uses the plugin's `baseUrl`.
+
+### Agent safety
+- `nodeOnly: true` hides the tool. Use it for money movement, refunds, deletes and bulk destructive operations.
+- `toolPolicy: "optIn:<ENV>"` refuses tool calls unless `<ENV>=1`. Use it for sends to arbitrary recipients.
+- `api_request` as a tool is GET-only and refuses the paths of nodeOnly and opt-in GET operations (path templates
+  matched case-insensitively, query ignored). Set `apiRequest: false` if other GET endpoints are sensitive.
+- Tool results are truncated (`toolOutput`): arrays to `maxItems` as `{truncated, items, total_items}`, then JSON
+  text to `maxChars` (default 100000) as `{truncated, preview, total_chars}`. Nodes always get everything.
+- Every response is redacted: a credential echoed in data, cursors, job results or errors becomes `[redacted]`.
+  So an endpoint that returns a credential on purpose (token exchange) does not fit this layer; hand-write it as a
+  nodeOnly operation.
+
+### Time budgets (checked at load)
+- `timeoutMs` (plugin or operation; per attempt) must be at most `limits.timeout_ms - 10 s`.
+- `job.timeoutMs` must be at most `limits.timeout_ms - 15 s`, and a plugin with jobs needs `limits.timeout_ms` of at
+  least 20 s. Raise `limits.timeout_ms` for long jobs and large transfers.
+
 ### What each operation returns
 | Operation kind | `data` | `next_cursor` |
 |---|---|---|
 | Plain | the body, or the value at `response.dataPath` | null |
-| Paginated | the value at `dataPath` | the API cursor, the next Link URL, or the next page/offset; null on the last page |
+| Paginated | the value at `dataPath` | the next cursor (see styles); null on the last page |
+| Binary | `{path, bytes, content_type}` | null |
 | Job | `{job_id, status, result}` (`result` is the value at `resultPath`) | null |
 | Job with `wait: false` | `{job_id, response}` | null |
-| With `download` | adds `saved_files: [{url, path, bytes, content_type}` or `{url, error}]`; for a non-job operation the data moves to `result` | as above |
-
-A failed job throws `api_error` naming the job id. A job that does not finish in time throws `timeout` with
-`retryable: false` and the job id, because a retry would start (and pay for) another job.
+| With `download` | adds `saved_files: [{url | source, path, bytes, content_type}` or `{url | source, error}]`; for a non-job operation the data moves to `result` | as above |
 
 ## Load-time validation
-`defineRestPlugin` checks the spec when `definition.mjs` is imported (so `npm run sync` fails at once). It rejects
-unknown keys (`requried`), unknown param locations and types, path placeholders without an `in: "path"` param,
-path params that are unused or optional, body params on GET, non-GET operations without `write`, `write: "read"`
-on POST, more than one pagination style, `limit`/`cursor`/`wait`/`access_token` used as param names, header or query
-params that would replace the credential, malformed `toolPolicy`, jobs on reads, and downloads without `envDir`.
+`defineRestPlugin` checks the spec when `definition.mjs` is imported (so `npm run sync` fails at once).
+- **Typos and names:** unknown keys (`requried`), unknown param locations, types and styles, invalid or duplicate
+  `wireName`s, `__proto__`/`constructor`/`prototype` segments, `default`/`enum` values of the wrong type.
+- **Paths:** placeholders without an `in: "path"` param, path params that are unused or optional, a path param
+  `id` that would clash with a job's `{id}`.
+- **Write classes:** non-GET operations without `write`, and `write: "read"` on POST.
+- **Bodies:** body params on GET, `file` params outside multipart, constants that collide with params.
+- **Pagination:** more than one style; params whose wire names clash with the pagination's.
+- **Credentials:** header or query params that would replace the credential; `sendCredential` without an
+  operation `baseUrl`; OAuth URLs that are not https.
+- **Budgets and media:** the time budgets above; jobs on reads; downloads without `envDir` or paths.
 
 ## Contract tests
 `test/contract.test.mjs` is usually just this:
@@ -218,24 +342,43 @@ import { pluginDefinition } from "../definition.mjs";
 
 describeRestPluginContract(pluginDefinition, {
   // environment: { ACME_REGION: "eu" },   // optional; fake credentials are filled in automatically
+  // checkAuth: (call, credential) => { ... },  // required for custom auth: assert the signature/header
   operations: {
     list_tasks: {
       args: { project_id: "p/1", status: "open" },
-      // path is relative to the base URL and URL-encoded; query is compared exactly (the auth query param excluded),
-      // json/form exactly, headers as a subset.
-      request: { method: "GET", path: "/projects/p%2F1/tasks", query: { status: "open" } },
-      response: { body: { data: [] } },     // optional canned success response
+      request: {
+        method: "GET",
+        url: "https://us.api.acme.example/v2/projects/p%2F1/tasks",   // literal origin + path, no query
+        query: { status: "open" },                                     // exact (auth param excluded); "absent" for none
+      },
+      response: { body: { data: [{ id: "t1" }] } },                    // optional canned success response
+      expect: { data: [{ id: "t1" }] },                                // optional: compared with the output's data
     },
-    create_task: { args: { project_id: "p1", title: "Ship" }, request: { method: "POST", path: "/projects/p1/tasks", json: { task: { title: "Ship" }, notify: false } } },
+    create_task: {
+      args: { project_id: "p1", title: "Ship" },
+      request: { method: "POST", url: "https://us.api.acme.example/v2/projects/p1/tasks", query: "absent",
+                 json: { task: { title: "Ship", source: "graphrt" }, notify: false } },   // or form / text / multipart / body: "absent"
+    },
     // ... one case per operation (a generated test fails when one is missing)
   },
 });
 ```
-The generated tests cover: request shape and credential placement; missing required params; `..` and
-`../../x` in path params; credential redaction in errors and `api_request` responses; unsafe writes not retried
-after a 5xx (reads and idempotent writes retried); nodeOnly and `toolPolicy` refusals; `api_request` POST refused
-for tools; limit/cursor mapping and `next_cursor` for each pagination style; jobs that finish, fail and time out.
-Add plugin-specific tests next to it for anything the spec cannot express.
+- **Case format:** repeated query or form keys compare as arrays (`{tags: ["a", "b"]}`). `multipart` compares field
+  values, and file fields by file name. Use `https://files.contract.example/<name>` for file args; the harness
+  serves it.
+- **Generated tests:**
+  - request shape and credential placement, and optional `expect.data`;
+  - missing required params, and `..` and `../../x` in path params;
+  - credential redaction in errors, in 200 bodies and Link headers, and in `api_request` responses;
+  - the declared error mapping (messagePath, kindByCode, okPath, errorPath);
+  - unsafe writes not retried after a 5xx, with the unknown-outcome note and checkHint (or a retry with the same
+    Idempotency-Key), and reads and idempotent writes retried;
+  - nodeOnly and `toolPolicy` refusals, and `api_request` POST refused for tools;
+  - limit/cursor mapping and `next_cursor` for every pagination style, including URL cursors refused outside the
+    base URL;
+  - jobs that finish, fail and time out;
+  - downloads saved into the output directory.
+- Add plugin-specific tests next to it for anything the spec cannot express.
 
 ## Checklist for a new plugin
 1. Create the directory and `definition.mjs`; run `npm run sync` (it validates the spec and generates the manifest).
@@ -245,19 +388,17 @@ Add plugin-specific tests next to it for anything the spec cannot express.
    credentials are fine: check that the error is a clean `auth_error`).
 5. Add a row to the root README table.
 
-## Agent-safety defaults
+## Agent-safety defaults for Phase 2
 - Money movement, refunds, deletes and bulk destructive operations: `nodeOnly: true`.
 - Sends to arbitrary recipients (email, SMS, chat posts): `toolPolicy: "optIn:<PLUGIN>_TOOL_ALLOW_<ACTION>"`.
 - Paid generation is allowed for tools by default; state the price in the README.
 - Never mark a write `idempotent` unless repeating it is harmless (PUT of the same document, DELETE that tolerates
-  404, POST search).
+  404, POST search). Prefer `idempotencyKeyHeader` where the API supports it (Stripe, Square, Adyen).
 
 ## Escape hatches
-- `auth: { type: "custom", env, authorize }` for unusual headers or simple signing. `authorize` may be async and
-  returns extra secrets to redact.
-- `baseUrl` as a function for regions and self-hosted instances; an operation-level `baseUrl` for APIs spread
-  over several hosts (Open-Meteo's geocoding, upload hosts). The credential is sent to that host too, so only use
-  hosts that belong to the API. `api_request` always uses the plugin's `baseUrl`.
+- `auth: { type: "custom", env, authorize }` for unusual headers and request signing.
+- `baseUrl` as a function (with `allowedHostSuffix`) for regions and self-hosted instances; an operation-level
+  `baseUrl` for APIs spread over several hosts.
 - `pluginDefinition.operations` is a normal array: you can append hand-written operations
   (`{name, title, description, parameters, run}`) to the result of `defineRestPlugin` for one-off flows.
 - When most operations need custom code, write the plugin by hand with `shared/lib/api-client.mjs` and
