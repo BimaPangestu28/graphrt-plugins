@@ -178,6 +178,18 @@ test("api_request as a tool cannot reach the path of a nodeOnly or opt-in GET op
   assert.equal((await runOperation(spec, "api_request", { path: "/admin/keys/k1" }, { source: "node" })).error, undefined);
 });
 
+test("api_request as a tool cannot reach a protected path through encoded slashes or double encoding", async () => {
+  const spec = buildSpec([
+    { name: "list_webhooks", title: "W", description: "d", path: "/webhooks", nodeOnly: true },
+    { name: "get_secret", title: "S", description: "d", path: "/admin/keys/{key_id}", nodeOnly: true, params: { key_id: { in: "path", type: "string", required: true } } },
+  ]);
+  for (const blockedPath of ["/admin%2Fkeys%2Fk1", "/admin%252Fkeys%252Fk1", "%2Fwebhooks", "/webhooks%2F", "//webhooks"]) {
+    const { error, calls } = await runOperation(spec, "api_request", { path: blockedPath }, { source: "tool" });
+    assert.ok(error?.kind === "permission_denied" || error?.kind === "invalid_input", `${blockedPath}: ${error?.kind}`);
+    assert.equal(calls.length, 0, blockedPath);
+  }
+});
+
 test("allowedHostSuffix keeps a function baseUrl on the API's own domain", async () => {
   const spec = buildSpec([{ name: "me", title: "M", description: "d", path: "/me" }], {
     baseUrl: (environment) => `https://${environment.PROBE_SITE}/rest`,

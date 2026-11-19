@@ -134,16 +134,42 @@ function buildUrl(baseUrl, path, query) {
 }
 
 // Relative paths are joined to the base path; anything that could escape it
-// ("//host", backslashes, dot segments) is refused so the token stays on the API.
+// ("//host", backslashes, dot segments, also percent-encoded) is refused so the token stays on the API.
 function resolveRelativePath(base, path) {
   const isSafePath =
-    typeof path === "string" && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") && !/(^|\/)\.\.?(\/|$|\?|#)/.test(path);
+    typeof path === "string" && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") && !hasDotSegment(path);
   if (!isSafePath) {
     throw new PluginError(`Unsafe API path ${JSON.stringify(path)}: use "/segment/..." without "//", "\\" or dot segments`, {
       kind: "invalid_input",
     });
   }
   return new URL(base.pathname.replace(/\/$/, "") + path, base.origin);
+}
+
+const MAX_DECODE_ROUNDS = 4;
+
+// The URL parser turns "%2e%2e" into "..", and some servers decode twice, so each segment is decoded
+// repeatedly before it is compared; an encoded backslash counts as a separator.
+function hasDotSegment(path) {
+  const pathname = path.split(/[?#]/)[0];
+  return pathname.split("/").some((segment) => {
+    let decoded = segment;
+    for (let round = 0; round < MAX_DECODE_ROUNDS; round += 1) {
+      if (decoded.split("\\").some((part) => part === "." || part === "..")) return true;
+      const next = decodeSegmentOnce(decoded);
+      if (next === decoded) return false;
+      decoded = next;
+    }
+    return true;
+  });
+}
+
+function decodeSegmentOnce(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
 function encodeQueryValue(queryValue) {
