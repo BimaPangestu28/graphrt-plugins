@@ -229,10 +229,19 @@ async function sendOnce(clientSettings, preparedRequest, callerSignal, rawRespon
 function classifyTransportFailure(transportError, callerSignal, preparedRequest) {
   if (callerSignal?.aborted) return new PluginError("Request cancelled", { kind: "cancelled" });
   const isTimeout = transportError?.name === "TimeoutError";
-  const reason = isTimeout ? "request timed out" : String(transportError?.cause?.message ?? transportError?.message ?? transportError);
+  const reason = isTimeout ? "request timed out" : describeTransportCause(transportError);
   const isIdempotent = preparedRequest.isIdempotent;
   const message = `Network error: ${reason}${isIdempotent ? "" : UNKNOWN_OUTCOME_NOTE}`;
   return new PluginError(redact(message, preparedRequest.secrets), { kind: "network_error", retryable: isIdempotent });
+}
+
+// Node's fetch wraps a refused connection in an AggregateError with an empty message, so fall back to its code
+// and the first inner error instead of printing "Network error: ".
+function describeTransportCause(transportError) {
+  const cause = transportError?.cause;
+  const details = [cause?.code, cause?.errors?.[0]?.message || cause?.message].filter(Boolean);
+  if (details.length) return [...new Set(details)].join(": ");
+  return String(transportError?.message || transportError);
 }
 
 async function readBody(fetchResponse) {

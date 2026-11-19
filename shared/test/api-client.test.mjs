@@ -367,3 +367,12 @@ test("request still accepts encoded characters that are not dot segments", async
   await createTestClient(fakeFetch).request({ path: "/files/a%2Fb/v1.2/%2e%2ex" });
   assert.equal(fakeFetch.calls[0].url, "https://api.example.com/v1/files/a%2Fb/v1.2/%2e%2ex");
 });
+
+test("a connection refused to localhost names the error code, not an empty reason", async () => {
+  const refusal = Object.assign(new AggregateError([new Error("connect ECONNREFUSED 127.0.0.1:8123")], ""), { code: "ECONNREFUSED" });
+  const fakeFetch = createFakeFetch([Object.assign(new TypeError("fetch failed"), { cause: refusal })]);
+  await assert.rejects(
+    createTestClient(fakeFetch, { maxRetries: 0 }).request({ path: "/x" }),
+    (error) => error.kind === "network_error" && /ECONNREFUSED/.test(error.message),
+  );
+});
