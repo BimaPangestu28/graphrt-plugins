@@ -1,0 +1,14 @@
+{
+  "name": "graphrt-plugin-mongodb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: read and (opt-in) write MongoDB collections with EJSON values",
+  "type": "module",
+  "engines": { "node": ">=20.19" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "mongodb": "7.8.0"
+  }
+}
