@@ -1,5 +1,7 @@
 # rss-reader
 
+**Status:** stable · **ToS risk:** none. Public feeds only; the example read the real GitHub Blog feed live (PR #48, rechecked 2026-11-19). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **news and blog feeds**. It fetches RSS 2.0
 (and 0.9x), RSS 1.0 (RDF), Atom 1.0 and JSON Feed 1.x from public https URLs and returns every format in one

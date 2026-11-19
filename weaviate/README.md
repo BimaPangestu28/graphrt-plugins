@@ -1,5 +1,7 @@
 # weaviate
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Weaviate](https://docs.weaviate.io/), self-hosted
 or Weaviate Cloud. Search (near text, near vector, near object, hybrid, BM25, filters, counts) goes through Weaviate's

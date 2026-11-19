@@ -1,5 +1,7 @@
 # whatsapp-web
 
+**Status:** experimental · **ToS risk:** high. Unofficial WhatsApp Web automation of a personal account; only get_status ran live, no real send. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that drives **your personal WhatsApp** through
 WhatsApp Web in a headless Chromium (Playwright). You scan a QR code once; after that, workflows and agents
@@ -9,6 +11,7 @@ can read chats and messages and send text and files in the background.
 > spam-like patterns can get your number **banned**. This plugin is for low-volume personal use: sends are
 > rate limited by default and never retried. For business messaging use the official Cloud API
 > (`whatsapp-api`). Selectors break when WhatsApp changes its web UI (see `lib/selectors.mjs`).
+> See [docs/tos-audit.md](../docs/tos-audit.md#whatsapp-web).
 
 ## Features
 - **Session:** `login` (node only) opens a visible window with the QR code. `get_status` reports

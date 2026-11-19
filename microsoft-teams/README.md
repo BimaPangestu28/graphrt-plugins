@@ -1,5 +1,7 @@
 # microsoft-teams
 
+**Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Microsoft Teams through
 [Microsoft Graph v1.0](https://learn.microsoft.com/en-us/graph/teams-concept-overview): joined teams, channels,

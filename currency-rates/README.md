@@ -1,5 +1,7 @@
 # currency-rates
 
+**Status:** stable · **ToS risk:** none. Public no-auth API (Frankfurter); the example converted with a real rate live (2026-11-19). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Frankfurter](https://frankfurter.dev) v2, a free
 and open-source API for reference exchange rates published by the European Central Bank and other central banks

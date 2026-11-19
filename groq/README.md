@@ -1,5 +1,7 @@
 # groq
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, but the live check was blocked by Groq's network filter (403) before the key was checked. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the OpenAI-compatible
 [Groq API](https://console.groq.com/docs/api-reference). Groq serves open models (Llama, GPT-OSS, Qwen, Whisper and

@@ -1,5 +1,7 @@
 # ollama
 
+**Status:** beta · **ToS risk:** none. Local Ollama API; unit-tested with fakes, checked live only with no server running (network_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for a local [Ollama](https://ollama.com) server
 ([API reference](https://github.com/ollama/ollama/blob/main/docs/api.md)). It runs a *second* model on your own

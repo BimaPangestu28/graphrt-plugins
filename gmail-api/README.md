@@ -1,5 +1,7 @@
 # gmail-api
 
+**Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Gmail API v1](https://developers.google.com/workspace/gmail/api/reference/rest):
 search and read messages and threads, labels, drafts, attachments, and sending mail from the signed-in account.

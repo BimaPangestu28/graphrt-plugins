@@ -1,5 +1,7 @@
 # mysql
 
+**Status:** stable · **ToS risk:** none. Live integration tests against a temporary MySQL 9.2 database (PR #28); MariaDB, TLS and Unix sockets not tested. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that runs parameterised SQL on **MySQL** and
 **MariaDB** with the [`mysql2`](https://sidorares.github.io/node-mysql2/docs) driver. Agents get read-only access by

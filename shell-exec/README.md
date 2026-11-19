@@ -1,5 +1,7 @@
 # shell-exec
 
+**Status:** stable · **ToS risk:** none. Local only; ran an allowlisted executable live and printed `$(not expanded)` literally (PR #48). See [plugin status](../README.md#plugin-status).
+
 > **Warning: this is the most dangerous plugin in this collection.** A program run through it can do anything its
 > arguments allow, with your user's rights: read and delete files, reach the network, start other programs. The
 > safeguards below limit *which* programs run, *where*, *with which arguments for agents* and *for how long*; they

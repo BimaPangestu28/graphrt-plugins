@@ -1,5 +1,7 @@
 # web-search
 
+**Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for provider-agnostic web and news search. One
 environment variable picks the provider ([Tavily](https://docs.tavily.com),

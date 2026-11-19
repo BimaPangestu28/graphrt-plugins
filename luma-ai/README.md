@@ -1,5 +1,7 @@
 # luma-ai
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Luma AI video and image generation through the
 [Luma Agents API](https://docs.agents.lumalabs.ai/api/) (`https://agents.lumalabs.ai/v1`), Luma's current API. It

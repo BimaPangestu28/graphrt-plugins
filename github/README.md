@@ -1,5 +1,7 @@
 # github
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [GitHub REST API](https://docs.github.com/en/rest)
 (API version `2026-03-10`). It reads repositories, issues, pull requests, file contents, search results, releases,

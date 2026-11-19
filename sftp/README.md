@@ -1,5 +1,7 @@
 # sftp
 
+**Status:** beta · **ToS risk:** none. Loopback ssh2 tests for host-key pinning; checked live only against an unreachable host, never a real SSH server. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **one SFTP server**: list, stat and read remote
 files, download them to a local directory and upload local files, using the [`ssh2`](https://www.npmjs.com/package/ssh2)

@@ -1,5 +1,7 @@
 # google-analytics
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Google Analytics 4: reports through the
 [Data API v1beta](https://developers.google.com/analytics/devguides/reporting/data/v1/rest) and account, property

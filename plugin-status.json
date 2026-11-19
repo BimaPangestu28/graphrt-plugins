@@ -1,0 +1,772 @@
+{
+  "airtable-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "anthropic": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "apollo": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "medium",
+    "tos_notes": "Enrichment and cold outreach process personal data: GDPR (Art. 6(1)(f), Art. 14 notice) and Indonesia's UU PDP 27/2022 apply; Apollo's terms bar reselling its data."
+  },
+  "asana": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "assemblyai": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "bigquery": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "biteship": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "bmkg": {
+    "status": "stable",
+    "reason": "Public no-auth API; the example read real data live (rechecked 2026-11-19).",
+    "tos_risk": "none"
+  },
+  "bps": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "brevo": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Anti-spam law (consent for marketing email) and Brevo's acceptable use policy."
+  },
+  "calendly": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "chroma": {
+    "status": "beta",
+    "reason": "Official API; checked live against Chroma Cloud with a bad key (auth_error); get/delete addressing is unverified live.",
+    "tos_risk": "none"
+  },
+  "clickhouse": {
+    "status": "beta",
+    "reason": "Official HTTP interface; reviewed and unit-tested with fakes, checked live against the public playground with a bad user (auth_error).",
+    "tos_risk": "none"
+  },
+  "clickup": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "cloudflare": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "coingecko": {
+    "status": "stable",
+    "reason": "Keyless public API read live (2026-11-19); the Demo and Pro key paths are checked only with fakes.",
+    "tos_risk": "none"
+  },
+  "computer-control": {
+    "status": "experimental",
+    "reason": "Desktop UI automation: only read-only operations ran live; clicks, typing and the WhatsApp Desktop recipe are unverified.",
+    "tos_risk": "medium",
+    "tos_notes": "Driving WhatsApp Desktop (or any app whose terms ban automation) is the automated access those terms forbid; generic app control is fine."
+  },
+  "currency-rates": {
+    "status": "stable",
+    "reason": "Public no-auth API (Frankfurter); the example converted with a real rate live (2026-11-19).",
+    "tos_risk": "none"
+  },
+  "deepgram": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "deepl": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "discord": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Discord Developer Policy: no spam or unsolicited DMs; mass mentions need an opt-in."
+  },
+  "dropbox": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "dynamodb": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "elasticsearch": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error).",
+    "tos_risk": "none"
+  },
+  "elevenlabs": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "email": {
+    "status": "beta",
+    "reason": "Live verify_connection against smtp.gmail.com with a wrong password gave auth_error (PR #18); no mail sent, IMAP tested with fakes only.",
+    "tos_risk": "low",
+    "tos_notes": "Provider anti-spam rules and sending limits; the plugin has its own daily send cap."
+  },
+  "embeddings": {
+    "status": "beta",
+    "reason": "OpenAI-compatible /embeddings API for several providers; unit-tested with fakes, checked live only with an invalid key.",
+    "tos_risk": "none"
+  },
+  "excel-csv": {
+    "status": "stable",
+    "reason": "Local only; its example workflow ran on real files during the build (PR #40).",
+    "tos_risk": "none"
+  },
+  "fal-ai": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "ffmpeg": {
+    "status": "stable",
+    "reason": "Local only; its example workflow ran on real files during the build (PR #40).",
+    "tos_risk": "none"
+  },
+  "file-watcher": {
+    "status": "stable",
+    "reason": "Local only; detected a real new file live (PR #48).",
+    "tos_risk": "none"
+  },
+  "firestore": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "fonnte": {
+    "status": "experimental",
+    "reason": "Unofficial WhatsApp gateway (Fonnte runs your number through WhatsApp Web); checked live only with an invalid token.",
+    "tos_risk": "high",
+    "tos_notes": "Fonnte calls itself unofficial and WhatsApp Web based, and warns that bans can happen whatever you do. Prefer whatsapp-api or an official BSP."
+  },
+  "gemini": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "github": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "gitlab": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "gmail-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Google API Services User Data Policy and Gmail bulk-sender rules for sent mail."
+  },
+  "google-ads": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Google Ads API terms (developer token) and advertising policies."
+  },
+  "google-analytics": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-business-profile-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "API access needs Google approval; review replies and posts must follow Google's content policies."
+  },
+  "google-calendar": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-docs": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-drive": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-forms": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-imagen": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-maps-platform": {
+    "status": "beta",
+    "reason": "Official Maps Platform APIs (billed per call); checked live only with an invalid key (API_KEY_INVALID).",
+    "tos_risk": "none"
+  },
+  "google-maps-scraper": {
+    "status": "experimental",
+    "reason": "Scrapes Google Maps with a headless browser: works live (PR #1), but against Google's terms and breaks when the Maps UI changes.",
+    "tos_risk": "high",
+    "tos_notes": "Google's ToS bar automated access against robots.txt, and the Maps terms bar bulk extraction and building business-listing or telemarketing lists. Prefer google-maps-platform."
+  },
+  "google-search-console": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-sheets": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-translate": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-veo": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "google-vision": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "groq": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, but the live check was blocked by Groq's network filter (403) before the key was checked.",
+    "tos_risk": "none"
+  },
+  "hubspot": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "hunter": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "medium",
+    "tos_notes": "You are the independent controller under GDPR for the emails you find; UU PDP 27/2022 applies to Indonesian data subjects; Hunter suspends abusive API use."
+  },
+  "ideogram": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "image-tools": {
+    "status": "stable",
+    "reason": "Local only; its example workflow ran on real files during the build (PR #40).",
+    "tos_risk": "none"
+  },
+  "jira": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "kling": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "lazada": {
+    "status": "experimental",
+    "reason": "Request signing is unit-tested but never accepted by Lazada: the live check used an invalid app key.",
+    "tos_risk": "low",
+    "tos_notes": "Lazada Open Platform developer agreement: an approved app and seller authorization."
+  },
+  "libur-nasional": {
+    "status": "stable",
+    "reason": "Public no-auth API; the example read real data live (rechecked 2026-11-19).",
+    "tos_risk": "none"
+  },
+  "line-messaging": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "LINE Official Account terms: no spam; multicast and broadcast are node only."
+  },
+  "linear": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "linkedin-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "high",
+    "tos_notes": "LinkedIn's API Terms (s3.1(26)) forbid using the APIs to automate posting, and the User Agreement bars bots that post, comment or react. Have a member approve every post."
+  },
+  "local-files": {
+    "status": "stable",
+    "reason": "Local only; listed a real directory live and returned a clean not_found (PR #48).",
+    "tos_risk": "none"
+  },
+  "luma-ai": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "macos-notifications": {
+    "status": "stable",
+    "reason": "Local only; posted a real notification live (PR #48).",
+    "tos_risk": "none"
+  },
+  "mailchimp": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Anti-spam law (consent for marketing email) and Mailchimp's acceptable use policy."
+  },
+  "meta-ads": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Meta advertising policies apply to the ads created."
+  },
+  "meta-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Meta Platform Terms and Developer Policies: no spam, the 24 h Messenger and Instagram messaging window, message tags only for approved uses."
+  },
+  "microsoft-graph": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Microsoft APIs Terms of Use and Outlook anti-spam limits for sent mail."
+  },
+  "microsoft-teams": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Microsoft APIs Terms of Use: no spam, tenant consent."
+  },
+  "midtrans": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "minimax-video": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "mistral": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "mongodb": {
+    "status": "stable",
+    "reason": "Live integration tests against a temporary mongod 8.0 (PR #26); auth, Atlas and SRV not tested.",
+    "tos_risk": "none"
+  },
+  "mysql": {
+    "status": "stable",
+    "reason": "Live integration tests against a temporary MySQL 9.2 database (PR #28); MariaDB, TLS and Unix sockets not tested.",
+    "tos_risk": "none"
+  },
+  "neo4j": {
+    "status": "beta",
+    "reason": "Official Query API; reviewed and unit-tested with fakes, checked live against the public demo with a bad password (auth_error).",
+    "tos_risk": "none"
+  },
+  "news-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "notion-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "ocr-tesseract": {
+    "status": "stable",
+    "reason": "Local only; its example workflow ran on real files during the build (PR #40).",
+    "tos_risk": "none"
+  },
+  "ollama": {
+    "status": "beta",
+    "reason": "Local Ollama API; unit-tested with fakes, checked live only with no server running (network_error).",
+    "tos_risk": "none"
+  },
+  "onedrive": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "open-meteo": {
+    "status": "stable",
+    "reason": "Public no-auth API; the example read a real Jakarta forecast live (PR #27, rechecked 2026-11-19).",
+    "tos_risk": "none"
+  },
+  "openai": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "openai-audio": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "openai-images": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "paypal": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "pdf-tools": {
+    "status": "stable",
+    "reason": "Local only; its example workflow ran on real files during the build (PR #40).",
+    "tos_risk": "none"
+  },
+  "pinecone": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "pipedrive": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "postgres": {
+    "status": "stable",
+    "reason": "Live integration tests against a temporary PostgreSQL 16 cluster (PR #28); TLS modes and Unix sockets not tested.",
+    "tos_risk": "none"
+  },
+  "qdrant": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error).",
+    "tos_risk": "none"
+  },
+  "qontak": {
+    "status": "experimental",
+    "reason": "Official WhatsApp BSP, but the HMAC request signing has not been verified against a live Mekari account.",
+    "tos_risk": "low",
+    "tos_notes": "Official WhatsApp BSP; the WhatsApp Business Messaging Policy (opt-in, templates) still applies."
+  },
+  "qr-code": {
+    "status": "stable",
+    "reason": "Local only; the example wrote a PNG that decoded back to its URL (PR #40).",
+    "tos_risk": "none"
+  },
+  "rajaongkir": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "redis": {
+    "status": "stable",
+    "reason": "Live integration tests against a temporary redis-server 7.2 (PR #26); TLS, Cluster and Sentinel not tested.",
+    "tos_risk": "none"
+  },
+  "replicate": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "replicate-video": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "resend": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Anti-spam law and Resend's acceptable use policy."
+  },
+  "rss-reader": {
+    "status": "stable",
+    "reason": "Public feeds only; the example read the real GitHub Blog feed live (PR #48, rechecked 2026-11-19).",
+    "tos_risk": "none"
+  },
+  "runway": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "s3": {
+    "status": "beta",
+    "reason": "SigV4 matches the AWS test vectors and a live round trip against MinIO passed (PR #37); not tested on real AWS or R2.",
+    "tos_risk": "none"
+  },
+  "salesforce": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "sendgrid": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Anti-spam law and Twilio SendGrid's acceptable use policy."
+  },
+  "sentry": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "sftp": {
+    "status": "beta",
+    "reason": "Loopback ssh2 tests for host-key pinning; checked live only against an unreachable host, never a real SSH server.",
+    "tos_risk": "none"
+  },
+  "shell-exec": {
+    "status": "stable",
+    "reason": "Local only; ran an allowlisted executable live and printed `$(not expanded)` literally (PR #48).",
+    "tos_risk": "none"
+  },
+  "shipper": {
+    "status": "beta",
+    "reason": "Official API; checked live only with an invalid key, and one request field placement is unverified.",
+    "tos_risk": "none"
+  },
+  "shopee-api": {
+    "status": "experimental",
+    "reason": "Request signing is unit-tested but never accepted by Shopee: the live check with fake credentials got error_sign.",
+    "tos_risk": "low",
+    "tos_notes": "Shopee Open Platform partner rules: a registered app, seller authorization and the data protection policy."
+  },
+  "shopify": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "slack": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Slack API Terms: workspace consent, no spam."
+  },
+  "snowflake": {
+    "status": "beta",
+    "reason": "Official SQL API; reviewed and unit-tested with fakes, checked live only with a made-up account (not_found).",
+    "tos_risk": "none"
+  },
+  "sqlite": {
+    "status": "stable",
+    "reason": "Local only; the tests use the real node:sqlite engine and the example read a real file (2026-11-19).",
+    "tos_risk": "none"
+  },
+  "stability-ai": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "stable-audio": {
+    "status": "beta",
+    "reason": "Official API; checked live only with a fake key; Stable Audio 3 audio-to-audio and inpainting are not implemented.",
+    "tos_risk": "none"
+  },
+  "state-store": {
+    "status": "stable",
+    "reason": "Local only; the polling example ran live (new ids, then none) in PR #13 and again on 2026-11-19.",
+    "tos_risk": "none"
+  },
+  "stripe": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "supabase": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error).",
+    "tos_risk": "none"
+  },
+  "telegram-bot": {
+    "status": "beta",
+    "reason": "Official Bot API; checked live only with an invalid token (401); no message sent live.",
+    "tos_risk": "low",
+    "tos_notes": "Telegram Bot Platform rules: no spam; bots message only users who started them."
+  },
+  "threads-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Meta Developer Policies: consent before publishing on someone's behalf, no spam; Threads caps API posts (250) and replies (1,000) per 24 h."
+  },
+  "tiktok-ads": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "TikTok advertising policies apply to the ads created."
+  },
+  "tiktok-api": {
+    "status": "experimental",
+    "reason": "Business API comment and DM field names come from a third-party client, not TikTok's docs; checked live only with an invalid token.",
+    "tos_risk": "medium",
+    "tos_notes": "Unaudited apps can post only SELF_ONLY; audited apps must show a per-post confirmation with a manual privacy choice, so unattended posting conflicts with TikTok's guidelines."
+  },
+  "tiktok-shop-api": {
+    "status": "experimental",
+    "reason": "Request signing is unit-tested but never accepted by TikTok Shop: the live check used an invalid app key.",
+    "tos_risk": "low",
+    "tos_notes": "TikTok Shop partner rules: a registered and reviewed app and seller authorization."
+  },
+  "todoist": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "trello": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "twilio": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Carrier and WhatsApp messaging policies (opt-in, no spam); toll-fraud risk is covered by the recipient allowlist."
+  },
+  "typeform": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "vercel": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "vonage": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Carrier and WhatsApp messaging policies (opt-in, no spam)."
+  },
+  "wablas": {
+    "status": "experimental",
+    "reason": "WhatsApp gateway driving a QR-linked device (unofficial); checked live only with an invalid token.",
+    "tos_risk": "high",
+    "tos_notes": "The device (QR) mode drives a WhatsApp account outside the official Business Platform, against WhatsApp's ToS on automated means. Prefer whatsapp-api."
+  },
+  "weaviate": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error).",
+    "tos_risk": "none"
+  },
+  "web-browser": {
+    "status": "stable",
+    "reason": "Real-Chromium end-to-end suite and live reads of public pages, with SSRF refusals checked live (PR #24, #34).",
+    "tos_risk": "low",
+    "tos_notes": "Reads public pages only and respects robots.txt by default; each site's own terms still apply."
+  },
+  "web-search": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "Results come from the provider (Tavily, Brave or SerpAPI) under its terms; SerpAPI itself scrapes search engines."
+  },
+  "whatsapp-api": {
+    "status": "beta",
+    "reason": "Official Cloud API; checked live only with an invalid token (190); sends are tested with fakes only.",
+    "tos_risk": "low",
+    "tos_notes": "WhatsApp Business Messaging Policy: opt-in required, templates outside the 24 h window, messaging-limit tiers and quality ratings."
+  },
+  "whatsapp-web": {
+    "status": "experimental",
+    "reason": "Unofficial WhatsApp Web automation of a personal account; only get_status ran live, no real send.",
+    "tos_risk": "high",
+    "tos_notes": "WhatsApp's ToS bar automated or unauthorized access and bulk or auto-messaging; unofficial clients get numbers banned. Prefer whatsapp-api."
+  },
+  "wikipedia": {
+    "status": "stable",
+    "reason": "Public no-auth API; the example read real data live (rechecked 2026-11-19).",
+    "tos_risk": "none"
+  },
+  "wilayah-indonesia": {
+    "status": "stable",
+    "reason": "Public no-auth API; the example read real data live (rechecked 2026-11-19).",
+    "tos_risk": "none"
+  },
+  "woocommerce": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "x-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "medium",
+    "tos_notes": "X's Developer Policy and Automation Rules: explicit consent for automated replies and DMs, no keyword-triggered auto-replies, no trend posting, no bulk or spammy actions."
+  },
+  "xendit": {
+    "status": "beta",
+    "reason": "Official API; checked live only with an invalid key, and get_payout's api-version header is unverified.",
+    "tos_risk": "none"
+  },
+  "youtube-api": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "low",
+    "tos_notes": "YouTube API Services Developer Policies: no scraping, no spammy comments or live chat messages."
+  },
+  "youtube-transcript": {
+    "status": "beta",
+    "reason": "Official Data API only (captions.download works only for videos you can edit); checked live only with an invalid token.",
+    "tos_risk": "low",
+    "tos_notes": "Uses only captions.download (needs edit rights on the video); YouTube's policies forbid scraping transcripts of other videos, which this plugin does not do."
+  },
+  "zerobounce": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, but the live check never reached ZeroBounce (Cloudflare blocked the test network).",
+    "tos_risk": "low",
+    "tos_notes": "Validation sends email addresses to ZeroBounce as a processor: sign its DPA and use the EU host for EU data."
+  },
+  "zoho-crm": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  },
+  "zoom": {
+    "status": "beta",
+    "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
+    "tos_risk": "none"
+  }
+}

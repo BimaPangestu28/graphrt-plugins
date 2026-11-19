@@ -1,5 +1,7 @@
 # biteship
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Biteship](https://biteship.com/en/docs/api), an
 Indonesian shipping aggregator (JNE, J&T, SiCepat, AnterAja, Ninja, Gojek, Grab, Lalamove, ...). It compares courier

@@ -1,5 +1,7 @@
 # web-browser
 
+**Status:** stable · **ToS risk:** low. Real-Chromium end-to-end suite and live reads of public pages, with SSRF refusals checked live (PR #24, #34). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **read-only browsing of public web pages** in a
 headless Chromium (Playwright). Workflows and agents can read a page as clean text or markdown, list its links,

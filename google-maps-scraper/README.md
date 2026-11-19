@@ -1,13 +1,17 @@
 # google-maps-scraper
 
+**Status:** experimental · **ToS risk:** high. Scrapes Google Maps with a headless browser: works live (PR #1), but against Google's terms and breaks when the Maps UI changes. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that searches Google Maps with a headless
 Chromium browser (Playwright) and returns business phone numbers, addresses, websites and ratings.
 Free: no API key or paid service.
 
-> **Warning:** scraping Google Maps breaks Google's Terms of Service. Heavy use triggers a CAPTCHA
-> (the node fails with `blocked`), and the selectors break whenever Google changes the Maps UI.
-> Keep volumes low. For production use, consider the paid Google Places API.
+> **Warning:** unofficial: scraping Google Maps breaks Google's Terms of Service, and the Maps terms forbid using
+> Maps content to build business-listing or telemarketing lists. Google can block or suspend the account or IP.
+> Heavy use triggers a CAPTCHA (the node fails with `blocked`), and the selectors break whenever Google changes the
+> Maps UI. Keep volumes low. Prefer the official Places API through the
+> [`google-maps-platform`](../google-maps-platform/) plugin. See [docs/tos-audit.md](../docs/tos-audit.md#google-maps-scraper).
 
 ## Features
 - `google-maps-scraper.search` node: query → `results`, `phones`, `count`

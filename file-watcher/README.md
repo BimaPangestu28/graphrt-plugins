@@ -1,5 +1,7 @@
 # file-watcher
 
+**Status:** stable · **ToS risk:** none. Local only; detected a real new file live (PR #48). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that **notices new, changed and removed files** in
 directories you allow. graphrt nodes and tools are request/response, so there is no background watcher: the plugin

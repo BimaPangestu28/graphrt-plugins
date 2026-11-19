@@ -1,5 +1,7 @@
 # shopify
 
+**Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
 [Shopify Admin GraphQL API](https://shopify.dev/docs/api/admin-graphql) (version `2026-10`): shop, products,

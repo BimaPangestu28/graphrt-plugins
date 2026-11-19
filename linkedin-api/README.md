@@ -1,9 +1,19 @@
 # linkedin-api
 
+**Status:** beta · **ToS risk:** high. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **LinkedIn REST API**
 (`https://api.linkedin.com/rest`). It publishes and manages posts as a member or an organization, uploads images,
 and reads and writes comments and reactions. Every operation is a workflow node and an agent tool.
+
+> **Warning:** LinkedIn's [API Terms of Use](https://www.linkedin.com/legal/l/api-terms-of-use) (section 3.1) forbid
+> using the APIs "to automate posting on the LinkedIn Services", and the
+> [User Agreement](https://www.linkedin.com/legal/user-agreement) (section 8.2) bars bots that post, comment, like
+> or share. LinkedIn can revoke the app and restrict the member. Have a person write or approve **every** post,
+> comment and reaction (for example a human approval step before the node), and don't let an agent post on its own:
+> today the post, comment and reaction tools have no opt-in. There is no more permissive official alternative. See
+> [docs/tos-audit.md](../docs/tos-audit.md#linkedin-api).
 
 ## Features
 - **Profile:** `get_userinfo` (OpenID Connect userinfo plus the member's `person_urn`)

@@ -1,5 +1,7 @@
 # tiktok-api
 
+**Status:** experimental · **ToS risk:** medium. Business API comment and DM field names come from a third-party client, not TikTok's docs; checked live only with an invalid token. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **TikTok APIs**. It uses two of them:
 

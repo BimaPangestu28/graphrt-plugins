@@ -1,5 +1,7 @@
 # google-maps-platform
 
+**Status:** beta · **ToS risk:** none. Official Maps Platform APIs (billed per call); checked live only with an invalid key (API_KEY_INVALID). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for three Google Maps Platform APIs with one API key:
 [Places API (New)](https://developers.google.com/maps/documentation/places/web-service/op-overview),

@@ -1,10 +1,19 @@
 # wablas
 
+**Status:** experimental · **ToS risk:** high. WhatsApp gateway driving a QR-linked device (unofficial); checked live only with an invalid token. See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Wablas](https://wablas.com), an Indonesian
 WhatsApp gateway that sends from your WhatsApp number linked to a Wablas device
 ([API docs](https://pati.wablas.com/documentation/api); every server hosts the same docs): send text, images,
 documents and videos, read message reports, cancel pending messages and read the device status and quota.
+
+> **Warning:** unofficial: this can get your WhatsApp number **banned**. This plugin drives a Wablas *device*, a
+> WhatsApp account linked by scanning a QR code, which is outside Meta's WhatsApp Business Platform and against
+> WhatsApp's Terms of Service ("automated or other means", bulk and auto-messaging). Prefer the official Cloud API
+> (`whatsapp-api`; Wablas also resells Cloud API numbers, which this plugin does not cover) or `qontak`. If you use
+> it, message only people who asked to hear from you, keep volumes low and keep `WABLAS_TOOL_RECIPIENT_ALLOWLIST`
+> tight. See [docs/tos-audit.md](../docs/tos-audit.md#bulk-whatsapp-gateways-fonnte-wablas).
 
 Built with the [declarative REST layer](../docs/declarative-plugins.md): [`definition.mjs`](definition.mjs).
 `get_device_info` is hand-written in [`lib/device-info.mjs`](lib/device-info.mjs) because Wablas wants the token

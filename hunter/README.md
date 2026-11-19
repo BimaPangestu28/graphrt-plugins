@@ -1,5 +1,7 @@
 # hunter
 
+**Status:** beta · **ToS risk:** medium. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
+
 ## Overview
 A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Hunter.io API v2](https://hunter.io/api-documentation/v2):
 find and verify professional email addresses, enrich people and companies, discover companies, and keep leads and

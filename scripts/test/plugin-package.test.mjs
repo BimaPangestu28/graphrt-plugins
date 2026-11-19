@@ -7,6 +7,7 @@ import {
   isPinnedPath, releaseTagFor, sha256Hex, tarballNameFor, withChecksums,
 } from "../lib/plugin-package.mjs";
 import { extractReadmeWarnings } from "../lib/release-notes.mjs";
+import { readPluginStatuses } from "../lib/plugin-status.mjs";
 import { createTarGz } from "../lib/tar-archive.mjs";
 import { REPO_ROOT } from "../plugins.mjs";
 
@@ -62,6 +63,18 @@ test("builds a catalog entry with download and readme URLs", () => {
   assert.equal(entry.needs_browser, false);
   assert.equal(entry.node, ">=20");
   assert.equal(entry.size_bytes, 123);
+});
+
+test("carries the maturity status and ToS risk from plugin-status.json", () => {
+  const pluginStatuses = { "meta-api": { status: "beta", reason: "Checked live with an invalid token only.", tos_risk: "low", tos_notes: "Spam rules." } };
+  const entry = buildCatalogEntry(sampleManifest, { sha256: "0", sizeBytes: 1 }, pluginStatuses);
+  assert.equal(entry.status, "beta");
+  assert.equal(entry.status_reason, "Checked live with an invalid token only.");
+  assert.equal(entry.tos_risk, "low");
+  const repoEntry = buildCatalogEntry({ ...sampleManifest, name: "whatsapp-web", nodes: [] }, { sha256: "0", sizeBytes: 1 });
+  assert.equal(repoEntry.status, "experimental");
+  assert.equal(repoEntry.tos_risk, "high");
+  assert.throws(() => buildCatalogEntry({ ...sampleManifest, name: "ghost" }, { sha256: "0", sizeBytes: 1 }), /ghost: no entry in plugin-status.json/);
 });
 
 test("marks Playwright plugins as needing a browser", () => {
@@ -122,11 +135,16 @@ test("takes the first README warning blockquote as the catalog warning", () => {
   assert.equal(entry.warning, "breaks the **Terms of Service**. Keep `volumes` low.");
 });
 
-test("finds the Terms of Service warning in the whatsapp-web and google-maps-scraper READMEs only", () => {
-  const whatsappWarning = extractCatalogWarning(readFileSync(join(REPO_ROOT, "whatsapp-web", "README.md"), "utf8"));
-  assert.match(whatsappWarning, /^automating a personal WhatsApp account breaks WhatsApp's Terms of Service.*\*\*banned\*\*/);
-  assert.match(extractCatalogWarning(readFileSync(join(REPO_ROOT, "google-maps-scraper", "README.md"), "utf8")), /Terms of Service/);
-  assert.equal(extractCatalogWarning(readFileSync(join(REPO_ROOT, "meta-api", "README.md"), "utf8")), null);
+test("finds a Terms of Service warning in every high-risk plugin README, and none in meta-api", () => {
+  const readCatalogWarning = (pluginName) => extractCatalogWarning(readFileSync(join(REPO_ROOT, pluginName, "README.md"), "utf8"));
+  assert.match(readCatalogWarning("whatsapp-web"), /^automating a personal WhatsApp account breaks WhatsApp's Terms of Service.*\*\*banned\*\*/);
+  assert.match(readCatalogWarning("google-maps-scraper"), /Terms of Service.*google-maps-platform/);
+  for (const pluginName of ["fonnte", "wablas"]) assert.match(readCatalogWarning(pluginName), /^unofficial: .*\*\*banned\*\*.*whatsapp-api/, pluginName);
+  assert.match(readCatalogWarning("linkedin-api"), /automate posting/);
+  const highRiskPlugins = Object.entries(readPluginStatuses()).filter(([, statusEntry]) => statusEntry.tos_risk === "high").map(([pluginName]) => pluginName);
+  assert.deepEqual(highRiskPlugins.sort(), ["fonnte", "google-maps-scraper", "linkedin-api", "wablas", "whatsapp-web"]);
+  for (const pluginName of highRiskPlugins) assert.match(readCatalogWarning(pluginName) ?? "", /[Tt]erms/, pluginName);
+  assert.equal(readCatalogWarning("meta-api"), null);
 });
 
 test("describes a published tarball from its own bytes, keeping sha256 and size", () => {
