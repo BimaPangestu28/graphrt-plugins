@@ -97,7 +97,7 @@ test("each call uses a fresh, locked-down context behind its own proxy", async (
     assert.equal(context.options.ignoreHTTPSErrors, false);
     // Explicit "<-loopback>": loopback traffic goes through the proxy whatever Playwright's defaults or env say.
     assert.deepEqual(context.options.proxy, { server: "http://127.0.0.1:1", bypass: "<-loopback>", username: "op-user", password: "op-secret" });
-    assert.match(context.options.userAgent, /Chrome\/131\.0\.6778\.33 Safari\/537\.36 graphrt-web-browser\/0\.1\.0/);
+    assert.match(context.options.userAgent, /Chrome\/131\.0\.6778\.33 Safari\/537\.36 graphrt-web-browser\/0\.2\.0/);
     assert.deepEqual(context.routes.map((route) => route.pattern), ["**/*"]);
     assert.deepEqual(context.initScripts.map((initScript) => initScript.script), [hardenScopeInPage]);
     assert.ok(context.initScripts[0].argument.blockedGlobals.includes("RTCPeerConnection"));
@@ -315,7 +315,7 @@ test("planCapture picks viewport or capped full-page captures", () => {
 test("buildBrowserUserAgent names the plugin and its robots token", () => {
   assert.equal(
     buildBrowserUserAgent("131.0.1", "linux"),
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.1 Safari/537.36 graphrt-web-browser/0.1.0 (+https://github.com/BimaPangestu28/graphrt-plugins)",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.1 Safari/537.36 graphrt-web-browser/0.2.0 (+https://github.com/BimaPangestu28/graphrt-plugins)",
   );
 });
 

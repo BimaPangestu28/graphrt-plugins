@@ -18,6 +18,7 @@
 import { PluginError } from "./shared/graphrt-plugin.mjs";
 import { BLOCKED_HEADER } from "./egress-proxy.mjs";
 import { invalidInput, networkError, notFound, permissionDenied, runStep, timeoutError } from "./errors.mjs";
+import { buildFrameName, startLiveView } from "./live-view.mjs";
 import { buildHardeningArgument, hardenScopeInPage } from "./page-hardening.mjs";
 import { createRequestGuard, isMainFrameNavigation } from "./request-guard.mjs";
 import { hostnameOf, isHttpUrl, parseNavigableUrl, shortenUrl } from "./url-policy.mjs";
@@ -61,7 +62,7 @@ export async function browsePage(client, request, readPage, signal) {
       maxRequests: MAX_REQUESTS_PER_PAGE,
       navigationTimeoutMs: request.timeoutMs,
     });
-    const loadContext = { target, request, guard, proxy, readPage };
+    const loadContext = { target, request, guard, proxy, readPage, liveViewDirectory: client.settings.liveViewDirectory };
     return await client.session.withContext(contextOptions, (context) => loadAndRead(context, loadContext), { signal: operationSignal });
   } finally {
     await proxy.close();
@@ -90,10 +91,25 @@ export function buildContextOptions({ proxy, userAgent, viewport }) {
   };
 }
 
-async function loadAndRead(context, { target, request, guard, proxy, readPage }) {
+async function loadAndRead(context, loadContext) {
   await context.addInitScript(hardenScopeInPage, buildHardeningArgument());
-  await context.route("**/*", guard.handleRoute);
+  await context.route("**/*", loadContext.guard.handleRoute);
   const page = await context.newPage();
+  // The shared runner does not pass the node id, so frames are labelled "page" (the host shows
+  // them under the step that is running).
+  const liveView = await startLiveView(page, {
+    directory: loadContext.liveViewDirectory,
+    frameName: buildFrameName(null),
+    logPrefix: "[web-browser]",
+  });
+  try {
+    return await loadAndReadPage(page, loadContext);
+  } finally {
+    await liveView.stop();
+  }
+}
+
+async function loadAndReadPage(page, { target, request, guard, proxy, readPage }) {
   guard.watchPage(page);
   const mainResponses = trackMainFrameResponses(page);
   const startedAt = Date.now();

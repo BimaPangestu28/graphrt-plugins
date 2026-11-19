@@ -4,8 +4,12 @@
 // Never console.log (stdout carries the plugin protocol); use console.error.
 import { Plugin } from "./graphrt-plugin.mjs";
 import { createDeadlineSignal } from "./lib/cancellation.mjs";
+import { buildFrameName, resolveLiveViewDirectory } from "./lib/live-view.mjs";
 import { collectPhones, validateSearchConfig } from "./lib/parse.mjs";
 import { searchPlaces } from "./lib/scraper.mjs";
+
+// Set by a host app that shows the browser live (graphrt desktop); unset = no frames.
+const LIVE_VIEW_DIRECTORY = resolveLiveViewDirectory(process.env);
 
 // Slightly under the manifest's `timeout_ms` (300000) so the browser closes first.
 const TOOL_DEADLINE_MS = 290000;
@@ -25,7 +29,7 @@ const SEARCH_PARAMETERS = {
  * Validates config, runs the Maps search and shapes the shared output.
  *
  * @param config - Raw node config or tool arguments (object)
- * @param hooks - `{signal, onProgress}` forwarded to searchPlaces
+ * @param hooks - `{signal, onProgress, liveView}` forwarded to searchPlaces
  * @returns `{results, phones, count}` (Promise<object>)
  * @throws PluginError - From validation or the scraper
  */
@@ -40,6 +44,7 @@ new Plugin("google-maps-scraper")
     const searchOutput = await runSearch(req.config, {
       signal: ctx.signal,
       onProgress: (progressInfo) => ctx.progress("place", progressInfo),
+      liveView: { directory: LIVE_VIEW_DIRECTORY, frameName: buildFrameName(req.nodeId) },
     });
     return { outputs: searchOutput };
   })
@@ -51,7 +56,10 @@ new Plugin("google-maps-scraper")
     },
     async (toolArguments) => {
       // The SDK gives tools no cancel signal, so stop before the host's 300 s timeout.
-      const searchOutput = await runSearch(toolArguments, { signal: createDeadlineSignal(TOOL_DEADLINE_MS) });
+      const searchOutput = await runSearch(toolArguments, {
+        signal: createDeadlineSignal(TOOL_DEADLINE_MS),
+        liveView: { directory: LIVE_VIEW_DIRECTORY, frameName: buildFrameName(null) },
+      });
       return { text: JSON.stringify(searchOutput.results), data: searchOutput };
     },
   )

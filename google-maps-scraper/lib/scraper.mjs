@@ -12,6 +12,7 @@ import { chromium } from "playwright";
 import { PluginError } from "../graphrt-plugin.mjs";
 import { bindAbortToBrowser, toCancelledIfAborted } from "./cancellation.mjs";
 import { buildSearchUrl, classifyLaunchError, extractPlaceDetails, isBlockedPage, parseRating } from "./parse.mjs";
+import { startLiveView } from "./live-view.mjs";
 import { FEED_SELECTOR, probeSearchPage, waitForSearchOutcome } from "./search-outcome.mjs";
 
 const NAVIGATION_TIMEOUT_MS = 30000;
@@ -36,6 +37,7 @@ const CONSENT_BUTTON_SELECTOR = [
  * @param hooks - Optional runtime hooks
  * @param hooks.signal - Cancels the search when aborted (AbortSignal)
  * @param hooks.onProgress - Called after each place with `{index, total, name}`
+ * @param hooks.liveView - `{directory, frameName}` for startLiveView; omitted or null directory = off (object)
  * @returns Places as `{name, phone, address, website, website_label, rating, maps_url}`; empty when
  *   Maps finds nothing (Promise<Array<object>>)
  * @throws PluginError kinds `blocked`, `setup_required`, `browser_error`, `cancelled`
@@ -58,6 +60,15 @@ async function runSearchInBrowser(browser, options, hooks) {
   const context = await browser.newContext({ locale: options.language });
   const page = await context.newPage();
   page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
+  const liveView = await startLiveView(page, { ...hooks.liveView, logPrefix: "[google-maps-scraper]" });
+  try {
+    return await searchOnPage(page, options, hooks);
+  } finally {
+    await liveView.stop();
+  }
+}
+
+async function searchOnPage(page, options, hooks) {
   await openSearch(page, options);
   const outcome = await waitForSearchOutcome(page, { timeoutMs: NAVIGATION_TIMEOUT_MS, signal: hooks.signal });
   if (outcome === "blocked") throw blockedError();

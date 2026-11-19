@@ -7,6 +7,7 @@
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { invalidInput } from "./errors.mjs";
+import { resolveLiveViewDirectory } from "./live-view.mjs";
 
 export const DEFAULT_IDLE_MINUTES = 5;
 export const DEFAULT_MAX_PAGES = 2;
@@ -18,7 +19,8 @@ const FALSE_VALUES = new Set(["0", "false", "no", "off"]);
  * Builds settings from environment variables, applying defaults.
  *
  * @param environment - Environment variables (object)
- * @returns `{screenshotDirectory, respectRobots, idleTimeoutMs, maxConcurrentPages, maxDownloadBytes, userAgentOverride}` (object)
+ * @returns `{screenshotDirectory, respectRobots, idleTimeoutMs, maxConcurrentPages, maxDownloadBytes, userAgentOverride,
+ *   liveViewDirectory}`; `liveViewDirectory` is set by a host that shows pages live (GRAPHRT_LIVE_VIEW_DIR), else null (object)
  * @throws PluginError kind `invalid_input` - When a variable has an invalid value
  */
 export function resolveSettings(environment = {}) {
@@ -30,6 +32,7 @@ export function resolveSettings(environment = {}) {
     maxConcurrentPages: readNumber(environment, "WEB_BROWSER_MAX_PAGES", DEFAULT_MAX_PAGES, { minimum: 1, maximum: 4, integer: true }),
     maxDownloadBytes: readNumber(environment, "WEB_BROWSER_MAX_DOWNLOAD_MB", DEFAULT_MAX_DOWNLOAD_MB, { minimum: 1, maximum: 100 }) * 1024 * 1024,
     userAgentOverride: readUserAgent(environment.WEB_BROWSER_USER_AGENT),
+    liveViewDirectory: resolveLiveViewDirectory(environment),
   };
 }
 

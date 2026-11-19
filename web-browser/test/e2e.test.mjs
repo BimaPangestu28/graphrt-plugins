@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import dgram from "node:dgram";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
@@ -31,6 +31,7 @@ describe("web-browser end-to-end (real Chromium)", { skip: isEnabled ? false : "
   let site;
   let internalSite;
   let screenshotDirectory;
+  let liveViewDirectory;
   let definition;
   let runOperation;
 
@@ -53,6 +54,9 @@ describe("web-browser end-to-end (real Chromium)", { skip: isEnabled ? false : "
         response.writeHead(200, { "content-type": "application/octet-stream", "content-disposition": "attachment; filename=x.bin" });
         response.end(Buffer.alloc(1024));
       },
+      "/animated": htmlRoute(`<title>Animated</title><p id="counter">0</p><script>let count = 0;
+        setInterval(() => { document.getElementById("counter").textContent = String(++count); }, 50);
+        setTimeout(() => document.body.insertAdjacentHTML("beforeend", "<p id=ready>ready</p>"), 1500);</script>`),
       "/huge": htmlRoute("<title>Huge</title><script src=\"/huge.js\"></script><p>Huge page</p>"),
       "/huge.js": (request, response) => {
         response.writeHead(200, { "content-type": "application/javascript" });
@@ -61,7 +65,8 @@ describe("web-browser end-to-end (real Chromium)", { skip: isEnabled ? false : "
     });
     screenshotDirectory = await mkdtemp(join(tmpdir(), "web-browser-e2e-"));
     definition = createPluginDefinition({ allowedTestHosts: ["127.0.0.1"] });
-    const environment = { WEB_BROWSER_SCREENSHOT_DIR: screenshotDirectory, WEB_BROWSER_MAX_DOWNLOAD_MB: "2" };
+    liveViewDirectory = join(screenshotDirectory, "live-view");
+    const environment = { WEB_BROWSER_SCREENSHOT_DIR: screenshotDirectory, WEB_BROWSER_MAX_DOWNLOAD_MB: "2", GRAPHRT_LIVE_VIEW_DIR: liveViewDirectory };
     const runner = createOperationRunner(definition, environment);
     runOperation = (operationName, args) => runner(operationName, args, { source: "tool" });
   });
@@ -94,6 +99,23 @@ describe("web-browser end-to-end (real Chromium)", { skip: isEnabled ? false : "
     const shot = await runOperation("screenshot", { url: `${site.origin}/article`, full_page: true, max_height: 300 });
     assert.equal(shot.data.height, 300);
     assert.ok((await stat(shot.data.path)).size > 100);
+  });
+
+  test("live view writes JPEG frames while the page is open and deletes them afterwards", async () => {
+    const seenFrames = [];
+    const operation = runOperation("fetch_page", { url: `${site.origin}/animated`, wait_for_selector: "#ready" });
+    const watch = setInterval(async () => {
+      const frameNames = await readdir(liveViewDirectory).catch(() => []);
+      for (const frameName of frameNames.filter((name) => name.endsWith(".jpg"))) {
+        const frameBytes = await readFile(join(liveViewDirectory, frameName)).catch(() => null);
+        if (frameBytes) seenFrames.push({ frameName, isJpeg: frameBytes.subarray(0, 3).toString("hex") === "ffd8ff" });
+      }
+    }, 100);
+    const { data } = await operation.finally(() => clearInterval(watch));
+    assert.equal(data.title, "Animated");
+    assert.ok(seenFrames.length > 0, "no frame was written");
+    assert.ok(seenFrames.every((frame) => frame.isJpeg && /^page\.[0-9a-f]{12}\.jpg$/.test(frame.frameName)));
+    assert.deepEqual(await readdir(liveViewDirectory), []);
   });
 
   test("an allowed redirect chain lands on the final page", async () => {
