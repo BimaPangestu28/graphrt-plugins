@@ -1,0 +1,1960 @@
+{
+  "name": "mailchimp",
+  "version": "0.1.0",
+  "description": "Mailchimp Marketing API: audiences, members and tags (by email), member search, campaigns and reports; campaign sends and deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MAILCHIMP_API_KEY",
+      "MAILCHIMP_SERVER_PREFIX",
+      "MAILCHIMP_TOOL_ALLOW_MEMBER_WRITES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "mailchimp.ping",
+      "title": "Ping",
+      "description": "Check the API key and data center (health_status)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.list_audiences",
+      "title": "List audiences",
+      "description": "Audiences (lists) with their stats",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string",
+            "description": "Only audiences that contain this email"
+          },
+          "since_date_created": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-01-01T00:00:00+00:00"
+          },
+          "before_date_created": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "sort_dir": {
+            "type": "string",
+            "description": "By date_created",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.get_audience",
+      "title": "Get audience",
+      "description": "One audience with its settings and stats",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.list_members",
+      "title": "List members",
+      "description": "Members of an audience, filtered by status or change date",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "subscribed",
+              "unsubscribed",
+              "cleaned",
+              "pending",
+              "transactional",
+              "archived"
+            ]
+          },
+          "since_last_changed": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_last_changed": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "vip_only": {
+            "type": "boolean"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "timestamp_opt",
+              "timestamp_signup",
+              "last_changed"
+            ]
+          },
+          "sort_dir": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.get_member",
+      "title": "Get member",
+      "description": "One member by email (or subscriber hash)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.search_members",
+      "title": "Search members",
+      "description": "Find members by email or first/last name in one audience or all (exact_matches and full_search)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Email address or name",
+            "minLength": 1
+          },
+          "list_id": {
+            "type": "string",
+            "description": "Only this audience"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.upsert_member",
+      "title": "Add or update member",
+      "description": "Add a member, or update them if the email is already in the audience (status_if_new applies to new members only) (as an agent tool only when MAILCHIMP_TOOL_ALLOW_MEMBER_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "skip_merge_validation": {
+            "type": "boolean",
+            "description": "Accept members without required merge fields"
+          },
+          "email_address": {
+            "type": "string",
+            "description": "Email; needed when the member is new (the hash is computed from it)"
+          },
+          "status_if_new": {
+            "type": "string",
+            "description": "Status for a new member; pending sends a double opt-in confirmation",
+            "enum": [
+              "subscribed",
+              "unsubscribed",
+              "cleaned",
+              "pending",
+              "transactional"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "New status; subscribed only with the person's consent, pending sends a double opt-in email",
+            "enum": [
+              "subscribed",
+              "unsubscribed",
+              "cleaned",
+              "pending",
+              "transactional"
+            ]
+          },
+          "merge_fields": {
+            "type": "object",
+            "description": "Merge field values, e.g. {\"FNAME\": \"Ada\", \"LNAME\": \"Lovelace\"}"
+          },
+          "email_type": {
+            "type": "string",
+            "enum": [
+              "html",
+              "text"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en, id"
+          },
+          "vip": {
+            "type": "boolean"
+          },
+          "interests": {
+            "type": "object",
+            "description": "Interest (group) ids to booleans"
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags for a new member",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.list_member_tags",
+      "title": "Member tags",
+      "description": "Tags of one member",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.update_member_tags",
+      "title": "Add or remove member tags",
+      "description": "Add (status active) or remove (status inactive) tags on a member; tags may start automations unless is_syncing (as an agent tool only when MAILCHIMP_TOOL_ALLOW_MEMBER_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "tags": {
+            "type": "array",
+            "description": "e.g. [{\"name\": \"vip\", \"status\": \"active\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "is_syncing": {
+            "type": "boolean",
+            "description": "true: do not start automations for these tags"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id",
+          "tags"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.archive_member",
+      "title": "Archive member",
+      "description": "Archive a member (they can be added back later)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.delete_member_permanently",
+      "title": "Delete member permanently",
+      "description": "Erase a member and their data; they can never be re-imported",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.list_campaigns",
+      "title": "List campaigns",
+      "description": "Campaigns, filtered by type, status, audience or send/create time",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "campaign_type": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "plaintext",
+              "absplit",
+              "rss",
+              "variate"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "save",
+              "paused",
+              "schedule",
+              "sending",
+              "sent"
+            ]
+          },
+          "list_id": {
+            "type": "string",
+            "description": "Only campaigns for this audience"
+          },
+          "since_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "since_create_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_create_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "send_time"
+            ]
+          },
+          "sort_dir": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.get_campaign",
+      "title": "Get campaign",
+      "description": "One campaign: settings, recipients, status and send time",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.get_campaign_content",
+      "title": "Campaign content",
+      "description": "A campaign's HTML and plain-text content",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.send_campaign",
+      "title": "Send campaign",
+      "description": "Send a campaign to its whole audience now",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.schedule_campaign",
+      "title": "Schedule campaign",
+      "description": "Schedule a campaign to send at a quarter-hour UTC time",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "schedule_time": {
+            "type": "string",
+            "description": "UTC ISO 8601 on :00, :15, :30 or :45, e.g. 2026-12-01T09:30:00Z"
+          },
+          "timewarp": {
+            "type": "boolean",
+            "description": "Deliver at schedule_time in each recipient's time zone (not with batches)"
+          },
+          "batch_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "batch_delay": {
+            "type": "integer",
+            "description": "Minutes between batches",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id",
+          "schedule_time"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.unschedule_campaign",
+      "title": "Unschedule campaign",
+      "description": "Return a scheduled campaign to draft",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.list_reports",
+      "title": "List campaign reports",
+      "description": "Reports of sent campaigns: opens, clicks, bounces, unsubscribes",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "campaign_type": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "plaintext",
+              "absplit",
+              "rss",
+              "variate"
+            ]
+          },
+          "since_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.get_report",
+      "title": "Campaign report",
+      "description": "Report of one sent campaign",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.list_audience_webhooks",
+      "title": "Audience webhooks",
+      "description": "Webhooks of an audience (URLs may hold secrets)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.get_audience_webhook",
+      "title": "Get audience webhook",
+      "description": "One audience webhook",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "webhook_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id",
+          "webhook_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.list_batch_webhooks",
+      "title": "Batch webhooks",
+      "description": "Batch operation webhooks",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "mailchimp.api_request",
+      "title": "Mailchimp Marketing API request",
+      "description": "Call any Mailchimp Marketing API endpoint that has no dedicated operation, e.g. path \"/lists/<list_id>/merge-fields\". Only the API's own host is allowed. Agent tools may only read paths under /ping, /lists, /search-members, /campaigns, /campaign-folders, /reports, /templates, /template-folders except /lists/*/webhooks.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/lists/<list_id>/merge-fields\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "ping",
+      "description": "Check the API key and data center (health_status)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_audiences",
+      "description": "Audiences (lists) with their stats",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string",
+            "description": "Only audiences that contain this email"
+          },
+          "since_date_created": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-01-01T00:00:00+00:00"
+          },
+          "before_date_created": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "sort_dir": {
+            "type": "string",
+            "description": "By date_created",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_audience",
+      "description": "One audience with its settings and stats",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "list_members",
+      "description": "Members of an audience, filtered by status or change date",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "subscribed",
+              "unsubscribed",
+              "cleaned",
+              "pending",
+              "transactional",
+              "archived"
+            ]
+          },
+          "since_last_changed": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_last_changed": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "vip_only": {
+            "type": "boolean"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "timestamp_opt",
+              "timestamp_signup",
+              "last_changed"
+            ]
+          },
+          "sort_dir": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "get_member",
+      "description": "One member by email (or subscriber hash)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "search_members",
+      "description": "Find members by email or first/last name in one audience or all (exact_matches and full_search)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Email address or name",
+            "minLength": 1
+          },
+          "list_id": {
+            "type": "string",
+            "description": "Only this audience"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "upsert_member",
+      "description": "Add a member, or update them if the email is already in the audience (status_if_new applies to new members only) (as an agent tool only when MAILCHIMP_TOOL_ALLOW_MEMBER_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "skip_merge_validation": {
+            "type": "boolean",
+            "description": "Accept members without required merge fields"
+          },
+          "email_address": {
+            "type": "string",
+            "description": "Email; needed when the member is new (the hash is computed from it)"
+          },
+          "status_if_new": {
+            "type": "string",
+            "description": "Status for a new member; pending sends a double opt-in confirmation",
+            "enum": [
+              "subscribed",
+              "unsubscribed",
+              "cleaned",
+              "pending",
+              "transactional"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "New status; subscribed only with the person's consent, pending sends a double opt-in email",
+            "enum": [
+              "subscribed",
+              "unsubscribed",
+              "cleaned",
+              "pending",
+              "transactional"
+            ]
+          },
+          "merge_fields": {
+            "type": "object",
+            "description": "Merge field values, e.g. {\"FNAME\": \"Ada\", \"LNAME\": \"Lovelace\"}"
+          },
+          "email_type": {
+            "type": "string",
+            "enum": [
+              "html",
+              "text"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en, id"
+          },
+          "vip": {
+            "type": "boolean"
+          },
+          "interests": {
+            "type": "object",
+            "description": "Interest (group) ids to booleans"
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags for a new member",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "list_member_tags",
+      "description": "Tags of one member",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "update_member_tags",
+      "description": "Add (status active) or remove (status inactive) tags on a member; tags may start automations unless is_syncing (as an agent tool only when MAILCHIMP_TOOL_ALLOW_MEMBER_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Audience (list) id, from list_audiences"
+          },
+          "subscriber_hash": {
+            "type": "string",
+            "description": "MD5 of the lower-cased email; or pass `email` instead"
+          },
+          "tags": {
+            "type": "array",
+            "description": "e.g. [{\"name\": \"vip\", \"status\": \"active\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "is_syncing": {
+            "type": "boolean",
+            "description": "true: do not start automations for these tags"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Member email address (used instead of subscriber_hash)"
+          }
+        },
+        "required": [
+          "list_id",
+          "tags"
+        ]
+      }
+    },
+    {
+      "name": "list_campaigns",
+      "description": "Campaigns, filtered by type, status, audience or send/create time",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "campaign_type": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "plaintext",
+              "absplit",
+              "rss",
+              "variate"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "save",
+              "paused",
+              "schedule",
+              "sending",
+              "sent"
+            ]
+          },
+          "list_id": {
+            "type": "string",
+            "description": "Only campaigns for this audience"
+          },
+          "since_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "since_create_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_create_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "sort_field": {
+            "type": "string",
+            "enum": [
+              "create_time",
+              "send_time"
+            ]
+          },
+          "sort_dir": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_campaign",
+      "description": "One campaign: settings, recipients, status and send time",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "get_campaign_content",
+      "description": "A campaign's HTML and plain-text content",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "list_reports",
+      "description": "Reports of sent campaigns: opens, clicks, bounces, unsubscribes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "campaign_type": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "plaintext",
+              "absplit",
+              "rss",
+              "variate"
+            ]
+          },
+          "since_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "before_send_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `count`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_report",
+      "description": "Report of one sent campaign",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign id, from list_campaigns"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Only these fields (dot notation, e.g. lists.id,lists.name)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_fields": {
+            "type": "array",
+            "description": "Leave out these fields (not with fields)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Mailchimp Marketing API endpoint that has no dedicated operation, e.g. path \"/lists/<list_id>/merge-fields\". Only the API's own host is allowed. Agent tools may only read paths under /ping, /lists, /search-members, /campaigns, /campaign-folders, /reports, /templates, /template-folders except /lists/*/webhooks.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/lists/<list_id>/merge-fields\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

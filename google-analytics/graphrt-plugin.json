@@ -1,0 +1,1116 @@
+{
+  "name": "google-analytics",
+  "version": "0.1.0",
+  "description": "Google Analytics 4: run reports, realtime, pivot and batch reports, metadata and compatibility checks, and list accounts, properties and data streams (read-only; OAuth or service account)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-analytics.run_report",
+      "title": "Run report",
+      "description": "A GA4 report: dimensions x metrics over date ranges, with filters, sorting and totals",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "date_ranges": {
+            "type": "array",
+            "description": "Date ranges, e.g. [{\"startDate\": \"28daysAgo\", \"endDate\": \"yesterday\"}] (YYYY-MM-DD, today, yesterday or NdaysAgo; up to 4; omit for cohort reports)",
+            "maxItems": 4,
+            "items": {
+              "type": "object"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Rows to return (default 10000, max 250000)",
+            "minimum": 1,
+            "maximum": 250000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "First row to return (0-based); with rowCount for paging",
+            "minimum": 0
+          },
+          "metric_aggregations": {
+            "type": "array",
+            "description": "Extra total rows: TOTAL, MINIMUM, MAXIMUM, COUNT",
+            "items": {
+              "type": "string"
+            }
+          },
+          "order_bys": {
+            "type": "array",
+            "description": "Sort, e.g. [{\"metric\": {\"metricName\": \"activeUsers\"}, \"desc\": true}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "currency_code": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the property's currency)"
+          },
+          "cohort_spec": {
+            "type": "object",
+            "description": "Cohort definition (needs the cohort dimension)"
+          },
+          "keep_empty_rows": {
+            "type": "boolean",
+            "description": "Keep rows whose metrics are all 0"
+          },
+          "return_property_quota": {
+            "type": "boolean",
+            "description": "Include the property's remaining quota tokens"
+          },
+          "comparisons": {
+            "type": "array",
+            "description": "Comparisons (adds a comparison column)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id",
+          "metrics"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.run_realtime_report",
+      "title": "Realtime report",
+      "description": "Events of the last 30 minutes (60 for Analytics 360), e.g. activeUsers by country",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Rows to return (default 10000, max 250000)",
+            "minimum": 1,
+            "maximum": 250000
+          },
+          "metric_aggregations": {
+            "type": "array",
+            "description": "Extra total rows: TOTAL, MINIMUM, MAXIMUM, COUNT",
+            "items": {
+              "type": "string"
+            }
+          },
+          "order_bys": {
+            "type": "array",
+            "description": "Sort, e.g. [{\"metric\": {\"metricName\": \"activeUsers\"}, \"desc\": true}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "return_property_quota": {
+            "type": "boolean",
+            "description": "Include the property's remaining quota tokens"
+          },
+          "minute_ranges": {
+            "type": "array",
+            "description": "Up to 2 minute ranges, e.g. [{\"startMinutesAgo\": 29, \"endMinutesAgo\": 0}] (default: the last 30 minutes)",
+            "maxItems": 2,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id",
+          "metrics"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.run_pivot_report",
+      "title": "Pivot report",
+      "description": "A pivot table report (pivots group dimensions into rows and columns)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "date_ranges": {
+            "type": "array",
+            "description": "Date ranges, e.g. [{\"startDate\": \"28daysAgo\", \"endDate\": \"yesterday\"}] (YYYY-MM-DD, today, yesterday or NdaysAgo; up to 4; omit for cohort reports)",
+            "maxItems": 4,
+            "items": {
+              "type": "object"
+            }
+          },
+          "pivots": {
+            "type": "array",
+            "description": "Pivots, e.g. [{\"fieldNames\": [\"country\"], \"limit\": 10}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "currency_code": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the property's currency)"
+          },
+          "cohort_spec": {
+            "type": "object",
+            "description": "Cohort definition (needs the cohort dimension)"
+          },
+          "keep_empty_rows": {
+            "type": "boolean",
+            "description": "Keep rows whose metrics are all 0"
+          },
+          "return_property_quota": {
+            "type": "boolean",
+            "description": "Include the property's remaining quota tokens"
+          },
+          "comparisons": {
+            "type": "array",
+            "description": "Comparisons (adds a comparison column)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id",
+          "pivots"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.batch_run_reports",
+      "title": "Batch reports",
+      "description": "Up to 5 runReport requests in one call (each item like run_report's body in API field names)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "requests": {
+            "type": "array",
+            "description": "Report requests, e.g. [{\"dimensions\": [\"country\"], \"metrics\": [\"activeUsers\"], \"dateRanges\": [{\"startDate\": \"7daysAgo\", \"endDate\": \"today\"}]}]",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id",
+          "requests"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.get_metadata",
+      "title": "Dimensions and metrics",
+      "description": "Every dimension and metric a property supports, with custom ones (property_id 0: only the common ones)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.check_compatibility",
+      "title": "Check compatibility",
+      "description": "Which dimensions and metrics can be combined with the given ones in run_report",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "compatibility_filter": {
+            "type": "string",
+            "description": "Only return compatible or incompatible fields",
+            "enum": [
+              "COMPATIBLE",
+              "INCOMPATIBLE"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.list_account_summaries",
+      "title": "Accounts and properties",
+      "description": "Every account the caller can access with its properties (ids and names)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.list_properties",
+      "title": "List properties",
+      "description": "Properties under an account",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "parent:accounts/<id>, ancestor:accounts/<id> or firebase_project:<id>"
+          },
+          "show_deleted": {
+            "type": "boolean",
+            "description": "Include properties in the trash"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "filter"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.get_property",
+      "title": "Get property",
+      "description": "A property's name, time zone, currency, industry and service level",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.list_data_streams",
+      "title": "List data streams",
+      "description": "Web and app data streams of a property (measurement ids, app ids)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-analytics.api_request",
+      "title": "Google Analytics Data API request",
+      "description": "Call any Google Analytics Data API endpoint that has no dedicated operation, e.g. path \"/properties/<id>/metadata\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/properties/<id>/metadata\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "run_report",
+      "description": "A GA4 report: dimensions x metrics over date ranges, with filters, sorting and totals",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "date_ranges": {
+            "type": "array",
+            "description": "Date ranges, e.g. [{\"startDate\": \"28daysAgo\", \"endDate\": \"yesterday\"}] (YYYY-MM-DD, today, yesterday or NdaysAgo; up to 4; omit for cohort reports)",
+            "maxItems": 4,
+            "items": {
+              "type": "object"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Rows to return (default 10000, max 250000)",
+            "minimum": 1,
+            "maximum": 250000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "First row to return (0-based); with rowCount for paging",
+            "minimum": 0
+          },
+          "metric_aggregations": {
+            "type": "array",
+            "description": "Extra total rows: TOTAL, MINIMUM, MAXIMUM, COUNT",
+            "items": {
+              "type": "string"
+            }
+          },
+          "order_bys": {
+            "type": "array",
+            "description": "Sort, e.g. [{\"metric\": {\"metricName\": \"activeUsers\"}, \"desc\": true}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "currency_code": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the property's currency)"
+          },
+          "cohort_spec": {
+            "type": "object",
+            "description": "Cohort definition (needs the cohort dimension)"
+          },
+          "keep_empty_rows": {
+            "type": "boolean",
+            "description": "Keep rows whose metrics are all 0"
+          },
+          "return_property_quota": {
+            "type": "boolean",
+            "description": "Include the property's remaining quota tokens"
+          },
+          "comparisons": {
+            "type": "array",
+            "description": "Comparisons (adds a comparison column)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "property_id",
+          "metrics"
+        ]
+      }
+    },
+    {
+      "name": "run_realtime_report",
+      "description": "Events of the last 30 minutes (60 for Analytics 360), e.g. activeUsers by country",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Rows to return (default 10000, max 250000)",
+            "minimum": 1,
+            "maximum": 250000
+          },
+          "metric_aggregations": {
+            "type": "array",
+            "description": "Extra total rows: TOTAL, MINIMUM, MAXIMUM, COUNT",
+            "items": {
+              "type": "string"
+            }
+          },
+          "order_bys": {
+            "type": "array",
+            "description": "Sort, e.g. [{\"metric\": {\"metricName\": \"activeUsers\"}, \"desc\": true}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "return_property_quota": {
+            "type": "boolean",
+            "description": "Include the property's remaining quota tokens"
+          },
+          "minute_ranges": {
+            "type": "array",
+            "description": "Up to 2 minute ranges, e.g. [{\"startMinutesAgo\": 29, \"endMinutesAgo\": 0}] (default: the last 30 minutes)",
+            "maxItems": 2,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "property_id",
+          "metrics"
+        ]
+      }
+    },
+    {
+      "name": "run_pivot_report",
+      "description": "A pivot table report (pivots group dimensions into rows and columns)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "date_ranges": {
+            "type": "array",
+            "description": "Date ranges, e.g. [{\"startDate\": \"28daysAgo\", \"endDate\": \"yesterday\"}] (YYYY-MM-DD, today, yesterday or NdaysAgo; up to 4; omit for cohort reports)",
+            "maxItems": 4,
+            "items": {
+              "type": "object"
+            }
+          },
+          "pivots": {
+            "type": "array",
+            "description": "Pivots, e.g. [{\"fieldNames\": [\"country\"], \"limit\": 10}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "currency_code": {
+            "type": "string",
+            "description": "ISO 4217 code, e.g. IDR (default: the property's currency)"
+          },
+          "cohort_spec": {
+            "type": "object",
+            "description": "Cohort definition (needs the cohort dimension)"
+          },
+          "keep_empty_rows": {
+            "type": "boolean",
+            "description": "Keep rows whose metrics are all 0"
+          },
+          "return_property_quota": {
+            "type": "boolean",
+            "description": "Include the property's remaining quota tokens"
+          },
+          "comparisons": {
+            "type": "array",
+            "description": "Comparisons (adds a comparison column)",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "property_id",
+          "pivots"
+        ]
+      }
+    },
+    {
+      "name": "batch_run_reports",
+      "description": "Up to 5 runReport requests in one call (each item like run_report's body in API field names)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "requests": {
+            "type": "array",
+            "description": "Report requests, e.g. [{\"dimensions\": [\"country\"], \"metrics\": [\"activeUsers\"], \"dateRanges\": [{\"startDate\": \"7daysAgo\", \"endDate\": \"today\"}]}]",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "property_id",
+          "requests"
+        ]
+      }
+    },
+    {
+      "name": "get_metadata",
+      "description": "Every dimension and metric a property supports, with custom ones (property_id 0: only the common ones)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      }
+    },
+    {
+      "name": "check_compatibility",
+      "description": "Which dimensions and metrics can be combined with the given ones in run_report",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 9,
+            "description": "Dimension names, e.g. [\"date\", \"country\"] (or {\"name\": ...} objects)"
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Metric names, e.g. [\"activeUsers\", \"sessions\"] (or {\"name\": ..., \"expression\": ...} objects)"
+          },
+          "dimension_filter": {
+            "type": "object",
+            "description": "FilterExpression on dimensions, e.g. {\"filter\": {\"fieldName\": \"country\", \"stringFilter\": {\"value\": \"Indonesia\"}}}"
+          },
+          "metric_filter": {
+            "type": "object",
+            "description": "FilterExpression on metric values (applied after aggregation)"
+          },
+          "compatibility_filter": {
+            "type": "string",
+            "description": "Only return compatible or incompatible fields",
+            "enum": [
+              "COMPATIBLE",
+              "INCOMPATIBLE"
+            ]
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      }
+    },
+    {
+      "name": "list_account_summaries",
+      "description": "Every account the caller can access with its properties (ids and names)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_properties",
+      "description": "Properties under an account",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "parent:accounts/<id>, ancestor:accounts/<id> or firebase_project:<id>"
+          },
+          "show_deleted": {
+            "type": "boolean",
+            "description": "Include properties in the trash"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": [
+          "filter"
+        ]
+      }
+    },
+    {
+      "name": "get_property",
+      "description": "A property's name, time zone, currency, industry and service level",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      }
+    },
+    {
+      "name": "list_data_streams",
+      "description": "Web and app data streams of a property (measurement ids, app ids)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "GA4 property id: 123456789 or properties/123456789 (from list_account_summaries)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          }
+        },
+        "required": [
+          "property_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Analytics Data API endpoint that has no dedicated operation, e.g. path \"/properties/<id>/metadata\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/properties/<id>/metadata\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

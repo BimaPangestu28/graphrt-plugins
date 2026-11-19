@@ -1,0 +1,14 @@
+# List your dynamic templates and last week's delivery stats. Read-only.
+#   SENDGRID_API_KEY=SG.... graphrt run sendgrid/example.yaml --plugins .
+version: "1"
+name: sendgrid-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: templates, type: sendgrid.list_templates, limit: 10 }
+    - { id: bounces, type: sendgrid.list_bounces, limit: 5 }
+    - { id: answer, type: answer, answer: "Templates: {{#templates.data#}} | Recent bounces: {{#bounces.data#}}" }
+  edges:
+    - { source: start, target: templates }
+    - { source: templates, target: bounces }
+    - { source: bounces, target: answer }

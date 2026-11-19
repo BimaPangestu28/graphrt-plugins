@@ -1,0 +1,1759 @@
+{
+  "name": "brevo",
+  "version": "0.1.0",
+  "description": "Brevo: contacts and lists, transactional email (agent sends need an opt-in and an optional recipient allowlist), templates, delivery events and campaigns",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "BREVO_API_KEY",
+      "BREVO_TOOL_RECIPIENT_ALLOWLIST",
+      "BREVO_TOOL_ALLOW_CONTACT_WRITES",
+      "BREVO_TOOL_ALLOW_SEND"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "brevo.get_account",
+      "title": "Account",
+      "description": "Account, plan and remaining credits",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.list_contacts",
+      "title": "List contacts",
+      "description": "Contacts, newest first, filtered by list, segment, change date or an attribute",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "modified_since": {
+            "type": "string",
+            "description": "UTC date-time, e.g. 2026-01-01T00:00:00.000Z"
+          },
+          "created_since": {
+            "type": "string"
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "Only contacts in these lists (not with segment_id)",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "segment_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "filter": {
+            "type": "string",
+            "description": "Attribute filter, equals only, e.g. equals(FIRSTNAME,\"Ada\")"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.get_contact",
+      "title": "Get contact",
+      "description": "One contact with attributes, lists and campaign statistics (last 90 days unless dates are given)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email, contact id, SMS number or EXT_ID (see identifier_type)"
+          },
+          "identifier_type": {
+            "type": "string",
+            "description": "How to read identifier (needed for ext_id, whatsapp_id, landline_number_id)",
+            "enum": [
+              "email_id",
+              "contact_id",
+              "ext_id",
+              "phone_id",
+              "whatsapp_id",
+              "landline_number_id"
+            ]
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, with end_date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, with start_date"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.create_contact",
+      "title": "Create contact",
+      "description": "Create a contact (email, ext_id or SMS attribute), optionally in lists; update_enabled updates an existing one (as an agent tool only when BREVO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "description": "Existing attributes in upper case, e.g. {\"FIRSTNAME\": \"Ada\", \"SMS\": \"+62812...\"}"
+          },
+          "ext_id": {
+            "type": "string",
+            "description": "Your own id for the contact"
+          },
+          "email_blacklisted": {
+            "type": "boolean",
+            "description": "Block (true) or unblock (false) email"
+          },
+          "sms_blacklisted": {
+            "type": "boolean"
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "Lists to add the contact to",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "update_enabled": {
+            "type": "boolean",
+            "description": "Update the contact if it exists"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.update_contact",
+      "title": "Update contact",
+      "description": "Update a contact's attributes, blocklist flags and lists (as an agent tool only when BREVO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email, contact id, SMS number or EXT_ID (see identifier_type)"
+          },
+          "identifier_type": {
+            "type": "string",
+            "description": "How to read identifier (needed for ext_id, whatsapp_id, landline_number_id)",
+            "enum": [
+              "email_id",
+              "contact_id",
+              "ext_id",
+              "phone_id",
+              "whatsapp_id",
+              "landline_number_id"
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "description": "Existing attributes in upper case, e.g. {\"FIRSTNAME\": \"Ada\", \"SMS\": \"+62812...\"}"
+          },
+          "ext_id": {
+            "type": "string",
+            "description": "Your own id for the contact"
+          },
+          "email_blacklisted": {
+            "type": "boolean",
+            "description": "Block (true) or unblock (false) email"
+          },
+          "sms_blacklisted": {
+            "type": "boolean"
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "Lists to add the contact to",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "unlink_list_ids": {
+            "type": "array",
+            "description": "Lists to remove the contact from",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.delete_contact",
+      "title": "Delete contact",
+      "description": "Delete a contact permanently",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email, contact id, SMS number or EXT_ID (see identifier_type)"
+          },
+          "identifier_type": {
+            "type": "string",
+            "description": "How to read identifier (needed for ext_id, whatsapp_id, landline_number_id)",
+            "enum": [
+              "email_id",
+              "contact_id",
+              "ext_id",
+              "phone_id",
+              "whatsapp_id",
+              "landline_number_id"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.list_lists",
+      "title": "List contact lists",
+      "description": "Contact lists with subscriber counts",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.get_list",
+      "title": "Get list",
+      "description": "One list's details and campaign statistics",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "List id, from list_lists",
+            "minimum": 1
+          },
+          "start_date": {
+            "type": "string"
+          },
+          "end_date": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.list_list_contacts",
+      "title": "Contacts in a list",
+      "description": "Contacts of one list",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "List id, from list_lists",
+            "minimum": 1
+          },
+          "modified_since": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.add_contacts_to_list",
+      "title": "Add contacts to list",
+      "description": "Add existing contacts to a list by email, contact id or EXT_ID (one kind per call); returns success and failure (as an agent tool only when BREVO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "List id, from list_lists",
+            "minimum": 1
+          },
+          "emails": {
+            "type": "array",
+            "maxItems": 150,
+            "items": {
+              "type": "string"
+            }
+          },
+          "ids": {
+            "type": "array",
+            "maxItems": 150,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "ext_ids": {
+            "type": "array",
+            "maxItems": 150,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.send_transactional_email",
+      "title": "Send transactional email",
+      "description": "Send one email (HTML/text or a template with params) to up to 99 recipients per field (as an agent tool only when BREVO_TOOL_ALLOW_SEND=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sender_email": {
+            "type": "string",
+            "description": "Verified sender address (or sender_id; templates have their own)"
+          },
+          "sender_name": {
+            "type": "string"
+          },
+          "sender_id": {
+            "type": "integer"
+          },
+          "to": {
+            "type": "array",
+            "description": "Recipients, e.g. [{\"email\": \"ada@example.com\", \"name\": \"Ada\"}]",
+            "maxItems": 99,
+            "items": {
+              "type": "object"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "description": "Cc recipients [{email, name?}]",
+            "maxItems": 99,
+            "items": {
+              "type": "object"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "description": "Bcc recipients [{email, name?}]",
+            "maxItems": 99,
+            "items": {
+              "type": "object"
+            }
+          },
+          "reply_to_email": {
+            "type": "string"
+          },
+          "reply_to_name": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Required without template_id"
+          },
+          "html_content": {
+            "type": "string",
+            "description": "Required without template_id"
+          },
+          "text_content": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "params": {
+            "type": "object",
+            "description": "Template variables, e.g. {\"ORDER\": \"A-12\"}"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "description": "[{url}] or [{content (base64), name}]",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "email_headers": {
+            "type": "object",
+            "description": "Custom headers in Title-Case"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Send later, UTC e.g. 2026-12-01T09:00:00.000Z"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.list_email_templates",
+      "title": "Transactional templates",
+      "description": "Transactional email templates (ids for template_id)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "template_status": {
+            "type": "boolean",
+            "description": "true active, false inactive"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.list_email_events",
+      "title": "Transactional email events",
+      "description": "Delivery events of transactional emails (requests, delivered, opened, bounces, ...) in the last days (max 90)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Only this recipient"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "bounces",
+              "hardBounces",
+              "softBounces",
+              "delivered",
+              "spam",
+              "requests",
+              "opened",
+              "clicks",
+              "invalid",
+              "deferred",
+              "blocked",
+              "unsubscribed",
+              "error",
+              "loadedByProxy"
+            ]
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "integer"
+          },
+          "days": {
+            "type": "integer",
+            "description": "Last N days (default 30; not with dates)",
+            "minimum": 1,
+            "maximum": 90
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 2500,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.list_email_campaigns",
+      "title": "List email campaigns",
+      "description": "Email campaigns, filtered by type, status or send dates",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_type": {
+            "type": "string",
+            "enum": [
+              "classic",
+              "trigger"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "suspended",
+              "archive",
+              "sent",
+              "queued",
+              "draft",
+              "inProcess",
+              "inReview",
+              "cancelling",
+              "cancelled"
+            ]
+          },
+          "statistics": {
+            "type": "string",
+            "enum": [
+              "globalStats",
+              "linksStats",
+              "statsByDomain"
+            ]
+          },
+          "start_date": {
+            "type": "string",
+            "description": "UTC date-time, with end_date (sent campaigns)"
+          },
+          "end_date": {
+            "type": "string"
+          },
+          "exclude_html_content": {
+            "type": "boolean",
+            "description": "Leave out htmlContent (default true)",
+            "default": true
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.get_email_campaign",
+      "title": "Get email campaign",
+      "description": "One email campaign with its statistics",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "integer",
+            "description": "Email campaign id",
+            "minimum": 1
+          },
+          "statistics": {
+            "type": "string",
+            "enum": [
+              "globalStats",
+              "linksStats",
+              "statsByDomain",
+              "statsByDevice",
+              "statsByBrowser"
+            ]
+          },
+          "exclude_html_content": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.send_campaign_now",
+      "title": "Send campaign now",
+      "description": "Send an email campaign to its lists immediately",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "integer",
+            "description": "Email campaign id",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.list_webhooks",
+      "title": "List webhooks",
+      "description": "Webhooks (their auth and headers may hold secrets)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "webhook_type": {
+            "type": "string",
+            "enum": [
+              "marketing",
+              "transactional",
+              "inbound"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.get_webhook",
+      "title": "Get webhook",
+      "description": "One webhook",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "webhook_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "webhook_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "brevo.api_request",
+      "title": "Brevo API v3 request",
+      "description": "Call any Brevo API v3 endpoint that has no dedicated operation, e.g. path \"/senders\". Only the API's own host is allowed. Agent tools may only read paths under /account, /contacts, /senders, /domains, /smtp/templates, /smtp/statistics, /smtp/blockedContacts, /emailCampaigns.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/senders\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_account",
+      "description": "Account, plan and remaining credits",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_contacts",
+      "description": "Contacts, newest first, filtered by list, segment, change date or an attribute",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "modified_since": {
+            "type": "string",
+            "description": "UTC date-time, e.g. 2026-01-01T00:00:00.000Z"
+          },
+          "created_since": {
+            "type": "string"
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "Only contacts in these lists (not with segment_id)",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "segment_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "filter": {
+            "type": "string",
+            "description": "Attribute filter, equals only, e.g. equals(FIRSTNAME,\"Ada\")"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_contact",
+      "description": "One contact with attributes, lists and campaign statistics (last 90 days unless dates are given)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email, contact id, SMS number or EXT_ID (see identifier_type)"
+          },
+          "identifier_type": {
+            "type": "string",
+            "description": "How to read identifier (needed for ext_id, whatsapp_id, landline_number_id)",
+            "enum": [
+              "email_id",
+              "contact_id",
+              "ext_id",
+              "phone_id",
+              "whatsapp_id",
+              "landline_number_id"
+            ]
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, with end_date"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, with start_date"
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      }
+    },
+    {
+      "name": "create_contact",
+      "description": "Create a contact (email, ext_id or SMS attribute), optionally in lists; update_enabled updates an existing one (as an agent tool only when BREVO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "description": "Existing attributes in upper case, e.g. {\"FIRSTNAME\": \"Ada\", \"SMS\": \"+62812...\"}"
+          },
+          "ext_id": {
+            "type": "string",
+            "description": "Your own id for the contact"
+          },
+          "email_blacklisted": {
+            "type": "boolean",
+            "description": "Block (true) or unblock (false) email"
+          },
+          "sms_blacklisted": {
+            "type": "boolean"
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "Lists to add the contact to",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "update_enabled": {
+            "type": "boolean",
+            "description": "Update the contact if it exists"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "update_contact",
+      "description": "Update a contact's attributes, blocklist flags and lists (as an agent tool only when BREVO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email, contact id, SMS number or EXT_ID (see identifier_type)"
+          },
+          "identifier_type": {
+            "type": "string",
+            "description": "How to read identifier (needed for ext_id, whatsapp_id, landline_number_id)",
+            "enum": [
+              "email_id",
+              "contact_id",
+              "ext_id",
+              "phone_id",
+              "whatsapp_id",
+              "landline_number_id"
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "description": "Existing attributes in upper case, e.g. {\"FIRSTNAME\": \"Ada\", \"SMS\": \"+62812...\"}"
+          },
+          "ext_id": {
+            "type": "string",
+            "description": "Your own id for the contact"
+          },
+          "email_blacklisted": {
+            "type": "boolean",
+            "description": "Block (true) or unblock (false) email"
+          },
+          "sms_blacklisted": {
+            "type": "boolean"
+          },
+          "list_ids": {
+            "type": "array",
+            "description": "Lists to add the contact to",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "unlink_list_ids": {
+            "type": "array",
+            "description": "Lists to remove the contact from",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      }
+    },
+    {
+      "name": "list_lists",
+      "description": "Contact lists with subscriber counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_list",
+      "description": "One list's details and campaign statistics",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "List id, from list_lists",
+            "minimum": 1
+          },
+          "start_date": {
+            "type": "string"
+          },
+          "end_date": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "list_list_contacts",
+      "description": "Contacts of one list",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "List id, from list_lists",
+            "minimum": 1
+          },
+          "modified_since": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "add_contacts_to_list",
+      "description": "Add existing contacts to a list by email, contact id or EXT_ID (one kind per call); returns success and failure (as an agent tool only when BREVO_TOOL_ALLOW_CONTACT_WRITES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "integer",
+            "description": "List id, from list_lists",
+            "minimum": 1
+          },
+          "emails": {
+            "type": "array",
+            "maxItems": 150,
+            "items": {
+              "type": "string"
+            }
+          },
+          "ids": {
+            "type": "array",
+            "maxItems": 150,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "ext_ids": {
+            "type": "array",
+            "maxItems": 150,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "name": "send_transactional_email",
+      "description": "Send one email (HTML/text or a template with params) to up to 99 recipients per field (as an agent tool only when BREVO_TOOL_ALLOW_SEND=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sender_email": {
+            "type": "string",
+            "description": "Verified sender address (or sender_id; templates have their own)"
+          },
+          "sender_name": {
+            "type": "string"
+          },
+          "sender_id": {
+            "type": "integer"
+          },
+          "to": {
+            "type": "array",
+            "description": "Recipients, e.g. [{\"email\": \"ada@example.com\", \"name\": \"Ada\"}]",
+            "maxItems": 99,
+            "items": {
+              "type": "object"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "description": "Cc recipients [{email, name?}]",
+            "maxItems": 99,
+            "items": {
+              "type": "object"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "description": "Bcc recipients [{email, name?}]",
+            "maxItems": 99,
+            "items": {
+              "type": "object"
+            }
+          },
+          "reply_to_email": {
+            "type": "string"
+          },
+          "reply_to_name": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Required without template_id"
+          },
+          "html_content": {
+            "type": "string",
+            "description": "Required without template_id"
+          },
+          "text_content": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "params": {
+            "type": "object",
+            "description": "Template variables, e.g. {\"ORDER\": \"A-12\"}"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "description": "[{url}] or [{content (base64), name}]",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "email_headers": {
+            "type": "object",
+            "description": "Custom headers in Title-Case"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Send later, UTC e.g. 2026-12-01T09:00:00.000Z"
+          }
+        },
+        "required": [
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "list_email_templates",
+      "description": "Transactional email templates (ids for template_id)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "template_status": {
+            "type": "boolean",
+            "description": "true active, false inactive"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_email_events",
+      "description": "Delivery events of transactional emails (requests, delivered, opened, bounces, ...) in the last days (max 90)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Only this recipient"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "bounces",
+              "hardBounces",
+              "softBounces",
+              "delivered",
+              "spam",
+              "requests",
+              "opened",
+              "clicks",
+              "invalid",
+              "deferred",
+              "blocked",
+              "unsubscribed",
+              "error",
+              "loadedByProxy"
+            ]
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "integer"
+          },
+          "days": {
+            "type": "integer",
+            "description": "Last N days (default 30; not with dates)",
+            "minimum": 1,
+            "maximum": 90
+          },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 2500,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_email_campaigns",
+      "description": "Email campaigns, filtered by type, status or send dates",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "campaign_type": {
+            "type": "string",
+            "enum": [
+              "classic",
+              "trigger"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "suspended",
+              "archive",
+              "sent",
+              "queued",
+              "draft",
+              "inProcess",
+              "inReview",
+              "cancelling",
+              "cancelled"
+            ]
+          },
+          "statistics": {
+            "type": "string",
+            "enum": [
+              "globalStats",
+              "linksStats",
+              "statsByDomain"
+            ]
+          },
+          "start_date": {
+            "type": "string",
+            "description": "UTC date-time, with end_date (sent campaigns)"
+          },
+          "end_date": {
+            "type": "string"
+          },
+          "exclude_html_content": {
+            "type": "boolean",
+            "description": "Leave out htmlContent (default true)",
+            "default": true
+          },
+          "sort": {
+            "type": "string",
+            "description": "By creation date (default desc)",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_email_campaign",
+      "description": "One email campaign with its statistics",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "integer",
+            "description": "Email campaign id",
+            "minimum": 1
+          },
+          "statistics": {
+            "type": "string",
+            "enum": [
+              "globalStats",
+              "linksStats",
+              "statsByDomain",
+              "statsByDevice",
+              "statsByBrowser"
+            ]
+          },
+          "exclude_html_content": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Brevo API v3 endpoint that has no dedicated operation, e.g. path \"/senders\". Only the API's own host is allowed. Agent tools may only read paths under /account, /contacts, /senders, /domains, /smtp/templates, /smtp/statistics, /smtp/blockedContacts, /emailCampaigns.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/senders\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

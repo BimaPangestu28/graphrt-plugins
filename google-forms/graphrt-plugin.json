@@ -1,0 +1,708 @@
+{
+  "name": "google-forms",
+  "version": "0.1.0",
+  "description": "Google Forms: read forms and responses, create forms, batch edits and publish settings behind opt-ins, Pub/Sub watches (OAuth or service account)",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "GOOGLE_ACCESS_TOKEN",
+      "GOOGLE_REFRESH_TOKEN",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "GOOGLE_FORMS_TOOL_ALLOW_EDIT",
+      "GOOGLE_FORMS_TOOL_ALLOW_PUBLISH"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "google-forms.get_form",
+      "title": "Get form",
+      "description": "A form's title, description, settings, questions (items with questionId) and publish state; responderUri is the link respondents use",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.create_form",
+      "title": "Create form",
+      "description": "Create an empty form with a title (add questions with batch_update); it is created in the caller's Drive",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_title": {
+            "type": "string",
+            "description": "Title shown to respondents",
+            "minLength": 1
+          },
+          "document_title": {
+            "type": "string",
+            "description": "File name in Drive (default: the title)"
+          },
+          "unpublished": {
+            "type": "boolean",
+            "description": "true: create the form closed to responses (publish later with set_publish_settings); always true for agent tools"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.batch_update",
+      "title": "Batch update form",
+      "description": "Apply batchUpdate requests in order: updateFormInfo, updateSettings, createItem, updateItem, moveItem, deleteItem (as an agent tool only when GOOGLE_FORMS_TOOL_ALLOW_EDIT=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "requests": {
+            "type": "array",
+            "description": "Requests, e.g. [{\"createItem\": {\"item\": {\"title\": \"Name\", \"questionItem\": {\"question\": {\"textQuestion\": {}}}}, \"location\": {\"index\": 0}}}]",
+            "maxItems": 500,
+            "items": {
+              "type": "object"
+            }
+          },
+          "include_form_in_response": {
+            "type": "boolean",
+            "description": "Return the updated form"
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the form changed since this revisionId"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id",
+          "requests"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.set_publish_settings",
+      "title": "Publish or close form",
+      "description": "Set whether the form is published and whether it accepts responses (accepting needs published) (as an agent tool only when GOOGLE_FORMS_TOOL_ALLOW_PUBLISH=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "is_published": {
+            "type": "boolean"
+          },
+          "is_accepting_responses": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id",
+          "is_published",
+          "is_accepting_responses"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.list_responses",
+      "title": "List responses",
+      "description": "Submitted responses of a form (answers keyed by questionId; match them with get_form items)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Only \"timestamp > T\" or \"timestamp >= T\" with T in RFC 3339 UTC, e.g. timestamp > 2026-11-01T00:00:00Z"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.get_response",
+      "title": "Get response",
+      "description": "One response by its responseId",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "response_id": {
+            "type": "string",
+            "description": "responseId from list_responses"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id",
+          "response_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.list_watches",
+      "title": "List watches",
+      "description": "Watches the calling Cloud project has on a form",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.create_watch",
+      "title": "Create watch",
+      "description": "Publish form events (new responses or edits) to a Pub/Sub topic for 7 days; one watch per event type per project",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "topic_name": {
+            "type": "string",
+            "description": "Existing Pub/Sub topic owned by the calling project, e.g. projects/my-project/topics/forms"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "RESPONSES: new submissions; SCHEMA: form edits",
+            "enum": [
+              "SCHEMA",
+              "RESPONSES"
+            ]
+          },
+          "watch_id": {
+            "type": "string",
+            "description": "Optional id (4-63 lowercase letters, digits, hyphens)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id",
+          "topic_name",
+          "event_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.renew_watch",
+      "title": "Renew watch",
+      "description": "Extend a watch to 7 days from now",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "watch_id": {
+            "type": "string",
+            "description": "Watch id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id",
+          "watch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.delete_watch",
+      "title": "Delete watch",
+      "description": "Delete a watch",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "watch_id": {
+            "type": "string",
+            "description": "Watch id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "form_id",
+          "watch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "google-forms.api_request",
+      "title": "Google Forms API request",
+      "description": "Call any Google Forms API endpoint that has no dedicated operation, e.g. path \"/forms/<id>\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/forms/<id>\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_form",
+      "description": "A form's title, description, settings, questions (items with questionId) and publish state; responderUri is the link respondents use",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      }
+    },
+    {
+      "name": "create_form",
+      "description": "Create an empty form with a title (add questions with batch_update); it is created in the caller's Drive",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_title": {
+            "type": "string",
+            "description": "Title shown to respondents",
+            "minLength": 1
+          },
+          "document_title": {
+            "type": "string",
+            "description": "File name in Drive (default: the title)"
+          },
+          "unpublished": {
+            "type": "boolean",
+            "description": "true: create the form closed to responses (publish later with set_publish_settings); always true for agent tools"
+          }
+        },
+        "required": [
+          "form_title"
+        ]
+      }
+    },
+    {
+      "name": "batch_update",
+      "description": "Apply batchUpdate requests in order: updateFormInfo, updateSettings, createItem, updateItem, moveItem, deleteItem (as an agent tool only when GOOGLE_FORMS_TOOL_ALLOW_EDIT=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "requests": {
+            "type": "array",
+            "description": "Requests, e.g. [{\"createItem\": {\"item\": {\"title\": \"Name\", \"questionItem\": {\"question\": {\"textQuestion\": {}}}}, \"location\": {\"index\": 0}}}]",
+            "maxItems": 500,
+            "items": {
+              "type": "object"
+            }
+          },
+          "include_form_in_response": {
+            "type": "boolean",
+            "description": "Return the updated form"
+          },
+          "required_revision_id": {
+            "type": "string",
+            "description": "Fail instead of editing if the form changed since this revisionId"
+          }
+        },
+        "required": [
+          "form_id",
+          "requests"
+        ]
+      }
+    },
+    {
+      "name": "set_publish_settings",
+      "description": "Set whether the form is published and whether it accepts responses (accepting needs published) (as an agent tool only when GOOGLE_FORMS_TOOL_ALLOW_PUBLISH=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "is_published": {
+            "type": "boolean"
+          },
+          "is_accepting_responses": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "form_id",
+          "is_published",
+          "is_accepting_responses"
+        ]
+      }
+    },
+    {
+      "name": "list_responses",
+      "description": "Submitted responses of a form (answers keyed by questionId; match them with get_form items)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Only \"timestamp > T\" or \"timestamp >= T\" with T in RFC 3339 UTC, e.g. timestamp > 2026-11-01T00:00:00Z"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `pageSize`)",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 100
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      }
+    },
+    {
+      "name": "get_response",
+      "description": "One response by its responseId",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          },
+          "response_id": {
+            "type": "string",
+            "description": "responseId from list_responses"
+          }
+        },
+        "required": [
+          "form_id",
+          "response_id"
+        ]
+      }
+    },
+    {
+      "name": "list_watches",
+      "description": "Watches the calling Cloud project has on a form",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "form_id": {
+            "type": "string",
+            "description": "Form id (from its edit URL: /forms/d/<id>/edit)"
+          }
+        },
+        "required": [
+          "form_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Google Forms API endpoint that has no dedicated operation, e.g. path \"/forms/<id>\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/forms/<id>\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

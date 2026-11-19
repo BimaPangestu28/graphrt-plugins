@@ -1,0 +1,1333 @@
+{
+  "name": "zoho-crm",
+  "version": "0.1.0",
+  "description": "Zoho CRM API v8 (any data center): list, get, search and COQL-query records, related records, insert, update and upsert, module and field metadata, users; deletes are node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "ZOHO_ACCESS_TOKEN",
+      "ZOHO_DATA_CENTER",
+      "ZOHO_CLIENT_ID",
+      "ZOHO_CLIENT_SECRET",
+      "ZOHO_REFRESH_TOKEN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "zoho-crm.list_modules",
+      "title": "List modules",
+      "description": "Modules of the org (api_name, plural_label, api_supported, ...)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.list_fields",
+      "title": "List fields",
+      "description": "Fields of a module (api_name, data_type, picklist values, mandatory)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads"
+          },
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "unused"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.list_related_lists",
+      "title": "List related lists",
+      "description": "Related lists of a module (api_name for list_related_records)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Accounts"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.list_users",
+      "title": "List users",
+      "description": "Users of the org",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "user_type": {
+            "type": "string",
+            "description": "Which users (default AllUsers)",
+            "enum": [
+              "AllUsers",
+              "ActiveUsers",
+              "DeactiveUsers",
+              "ConfirmedUsers",
+              "NotConfirmedUsers",
+              "DeletedUsers",
+              "ActiveConfirmedUsers",
+              "AdminUsers",
+              "ActiveConfirmedAdmins",
+              "CurrentUser"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.get_org",
+      "title": "Organization",
+      "description": "The org's company details, time zone, currency and license",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.list_records",
+      "title": "List records",
+      "description": "Records of a module (200 a page; next_cursor is the page_token)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Field API names to return (up to 50), e.g. [Last_Name, Email, Company]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cvid": {
+            "type": "string",
+            "description": "Custom view id (not with sort_by)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these record ids",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Sort field (default id; not with cvid)",
+            "enum": [
+              "id",
+              "Created_Time",
+              "Modified_Time"
+            ]
+          },
+          "sort_order": {
+            "type": "string",
+            "description": "Default desc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "converted": {
+            "type": "string",
+            "description": "Leads: converted records too (default false)",
+            "enum": [
+              "true",
+              "false",
+              "both"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.get_record",
+      "title": "Get record",
+      "description": "One record by id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Field API names to return (up to 50), e.g. [Last_Name, Email, Company]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module",
+          "record_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.search_records",
+      "title": "Search records",
+      "description": "Search a module by criteria, email, phone or word (one of them; at most 2,000 results; new records can take a moment to be searchable)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "criteria": {
+            "type": "string",
+            "description": "e.g. ((Last_Name:equals:Burns)and(First_Name:starts_with:Ma)); escape ( ) , in values with \\"
+          },
+          "email": {
+            "type": "string",
+            "description": "Search every email field"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Search every phone field"
+          },
+          "word": {
+            "type": "string",
+            "description": "Global text search"
+          },
+          "converted": {
+            "type": "string",
+            "description": "Leads: converted records too (default false)",
+            "enum": [
+              "true",
+              "false",
+              "both"
+            ]
+          },
+          "approved": {
+            "type": "string",
+            "description": "Default true",
+            "enum": [
+              "true",
+              "false",
+              "both"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.coql_query",
+      "title": "COQL query",
+      "description": "Run a COQL SELECT, e.g. select Last_Name, Email from Leads where Lead_Status = 'Contacted' limit 0, 200 (max 2,000 rows a call; info.more_records)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "select_query": {
+            "type": "string",
+            "description": "COQL statement (SELECT only)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "select_query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.list_related_records",
+      "title": "List related records",
+      "description": "Records in a related list of a record, e.g. Notes, Contacts or Deals of an Account",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "related_list": {
+            "type": "string",
+            "description": "Related list API name (list_related_lists), e.g. Notes"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Field API names to return (up to 50), e.g. [Last_Name, Email, Company]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Sort field (default id; not with cvid)",
+            "enum": [
+              "id",
+              "Created_Time",
+              "Modified_Time"
+            ]
+          },
+          "sort_order": {
+            "type": "string",
+            "description": "Default desc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module",
+          "record_id",
+          "related_list",
+          "fields"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.insert_records",
+      "title": "Insert records",
+      "description": "Create up to 100 records; data[] reports each record's status (HTTP 207 when some failed)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "records": {
+            "type": "array",
+            "description": "Records with field API names, e.g. [{\"Last_Name\": \"Daly\", \"Email\": \"p.daly@example.com\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "trigger": {
+            "type": "array",
+            "description": "Automation to run for these records; [] (default) runs none, so no workflow emails or field updates",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workflow",
+                "approval",
+                "blueprint",
+                "pathfinder",
+                "orchestration"
+              ]
+            },
+            "default": []
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module",
+          "records"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.update_records",
+      "title": "Update records",
+      "description": "Update up to 100 records; each needs its id (fields not given are kept)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "records": {
+            "type": "array",
+            "description": "Records with id and the fields to change, e.g. [{\"id\": \"4876876000000376008\", \"Lead_Status\": \"Contacted\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "trigger": {
+            "type": "array",
+            "description": "Automation to run for these records; [] (default) runs none, so no workflow emails or field updates",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workflow",
+                "approval",
+                "blueprint",
+                "pathfinder",
+                "orchestration"
+              ]
+            },
+            "default": []
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module",
+          "records"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.upsert_records",
+      "title": "Upsert records",
+      "description": "Update records that match on duplicate-check fields, insert the rest (up to 100)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "records": {
+            "type": "array",
+            "description": "Records with field API names",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "duplicate_check_fields": {
+            "type": "array",
+            "description": "Fields to match on, in order (default: the module's system field, e.g. Email for Leads, then unique fields)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "trigger": {
+            "type": "array",
+            "description": "Automation to run for these records; [] (default) runs none, so no workflow emails or field updates",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workflow",
+                "approval",
+                "blueprint",
+                "pathfinder",
+                "orchestration"
+              ]
+            },
+            "default": []
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module",
+          "records"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.delete_records",
+      "title": "Delete records",
+      "description": "Move up to 100 records to the recycle bin",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Record ids",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "wf_trigger": {
+            "type": "boolean",
+            "description": "Run delete workflows (Zoho default true)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "module",
+          "ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "zoho-crm.api_request",
+      "title": "Zoho CRM API request",
+      "description": "Call any Zoho CRM API endpoint that has no dedicated operation, e.g. path \"/settings/layouts?module=Leads\". Only the API's own host is allowed. Agent tools may only read paths under /Leads, /Contacts, /Accounts, /Deals, /Tasks, /Events, /Calls, /Notes, /Products, /Quotes, /Sales_Orders, /Purchase_Orders, /Invoices, /Campaigns, /Vendors, /Price_Books, /Cases, /Solutions, /Appointments__s, /Services__s, /settings/modules, /settings/fields, /settings/layouts, /settings/related_lists, /settings/custom_views, /settings/pipeline, /users, /org.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/settings/layouts?module=Leads\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_modules",
+      "description": "Modules of the org (api_name, plural_label, api_supported, ...)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_fields",
+      "description": "Fields of a module (api_name, data_type, picklist values, mandatory)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads"
+          },
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "unused"
+            ]
+          }
+        },
+        "required": [
+          "module"
+        ]
+      }
+    },
+    {
+      "name": "list_related_lists",
+      "description": "Related lists of a module (api_name for list_related_records)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Accounts"
+          }
+        },
+        "required": [
+          "module"
+        ]
+      }
+    },
+    {
+      "name": "list_users",
+      "description": "Users of the org",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_type": {
+            "type": "string",
+            "description": "Which users (default AllUsers)",
+            "enum": [
+              "AllUsers",
+              "ActiveUsers",
+              "DeactiveUsers",
+              "ConfirmedUsers",
+              "NotConfirmedUsers",
+              "DeletedUsers",
+              "ActiveConfirmedUsers",
+              "AdminUsers",
+              "ActiveConfirmedAdmins",
+              "CurrentUser"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_org",
+      "description": "The org's company details, time zone, currency and license",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_records",
+      "description": "Records of a module (200 a page; next_cursor is the page_token)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Field API names to return (up to 50), e.g. [Last_Name, Email, Company]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cvid": {
+            "type": "string",
+            "description": "Custom view id (not with sort_by)"
+          },
+          "ids": {
+            "type": "array",
+            "description": "Only these record ids",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Sort field (default id; not with cvid)",
+            "enum": [
+              "id",
+              "Created_Time",
+              "Modified_Time"
+            ]
+          },
+          "sort_order": {
+            "type": "string",
+            "description": "Default desc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "converted": {
+            "type": "string",
+            "description": "Leads: converted records too (default false)",
+            "enum": [
+              "true",
+              "false",
+              "both"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          }
+        },
+        "required": [
+          "module",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "get_record",
+      "description": "One record by id",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Field API names to return (up to 50), e.g. [Last_Name, Email, Company]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "module",
+          "record_id"
+        ]
+      }
+    },
+    {
+      "name": "search_records",
+      "description": "Search a module by criteria, email, phone or word (one of them; at most 2,000 results; new records can take a moment to be searchable)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "criteria": {
+            "type": "string",
+            "description": "e.g. ((Last_Name:equals:Burns)and(First_Name:starts_with:Ma)); escape ( ) , in values with \\"
+          },
+          "email": {
+            "type": "string",
+            "description": "Search every email field"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Search every phone field"
+          },
+          "word": {
+            "type": "string",
+            "description": "Global text search"
+          },
+          "converted": {
+            "type": "string",
+            "description": "Leads: converted records too (default false)",
+            "enum": [
+              "true",
+              "false",
+              "both"
+            ]
+          },
+          "approved": {
+            "type": "string",
+            "description": "Default true",
+            "enum": [
+              "true",
+              "false",
+              "both"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          }
+        },
+        "required": [
+          "module"
+        ]
+      }
+    },
+    {
+      "name": "coql_query",
+      "description": "Run a COQL SELECT, e.g. select Last_Name, Email from Leads where Lead_Status = 'Contacted' limit 0, 200 (max 2,000 rows a call; info.more_records)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "select_query": {
+            "type": "string",
+            "description": "COQL statement (SELECT only)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "select_query"
+        ]
+      }
+    },
+    {
+      "name": "list_related_records",
+      "description": "Records in a related list of a record, e.g. Notes, Contacts or Deals of an Account",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "related_list": {
+            "type": "string",
+            "description": "Related list API name (list_related_lists), e.g. Notes"
+          },
+          "fields": {
+            "type": "array",
+            "description": "Field API names to return (up to 50), e.g. [Last_Name, Email, Company]",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Sort field (default id; not with cvid)",
+            "enum": [
+              "id",
+              "Created_Time",
+              "Modified_Time"
+            ]
+          },
+          "sort_order": {
+            "type": "string",
+            "description": "Default desc",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `per_page`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 200
+          }
+        },
+        "required": [
+          "module",
+          "record_id",
+          "related_list",
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "insert_records",
+      "description": "Create up to 100 records; data[] reports each record's status (HTTP 207 when some failed)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "records": {
+            "type": "array",
+            "description": "Records with field API names, e.g. [{\"Last_Name\": \"Daly\", \"Email\": \"p.daly@example.com\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "trigger": {
+            "type": "array",
+            "description": "Automation to run for these records; [] (default) runs none, so no workflow emails or field updates",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workflow",
+                "approval",
+                "blueprint",
+                "pathfinder",
+                "orchestration"
+              ]
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "module",
+          "records"
+        ]
+      }
+    },
+    {
+      "name": "update_records",
+      "description": "Update up to 100 records; each needs its id (fields not given are kept)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "records": {
+            "type": "array",
+            "description": "Records with id and the fields to change, e.g. [{\"id\": \"4876876000000376008\", \"Lead_Status\": \"Contacted\"}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "trigger": {
+            "type": "array",
+            "description": "Automation to run for these records; [] (default) runs none, so no workflow emails or field updates",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workflow",
+                "approval",
+                "blueprint",
+                "pathfinder",
+                "orchestration"
+              ]
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "module",
+          "records"
+        ]
+      }
+    },
+    {
+      "name": "upsert_records",
+      "description": "Update records that match on duplicate-check fields, insert the rest (up to 100)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Module API name, e.g. Leads, Contacts, Accounts, Deals, Tasks, Notes, or a custom module"
+          },
+          "records": {
+            "type": "array",
+            "description": "Records with field API names",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "duplicate_check_fields": {
+            "type": "array",
+            "description": "Fields to match on, in order (default: the module's system field, e.g. Email for Leads, then unique fields)",
+            "maxItems": 10,
+            "items": {
+              "type": "string"
+            }
+          },
+          "trigger": {
+            "type": "array",
+            "description": "Automation to run for these records; [] (default) runs none, so no workflow emails or field updates",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workflow",
+                "approval",
+                "blueprint",
+                "pathfinder",
+                "orchestration"
+              ]
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "module",
+          "records"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Zoho CRM API endpoint that has no dedicated operation, e.g. path \"/settings/layouts?module=Leads\". Only the API's own host is allowed. Agent tools may only read paths under /Leads, /Contacts, /Accounts, /Deals, /Tasks, /Events, /Calls, /Notes, /Products, /Quotes, /Sales_Orders, /Purchase_Orders, /Invoices, /Campaigns, /Vendors, /Price_Books, /Cases, /Solutions, /Appointments__s, /Services__s, /settings/modules, /settings/fields, /settings/layouts, /settings/related_lists, /settings/custom_views, /settings/pipeline, /users, /org.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/settings/layouts?module=Leads\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

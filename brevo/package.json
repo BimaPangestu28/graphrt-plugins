@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-brevo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Brevo (contacts, lists, transactional email, campaigns)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

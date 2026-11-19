@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-pipedrive",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Pipedrive CRM persons, organizations, deals, activities and notes",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

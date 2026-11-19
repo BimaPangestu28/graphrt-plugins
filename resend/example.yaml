@@ -1,0 +1,14 @@
+# List your sending domains and the latest sent emails. Read-only.
+#   RESEND_API_KEY=re_... graphrt run resend/example.yaml --plugins . --trust-plugin resend
+version: "1"
+name: resend-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: domains, type: resend.list_domains }
+    - { id: emails, type: resend.list_emails, limit: 5 }
+    - { id: answer, type: answer, answer: "Domains: {{#domains.data#}} | Latest emails: {{#emails.data#}}" }
+  edges:
+    - { source: start, target: domains }
+    - { source: domains, target: emails }
+    - { source: emails, target: answer }

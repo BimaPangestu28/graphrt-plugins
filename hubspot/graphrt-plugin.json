@@ -1,0 +1,1591 @@
+{
+  "name": "hubspot",
+  "version": "0.1.0",
+  "description": "HubSpot CRM (API 2026-09): contacts, companies, deals, tickets and other objects (list, get, search, create, update), associations, notes, properties, pipelines, owners; archiving is node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "HUBSPOT_ACCESS_TOKEN"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "hubspot.list_objects",
+      "title": "List records",
+      "description": "A page of records of one object type (oldest first); use search_objects to filter or sort",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "properties": {
+            "type": "array",
+            "description": "Properties to return, e.g. [email, firstname, lastname] (default: a few basic ones)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "associations": {
+            "type": "array",
+            "description": "Object types to return associated record ids for, e.g. [companies, deals]",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Only archived (recycle bin) records"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.get_object",
+      "title": "Get record",
+      "description": "One record by id, or by a unique property such as email (id_property)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Record id (hs_object_id), or a unique property value with id_property"
+          },
+          "properties": {
+            "type": "array",
+            "description": "Properties to return, e.g. [email, firstname, lastname] (default: a few basic ones)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties_with_history": {
+            "type": "array",
+            "description": "Properties to return with their previous values",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "associations": {
+            "type": "array",
+            "description": "Object types to return associated record ids for, e.g. [companies, deals]",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "id_property": {
+            "type": "string",
+            "description": "Unique property that object_id holds instead of the record id, e.g. email"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.search_objects",
+      "title": "Search records",
+      "description": "Search records with filters (AND within a group, OR across up to 5 groups), a text query and one sort; at most 10,000 results per search",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "query": {
+            "type": "string",
+            "description": "Text matched against the default searchable properties (e.g. name, email, domain)"
+          },
+          "filter_groups": {
+            "type": "array",
+            "description": "e.g. [{\"filters\": [{\"propertyName\": \"lifecyclestage\", \"operator\": \"EQ\", \"value\": \"lead\"}]}]; operators EQ, NEQ, LT, LTE, GT, GTE, BETWEEN, IN, NOT_IN, HAS_PROPERTY, NOT_HAS_PROPERTY, CONTAINS_TOKEN, NOT_CONTAINS_TOKEN",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "sorts": {
+            "type": "array",
+            "description": "One sort, e.g. [{\"propertyName\": \"createdate\", \"direction\": \"DESCENDING\"}]",
+            "maxItems": 1,
+            "items": {
+              "type": "object"
+            }
+          },
+          "properties": {
+            "type": "array",
+            "description": "Properties to return",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.create_object",
+      "title": "Create record",
+      "description": "Create a record with property values, optionally associated with other records",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values by internal name, e.g. {\"email\": \"ada@example.com\", \"firstname\": \"Ada\"}"
+          },
+          "associations": {
+            "type": "array",
+            "description": "e.g. [{\"to\": {\"id\": \"123\"}, \"types\": [{\"associationCategory\": \"HUBSPOT_DEFINED\", \"associationTypeId\": 279}]}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type",
+          "properties"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.update_object",
+      "title": "Update record",
+      "description": "Change property values of a record (empty string clears a value)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Record id (hs_object_id), or a unique property value with id_property"
+          },
+          "id_property": {
+            "type": "string",
+            "description": "Unique property that object_id holds instead of the record id, e.g. email"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values by internal name, e.g. {\"email\": \"ada@example.com\", \"firstname\": \"Ada\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id",
+          "properties"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.archive_object",
+      "title": "Archive record",
+      "description": "Move a record to the recycle bin (restorable for 90 days)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.list_associations",
+      "title": "List associations",
+      "description": "Records of one object type associated with a record, with association labels",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from_object_type": {
+            "type": "string",
+            "description": "Object type of the record",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "from_object_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "to_object_type": {
+            "type": "string",
+            "description": "Object type of the associated records",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "from_object_type",
+          "from_object_id",
+          "to_object_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.associate_objects",
+      "title": "Associate records",
+      "description": "Create the default (unlabeled) association between two records, e.g. a contact and a company",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from_object_type": {
+            "type": "string",
+            "description": "Object type of the record",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "from_object_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "to_object_type": {
+            "type": "string",
+            "description": "Object type of the associated records",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "to_object_id": {
+            "type": "string",
+            "description": "Record id to associate with"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "from_object_type",
+          "from_object_id",
+          "to_object_type",
+          "to_object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.remove_association",
+      "title": "Remove association",
+      "description": "Remove every association between two records (the records stay)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from_object_type": {
+            "type": "string",
+            "description": "Object type of the record",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "from_object_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "to_object_type": {
+            "type": "string",
+            "description": "Object type of the associated records",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "to_object_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "from_object_type",
+          "from_object_id",
+          "to_object_type",
+          "to_object_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.create_note",
+      "title": "Add note",
+      "description": "Add a note to the timeline of contacts, companies, deals or tickets",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Note text (HTML allowed, up to 65,536 characters)"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the note happened, ISO 8601 (default: now); sets its place on the timeline"
+          },
+          "owner_id": {
+            "type": "string",
+            "description": "HubSpot owner id (from list_owners) to attribute the note to"
+          },
+          "contact_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Contact record ids to attach the note to"
+          },
+          "company_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Company record ids to attach the note to"
+          },
+          "deal_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Deal record ids to attach the note to"
+          },
+          "ticket_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Ticket record ids to attach the note to"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.list_properties",
+      "title": "List properties",
+      "description": "Property definitions of an object type: internal names, labels, types and dropdown options",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.list_pipelines",
+      "title": "List pipelines",
+      "description": "Deal or ticket pipelines with their stages (stage ids for dealstage / hs_pipeline_stage)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "deals or tickets",
+            "enum": [
+              "deals",
+              "tickets"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.list_owners",
+      "title": "List owners",
+      "description": "Users that records can be assigned to (ids for hubspot_owner_id)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Only the owner with this email"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.get_account_details",
+      "title": "Account details",
+      "description": "Portal id, time zone, currency and data hosting location of the account",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "hubspot.api_request",
+      "title": "HubSpot API request",
+      "description": "Call any HubSpot API endpoint that has no dedicated operation, e.g. path \"/crm/objects/2026-09/contacts/<id>/associations/deals\". Only the API's own host is allowed. Agent tools may only read paths under /crm/objects, /crm/properties, /crm/pipelines, /crm/owners, /crm/associations, /crm/v3/objects, /crm/v3/properties, /crm/v3/pipelines, /crm/v3/owners, /crm/v4/objects, /crm/v4/associations, /account-info/2026-09/details, /account-info/v3/details.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/crm/objects/2026-09/contacts/<id>/associations/deals\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_objects",
+      "description": "A page of records of one object type (oldest first); use search_objects to filter or sort",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "properties": {
+            "type": "array",
+            "description": "Properties to return, e.g. [email, firstname, lastname] (default: a few basic ones)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "associations": {
+            "type": "array",
+            "description": "Object types to return associated record ids for, e.g. [companies, deals]",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Only archived (recycle bin) records"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      }
+    },
+    {
+      "name": "get_object",
+      "description": "One record by id, or by a unique property such as email (id_property)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Record id (hs_object_id), or a unique property value with id_property"
+          },
+          "properties": {
+            "type": "array",
+            "description": "Properties to return, e.g. [email, firstname, lastname] (default: a few basic ones)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "properties_with_history": {
+            "type": "array",
+            "description": "Properties to return with their previous values",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "associations": {
+            "type": "array",
+            "description": "Object types to return associated record ids for, e.g. [companies, deals]",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          },
+          "id_property": {
+            "type": "string",
+            "description": "Unique property that object_id holds instead of the record id, e.g. email"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id"
+        ]
+      }
+    },
+    {
+      "name": "search_objects",
+      "description": "Search records with filters (AND within a group, OR across up to 5 groups), a text query and one sort; at most 10,000 results per search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "query": {
+            "type": "string",
+            "description": "Text matched against the default searchable properties (e.g. name, email, domain)"
+          },
+          "filter_groups": {
+            "type": "array",
+            "description": "e.g. [{\"filters\": [{\"propertyName\": \"lifecyclestage\", \"operator\": \"EQ\", \"value\": \"lead\"}]}]; operators EQ, NEQ, LT, LTE, GT, GTE, BETWEEN, IN, NOT_IN, HAS_PROPERTY, NOT_HAS_PROPERTY, CONTAINS_TOKEN, NOT_CONTAINS_TOKEN",
+            "maxItems": 5,
+            "items": {
+              "type": "object"
+            }
+          },
+          "sorts": {
+            "type": "array",
+            "description": "One sort, e.g. [{\"propertyName\": \"createdate\", \"direction\": \"DESCENDING\"}]",
+            "maxItems": 1,
+            "items": {
+              "type": "object"
+            }
+          },
+          "properties": {
+            "type": "array",
+            "description": "Properties to return",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      }
+    },
+    {
+      "name": "create_object",
+      "description": "Create a record with property values, optionally associated with other records",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values by internal name, e.g. {\"email\": \"ada@example.com\", \"firstname\": \"Ada\"}"
+          },
+          "associations": {
+            "type": "array",
+            "description": "e.g. [{\"to\": {\"id\": \"123\"}, \"types\": [{\"associationCategory\": \"HUBSPOT_DEFINED\", \"associationTypeId\": 279}]}]",
+            "maxItems": 100,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "object_type",
+          "properties"
+        ]
+      }
+    },
+    {
+      "name": "update_object",
+      "description": "Change property values of a record (empty string clears a value)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "description": "Record id (hs_object_id), or a unique property value with id_property"
+          },
+          "id_property": {
+            "type": "string",
+            "description": "Unique property that object_id holds instead of the record id, e.g. email"
+          },
+          "properties": {
+            "type": "object",
+            "description": "Property values by internal name, e.g. {\"email\": \"ada@example.com\", \"firstname\": \"Ada\"}"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id",
+          "properties"
+        ]
+      }
+    },
+    {
+      "name": "list_associations",
+      "description": "Records of one object type associated with a record, with association labels",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_object_type": {
+            "type": "string",
+            "description": "Object type of the record",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "from_object_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "to_object_type": {
+            "type": "string",
+            "description": "Object type of the associated records",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": [
+          "from_object_type",
+          "from_object_id",
+          "to_object_type"
+        ]
+      }
+    },
+    {
+      "name": "associate_objects",
+      "description": "Create the default (unlabeled) association between two records, e.g. a contact and a company",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_object_type": {
+            "type": "string",
+            "description": "Object type of the record",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "from_object_id": {
+            "type": "string",
+            "description": "Record id"
+          },
+          "to_object_type": {
+            "type": "string",
+            "description": "Object type of the associated records",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "to_object_id": {
+            "type": "string",
+            "description": "Record id to associate with"
+          }
+        },
+        "required": [
+          "from_object_type",
+          "from_object_id",
+          "to_object_type",
+          "to_object_id"
+        ]
+      }
+    },
+    {
+      "name": "create_note",
+      "description": "Add a note to the timeline of contacts, companies, deals or tickets",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Note text (HTML allowed, up to 65,536 characters)"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the note happened, ISO 8601 (default: now); sets its place on the timeline"
+          },
+          "owner_id": {
+            "type": "string",
+            "description": "HubSpot owner id (from list_owners) to attribute the note to"
+          },
+          "contact_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Contact record ids to attach the note to"
+          },
+          "company_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Company record ids to attach the note to"
+          },
+          "deal_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Deal record ids to attach the note to"
+          },
+          "ticket_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Ticket record ids to attach the note to"
+          }
+        },
+        "required": [
+          "body"
+        ]
+      }
+    },
+    {
+      "name": "list_properties",
+      "description": "Property definitions of an object type: internal names, labels, types and dropdown options",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "CRM object type",
+            "enum": [
+              "contacts",
+              "companies",
+              "deals",
+              "tickets",
+              "notes",
+              "tasks",
+              "calls",
+              "meetings",
+              "emails",
+              "products",
+              "line_items",
+              "quotes",
+              "leads"
+            ]
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      }
+    },
+    {
+      "name": "list_pipelines",
+      "description": "Deal or ticket pipelines with their stages (stage ids for dealstage / hs_pipeline_stage)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "object_type": {
+            "type": "string",
+            "description": "deals or tickets",
+            "enum": [
+              "deals",
+              "tickets"
+            ]
+          }
+        },
+        "required": [
+          "object_type"
+        ]
+      }
+    },
+    {
+      "name": "list_owners",
+      "description": "Users that records can be assigned to (ids for hubspot_owner_id)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Only the owner with this email"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_account_details",
+      "description": "Portal id, time zone, currency and data hosting location of the account",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any HubSpot API endpoint that has no dedicated operation, e.g. path \"/crm/objects/2026-09/contacts/<id>/associations/deals\". Only the API's own host is allowed. Agent tools may only read paths under /crm/objects, /crm/properties, /crm/pipelines, /crm/owners, /crm/associations, /crm/v3/objects, /crm/v3/properties, /crm/v3/pipelines, /crm/v3/owners, /crm/v4/objects, /crm/v4/associations, /account-info/2026-09/details, /account-info/v3/details.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/crm/objects/2026-09/contacts/<id>/associations/deals\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

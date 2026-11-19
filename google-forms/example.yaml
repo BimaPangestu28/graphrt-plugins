@@ -1,0 +1,14 @@
+# Read a form's title and its latest responses. Read-only. Replace form_id with one of yours (from /forms/d/<id>/edit).
+#   GOOGLE_REFRESH_TOKEN=... GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... graphrt run google-forms/example.yaml --plugins .
+version: "1"
+name: google-forms-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: form, type: google-forms.get_form, form_id: 1FAIpQLSdExampleFormId0000000000000000000 }
+    - { id: answers, type: google-forms.list_responses, form_id: "{{#form.data.formId#}}", limit: 10 }
+    - { id: answer, type: answer, answer: "{{#form.data.info.title#}}: {{#answers.data#}}" }
+  edges:
+    - { source: start, target: form }
+    - { source: form, target: answers }
+    - { source: answers, target: answer }
