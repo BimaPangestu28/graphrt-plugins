@@ -11,7 +11,7 @@ const REQUEST_CASES = [
   ["get_updates", {}, { method: "GET", botMethod: "getUpdates", query: { limit: "100", timeout: "0" } }],
   [
     "get_updates",
-    { cursor: "42", limit: 10, timeout: 25, allowed_updates: ["message", "callback_query"] },
+    { cursor: "42", limit: 10, long_poll_seconds: 25, allowed_updates: ["message", "callback_query"] },
     { method: "GET", botMethod: "getUpdates", query: { offset: "42", limit: "10", timeout: "25", allowed_updates: '["message","callback_query"]' } },
   ],
   ["get_updates", { offset: -1 }, { method: "GET", botMethod: "getUpdates", query: { offset: "-1" } }],
@@ -141,7 +141,7 @@ test("get_updates gives the long poll its own timeout, longer than the poll", as
   assert.ok(getUpdatesTimeoutMs(25) <= 40000);
   const { createOperationRunner } = await import("../lib/shared/operations.mjs");
   const { TEST_ENVIRONMENT } = await import("./helpers.mjs");
-  await createOperationRunner(pluginDefinition, TEST_ENVIRONMENT, { fetchImpl: signalCapturingFetch })("get_updates", { timeout: 25 }, { source: "tool" });
+  await createOperationRunner(pluginDefinition, TEST_ENVIRONMENT, { fetchImpl: signalCapturingFetch })("get_updates", { long_poll_seconds: 25 }, { source: "tool" });
   assert.equal(seenSignals.length, 1);
 });
 
@@ -152,7 +152,7 @@ test("get_updates long poll fits inside the plugin's tool deadline", async () =>
 });
 
 const INVALID_INPUT_CASES = [
-  ["get_updates", { timeout: 26 }],
+  ["get_updates", { long_poll_seconds: 26 }],
   ["get_updates", { limit: 101 }],
   ["get_updates", { offset: 5, cursor: "6" }],
   ["get_updates", { cursor: "abc" }],

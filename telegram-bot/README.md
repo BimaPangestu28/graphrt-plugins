@@ -49,7 +49,7 @@ The example only calls `get_me`; it sends nothing.
 - id: updates
   type: telegram-bot.get_updates
   cursor: "{{#state.value#}}"      # e.g. from state-store; empty on the first run
-  timeout: 20
+  long_poll_seconds: 20
   allowed_updates: '["message","callback_query"]'
 - id: reply
   type: telegram-bot.send_message
@@ -64,8 +64,8 @@ The example only calls `get_me`; it sends nothing.
 - Pass `next_cursor` back as `cursor`, or store it (for example with the `state-store` plugin). Calling without a
   cursor returns the unconfirmed updates again, so you would see the same updates twice.
 - `next_cursor` is null when no updates came back. Calling again without a cursor is then safe.
-- `timeout` (0-25 s) is the long-poll wait. The request gets its own timeout of `timeout` + 10 s, which fits in
-  the plugin's call limit.
+- `long_poll_seconds` (0-25 s) is the long-poll wait (sent to Telegram as `timeout`). The request gets its own
+  timeout of `long_poll_seconds` + 10 s, which fits in the plugin's call limit.
 - `get_updates` fails with a 409 conflict while a webhook is set, or while another process polls the same bot.
 
 ### Sending
@@ -96,6 +96,10 @@ go. graphrt plugins can't receive webhooks, so use them only when your own recei
 ## Development
 From the repo root: `npm run sync` after changing `definition.mjs`, `operations/` or `shared/`, then `npm test`.
 `lib/shared/` is a generated copy of `/shared/lib`. Don't edit it.
+
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `get_updates` parameter `timeout` is now `long_poll_seconds` (still sent to Telegram as `timeout`). graphrt takes `timeout` from every workflow node, so the old name was silently dropped on nodes (every node poll returned at once); tool calls that passed `timeout` must use `long_poll_seconds`.
 
 ## License
 Apache-2.0
