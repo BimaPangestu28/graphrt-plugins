@@ -1,0 +1,18 @@
+# Find Jakarta and get its 3-day forecast. Read-only, no API key needed.
+#   graphrt run open-meteo/example.yaml --plugins .
+version: "1"
+name: open-meteo-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: place, type: open-meteo.search_locations, name: Jakarta, count: 1, country_code: ID }
+    - id: forecast
+      type: open-meteo.get_forecast
+      latitude: "{{#place.data.0.latitude#}}"
+      longitude: "{{#place.data.0.longitude#}}"
+      forecast_days: 3
+    - { id: answer, type: answer, answer: "{{#place.data.0.name#}} now: {{#forecast.data.current#}} | next days: {{#forecast.data.daily#}}" }
+  edges:
+    - { source: start, target: place }
+    - { source: place, target: forecast }
+    - { source: forecast, target: answer }

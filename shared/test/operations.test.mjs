@@ -182,3 +182,32 @@ test("operations receive the call source (node or tool)", async () => {
   await runOperation("probe", {}, { source: "node" });
   assert.deepEqual(sources, ["tool", "node"]);
 });
+
+test("noCredentials plugins use the network but ask for no secrets, need no token and offer no node access_token", async () => {
+  const { buildManifest } = await import("../lib/operations.mjs");
+  const publicDefinition = { ...pluginDefinition, tokenEnv: undefined, noCredentials: true, version: "0", description: "d", extraEnv: ["DEMO_REGION"] };
+  const manifest = buildManifest(publicDefinition);
+  assert.equal(manifest.permissions.network, true);
+  assert.equal(manifest.permissions.secrets, false);
+  assert.deepEqual(manifest.permissions.env, ["DEMO_REGION"]);
+  assert.equal("access_token" in manifest.nodes[0].config_schema.properties, false);
+  const runOperation = createOperationRunner(publicDefinition, {});
+  assert.equal((await runOperation("get_profile", { access_token: "ignored" }, { source: "node" })).data.token, undefined);
+});
+
+test("buildManifest drops an undefined token env and duplicate env names", async () => {
+  const { buildManifest } = await import("../lib/operations.mjs");
+  const manifest = buildManifest({ ...pluginDefinition, version: "0", description: "d", extraEnv: ["DEMO_ACCESS_TOKEN", "DEMO_ID", "DEMO_ID"] });
+  assert.deepEqual(manifest.permissions.env, ["DEMO_ACCESS_TOKEN", "DEMO_ID"]);
+});
+
+test("runner passes a test resolveHostAddresses through to createClient", async () => {
+  const receivedOptions = [];
+  const definitionWithProbe = { ...pluginDefinition, createClient: (clientOptions) => (receivedOptions.push(clientOptions), {}) };
+  const fakeResolver = async () => ["93.184.216.34"];
+  const environment = { DEMO_ACCESS_TOKEN: "t" };
+  await createOperationRunner(definitionWithProbe, environment, { resolveHostAddresses: fakeResolver })("get_profile", {}, { source: "tool" });
+  await createOperationRunner(definitionWithProbe, environment)("get_profile", {}, { source: "tool" });
+  assert.equal(receivedOptions[0].resolveHostAddresses, fakeResolver);
+  assert.equal("resolveHostAddresses" in receivedOptions[1], false);
+});

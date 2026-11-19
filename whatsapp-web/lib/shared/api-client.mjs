@@ -26,6 +26,9 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  * @param options.authorize - Adds credentials: `({headers, query}) => void | string[]`, may be async; any
  *   returned strings are extra secrets to redact (function)
  * @param options.parseError - Optional `(status, body, headers) => {message?, kind?, retryAfterMs?}` (function)
+ * @param options.signRequest - Optional `({method, url, headers, body}) => secrets[]`, may be async; runs after the
+ *   URL (including query credentials) and the encoded body are final, so it can sign them (HMAC, SigV4). Headers it
+ *   sets are sent; returned strings are redacted (function)
  * @param options.detectBodyError - Optional `(body, headers) => {message, kind?, retryAfterMs?} | null`, for APIs
  *   that report errors inside 2xx bodies (function)
  * @param options.refreshCredentials - Optional `async () => boolean`; called once on 401, retry if true (function)
@@ -35,10 +38,15 @@ const STATUS_KINDS = { 400: "invalid_input", 401: "auth_error", 403: "permission
  * @param options.timeoutMs - Per-attempt timeout (number, default 30000)
  * @param options.defaultHeaders - Headers sent on every request (object)
  * @returns `{request, requestWithHeaders}`; request options are
- *   `{method, path, query, json, form, body, headers, signal, redactResponse, timeoutMs, idempotent}`
+ *   `{method, path, query, json, form, body, headers, signal, redactResponse, timeoutMs, idempotent, rawResponse}`.
+ *   requestWithHeaders resolves to `{body, headers, status, redact}`; `redact(value)` removes this request's secrets
+ *   from any value (e.g. a Link header). With `rawResponse: true` a successful response is returned unread as
+ *   `{response, headers, status, redact}` (for binary bodies); error statuses are still read and mapped.
  *   (`timeoutMs` overrides the client's per-attempt timeout, e.g. for large uploads; `idempotent: true` marks a
  *   request that is safe to repeat although its method is not, e.g. a search sent as POST: its 5xx and network
- *   failures are retried like a GET's and carry no "outcome unknown" note. Never set it on a write.)
+ *   failures are retried like a GET's and carry no "outcome unknown" note. Never set it on a write. `idempotent: false`
+ *   marks a PUT or DELETE that must not be repeated, e.g. one that sends a message: it is never retried after a 5xx
+ *   or network failure and its errors carry the "outcome unknown" note.)
  *
  * @example
  * const client = createApiClient({ baseUrl, authorize: ({ headers }) => { headers.authorization = `Bearer ${token}`; } });
@@ -63,12 +71,12 @@ export function createApiClient(options) {
 
 async function sendWithRetries(clientSettings, requestOptions) {
   const method = (requestOptions.method ?? "GET").toUpperCase();
-  const isIdempotent = requestOptions.idempotent === true || IDEMPOTENT_METHODS.has(method);
+  const isIdempotent = typeof requestOptions.idempotent === "boolean" ? requestOptions.idempotent : IDEMPOTENT_METHODS.has(method);
   const normalizedOptions = { ...requestOptions, method, isIdempotent };
   let preparedRequest = await prepareRequest(clientSettings, normalizedOptions);
   let hasRefreshedCredentials = false;
   for (let attempt = 0; ; attempt += 1) {
-    const outcome = await sendOnce(clientSettings, preparedRequest, requestOptions.signal);
+    const outcome = await sendOnce(clientSettings, preparedRequest, requestOptions.signal, requestOptions.rawResponse === true);
     if (outcome.response) return finalizeResponse(outcome.response, requestOptions, preparedRequest.secrets);
     if (await shouldRetryWithFreshCredentials(clientSettings, outcome.error, hasRefreshedCredentials)) {
       hasRefreshedCredentials = true;
@@ -86,8 +94,9 @@ async function shouldRetryWithFreshCredentials(clientSettings, pluginError, hasR
 }
 
 function finalizeResponse(response, requestOptions, secrets) {
-  if (!requestOptions.redactResponse) return response;
-  return { ...response, body: redactDeep(response.body, secrets) };
+  const redactValue = (value) => redactDeep(value, secrets);
+  if (!requestOptions.redactResponse || response.response) return { ...response, redact: redactValue };
+  return { ...response, body: redactValue(response.body), redact: redactValue };
 }
 
 async function prepareRequest(clientSettings, requestOptions) {
@@ -97,7 +106,8 @@ async function prepareRequest(clientSettings, requestOptions) {
   const extraSecrets = await clientSettings.authorize?.({ headers, query });
   const url = buildUrl(clientSettings.baseUrl, requestOptions.path, query);
   const body = encodeBody(requestOptions, headers);
-  const secrets = collectSecrets(headers, query, extraSecrets);
+  const signingSecrets = await clientSettings.signRequest?.({ method: requestOptions.method, url, headers, body });
+  const secrets = collectSecrets(headers, query, [...asSecretList(extraSecrets), ...asSecretList(signingSecrets)]);
   const timeoutMs = requestOptions.timeoutMs ?? clientSettings.timeoutMs;
   const isIdempotent = requestOptions.isIdempotent;
   return { url, method: requestOptions.method, isIdempotent, init: { method: requestOptions.method, headers, body }, secrets, timeoutMs };
@@ -159,20 +169,25 @@ function encodeFormValue(formValue) {
   return typeof formValue === "object" ? JSON.stringify(formValue) : String(formValue);
 }
 
+function asSecretList(secretValues) {
+  return Array.isArray(secretValues) ? secretValues : [];
+}
+
 function collectSecrets(headers, query, extraSecrets) {
-  const declaredSecrets = Array.isArray(extraSecrets) ? extraSecrets : [];
+  const declaredSecrets = asSecretList(extraSecrets);
   const secretValues = [headers.authorization, query.access_token, query.key, ...declaredSecrets].filter(Boolean).map(String);
   const bearerTokens = secretValues.map((secretValue) => secretValue.replace(/^(Bearer|Basic)\s+/i, ""));
   return [...new Set([...secretValues, ...bearerTokens])].filter((secretValue) => secretValue.length >= 4);
 }
 
-async function sendOnce(clientSettings, preparedRequest, callerSignal) {
+async function sendOnce(clientSettings, preparedRequest, callerSignal, rawResponse) {
   const timeoutSignal = AbortSignal.timeout(preparedRequest.timeoutMs);
   const combinedSignal = callerSignal ? AbortSignal.any([callerSignal, timeoutSignal]) : timeoutSignal;
   let fetchResponse;
   let responseBody;
   try {
     fetchResponse = await clientSettings.fetchImpl(preparedRequest.url, { ...preparedRequest.init, signal: combinedSignal });
+    if (rawResponse && fetchResponse.ok) return { response: { response: fetchResponse, headers: fetchResponse.headers, status: fetchResponse.status } };
     responseBody = await readBody(fetchResponse);
   } catch (transportError) {
     return { error: classifyTransportFailure(transportError, callerSignal, preparedRequest) };

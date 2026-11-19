@@ -12,7 +12,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync
 import { join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { findSharedPlugins, SHARED_LIB_DIR } from "./plugins.mjs";
-import { buildManifest } from "../shared/lib/operations.mjs";
+import { buildManifest, offersNodeToken } from "../shared/lib/operations.mjs";
 
 const isCheckMode = process.argv.includes("--check");
 const staleFiles = [];
@@ -69,9 +69,9 @@ function renderOperationsReference(pluginDefinition) {
     "Generated from `definition.mjs` by `npm run sync` — do not edit by hand.",
     "",
     `Each operation is a node \`${pluginDefinition.name}.<operation>\` (outputs \`data\`, \`next_cursor\`) and a tool \`<operation>\`.`,
-    pluginDefinition.localOnly
-      ? "**Bold** parameters are required."
-      : "Nodes also accept an optional `access_token`. **Bold** parameters are required.",
+    offersNodeToken(pluginDefinition)
+      ? "Nodes also accept an optional `access_token`. **Bold** parameters are required."
+      : "**Bold** parameters are required.",
     "",
     "| Operation | Description | Parameters |",
     "|-----------|-------------|------------|",
