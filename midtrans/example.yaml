@@ -1,0 +1,12 @@
+# Look up the status of one order. Read-only; sandbox by default (MIDTRANS_ENV=production for live).
+#   MIDTRANS_SERVER_KEY=SB-Mid-server-... graphrt run midtrans/example.yaml --plugins .
+version: "1"
+name: midtrans-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: status, type: midtrans.get_transaction_status, order_id: ORDER-1001 }
+    - { id: answer, type: answer, answer: "{{#status.data.order_id#}}: {{#status.data.transaction_status#}} ({{#status.data.payment_type#}}, IDR {{#status.data.gross_amount#}})" }
+  edges:
+    - { source: start, target: status }
+    - { source: status, target: answer }

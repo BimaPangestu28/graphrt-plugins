@@ -1,0 +1,1031 @@
+{
+  "name": "shopify",
+  "version": "0.1.0",
+  "description": "Shopify Admin GraphQL API: shop, products, orders, customers, locations, inventory levels; product writes opt-in, inventory, refunds and cancellations node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SHOPIFY_ACCESS_TOKEN",
+      "SHOPIFY_SHOP_DOMAIN",
+      "SHOPIFY_TOOL_ALLOW_PRODUCTS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "shopify.get_shop",
+      "title": "Get shop",
+      "description": "The store's name, domains and currency; a cheap way to check the token",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.list_products",
+      "title": "List products",
+      "description": "List products with their first 20 variants, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Shopify search syntax, e.g. status:active vendor:Acme"
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Newest first",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.get_product",
+      "title": "Get product",
+      "description": "Retrieve a product with its description and first 20 variants",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Product/123",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.list_orders",
+      "title": "List orders",
+      "description": "List orders, newest first (orders older than 60 days need the read_all_orders scope)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "e.g. financial_status:paid fulfillment_status:unfulfilled created_at:>2026-11-01"
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Newest first",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.get_order",
+      "title": "Get order",
+      "description": "Retrieve an order with its line items",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Order/123",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.list_customers",
+      "title": "List customers",
+      "description": "List customers, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "e.g. email:ana@example.com or country:Indonesia"
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Newest first",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.get_customer",
+      "title": "Get customer",
+      "description": "Retrieve a customer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Customer/123",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.list_locations",
+      "title": "List locations",
+      "description": "List the store's locations (for inventory)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.list_inventory_levels",
+      "title": "List inventory levels",
+      "description": "Quantities (available, committed, incoming, on_hand, reserved) of one inventory item per location",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "inventory_item_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/InventoryItem/123",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "inventory_item_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.create_product",
+      "title": "Create product",
+      "description": "Create a product (DRAFT by default); variants and prices are set in the admin or a node (as an agent tool only when SHOPIFY_TOOL_ALLOW_PRODUCTS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description_html": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "string"
+          },
+          "product_type": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "ACTIVE publishes it to the sales channels it is on",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED",
+              "DRAFT"
+            ],
+            "default": "DRAFT"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.update_product",
+      "title": "Update product",
+      "description": "Update a product's title, description, vendor, type, tags or status (as an agent tool only when SHOPIFY_TOOL_ALLOW_PRODUCTS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Product/123",
+            "minLength": 1
+          },
+          "product_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description_html": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "string"
+          },
+          "product_type": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "ACTIVE publishes it to the sales channels it is on",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED",
+              "DRAFT"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.adjust_inventory",
+      "title": "Adjust inventory",
+      "description": "Change inventory quantities by a delta per item and location",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "e.g. correction, received, damaged, cycle_count_available"
+          },
+          "quantity_name": {
+            "type": "string",
+            "description": "Quantity state (sent as `name`)",
+            "enum": [
+              "available",
+              "damaged",
+              "quality_control",
+              "reserved",
+              "safety_stock",
+              "on_hand"
+            ],
+            "default": "available"
+          },
+          "reference_document_uri": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "description": "[{delta, inventoryItemId, locationId, changeFromQuantity (required, null to skip the check), ledgerDocumentUri (required unless quantity_name is available)}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Retry key (default: a fresh UUID); pass the same key to retry safely"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "reason",
+          "changes"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.update_order",
+      "title": "Update order",
+      "description": "Edit an order's note, tags or email",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Order/123",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.create_refund",
+      "title": "Create refund",
+      "description": "Refund line items, shipping or an amount of an order: money goes back to the customer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Order/123",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string"
+          },
+          "notify": {
+            "type": "boolean",
+            "description": "Email the customer"
+          },
+          "refund_line_items": {
+            "type": "array",
+            "description": "[{lineItemId, quantity, restockType?, locationId?}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "shipping": {
+            "type": "object",
+            "description": "{amount} or {fullRefund: true}"
+          },
+          "transactions": {
+            "type": "array",
+            "description": "[{orderId, parentId, kind: REFUND, gateway, amount}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Retry key (default: a fresh UUID); pass the same key to retry safely"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "shopify.cancel_order",
+      "title": "Cancel order",
+      "description": "Cancel an order (asynchronous job), optionally refunding to the original payment methods and restocking",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Order/123",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "DECLINED",
+              "FRAUD",
+              "INVENTORY",
+              "STAFF",
+              "OTHER"
+            ]
+          },
+          "restock": {
+            "type": "boolean"
+          },
+          "refund_to_original_payment": {
+            "type": "boolean",
+            "description": "Refund to the original payment methods"
+          },
+          "notify_customer": {
+            "type": "boolean"
+          },
+          "staff_note": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id",
+          "reason",
+          "restock"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_shop",
+      "description": "The store's name, domains and currency; a cheap way to check the token",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_products",
+      "description": "List products with their first 20 variants, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Shopify search syntax, e.g. status:active vendor:Acme"
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Newest first",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_product",
+      "description": "Retrieve a product with its description and first 20 variants",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Product/123",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      }
+    },
+    {
+      "name": "list_orders",
+      "description": "List orders, newest first (orders older than 60 days need the read_all_orders scope)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "e.g. financial_status:paid fulfillment_status:unfulfilled created_at:>2026-11-01"
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Newest first",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_order",
+      "description": "Retrieve an order with its line items",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Order/123",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "list_customers",
+      "description": "List customers, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "e.g. email:ana@example.com or country:Indonesia"
+          },
+          "reverse": {
+            "type": "boolean",
+            "description": "Newest first",
+            "default": true
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_customer",
+      "description": "Retrieve a customer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Customer/123",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      }
+    },
+    {
+      "name": "list_locations",
+      "description": "List the store's locations (for inventory)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_inventory_levels",
+      "description": "Quantities (available, committed, incoming, on_hand, reserved) of one inventory item per location",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "inventory_item_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/InventoryItem/123",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `variables.first`)",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 50
+          }
+        },
+        "required": [
+          "inventory_item_id"
+        ]
+      }
+    },
+    {
+      "name": "create_product",
+      "description": "Create a product (DRAFT by default); variants and prices are set in the admin or a node (as an agent tool only when SHOPIFY_TOOL_ALLOW_PRODUCTS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description_html": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "string"
+          },
+          "product_type": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "ACTIVE publishes it to the sales channels it is on",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED",
+              "DRAFT"
+            ],
+            "default": "DRAFT"
+          }
+        },
+        "required": [
+          "product_title"
+        ]
+      }
+    },
+    {
+      "name": "update_product",
+      "description": "Update a product's title, description, vendor, type, tags or status (as an agent tool only when SHOPIFY_TOOL_ALLOW_PRODUCTS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Global id, e.g. gid://shopify/Product/123",
+            "minLength": 1
+          },
+          "product_title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description_html": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "string"
+          },
+          "product_type": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "ACTIVE publishes it to the sales channels it is on",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED",
+              "DRAFT"
+            ]
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      }
+    }
+  ]
+}

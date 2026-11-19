@@ -1,0 +1,782 @@
+{
+  "name": "lazada",
+  "version": "0.1.0",
+  "description": "Lazada seller via the Lazada Open Platform (signed, regional): products, orders and order items; price, stock and fulfilment node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "LAZADA_ACCESS_TOKEN",
+      "LAZADA_APP_KEY",
+      "LAZADA_APP_SECRET",
+      "LAZADA_REGION"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "lazada.get_seller",
+      "title": "Get Lazada seller",
+      "description": "The authorized seller: name, email, location, verification status; a cheap way to check the token",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.list_products",
+      "title": "List Lazada products",
+      "description": "List products with their SKUs (price, stock, status)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "live",
+              "inactive",
+              "deleted",
+              "image-missing",
+              "pending",
+              "rejected",
+              "sold-out"
+            ],
+            "default": "all"
+          },
+          "create_after": {
+            "type": "string",
+            "description": "Created after (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "update_after": {
+            "type": "string",
+            "description": "Updated after (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "seller_skus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only these seller SKUs (sent as sku_seller_list)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.get_product",
+      "title": "Get Lazada product",
+      "description": "Retrieve one product by item_id or seller_sku",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "seller_sku": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.list_orders",
+      "title": "List Lazada orders",
+      "description": "List orders created or updated after a time, optionally by status",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "created_after": {
+            "type": "string",
+            "description": "Created after (this or update_after is required) (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "created_before": {
+            "type": "string",
+            "description": "Created before (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "update_after": {
+            "type": "string",
+            "description": "Updated after (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "update_before": {
+            "type": "string",
+            "description": "Updated before (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unpaid",
+              "pending",
+              "packed",
+              "ready_to_ship",
+              "shipped",
+              "delivered",
+              "canceled",
+              "returned",
+              "failed",
+              "topack",
+              "toship",
+              "confirmed",
+              "lost_by_3pl",
+              "damaged_by_3pl"
+            ]
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at"
+            ],
+            "default": "created_at"
+          },
+          "sort_direction": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ],
+            "default": "DESC"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.get_order",
+      "title": "Get Lazada order",
+      "description": "Retrieve one order (buyer, address, totals, statuses)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.get_order_items",
+      "title": "Get Lazada order items",
+      "description": "The items of one order (order_item_id, SKU, price, status, package and tracking)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.get_multiple_order_items",
+      "title": "Get items of several Lazada orders",
+      "description": "The items of up to 50 orders in one call",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_ids"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.update_price_quantity",
+      "title": "Update Lazada price and stock",
+      "description": "Set price, sale price (with dates) and/or quantity of up to 50 SKUs. After a network error or timeout the change may still have been applied: check before retrying. Check with get_product.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "skus": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "description": "[{item_id, sku_id} or {seller_sku}, plus price?, sale_price?, sale_start_date?, sale_end_date?, quantity?}]"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "skus"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.update_sellable_stock",
+      "title": "Update Lazada sellable stock",
+      "description": "Set the sellable quantity of up to 50 SKUs (multi-warehouse aware). After a network error or timeout the change may still have been applied: check before retrying. Check with get_product.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "skus": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "description": "[{item_id, sku_id} or {seller_sku}, sellable_quantity}]"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "skus"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.pack_order",
+      "title": "Pack Lazada order",
+      "description": "Pack order items for shipping (/order/fulfill/pack): returns the package ids. After a network error or timeout the change may still have been applied: check before retrying. Check with get_order_items.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "pack_request": {
+            "type": "object",
+            "description": "The packReq object of Lazada's /order/fulfill/pack docs, e.g. {pack_order_list: [{order_id, order_item_list: [...]}], delivery_type: \"dropship\", shipping_allocate_type: \"TFS\"}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "pack_request"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.ready_to_ship",
+      "title": "Mark Lazada packages ready to ship",
+      "description": "Set packed packages ready to ship (/order/package/rts), which books the pickup. After a network error or timeout the change may still have been applied: check before retrying. Check with get_order_items.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "ready_to_ship_request": {
+            "type": "object",
+            "description": "The readyToShipReq object of Lazada's /order/package/rts docs, e.g. {packages: [{package_id: \"FP...\"}]}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "ready_to_ship_request"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "lazada.api_request",
+      "title": "Lazada Open Platform request",
+      "description": "Call any Lazada Open Platform endpoint that has no dedicated operation, e.g. path \"/finance/transaction/details/get\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/finance/transaction/details/get\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_seller",
+      "description": "The authorized seller: name, email, location, verification status; a cheap way to check the token",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "list_products",
+      "description": "List products with their SKUs (price, stock, status)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "live",
+              "inactive",
+              "deleted",
+              "image-missing",
+              "pending",
+              "rejected",
+              "sold-out"
+            ],
+            "default": "all"
+          },
+          "create_after": {
+            "type": "string",
+            "description": "Created after (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "update_after": {
+            "type": "string",
+            "description": "Updated after (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "seller_skus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "description": "Only these seller SKUs (sent as sku_seller_list)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_product",
+      "description": "Retrieve one product by item_id or seller_sku",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "seller_sku": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "list_orders",
+      "description": "List orders created or updated after a time, optionally by status",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "created_after": {
+            "type": "string",
+            "description": "Created after (this or update_after is required) (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "created_before": {
+            "type": "string",
+            "description": "Created before (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "update_after": {
+            "type": "string",
+            "description": "Updated after (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "update_before": {
+            "type": "string",
+            "description": "Updated before (ISO 8601, e.g. 2026-11-01T00:00:00+07:00)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unpaid",
+              "pending",
+              "packed",
+              "ready_to_ship",
+              "shipped",
+              "delivered",
+              "canceled",
+              "returned",
+              "failed",
+              "topack",
+              "toship",
+              "confirmed",
+              "lost_by_3pl",
+              "damaged_by_3pl"
+            ]
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at"
+            ],
+            "default": "created_at"
+          },
+          "sort_direction": {
+            "type": "string",
+            "enum": [
+              "ASC",
+              "DESC"
+            ],
+            "default": "DESC"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_order",
+      "description": "Retrieve one order (buyer, address, totals, statuses)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "get_order_items",
+      "description": "The items of one order (order_item_id, SKU, price, status, package and tracking)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "get_multiple_order_items",
+      "description": "The items of up to 50 orders in one call",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "order_ids"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Lazada Open Platform endpoint that has no dedicated operation, e.g. path \"/finance/transaction/details/get\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/finance/transaction/details/get\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

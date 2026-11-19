@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-stripe",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Stripe API (customers, payments, payment links, invoices, catalog, refunds, subscriptions)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

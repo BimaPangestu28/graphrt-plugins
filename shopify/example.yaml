@@ -1,0 +1,14 @@
+# Read the shop and its five newest active products. Read-only.
+#   SHOPIFY_SHOP_DOMAIN=your-store.myshopify.com SHOPIFY_ACCESS_TOKEN=shpat_... graphrt run shopify/example.yaml --plugins .
+version: "1"
+name: shopify-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: shop, type: shopify.get_shop }
+    - { id: products, type: shopify.list_products, query: "status:active", limit: 5 }
+    - { id: answer, type: answer, answer: "{{#shop.data.name#}} ({{#shop.data.currencyCode#}}): {{#products.data#}}" }
+  edges:
+    - { source: start, target: shop }
+    - { source: shop, target: products }
+    - { source: products, target: answer }

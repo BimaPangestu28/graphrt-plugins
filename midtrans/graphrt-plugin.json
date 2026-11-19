@@ -1,0 +1,658 @@
+{
+  "name": "midtrans",
+  "version": "0.1.0",
+  "description": "Midtrans (Indonesia): Snap payment pages and Core API transaction status; cancel, expire, refund and capture node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "MIDTRANS_SERVER_KEY",
+      "MIDTRANS_ENV",
+      "MIDTRANS_TOOL_MAX_AMOUNT",
+      "MIDTRANS_TOOL_API_EXTRA_PATHS",
+      "MIDTRANS_TOOL_ALLOW_PAYMENTS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "midtrans.create_snap_transaction",
+      "title": "Create Snap transaction",
+      "description": "Create a Snap payment page for an order: returns token and redirect_url (send redirect_url to the payer). No money moves until the payer pays. Agent tools also need MIDTRANS_TOOL_MAX_AMOUNT (as an agent tool only when MIDTRANS_TOOL_ALLOW_PAYMENTS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Your unique order id (letters, digits, - _ ~ .; max 50)",
+            "minLength": 1
+          },
+          "gross_amount": {
+            "type": "integer",
+            "description": "Total in IDR (must equal the sum of item_details)",
+            "minimum": 1
+          },
+          "item_details": {
+            "type": "array",
+            "description": "Items: [{id, name, price, quantity, brand?, category?}] (price in IDR)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "customer_details": {
+            "type": "object",
+            "description": "{first_name, last_name, email, phone, billing_address, shipping_address}"
+          },
+          "enabled_payments": {
+            "type": "array",
+            "description": "Limit methods, e.g. [\"gopay\", \"bca_va\", \"qris\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expiry_duration": {
+            "type": "integer",
+            "description": "Payment page lifetime (with expiry_unit)",
+            "minimum": 1
+          },
+          "expiry_unit": {
+            "type": "string",
+            "enum": [
+              "second",
+              "minute",
+              "hour",
+              "day"
+            ]
+          },
+          "custom_field1": {
+            "type": "string"
+          },
+          "custom_field2": {
+            "type": "string"
+          },
+          "custom_field3": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id",
+          "gross_amount"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.get_transaction_status",
+      "title": "Get transaction status",
+      "description": "Status of a transaction by order id: transaction_status (pending, settlement, capture, deny, cancel, expire, refund...), payment_type, gross_amount",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.get_b2b_transaction_status",
+      "title": "Get B2B transaction status",
+      "description": "All transactions of one order id (B2B: several payments per order)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.cancel_transaction",
+      "title": "Cancel transaction",
+      "description": "Cancel a pending or captured (not yet settled) transaction",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.expire_transaction",
+      "title": "Expire transaction",
+      "description": "Expire a pending transaction so it can no longer be paid",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.refund_transaction",
+      "title": "Refund transaction",
+      "description": "Refund a settled transaction fully or partly: money goes back to the payer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "refund_key": {
+            "type": "string",
+            "description": "Your refund id (letters, digits, - _); reuse it to retry safely"
+          },
+          "amount": {
+            "type": "integer",
+            "description": "IDR; default the full amount",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.direct_refund_transaction",
+      "title": "Direct refund transaction",
+      "description": "Refund through the payment provider at once (GoPay, ShopeePay, QRIS, cards): money goes back to the payer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "refund_key": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.approve_transaction",
+      "title": "Approve transaction",
+      "description": "Accept a card transaction flagged as challenge by fraud detection",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.deny_transaction",
+      "title": "Deny transaction",
+      "description": "Reject a card transaction flagged as challenge by fraud detection",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.capture_transaction",
+      "title": "Capture transaction",
+      "description": "Capture an authorized (pre-auth) card transaction",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "description": "Midtrans transaction id",
+            "minLength": 1
+          },
+          "gross_amount": {
+            "type": "integer",
+            "description": "IDR to capture (default the authorized amount)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "transaction_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "midtrans.api_request",
+      "title": "Midtrans Core API request",
+      "description": "Call any Midtrans Core API endpoint that has no dedicated operation, e.g. path \"/v2/ORDER-1/status\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/ORDER-1/status\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_snap_transaction",
+      "description": "Create a Snap payment page for an order: returns token and redirect_url (send redirect_url to the payer). No money moves until the payer pays. Agent tools also need MIDTRANS_TOOL_MAX_AMOUNT (as an agent tool only when MIDTRANS_TOOL_ALLOW_PAYMENTS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Your unique order id (letters, digits, - _ ~ .; max 50)",
+            "minLength": 1
+          },
+          "gross_amount": {
+            "type": "integer",
+            "description": "Total in IDR (must equal the sum of item_details)",
+            "minimum": 1
+          },
+          "item_details": {
+            "type": "array",
+            "description": "Items: [{id, name, price, quantity, brand?, category?}] (price in IDR)",
+            "items": {
+              "type": "object"
+            }
+          },
+          "customer_details": {
+            "type": "object",
+            "description": "{first_name, last_name, email, phone, billing_address, shipping_address}"
+          },
+          "enabled_payments": {
+            "type": "array",
+            "description": "Limit methods, e.g. [\"gopay\", \"bca_va\", \"qris\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expiry_duration": {
+            "type": "integer",
+            "description": "Payment page lifetime (with expiry_unit)",
+            "minimum": 1
+          },
+          "expiry_unit": {
+            "type": "string",
+            "enum": [
+              "second",
+              "minute",
+              "hour",
+              "day"
+            ]
+          },
+          "custom_field1": {
+            "type": "string"
+          },
+          "custom_field2": {
+            "type": "string"
+          },
+          "custom_field3": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "gross_amount"
+        ]
+      }
+    },
+    {
+      "name": "get_transaction_status",
+      "description": "Status of a transaction by order id: transaction_status (pending, settlement, capture, deny, cancel, expire, refund...), payment_type, gross_amount",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "get_b2b_transaction_status",
+      "description": "All transactions of one order id (B2B: several payments per order)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id (or Midtrans transaction id)",
+            "minLength": 1
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Midtrans Core API endpoint that has no dedicated operation, e.g. path \"/v2/ORDER-1/status\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/ORDER-1/status\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

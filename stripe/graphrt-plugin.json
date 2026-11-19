@@ -1,0 +1,2415 @@
+{
+  "name": "stripe",
+  "version": "0.1.0",
+  "description": "Stripe: customers, PaymentIntents, payment links, invoices, products, prices, charges, balance, refunds, subscriptions; money movement node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "STRIPE_SECRET_KEY",
+      "STRIPE_TOOL_MAX_AMOUNT",
+      "STRIPE_TOOL_ALLOWED_CURRENCIES",
+      "STRIPE_TOOL_API_EXTRA_PATHS",
+      "STRIPE_TOOL_ALLOW_WRITE",
+      "STRIPE_TOOL_ALLOW_PAYMENT_INTENTS",
+      "STRIPE_TOOL_ALLOW_PAYMENT_LINKS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "stripe.list_customers",
+      "title": "List customers",
+      "description": "List customers, newest first, optionally by exact email",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Exact email (case-sensitive)"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.search_customers",
+      "title": "Search customers",
+      "description": "Search customers with Stripe search syntax, e.g. email~'ana' or metadata['crm_id']:'42' (not for read-after-write: results lag up to a minute)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query (https://docs.stripe.com/search#search-query-language)",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.get_customer",
+      "title": "Get customer",
+      "description": "Retrieve a customer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer id (cus_...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.create_customer",
+      "title": "Create customer",
+      "description": "Create a customer (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.update_customer",
+      "title": "Update customer",
+      "description": "Update a customer's email, name, phone, description or metadata (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer id (cus_...)",
+            "minLength": 1
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_payment_intents",
+      "title": "List PaymentIntents",
+      "description": "List PaymentIntents, newest first (client_secret is removed for agent tools)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string",
+            "description": "Customer id"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.get_payment_intent",
+      "title": "Get PaymentIntent",
+      "description": "Retrieve a PaymentIntent (client_secret is removed for agent tools)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payment_intent_id": {
+            "type": "string",
+            "description": "PaymentIntent id (pi_...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "payment_intent_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.create_payment_intent",
+      "title": "Create PaymentIntent",
+      "description": "Create an unconfirmed PaymentIntent (no money moves until it is confirmed with confirm_payment_intent or by the customer with its client_secret). Agent tools also need STRIPE_TOOL_MAX_AMOUNT and the currency in STRIPE_TOOL_ALLOWED_CURRENCIES (as an agent tool only when STRIPE_TOOL_ALLOW_PAYMENT_INTENTS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "description": "Amount in the smallest currency unit (cents; 100 = $1.00)",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "description": "Three-letter ISO currency code, lowercase (e.g. usd, idr)",
+            "minLength": 3
+          },
+          "customer": {
+            "type": "string",
+            "description": "Customer id"
+          },
+          "description": {
+            "type": "string"
+          },
+          "capture_method": {
+            "type": "string",
+            "description": "manual places a hold that capture_payment_intent collects later",
+            "enum": [
+              "automatic",
+              "automatic_async",
+              "manual"
+            ]
+          },
+          "automatic_payment_methods": {
+            "type": "boolean",
+            "description": "Accept the payment methods enabled in the Dashboard",
+            "default": true
+          },
+          "statement_descriptor_suffix": {
+            "type": "string",
+            "description": "Card statement suffix (max 22 characters)"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.confirm_payment_intent",
+      "title": "Confirm PaymentIntent",
+      "description": "Confirm a PaymentIntent with a payment method: this charges the customer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payment_intent_id": {
+            "type": "string",
+            "description": "PaymentIntent id (pi_...)",
+            "minLength": 1
+          },
+          "payment_method": {
+            "type": "string",
+            "description": "PaymentMethod id (pm_...)"
+          },
+          "off_session": {
+            "type": "boolean",
+            "description": "The customer is not present (saved card)"
+          },
+          "return_url": {
+            "type": "string",
+            "description": "Where redirect-based methods return the customer"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "payment_intent_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.capture_payment_intent",
+      "title": "Capture PaymentIntent",
+      "description": "Capture the held funds of a PaymentIntent created with capture_method=manual",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payment_intent_id": {
+            "type": "string",
+            "description": "PaymentIntent id (pi_...)",
+            "minLength": 1
+          },
+          "amount_to_capture": {
+            "type": "integer",
+            "description": "Capture less than the authorized amount (smallest currency unit)",
+            "minimum": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "payment_intent_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.cancel_payment_intent",
+      "title": "Cancel PaymentIntent",
+      "description": "Cancel a PaymentIntent (releases any hold)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payment_intent_id": {
+            "type": "string",
+            "description": "PaymentIntent id (pi_...)",
+            "minLength": 1
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "enum": [
+              "duplicate",
+              "fraudulent",
+              "requested_by_customer",
+              "abandoned"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "payment_intent_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_payment_links",
+      "title": "List payment links",
+      "description": "List payment links",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.create_payment_link",
+      "title": "Create payment link",
+      "description": "Create a shareable checkout link (buy.stripe.com) for existing prices; money moves only when a customer pays it (as an agent tool only when STRIPE_TOOL_ALLOW_PAYMENT_LINKS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "line_items": {
+            "type": "array",
+            "description": "Items: [{price: 'price_...', quantity: 1}] (up to 20; agents: only price and quantity, quantity at most 100)",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "price",
+                "quantity"
+              ]
+            }
+          },
+          "allow_promotion_codes": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "line_items"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_invoices",
+      "title": "List invoices",
+      "description": "List invoices, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "open",
+              "paid",
+              "uncollectible",
+              "void"
+            ]
+          },
+          "subscription": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.get_invoice",
+      "title": "Get invoice",
+      "description": "Retrieve an invoice",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id (in_...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.create_invoice",
+      "title": "Create draft invoice",
+      "description": "Create a draft invoice for a customer (auto_advance off: nothing is finalized or sent until finalize_invoice / send_invoice) (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "collection_method": {
+            "type": "string",
+            "description": "send_invoice emails the customer when sent; needs days_until_due",
+            "enum": [
+              "charge_automatically",
+              "send_invoice"
+            ]
+          },
+          "days_until_due": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.add_invoice_item",
+      "title": "Add invoice item",
+      "description": "Add a line (a price, or an amount with a description) to a draft invoice. Node only: a draft can be a subscription renewal that Stripe finalizes and charges automatically",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "invoice": {
+            "type": "string",
+            "description": "Draft invoice id (in_...)",
+            "minLength": 1
+          },
+          "price": {
+            "type": "string",
+            "description": "Price id (or give amount and currency)"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Amount in the smallest currency unit (instead of price)"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "customer",
+          "invoice"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.finalize_invoice",
+      "title": "Finalize invoice",
+      "description": "Finalize a draft invoice so it can be paid (and, with charge_automatically, charged)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id (in_...)",
+            "minLength": 1
+          },
+          "auto_advance": {
+            "type": "boolean",
+            "description": "Let Stripe collect payment automatically afterwards"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.send_invoice",
+      "title": "Send invoice",
+      "description": "Email an open invoice to the customer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id (in_...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.pay_invoice",
+      "title": "Pay invoice",
+      "description": "Attempt to collect an open invoice now (charges the customer's payment method)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id (in_...)",
+            "minLength": 1
+          },
+          "paid_out_of_band": {
+            "type": "boolean",
+            "description": "Mark as paid outside Stripe instead of charging"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_products",
+      "title": "List products",
+      "description": "List products",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.get_product",
+      "title": "Get product",
+      "description": "Retrieve a product",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product id (prod_...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.create_product",
+      "title": "Create product",
+      "description": "Create a product (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_prices",
+      "title": "List prices",
+      "description": "List prices, optionally of one product",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.create_price",
+      "title": "Create price",
+      "description": "Create a one-time or recurring price for a product (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit_amount": {
+            "type": "integer",
+            "description": "Smallest currency unit",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "Three-letter ISO currency code, lowercase (e.g. usd, idr)",
+            "minLength": 3
+          },
+          "recurring_interval": {
+            "type": "string",
+            "description": "Omit for a one-time price",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ]
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "product",
+          "unit_amount",
+          "currency"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_charges",
+      "title": "List charges",
+      "description": "List charges, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string"
+          },
+          "payment_intent": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.get_charge",
+      "title": "Get charge",
+      "description": "Retrieve a charge",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "charge_id": {
+            "type": "string",
+            "description": "Charge id (ch_... or py_...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "charge_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.get_balance",
+      "title": "Get balance",
+      "description": "Available and pending balance per currency",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_balance_transactions",
+      "title": "List balance transactions",
+      "description": "List balance transactions (charges, refunds, fees, payouts...), newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "transaction_type": {
+            "type": "string",
+            "description": "e.g. charge, refund, payout, adjustment (sent as `type`)"
+          },
+          "payout": {
+            "type": "string",
+            "description": "Only transactions paid out in this payout (po_...)"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_refunds",
+      "title": "List refunds",
+      "description": "List refunds, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "charge": {
+            "type": "string"
+          },
+          "payment_intent": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.create_refund",
+      "title": "Create refund",
+      "description": "Refund a charge or PaymentIntent, fully or partly: money goes back to the customer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payment_intent": {
+            "type": "string",
+            "description": "PaymentIntent id (or charge)"
+          },
+          "charge": {
+            "type": "string",
+            "description": "Charge id (or payment_intent)"
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Partial refund in the smallest currency unit (default: everything left)",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "duplicate",
+              "fraudulent",
+              "requested_by_customer"
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.list_subscriptions",
+      "title": "List subscriptions",
+      "description": "List subscriptions (default: not canceled)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "past_due",
+              "unpaid",
+              "canceled",
+              "incomplete",
+              "incomplete_expired",
+              "trialing",
+              "paused",
+              "all",
+              "ended"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.get_subscription",
+      "title": "Get subscription",
+      "description": "Retrieve a subscription",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "description": "Subscription id (sub_...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "subscription_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.cancel_subscription",
+      "title": "Cancel subscription",
+      "description": "Cancel a subscription immediately",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "description": "Subscription id (sub_...)",
+            "minLength": 1
+          },
+          "invoice_now": {
+            "type": "boolean",
+            "description": "Invoice pending usage and proration now"
+          },
+          "prorate": {
+            "type": "boolean",
+            "description": "Credit the unused time"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "subscription_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "stripe.api_request",
+      "title": "Stripe API request",
+      "description": "Call any Stripe API endpoint that has no dedicated operation, e.g. path \"/v1/balance\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_customers",
+      "description": "List customers, newest first, optionally by exact email",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Exact email (case-sensitive)"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "search_customers",
+      "description": "Search customers with Stripe search syntax, e.g. email~'ana' or metadata['crm_id']:'42' (not for read-after-write: results lag up to a minute)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query (https://docs.stripe.com/search#search-query-language)",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "get_customer",
+      "description": "Retrieve a customer",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer id (cus_...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      }
+    },
+    {
+      "name": "create_customer",
+      "description": "Create a customer (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "update_customer",
+      "description": "Update a customer's email, name, phone, description or metadata (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer id (cus_...)",
+            "minLength": 1
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      }
+    },
+    {
+      "name": "list_payment_intents",
+      "description": "List PaymentIntents, newest first (client_secret is removed for agent tools)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string",
+            "description": "Customer id"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_payment_intent",
+      "description": "Retrieve a PaymentIntent (client_secret is removed for agent tools)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "payment_intent_id": {
+            "type": "string",
+            "description": "PaymentIntent id (pi_...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "payment_intent_id"
+        ]
+      }
+    },
+    {
+      "name": "create_payment_intent",
+      "description": "Create an unconfirmed PaymentIntent (no money moves until it is confirmed with confirm_payment_intent or by the customer with its client_secret). Agent tools also need STRIPE_TOOL_MAX_AMOUNT and the currency in STRIPE_TOOL_ALLOWED_CURRENCIES (as an agent tool only when STRIPE_TOOL_ALLOW_PAYMENT_INTENTS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "description": "Amount in the smallest currency unit (cents; 100 = $1.00)",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "description": "Three-letter ISO currency code, lowercase (e.g. usd, idr)",
+            "minLength": 3
+          },
+          "customer": {
+            "type": "string",
+            "description": "Customer id"
+          },
+          "description": {
+            "type": "string"
+          },
+          "capture_method": {
+            "type": "string",
+            "description": "manual places a hold that capture_payment_intent collects later",
+            "enum": [
+              "automatic",
+              "automatic_async",
+              "manual"
+            ]
+          },
+          "automatic_payment_methods": {
+            "type": "boolean",
+            "description": "Accept the payment methods enabled in the Dashboard",
+            "default": true
+          },
+          "statement_descriptor_suffix": {
+            "type": "string",
+            "description": "Card statement suffix (max 22 characters)"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ]
+      }
+    },
+    {
+      "name": "list_payment_links",
+      "description": "List payment links",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "create_payment_link",
+      "description": "Create a shareable checkout link (buy.stripe.com) for existing prices; money moves only when a customer pays it (as an agent tool only when STRIPE_TOOL_ALLOW_PAYMENT_LINKS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "line_items": {
+            "type": "array",
+            "description": "Items: [{price: 'price_...', quantity: 1}] (up to 20; agents: only price and quantity, quantity at most 100)",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "price",
+                "quantity"
+              ]
+            }
+          },
+          "allow_promotion_codes": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          }
+        },
+        "required": [
+          "line_items"
+        ]
+      }
+    },
+    {
+      "name": "list_invoices",
+      "description": "List invoices, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "open",
+              "paid",
+              "uncollectible",
+              "void"
+            ]
+          },
+          "subscription": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_invoice",
+      "description": "Retrieve an invoice",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id (in_...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      }
+    },
+    {
+      "name": "create_invoice",
+      "description": "Create a draft invoice for a customer (auto_advance off: nothing is finalized or sent until finalize_invoice / send_invoice) (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "collection_method": {
+            "type": "string",
+            "description": "send_invoice emails the customer when sent; needs days_until_due",
+            "enum": [
+              "charge_automatically",
+              "send_invoice"
+            ]
+          },
+          "days_until_due": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          }
+        },
+        "required": [
+          "customer"
+        ]
+      }
+    },
+    {
+      "name": "list_products",
+      "description": "List products",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_product",
+      "description": "Retrieve a product",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product id (prod_...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "product_id"
+        ]
+      }
+    },
+    {
+      "name": "create_product",
+      "description": "Create a product (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "list_prices",
+      "description": "List prices, optionally of one product",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "create_price",
+      "description": "Create a one-time or recurring price for a product (as an agent tool only when STRIPE_TOOL_ALLOW_WRITE=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit_amount": {
+            "type": "integer",
+            "description": "Smallest currency unit",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "Three-letter ISO currency code, lowercase (e.g. usd, idr)",
+            "minLength": 3
+          },
+          "recurring_interval": {
+            "type": "string",
+            "description": "Omit for a one-time price",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ]
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Key-value pairs (strings) stored on the object"
+          }
+        },
+        "required": [
+          "product",
+          "unit_amount",
+          "currency"
+        ]
+      }
+    },
+    {
+      "name": "list_charges",
+      "description": "List charges, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string"
+          },
+          "payment_intent": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_charge",
+      "description": "Retrieve a charge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "charge_id": {
+            "type": "string",
+            "description": "Charge id (ch_... or py_...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "charge_id"
+        ]
+      }
+    },
+    {
+      "name": "get_balance",
+      "description": "Available and pending balance per currency",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_balance_transactions",
+      "description": "List balance transactions (charges, refunds, fees, payouts...), newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transaction_type": {
+            "type": "string",
+            "description": "e.g. charge, refund, payout, adjustment (sent as `type`)"
+          },
+          "payout": {
+            "type": "string",
+            "description": "Only transactions paid out in this payout (po_...)"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "integer",
+            "description": "Created at or after (Unix seconds)"
+          },
+          "created_lte": {
+            "type": "integer",
+            "description": "Created at or before (Unix seconds)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_refunds",
+      "description": "List refunds, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "charge": {
+            "type": "string"
+          },
+          "payment_intent": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_subscriptions",
+      "description": "List subscriptions (default: not canceled)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "past_due",
+              "unpaid",
+              "canceled",
+              "incomplete",
+              "incomplete_expired",
+              "trialing",
+              "paused",
+              "all",
+              "ended"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_subscription",
+      "description": "Retrieve a subscription",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "description": "Subscription id (sub_...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "subscription_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Stripe API endpoint that has no dedicated operation, e.g. path \"/v1/balance\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

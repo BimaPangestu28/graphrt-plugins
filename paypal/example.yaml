@@ -1,0 +1,14 @@
+# Read your PayPal balances and the newest invoices. Read-only; sandbox by default (PAYPAL_ENV=live for live).
+#   PAYPAL_CLIENT_ID=... PAYPAL_CLIENT_SECRET=... graphrt run paypal/example.yaml --plugins .
+version: "1"
+name: paypal-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: balances, type: paypal.get_balances }
+    - { id: invoices, type: paypal.list_invoices, limit: 5 }
+    - { id: answer, type: answer, answer: "Balances: {{#balances.data.balances#}} | invoices: {{#invoices.data#}}" }
+  edges:
+    - { source: start, target: balances }
+    - { source: balances, target: invoices }
+    - { source: invoices, target: answer }

@@ -1,0 +1,1157 @@
+{
+  "name": "paypal",
+  "version": "0.1.0",
+  "description": "PayPal: orders, captures, refunds, draft invoices, balances and transactions; capture, refunds, invoice sending and payouts node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "PAYPAL_CLIENT_SECRET",
+      "PAYPAL_CLIENT_ID",
+      "PAYPAL_ENV",
+      "PAYPAL_TOOL_MAX_AMOUNT",
+      "PAYPAL_TOOL_ALLOWED_CURRENCIES",
+      "PAYPAL_TOOL_API_EXTRA_PATHS",
+      "PAYPAL_TOOL_ALLOWED_RETURN_HOSTS",
+      "PAYPAL_TOOL_ALLOW_ORDERS",
+      "PAYPAL_TOOL_ALLOW_INVOICES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "paypal.create_order",
+      "title": "Create order",
+      "description": "Create a checkout order; send the buyer its approve (payer-action) link. No money moves until the buyer approves and a node captures it. Agent tools also need PAYPAL_TOOL_MAX_AMOUNT and the currencies in PAYPAL_TOOL_ALLOWED_CURRENCIES (as an agent tool only when PAYPAL_TOOL_ALLOW_ORDERS=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "CAPTURE",
+              "AUTHORIZE"
+            ],
+            "default": "CAPTURE"
+          },
+          "purchase_units": {
+            "type": "array",
+            "description": "[{reference_id?, description?, custom_id?, invoice_id?, amount: {currency_code: \"USD\", value: \"10.00\", breakdown?}, items?}]",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            }
+          },
+          "return_url": {
+            "type": "string",
+            "description": "Where the buyer returns after approving"
+          },
+          "cancel_url": {
+            "type": "string"
+          },
+          "brand_name": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "purchase_units"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.get_order",
+      "title": "Get order",
+      "description": "Retrieve an order (status CREATED, APPROVED, COMPLETED...)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.capture_order",
+      "title": "Capture order",
+      "description": "Capture an approved order: this charges the buyer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.authorize_order",
+      "title": "Authorize order",
+      "description": "Authorize an approved AUTHORIZE-intent order (places a hold)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.get_capture",
+      "title": "Get capture",
+      "description": "Retrieve a captured payment",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "capture_id": {
+            "type": "string",
+            "description": "Capture id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "capture_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.refund_capture",
+      "title": "Refund capture",
+      "description": "Refund a captured payment fully (no amount) or partly: money goes back to the buyer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "capture_id": {
+            "type": "string",
+            "description": "Capture id",
+            "minLength": 1
+          },
+          "amount_value": {
+            "type": "string",
+            "description": "Decimal string, e.g. \"10.50\"",
+            "minLength": 1
+          },
+          "amount_currency_code": {
+            "type": "string",
+            "description": "ISO code, e.g. USD",
+            "minLength": 3
+          },
+          "note_to_payer": {
+            "type": "string"
+          },
+          "invoice_id": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "capture_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.get_refund",
+      "title": "Get refund",
+      "description": "Retrieve a refund",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "refund_id": {
+            "type": "string",
+            "description": "Refund id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "refund_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.get_authorization",
+      "title": "Get authorization",
+      "description": "Retrieve an authorized payment",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "authorization_id": {
+            "type": "string",
+            "description": "Authorization id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "authorization_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.capture_authorization",
+      "title": "Capture authorization",
+      "description": "Capture an authorized payment fully or partly: this charges the buyer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "authorization_id": {
+            "type": "string",
+            "description": "Authorization id",
+            "minLength": 1
+          },
+          "amount_value": {
+            "type": "string",
+            "description": "Decimal string, e.g. \"10.50\"",
+            "minLength": 1
+          },
+          "amount_currency_code": {
+            "type": "string",
+            "description": "ISO code, e.g. USD",
+            "minLength": 3
+          },
+          "final_capture": {
+            "type": "boolean"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "authorization_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.void_authorization",
+      "title": "Void authorization",
+      "description": "Void an authorized payment (releases the hold)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "authorization_id": {
+            "type": "string",
+            "description": "Authorization id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "authorization_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.list_invoices",
+      "title": "List invoices",
+      "description": "List invoices, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.get_invoice",
+      "title": "Get invoice",
+      "description": "Retrieve an invoice",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id (INV2-...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.create_invoice",
+      "title": "Create draft invoice",
+      "description": "Create a draft invoice (nothing is emailed until send_invoice) (as an agent tool only when PAYPAL_TOOL_ALLOW_INVOICES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string",
+            "minLength": 3
+          },
+          "invoice_number": {
+            "type": "string",
+            "description": "Unique number (PayPal refuses duplicates); default the next one"
+          },
+          "note": {
+            "type": "string"
+          },
+          "term": {
+            "type": "string"
+          },
+          "payment_term_type": {
+            "type": "string",
+            "enum": [
+              "DUE_ON_RECEIPT",
+              "DUE_ON_DATE_SPECIFIED",
+              "NET_10",
+              "NET_15",
+              "NET_30",
+              "NET_45",
+              "NET_60",
+              "NET_90",
+              "NO_DUE_DATE"
+            ]
+          },
+          "primary_recipients": {
+            "type": "array",
+            "description": "[{billing_info: {email_address, name: {given_name, surname}}}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "items": {
+            "type": "array",
+            "description": "[{name, quantity: \"1\", unit_amount: {currency_code, value}}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "currency_code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.send_invoice",
+      "title": "Send invoice",
+      "description": "Send a draft invoice: PayPal emails it to the recipients",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id",
+            "minLength": 1
+          },
+          "send_to_recipient": {
+            "type": "boolean",
+            "default": true
+          },
+          "subject": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.get_balances",
+      "title": "Get balances",
+      "description": "Account balances per currency",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string"
+          },
+          "as_of_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.list_transactions",
+      "title": "List transactions",
+      "description": "Transactions between two dates (at most 31 days apart; data lags up to 3 hours)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-11-01T00:00:00-0000"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "transaction_id": {
+            "type": "string"
+          },
+          "transaction_status": {
+            "type": "string",
+            "description": "D denied, P pending, S success, V reversed",
+            "enum": [
+              "D",
+              "P",
+              "S",
+              "V"
+            ]
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated, or all",
+            "default": "transaction_info,payer_info"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.create_payout",
+      "title": "Create payout",
+      "description": "Send money to up to 15000 recipients by email, phone or PayPal id",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "sender_batch_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "email_subject": {
+            "type": "string"
+          },
+          "payout_items": {
+            "type": "array",
+            "description": "[{recipient_type: EMAIL, amount: {value, currency}, receiver, note?, sender_item_id?}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "sender_batch_id",
+          "payout_items"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.get_payout_batch",
+      "title": "Get payout batch",
+      "description": "Retrieve a payout batch and its items",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payout_batch_id": {
+            "type": "string",
+            "description": "Payout batch id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "payout_batch_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "paypal.api_request",
+      "title": "PayPal REST API request",
+      "description": "Call any PayPal REST API endpoint that has no dedicated operation, e.g. path \"/v1/reporting/balances\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/reporting/balances\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_order",
+      "description": "Create a checkout order; send the buyer its approve (payer-action) link. No money moves until the buyer approves and a node captures it. Agent tools also need PAYPAL_TOOL_MAX_AMOUNT and the currencies in PAYPAL_TOOL_ALLOWED_CURRENCIES (as an agent tool only when PAYPAL_TOOL_ALLOW_ORDERS=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "CAPTURE",
+              "AUTHORIZE"
+            ],
+            "default": "CAPTURE"
+          },
+          "purchase_units": {
+            "type": "array",
+            "description": "[{reference_id?, description?, custom_id?, invoice_id?, amount: {currency_code: \"USD\", value: \"10.00\", breakdown?}, items?}]",
+            "maxItems": 10,
+            "items": {
+              "type": "object"
+            }
+          },
+          "return_url": {
+            "type": "string",
+            "description": "Where the buyer returns after approving"
+          },
+          "cancel_url": {
+            "type": "string"
+          },
+          "brand_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_units"
+        ]
+      }
+    },
+    {
+      "name": "get_order",
+      "description": "Retrieve an order (status CREATED, APPROVED, COMPLETED...)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "get_capture",
+      "description": "Retrieve a captured payment",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "capture_id": {
+            "type": "string",
+            "description": "Capture id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "capture_id"
+        ]
+      }
+    },
+    {
+      "name": "get_refund",
+      "description": "Retrieve a refund",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "refund_id": {
+            "type": "string",
+            "description": "Refund id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "refund_id"
+        ]
+      }
+    },
+    {
+      "name": "get_authorization",
+      "description": "Retrieve an authorized payment",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "authorization_id": {
+            "type": "string",
+            "description": "Authorization id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "authorization_id"
+        ]
+      }
+    },
+    {
+      "name": "list_invoices",
+      "description": "List invoices, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_invoice",
+      "description": "Retrieve an invoice",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id (INV2-...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      }
+    },
+    {
+      "name": "create_invoice",
+      "description": "Create a draft invoice (nothing is emailed until send_invoice) (as an agent tool only when PAYPAL_TOOL_ALLOW_INVOICES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string",
+            "minLength": 3
+          },
+          "invoice_number": {
+            "type": "string",
+            "description": "Unique number (PayPal refuses duplicates); default the next one"
+          },
+          "note": {
+            "type": "string"
+          },
+          "term": {
+            "type": "string"
+          },
+          "payment_term_type": {
+            "type": "string",
+            "enum": [
+              "DUE_ON_RECEIPT",
+              "DUE_ON_DATE_SPECIFIED",
+              "NET_10",
+              "NET_15",
+              "NET_30",
+              "NET_45",
+              "NET_60",
+              "NET_90",
+              "NO_DUE_DATE"
+            ]
+          },
+          "primary_recipients": {
+            "type": "array",
+            "description": "[{billing_info: {email_address, name: {given_name, surname}}}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "items": {
+            "type": "array",
+            "description": "[{name, quantity: \"1\", unit_amount: {currency_code, value}}]",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "currency_code"
+        ]
+      }
+    },
+    {
+      "name": "get_balances",
+      "description": "Account balances per currency",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string"
+          },
+          "as_of_time": {
+            "type": "string",
+            "description": "ISO 8601"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_transactions",
+      "description": "Transactions between two dates (at most 31 days apart; data lags up to 3 hours)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "ISO 8601, e.g. 2026-11-01T00:00:00-0000"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "transaction_id": {
+            "type": "string"
+          },
+          "transaction_status": {
+            "type": "string",
+            "description": "D denied, P pending, S success, V reversed",
+            "enum": [
+              "D",
+              "P",
+              "S",
+              "V"
+            ]
+          },
+          "fields": {
+            "type": "string",
+            "description": "Comma-separated, or all",
+            "default": "transaction_info,payer_info"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `page_size`)",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any PayPal REST API endpoint that has no dedicated operation, e.g. path \"/v1/reporting/balances\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/reporting/balances\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

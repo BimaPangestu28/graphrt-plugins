@@ -1,0 +1,14 @@
+# Read your Stripe balance and the three newest customers. Read-only; use a test-mode key (sk_test_...).
+#   STRIPE_SECRET_KEY=sk_test_... graphrt run stripe/example.yaml --plugins .
+version: "1"
+name: stripe-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: balance, type: stripe.get_balance }
+    - { id: customers, type: stripe.list_customers, limit: 3 }
+    - { id: answer, type: answer, answer: "Available: {{#balance.data.available#}} | newest customers: {{#customers.data#}}" }
+  edges:
+    - { source: start, target: balance }
+    - { source: balance, target: customers }
+    - { source: customers, target: answer }

@@ -1,0 +1,1020 @@
+{
+  "name": "xendit",
+  "version": "0.1.0",
+  "description": "Xendit: invoices (hosted payment pages), payment requests, balance, transactions; refunds, payouts and expiry node only",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "XENDIT_SECRET_KEY",
+      "XENDIT_TOOL_MAX_AMOUNT",
+      "XENDIT_TOOL_ALLOWED_CURRENCIES",
+      "XENDIT_TOOL_API_EXTRA_PATHS",
+      "XENDIT_TOOL_ALLOW_INVOICES"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "xendit.create_invoice",
+      "title": "Create invoice",
+      "description": "Create a hosted payment page (invoice_url) for an amount; send invoice_url to the payer. No money moves until the payer pays. Agent tools also need XENDIT_TOOL_MAX_AMOUNT and the currency in XENDIT_TOOL_ALLOWED_CURRENCIES (as an agent tool only when XENDIT_TOOL_ALLOW_INVOICES=1)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "description": "Your id for the invoice (Xendit does not enforce uniqueness)",
+            "minLength": 1
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in the currency's major unit (IDR 150000 = Rp150.000)",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "description": "IDR, PHP, THB, VND, MYR, SGD or USD (enabled for your account)",
+            "default": "IDR"
+          },
+          "description": {
+            "type": "string"
+          },
+          "payer_email": {
+            "type": "string",
+            "description": "Shown on the invoice (Xendit sends no email unless notifications are set in the dashboard)"
+          },
+          "invoice_duration": {
+            "type": "integer",
+            "description": "Seconds until the invoice expires (default 24 hours)",
+            "minimum": 1
+          },
+          "items": {
+            "type": "array",
+            "description": "[{name, quantity, price, category?, url?}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "customer": {
+            "type": "object",
+            "description": "{given_names, surname, email, mobile_number}"
+          },
+          "payment_methods": {
+            "type": "array",
+            "description": "Limit channels, e.g. [\"QRIS\", \"BCA\", \"OVO\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "success_redirect_url": {
+            "type": "string",
+            "description": "Where the payer's browser goes after paying"
+          },
+          "failure_redirect_url": {
+            "type": "string"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "external_id",
+          "amount"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.get_invoice",
+      "title": "Get invoice",
+      "description": "Retrieve an invoice (status PENDING, PAID, SETTLED or EXPIRED)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.list_invoices",
+      "title": "List invoices",
+      "description": "List invoices, newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string"
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "PAID",
+                "SETTLED",
+                "EXPIRED"
+              ]
+            }
+          },
+          "created_after": {
+            "type": "string",
+            "description": "Created after (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "created_before": {
+            "type": "string",
+            "description": "Created before (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "paid_after": {
+            "type": "string",
+            "description": "Paid after (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "paid_before": {
+            "type": "string",
+            "description": "Paid before (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.expire_invoice",
+      "title": "Expire invoice",
+      "description": "Expire a pending invoice so it can no longer be paid",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.create_payment_request",
+      "title": "Create payment request",
+      "description": "Start collecting a payment through one channel (Payments API v3); with a payment_token_id it can charge a saved method at once",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "reference_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "request_type": {
+            "type": "string",
+            "description": "Sent as `type`",
+            "enum": [
+              "PAY",
+              "PAY_AND_SAVE",
+              "REUSABLE_PAYMENT_CODE"
+            ],
+            "default": "PAY"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "request_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "country": {
+            "type": "string",
+            "description": "ID, PH, TH, VN, MY, SG"
+          },
+          "channel_code": {
+            "type": "string",
+            "description": "e.g. QRIS, BRI_VIRTUAL_ACCOUNT, DANA (or payment_token_id)"
+          },
+          "channel_properties": {
+            "type": "object"
+          },
+          "payment_token_id": {
+            "type": "string",
+            "description": "A saved payment token (charges it)"
+          },
+          "capture_method": {
+            "type": "string",
+            "enum": [
+              "AUTOMATIC",
+              "MANUAL"
+            ]
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "reference_id",
+          "currency"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.get_payment_request",
+      "title": "Get payment request",
+      "description": "Retrieve a payment request (status, actions, latest_payment)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payment_request_id": {
+            "type": "string",
+            "description": "Payment request id (pr-...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "payment_request_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.get_balance",
+      "title": "Get balance",
+      "description": "Account balance (CASH by default)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "account_type": {
+            "type": "string",
+            "enum": [
+              "CASH",
+              "HOLDING"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "description": "For multi-currency accounts"
+          },
+          "at_timestamp": {
+            "type": "string",
+            "description": "Balance at this time (ISO 8601)"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.list_transactions",
+      "title": "List transactions",
+      "description": "List money movements (payments, refunds, payouts, fees), newest first",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "description": "e.g. PAYMENT, REFUND, DISBURSEMENT",
+            "items": {
+              "type": "string"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "SUCCESS",
+                "FAILED",
+                "VOIDED",
+                "REVERSED"
+              ]
+            }
+          },
+          "channel_categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reference_id": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "created_lte": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.create_refund",
+      "title": "Create refund",
+      "description": "Refund a payment request or invoice payment, fully or partly: money goes back to the payer",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payment_request_id": {
+            "type": "string",
+            "description": "Payment request id (or invoice_id)"
+          },
+          "invoice_id": {
+            "type": "string"
+          },
+          "reference_id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Default the full amount",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "FRAUDULENT",
+              "DUPLICATE",
+              "REQUESTED_BY_CUSTOMER",
+              "CANCELLATION",
+              "OTHERS"
+            ]
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.get_refund",
+      "title": "Get refund",
+      "description": "Retrieve a refund",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "refund_id": {
+            "type": "string",
+            "description": "Refund id (rfd-...)",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "refund_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.create_payout",
+      "title": "Create payout",
+      "description": "Send money from your balance to a bank account or e-wallet (Payouts v3)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "reference_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recipient": {
+            "type": "object",
+            "description": "{type, relationship, account_details, address, ...} per the Payouts v3 docs"
+          },
+          "payout_details": {
+            "type": "object",
+            "description": "{source_currency, source_amount, destination_currency, ...} or {quote_id}"
+          },
+          "source_of_fund": {
+            "type": "string"
+          },
+          "purpose_code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "reference_id",
+          "recipient",
+          "payout_details",
+          "source_of_fund",
+          "purpose_code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.get_payout",
+      "title": "Get payout",
+      "description": "Retrieve a payout (Payouts v3)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "payout_id": {
+            "type": "string",
+            "description": "Payout id",
+            "minLength": 1
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "payout_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "xendit.api_request",
+      "title": "Xendit API request",
+      "description": "Call any Xendit API endpoint that has no dedicated operation, e.g. path \"/balance\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_invoice",
+      "description": "Create a hosted payment page (invoice_url) for an amount; send invoice_url to the payer. No money moves until the payer pays. Agent tools also need XENDIT_TOOL_MAX_AMOUNT and the currency in XENDIT_TOOL_ALLOWED_CURRENCIES (as an agent tool only when XENDIT_TOOL_ALLOW_INVOICES=1)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "description": "Your id for the invoice (Xendit does not enforce uniqueness)",
+            "minLength": 1
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in the currency's major unit (IDR 150000 = Rp150.000)",
+            "minimum": 1
+          },
+          "currency": {
+            "type": "string",
+            "description": "IDR, PHP, THB, VND, MYR, SGD or USD (enabled for your account)",
+            "default": "IDR"
+          },
+          "description": {
+            "type": "string"
+          },
+          "payer_email": {
+            "type": "string",
+            "description": "Shown on the invoice (Xendit sends no email unless notifications are set in the dashboard)"
+          },
+          "invoice_duration": {
+            "type": "integer",
+            "description": "Seconds until the invoice expires (default 24 hours)",
+            "minimum": 1
+          },
+          "items": {
+            "type": "array",
+            "description": "[{name, quantity, price, category?, url?}]",
+            "items": {
+              "type": "object"
+            }
+          },
+          "customer": {
+            "type": "object",
+            "description": "{given_names, surname, email, mobile_number}"
+          },
+          "payment_methods": {
+            "type": "array",
+            "description": "Limit channels, e.g. [\"QRIS\", \"BCA\", \"OVO\"]",
+            "items": {
+              "type": "string"
+            }
+          },
+          "success_redirect_url": {
+            "type": "string",
+            "description": "Where the payer's browser goes after paying"
+          },
+          "failure_redirect_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "external_id",
+          "amount"
+        ]
+      }
+    },
+    {
+      "name": "get_invoice",
+      "description": "Retrieve an invoice (status PENDING, PAID, SETTLED or EXPIRED)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "Invoice id",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "invoice_id"
+        ]
+      }
+    },
+    {
+      "name": "list_invoices",
+      "description": "List invoices, newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string"
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "PAID",
+                "SETTLED",
+                "EXPIRED"
+              ]
+            }
+          },
+          "created_after": {
+            "type": "string",
+            "description": "Created after (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "created_before": {
+            "type": "string",
+            "description": "Created before (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "paid_after": {
+            "type": "string",
+            "description": "Paid after (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "paid_before": {
+            "type": "string",
+            "description": "Paid before (ISO 8601, e.g. 2026-01-01T00:00:00Z)"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_payment_request",
+      "description": "Retrieve a payment request (status, actions, latest_payment)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "payment_request_id": {
+            "type": "string",
+            "description": "Payment request id (pr-...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "payment_request_id"
+        ]
+      }
+    },
+    {
+      "name": "get_balance",
+      "description": "Account balance (CASH by default)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "account_type": {
+            "type": "string",
+            "enum": [
+              "CASH",
+              "HOLDING"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "description": "For multi-currency accounts"
+          },
+          "at_timestamp": {
+            "type": "string",
+            "description": "Balance at this time (ISO 8601)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "list_transactions",
+      "description": "List money movements (payments, refunds, payouts, fees), newest first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "description": "e.g. PAYMENT, REFUND, DISBURSEMENT",
+            "items": {
+              "type": "string"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "SUCCESS",
+                "FAILED",
+                "VOIDED",
+                "REVERSED"
+              ]
+            }
+          },
+          "channel_categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reference_id": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "created_gte": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "created_lte": {
+            "type": "string",
+            "description": "ISO 8601"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `limit`)",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_refund",
+      "description": "Retrieve a refund",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "refund_id": {
+            "type": "string",
+            "description": "Refund id (rfd-...)",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "refund_id"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Xendit API endpoint that has no dedicated operation, e.g. path \"/balance\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/balance\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
