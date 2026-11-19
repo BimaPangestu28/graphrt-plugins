@@ -75,7 +75,7 @@ const embedContent = {
     model: modelPathParam("gemini-embedding-001"),
     content: { in: "body", type: "object", required: true, description: '{"parts":[{"text":"..."}]}' },
     task_type: { in: "body", type: "string", enum: TASK_TYPES, wireName: "taskType", description: "What the embedding is for" },
-    title: { in: "body", type: "string", description: "Document title (RETRIEVAL_DOCUMENT only)" },
+    document_title: { in: "body", type: "string", wireName: "title", description: "Document title, sent as `title` (RETRIEVAL_DOCUMENT only)" },
     output_dimensionality: { in: "body", type: "integer", min: 1, wireName: "outputDimensionality", description: "Shorter vectors, e.g. 768" },
   },
 };

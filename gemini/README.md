@@ -103,5 +103,9 @@ npm test          # from the repo root
 `test/contract.test.mjs` runs the generated contract suite plus Gemini-specific cases; `test/upload-file.test.mjs`
 covers the hand-written resumable upload. Verified live with an invalid key (clean `auth_error`).
 
+## Changelog
+### 0.1.0 (unreleased)
+- **Breaking:** `embed_content` parameter `title` is now `document_title` (still sent to Gemini as `title`). graphrt takes `title` from every workflow node, so the old name was silently dropped on nodes; tool calls that passed `title` must use `document_title`.
+
 ## License
 Apache-2.0

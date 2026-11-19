@@ -26,12 +26,12 @@ describeRestPluginContract(pluginDefinition, {
       request: { method: "POST", url: `${API}/models/gemini-2.5-flash:countTokens`, query: "absent", json: { contents } },
     },
     embed_content: {
-      args: { model: "gemini-embedding-001", content: { parts: [{ text: "a" }] }, task_type: "RETRIEVAL_QUERY", output_dimensionality: 768 },
+      args: { model: "gemini-embedding-001", content: { parts: [{ text: "a" }] }, task_type: "RETRIEVAL_DOCUMENT", document_title: "Notes", output_dimensionality: 768 },
       request: {
         method: "POST",
         url: `${API}/models/gemini-embedding-001:embedContent`,
         query: "absent",
-        json: { content: { parts: [{ text: "a" }] }, taskType: "RETRIEVAL_QUERY", outputDimensionality: 768 },
+        json: { content: { parts: [{ text: "a" }] }, taskType: "RETRIEVAL_DOCUMENT", title: "Notes", outputDimensionality: 768 },
       },
     },
     batch_embed_contents: {
