@@ -28,7 +28,7 @@ export const DEFAULT_DOWNLOAD_TIMEOUT_MS = 120000;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const INTERNAL_ADDRESSES = buildInternalAddressList();
 const SAFE_FILE_BASE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,150}$/;
-const EXTENSIONS_BY_MEDIA_TYPE = {
+export const EXTENSIONS_BY_MEDIA_TYPE = {
   "image/png": ".png",
   "image/jpeg": ".jpg",
   "image/gif": ".gif",
@@ -103,13 +103,65 @@ export async function downloadPublicHttpsToFile(url, options) {
   try {
     const response = await fetchPublicHttps(url, { fetchImpl, resolveHostAddresses: options.resolveHostAddresses, signal: transferSignal, label });
     assertDownloadable(response, { url, label, maxBytes });
-    const contentType = readMediaType(response);
-    const filePath = join(directory, `${fileBaseName}${chooseExtension(contentType, url)}`);
-    const bytes = await writeBodyToFile(response, { directory, filePath, maxBytes, label });
-    return { url, path: filePath, bytes, content_type: contentType };
+    return { url, ...(await saveResponseToFile(response, { directory, fileBaseName, maxBytes, label, url })) };
   } catch (downloadError) {
     throw classifyTransferError(downloadError, signal);
   }
+}
+
+/**
+ * Downloads a public https URL into memory with a size cap (for uploads that need the bytes, e.g. multipart).
+ *
+ * @param url - URL to fetch (string)
+ * @param options - `{fetchImpl, resolveHostAddresses?, signal?, maxBytes, timeoutMs?, label?}` (object)
+ * @returns `{bytes, contentType, fileName}` (Promise<object>)
+ * @throws PluginError kinds `invalid_input` (unsafe URL, too large), `api_error` (HTTP failure), `network_error`, `cancelled`
+ */
+export async function fetchPublicHttpsBytes(url, options) {
+  const { signal, label = "url", maxBytes = DEFAULT_MAX_DOWNLOAD_BYTES } = options;
+  const fetchImpl = options.fetchImpl ?? ((...fetchArguments) => globalThis.fetch(...fetchArguments));
+  const transferSignal = combineWithTimeout(signal, options.timeoutMs ?? DEFAULT_DOWNLOAD_TIMEOUT_MS);
+  try {
+    const response = await fetchPublicHttps(url, { fetchImpl, resolveHostAddresses: options.resolveHostAddresses, signal: transferSignal, label });
+    assertDownloadable(response, { url, label, maxBytes });
+    const bytes = await readBodyWithLimit(response, maxBytes, label);
+    const fileName = decodeURIComponent(new URL(url).pathname.split("/").pop() || "file");
+    return { bytes, contentType: readMediaType(response), fileName };
+  } catch (downloadError) {
+    throw classifyTransferError(downloadError, signal);
+  }
+}
+
+/**
+ * Streams a Response body into `<directory>/<fileBaseName><ext>` with a size cap; the extension comes from the
+ * content type, then the URL. Written as `.part` and renamed, so a failure leaves nothing behind.
+ *
+ * @param response - Successful Response (Response)
+ * @param options - `{directory, fileBaseName, maxBytes, label, url?}` (object)
+ * @returns `{path, bytes, content_type}` (Promise<object>)
+ * @throws PluginError kind `invalid_input` - Unsafe name or too large; stream errors are rethrown as-is
+ */
+export async function saveResponseToFile(response, { directory, fileBaseName, maxBytes = DEFAULT_MAX_DOWNLOAD_BYTES, label = "response", url }) {
+  assertSafeFileBaseName(fileBaseName);
+  if (Number(response.headers.get("content-length")) > maxBytes) throw tooLarge(label, maxBytes);
+  const contentType = readMediaType(response);
+  const filePath = join(directory, `${fileBaseName}${chooseExtension(contentType, url)}`);
+  const bytes = await writeBodyToFile(response, { directory, filePath, maxBytes, label });
+  return { path: filePath, bytes, content_type: contentType };
+}
+
+async function readBodyWithLimit(response, maxBytes, label) {
+  const chunks = [];
+  let totalBytes = 0;
+  for await (const chunk of response.body ?? []) {
+    totalBytes += chunk.byteLength;
+    if (totalBytes > maxBytes) {
+      await response.body.cancel?.().catch(() => {});
+      throw tooLarge(label, maxBytes);
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 function assertSafeFileBaseName(fileBaseName) {
@@ -136,7 +188,7 @@ function readMediaType(response) {
 
 function chooseExtension(contentType, url) {
   if (EXTENSIONS_BY_MEDIA_TYPE[contentType]) return EXTENSIONS_BY_MEDIA_TYPE[contentType];
-  const urlExtension = /\.([A-Za-z0-9]{1,5})$/.exec(new URL(url).pathname)?.[1];
+  const urlExtension = url ? /\.([A-Za-z0-9]{1,5})$/.exec(new URL(url).pathname)?.[1] : undefined;
   return urlExtension ? `.${urlExtension.toLowerCase()}` : ".bin";
 }
 
@@ -165,7 +217,15 @@ function tooLarge(label, maxBytes) {
   return invalidInput(`\`${label}\` is larger than the ${maxBytes} bytes limit`);
 }
 
-function classifyTransferError(transferError, callerSignal) {
+/**
+ * Turns a transfer failure into a PluginError: policy errors pass through, a caller abort is `cancelled`, anything
+ * else is a retryable `network_error`.
+ *
+ * @param transferError - Thrown value (any)
+ * @param callerSignal - The caller's signal (AbortSignal, optional)
+ * @returns PluginError (PluginError)
+ */
+export function classifyTransferError(transferError, callerSignal) {
   if (transferError instanceof PluginError) return transferError;
   if (callerSignal?.aborted) return new PluginError("Download cancelled", { kind: "cancelled" });
   const isTimeout = transferError?.name === "TimeoutError";

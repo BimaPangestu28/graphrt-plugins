@@ -1,42 +1,40 @@
 /**
  * Declarative REST plugins: `defineRestPlugin(spec)` turns a data-only description of a REST API into a normal
  * plugin definition for operations.mjs, so the runner, `npm run sync`, the manifest and OPERATIONS.md work
- * unchanged. The guide with a full annotated example is docs/declarative-plugins.md.
- *
- * Plugin spec: {name, version, description, apiName?, baseUrl (string | (environment) => string), auth, errors?,
- *   defaultHeaders?, extraEnv?, limits?, timeoutMs?, maxRetries?, apiRequest? (default on; false or
- *   {examplePath, apiName}), operations}.
- * Operation spec: {name, title, description, baseUrl? (another host of the same API), method?, path, params?, bodyMode?, write?, checkHint?, nodeOnly?,
- *   toolPolicy?, response?, job?, download?, timeoutMs?}.
+ * unchanged. The guide with every field and a full annotated example is docs/declarative-plugins.md.
  *
  * Safety semantics:
- *   - write "read" (GET/HEAD) and "idempotent" requests are retried after 5xx and network failures;
- *     "unsafe" ones never are, and their errors carry the "outcome unknown ... check before retrying" note
- *     plus the operation's `checkHint`.
- *   - path params are always encoded as one segment, so ids can never add segments.
- *   - `toolPolicy: "optIn:<ENV>"` refuses agent tool calls unless <ENV>=1; `nodeOnly` hides the tool entirely.
- *   - `api_request` is GET-only for tools, and the credential is redacted from errors and its responses.
+ *   - every request is sent with redactResponse, and cursors pass through redact: a credential echoed by the API
+ *     never reaches data, next_cursor, job results or errors.
+ *   - write "read" and "idempotent" requests are retried after 5xx and network failures; "unsafe" ones never are
+ *     (unless an Idempotency-Key makes them safe), and their errors say the outcome is unknown plus `checkHint`.
+ *   - path params are encoded segment by segment; next-page URLs must stay under the base URL.
+ *   - `toolPolicy: "optIn:<ENV>"` refuses tool calls unless <ENV>=1; `nodeOnly` hides the tool entirely;
+ *     `api_request` is GET-only for tools and cannot reach the paths of such GET operations.
+ *   - jobs and downloads share one deadline that starts with the call and ends before the host's timeout.
  */
+import { randomBytes, randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
+import { isAbsolute } from "node:path";
 import { createApiClient } from "./api-client.mjs";
 import { createApiRequestOperation } from "./api-request-operation.mjs";
 import { PluginError } from "./graphrt-plugin.mjs";
-import { resolveToolDeadlineMs } from "./operations.mjs";
-import { createAuthorizer, createCredentialResolver, describeAuthEnv } from "./rest-auth.mjs";
+import { classifyTransferError, saveResponseToFile } from "./public-https-fetch.mjs";
+import { createAuthHooks, createCredentialResolver, describeAuthEnv } from "./rest-auth.mjs";
+import { listResultUrls, saveDownloads, DEFAULT_MAX_DOWNLOAD_BYTES } from "./rest-downloads.mjs";
 import { createBodyErrorDetector, createErrorParser } from "./rest-errors.mjs";
-import { runRestJob, saveDownloads } from "./rest-job.mjs";
+import { describeJobError, readJobId, resolveJobBudgetMs, waitForJob } from "./rest-job.mjs";
 import { buildRestRequest } from "./rest-request.mjs";
-import { shapeRestResponse } from "./rest-response.mjs";
-import { checkBaseUrl, hasPagination, JOB_WAIT_PARAM, TOOL_POLICY_PATTERN, validateRestSpec } from "./rest-spec-validation.mjs";
+import { DEFAULT_TOOL_OUTPUT, shapeRestResponse, truncateForTool } from "./rest-response.mjs";
+import { checkBaseUrl, describePaginationWireNames, describeTimeBudgets, JOB_WAIT_PARAM, paginationStyles, READ_METHODS, TOOL_POLICY_PATTERN } from "./rest-spec-helpers.mjs";
+import { validateRestSpec } from "./rest-spec-validation.mjs";
 
 const UNKNOWN_OUTCOME_MARKER = "outcome unknown";
-// A job's timeout error must reach the caller before the host (or the tool deadline) gives up.
-const JOB_DEADLINE_MARGIN_MS = 5000;
-const READ_METHODS = new Set(["GET", "HEAD"]);
 
 /**
  * Builds a plugin definition from a declarative REST spec, validating the spec first.
  *
- * @param spec - REST plugin spec (object, see module docs and docs/declarative-plugins.md)
+ * @param spec - REST plugin spec (object, see docs/declarative-plugins.md)
  * @returns Plugin definition for operations.mjs, with the normalized spec as `restSpec` (object)
  * @throws Error - When the spec is invalid; the message names the plugin, operation and field
  *
@@ -51,7 +49,8 @@ const READ_METHODS = new Set(["GET", "HEAD"]);
 export function defineRestPlugin(spec) {
   validateRestSpec(spec);
   const restSpec = { ...spec, operations: spec.operations.map(normalizeOperation) };
-  const definition = {
+  const settings = { spec, jobBudgetCapMs: describeTimeBudgets(spec.limits).jobBudgetCapMs };
+  return {
     name: spec.name,
     version: spec.version,
     description: spec.description,
@@ -60,11 +59,8 @@ export function defineRestPlugin(spec) {
     limits: spec.limits,
     createClient: (clientOptions) => createRestClient(spec, clientOptions),
     restSpec,
+    operations: [...restSpec.operations.map((operation) => buildOperation(operation, settings)), ...buildApiRequest(restSpec)],
   };
-  const deadlineMs = resolveToolDeadlineMs(definition);
-  const jobTimeoutCapMs = Math.max(1000, deadlineMs - JOB_DEADLINE_MARGIN_MS);
-  definition.operations = [...restSpec.operations.map((operation) => buildOperation(operation, jobTimeoutCapMs)), ...buildApiRequest(spec)];
-  return definition;
 }
 
 function describeCredentials(auth) {
@@ -76,6 +72,8 @@ function collectExtraEnv(restSpec) {
   const operationEnv = restSpec.operations.flatMap((operation) => [
     operation.toolPolicy ? TOOL_POLICY_PATTERN.exec(operation.toolPolicy)[1] : undefined,
     operation.download?.saveTo.envDir,
+    operation.response?.binary?.envDir,
+    operation.multipart?.fileDirEnv,
   ]);
   const envNames = [...describeAuthEnv(restSpec.auth).extraEnv, ...(restSpec.extraEnv ?? []), ...operationEnv].filter(Boolean);
   return [...new Set(envNames)];
@@ -83,43 +81,42 @@ function collectExtraEnv(restSpec) {
 
 function normalizeOperation(operation) {
   const method = (operation.method ?? "GET").toUpperCase();
+  const [style] = paginationStyles(operation.response);
   return {
     ...operation,
     method,
     params: operation.params ?? {},
     bodyMode: operation.bodyMode ?? "json",
     write: operation.write ?? "read",
-    pagination: describePagination(operation.response, method),
+    pagination: style ? { style, paramsIn: operation.response.paramsIn ?? (READ_METHODS.has(method) ? "query" : "body") } : undefined,
   };
 }
 
-function describePagination(response, method) {
-  if (!hasPagination(response)) return undefined;
-  const style = response.cursorPath ? "cursor" : response.nextLinkHeader ? "link" : response.pagePagination ? "page" : "offset";
-  return { style, paramsIn: response.paramsIn ?? (READ_METHODS.has(method) ? "query" : "body") };
-}
+// --- clients ----------------------------------------------------------------------------------------
 
-// The plugin's client, plus `clientFor(baseUrl)` for operations that live on another host of the same API.
+// The plugin's client; `clientFor(baseUrl)` gives one for another host of the API (same credential mode).
 function createRestClient(spec, { accessToken, environment, fetchImpl, resolveHostAddresses }) {
-  const buildApiClient = (baseUrl) =>
-    createApiClient({
-      baseUrl: resolveBaseUrl(baseUrl, environment),
-      authorize: createAuthorizer(spec.auth, accessToken, environment),
-      parseError: createErrorParser(spec.errors),
-      detectBodyError: createBodyErrorDetector(spec.errors),
-      defaultHeaders: spec.defaultHeaders,
-      timeoutMs: spec.timeoutMs,
-      maxRetries: spec.maxRetries,
-      fetchImpl,
-    });
   const downloadFetch = fetchImpl ?? ((...fetchArguments) => globalThis.fetch(...fetchArguments));
-  const extras = { fetchImpl: downloadFetch, resolveHostAddresses };
-  const clientsByBaseUrl = new Map();
-  const clientFor = (baseUrl) => {
-    if (!clientsByBaseUrl.has(baseUrl)) clientsByBaseUrl.set(baseUrl, { ...buildApiClient(baseUrl), ...extras });
-    return clientsByBaseUrl.get(baseUrl);
+  const authHooks = createAuthHooks(spec.auth, accessToken, environment, downloadFetch);
+  const clientsByKey = new Map();
+  const clientFor = (baseUrl, sendCredential = true) => {
+    const cacheKey = `${sendCredential}\n${baseUrl}`;
+    if (!clientsByKey.has(cacheKey)) {
+      const apiClient = createApiClient({
+        baseUrl,
+        ...(sendCredential ? authHooks : {}),
+        parseError: createErrorParser(spec.errors),
+        detectBodyError: createBodyErrorDetector(spec.errors),
+        defaultHeaders: spec.defaultHeaders,
+        timeoutMs: spec.timeoutMs,
+        maxRetries: spec.maxRetries,
+        fetchImpl,
+      });
+      clientsByKey.set(cacheKey, { ...apiClient, baseUrl, fetchImpl: downloadFetch, resolveHostAddresses, environment, clientFor: (otherBaseUrl, otherSendCredential = true) => clientFor(otherBaseUrl, sendCredential && otherSendCredential) });
+    }
+    return clientsByKey.get(cacheKey);
   };
-  return { ...clientFor(spec.baseUrl), clientFor };
+  return clientFor(resolveBaseUrl(spec.baseUrl, environment, spec.allowedHostSuffix));
 }
 
 /**
@@ -127,10 +124,11 @@ function createRestClient(spec, { accessToken, environment, fetchImpl, resolveHo
  *
  * @param baseUrl - URL or `(environment) => string` (string | function)
  * @param environment - Environment variables (object)
+ * @param allowedHostSuffix - Host suffix the result must have, e.g. ".atlassian.net" (string, optional)
  * @returns Base URL (string)
- * @throws PluginError kind `invalid_input` - When the function throws or returns a non-https URL
+ * @throws PluginError kind `invalid_input` - When the function throws or returns a URL that is not allowed
  */
-export function resolveBaseUrl(baseUrl, environment) {
+export function resolveBaseUrl(baseUrl, environment, allowedHostSuffix) {
   const failConfiguration = (problem) => {
     throw new PluginError(`Invalid API base URL configuration: ${problem}`, { kind: "invalid_input" });
   };
@@ -141,18 +139,30 @@ export function resolveBaseUrl(baseUrl, environment) {
   } catch (configurationError) {
     failConfiguration(configurationError?.message ?? String(configurationError));
   }
-  checkBaseUrl(resolvedUrl, failConfiguration);
+  checkBaseUrl(resolvedUrl, failConfiguration, allowedHostSuffix);
   return resolvedUrl;
 }
 
-function buildOperation(operation, jobTimeoutCapMs) {
+function selectClient(operation, context) {
+  if (!operation.baseUrl) return context.client;
+  return context.client.clientFor(resolveBaseUrl(operation.baseUrl, context.environment), operation.sendCredential !== false);
+}
+
+// --- operations -------------------------------------------------------------------------------------
+
+function buildOperation(operation, settings) {
   return {
     name: operation.name,
     title: operation.title,
     description: describeOperation(operation),
     nodeOnly: operation.nodeOnly === true,
     parameters: buildParameterSchema(operation),
-    run: (context) => runOperation(operation, context, jobTimeoutCapMs),
+    run: async (context) => {
+      const result = await runOperation(operation, context, settings);
+      if (context.source !== "tool") return result;
+      const toolOutput = operation.toolOutput ?? settings.spec.toolOutput ?? DEFAULT_TOOL_OUTPUT;
+      return { ...result, data: truncateForTool(result.data, toolOutput) };
+    },
   };
 }
 
@@ -180,9 +190,10 @@ export function buildParameterSchema(operation) {
 }
 
 function toPropertySchema(paramSpec) {
+  const fileNote = paramSpec.file ? " (an https URL, or an absolute path inside the plugin's upload directory)" : "";
   const schemaFields = {
     type: paramSpec.type,
-    description: paramSpec.description,
+    description: paramSpec.description || fileNote ? `${paramSpec.description ?? "File"}${fileNote}` : undefined,
     enum: paramSpec.enum,
     minimum: paramSpec.min,
     maximum: paramSpec.max,
@@ -197,18 +208,11 @@ function toPropertySchema(paramSpec) {
 function buildPaginationProperties(operation) {
   if (!operation.pagination) return {};
   const response = operation.response;
-  const limitWireName = response.limitParam ?? response.pagePagination?.sizeParam ?? response.offsetPagination?.limitParam;
-  const properties = {
-    cursor: { type: "string", description: "next_cursor from the previous call, to get the next page" },
-  };
+  const { limitWireName } = describePaginationWireNames(response);
+  const properties = { cursor: { type: "string", description: "next_cursor from the previous call, to get the next page" } };
   if (limitWireName) {
-    properties.limit = toPropertySchema({
-      type: "integer",
-      min: 1,
-      max: response.maxLimit,
-      default: response.defaultLimit,
-      description: `Maximum items per page (sent as \`${limitWireName}\`)`,
-    });
+    const description = `Maximum items per page (sent as \`${limitWireName}\`)`;
+    properties.limit = toPropertySchema({ type: "integer", min: 1, max: response.maxLimit, default: response.defaultLimit, description });
   }
   return properties;
 }
@@ -219,20 +223,22 @@ function buildJobProperties(operation) {
   return { [JOB_WAIT_PARAM]: { type: "boolean", default: true, description } };
 }
 
-async function runOperation(operation, context, jobTimeoutCapMs) {
+async function runOperation(operation, context, settings) {
   assertToolPolicy(operation, context);
-  const { args, signal } = context;
-  const client = operation.baseUrl ? context.client.clientFor(operation.baseUrl) : context.client;
-  const request = buildRestRequest(operation, args);
-  const response = await withUnknownOutcomeHint(operation, client.requestWithHeaders({ ...request, signal }));
-  if (operation.job) {
-    const jobResult = await runRestJob({ operation, client, args, createBody: response.body, environment: context.environment, signal, timeoutCapMs: jobTimeoutCapMs });
-    return { data: await attachDownloads(operation, jobResult, jobResult.result, { ...context, client }), next_cursor: null };
-  }
-  const shapedResult = shapeRestResponse(operation, response, args);
+  const startedAt = Date.now();
+  const client = selectClient(operation, context);
+  const binaryDirectory = operation.response?.binary ? await prepareOutputDirectory(context.environment, operation.response.binary.envDir) : undefined;
+  const idempotencyKey = resolveIdempotencyKey(operation, settings.spec);
+  const requestContext = { baseUrl: client.baseUrl, environment: context.environment, fetchImpl: client.fetchImpl, resolveHostAddresses: client.resolveHostAddresses, signal: context.signal, idempotencyKey };
+  const request = await buildRestRequest(operation, context.args, requestContext);
+  const response = await sendRequest(operation, client, { ...request, signal: context.signal, redactResponse: true, rawResponse: Boolean(binaryDirectory) }, idempotencyKey);
+  if (binaryDirectory) return { data: await saveBinaryResponse(operation, response, binaryDirectory, context.signal), next_cursor: null };
+  const callContext = { ...context, client, startedAt, deadlineAt: startedAt + settings.jobBudgetCapMs };
+  if (operation.job) return { data: await runJob(operation, response.body, callContext, settings), next_cursor: null };
+  const shapedResult = shapeRestResponse(operation, response, context.args);
   if (!operation.download) return shapedResult;
-  const resultWithFiles = await attachDownloads(operation, { result: shapedResult.data }, shapedResult.data, { ...context, client });
-  return { data: resultWithFiles, next_cursor: shapedResult.next_cursor };
+  const { result, savedFiles } = await saveDownloads({ operation, result: shapedResult.data, client, environment: context.environment, signal: context.signal, deadlineAt: callContext.deadlineAt });
+  return { data: { result, saved_files: savedFiles }, next_cursor: shapedResult.next_cursor };
 }
 
 function assertToolPolicy(operation, { source, environment }) {
@@ -244,30 +250,116 @@ function assertToolPolicy(operation, { source, environment }) {
   });
 }
 
-async function withUnknownOutcomeHint(operation, pendingRequest) {
+function resolveIdempotencyKey(operation, spec) {
+  const header = operation.idempotencyKeyHeader ?? spec.idempotencyKeyHeader;
+  if (!header || operation.write !== "unsafe" || READ_METHODS.has(operation.method)) return undefined;
+  return { header, value: randomUUID() };
+}
+
+async function sendRequest(operation, client, request, idempotencyKey) {
   try {
-    return await pendingRequest;
+    return await client.requestWithHeaders(request);
   } catch (requestError) {
-    const isUnknownOutcome = requestError instanceof PluginError && requestError.message.includes(UNKNOWN_OUTCOME_MARKER);
-    if (!isUnknownOutcome || !operation.checkHint) throw requestError;
-    throw new PluginError(`${requestError.message}. To check: ${operation.checkHint}`, { kind: requestError.kind, retryable: false });
+    throw describeWriteOutcome(operation, requestError, idempotencyKey);
   }
 }
 
-async function attachDownloads(operation, baseData, result, context) {
-  if (!operation.download || (operation.job && context.args.wait === false)) return baseData;
-  const savedFiles = await saveDownloads({ operation, result, client: context.client, environment: context.environment, signal: context.signal });
-  return { ...baseData, saved_files: savedFiles };
+// A keyed write is retried with the same key; once retries run out, a new call would get a new key, so the
+// outcome is unknown again.
+function describeWriteOutcome(operation, requestError, idempotencyKey) {
+  if (!(requestError instanceof PluginError)) return requestError;
+  const hint = operation.checkHint ? `. To check: ${operation.checkHint}` : "";
+  const keyedFailure = idempotencyKey && (requestError.kind === "network_error" || /^API error 5\d\d/.test(requestError.message));
+  if (keyedFailure) {
+    const note = ` (outcome unknown: the write may have been applied; check before retrying; ${idempotencyKey.header} ${idempotencyKey.value})`;
+    return new PluginError(`${requestError.message}${note}${hint}`, { kind: requestError.kind, retryable: false });
+  }
+  if (!requestError.message.includes(UNKNOWN_OUTCOME_MARKER) || !hint) return requestError;
+  return new PluginError(`${requestError.message}${hint}`, { kind: requestError.kind, retryable: false });
 }
 
-function buildApiRequest(spec) {
-  if (spec.apiRequest === false) return [];
-  const apiRequestOptions = typeof spec.apiRequest === "object" ? spec.apiRequest : {};
-  const firstReadPath = spec.operations.find((operation) => !operation.path.includes("{") && READ_METHODS.has((operation.method ?? "GET").toUpperCase()))?.path;
-  return [
-    createApiRequestOperation({
-      apiName: apiRequestOptions.apiName ?? spec.apiName ?? spec.name,
-      examplePath: apiRequestOptions.examplePath ?? firstReadPath ?? "/",
-    }),
-  ];
+async function runJob(operation, createBody, callContext, settings) {
+  const job = operation.job;
+  const jobId = readJobId(job, createBody);
+  if (callContext.args.wait === false) return { job_id: jobId, response: createBody };
+  const deadlineAt = callContext.startedAt + resolveJobBudgetMs(job, callContext.environment, settings.jobBudgetCapMs);
+  const jobLinks = {};
+  try {
+    const jobResult = await waitForJob({ operation, client: callContext.client, args: callContext.args, jobId, createBody, environment: callContext.environment, signal: callContext.signal, deadlineAt, jobLinks });
+    if (!operation.download) return jobResult;
+    jobLinks.files = listResultUrls(operation.download.saveTo, jobResult.result);
+    const { result, savedFiles } = await saveDownloads({ operation, result: jobResult.result, client: callContext.client, environment: callContext.environment, signal: callContext.signal, deadlineAt });
+    return { ...jobResult, result, saved_files: savedFiles };
+  } catch (jobError) {
+    throw describeJobError(jobError, jobId, jobLinks);
+  }
+}
+
+async function prepareOutputDirectory(environment, envName) {
+  const directory = environment?.[envName]?.trim();
+  if (!directory || !isAbsolute(directory)) {
+    throw new PluginError(`This operation saves the response to a file: set ${envName} to an absolute directory path`, { kind: "invalid_input" });
+  }
+  await mkdir(directory, { recursive: true });
+  return directory;
+}
+
+async function saveBinaryResponse(operation, rawResult, directory, signal) {
+  const fileBaseName = `${operation.name}-${Date.now()}-${randomBytes(3).toString("hex")}`;
+  const maxBytes = operation.response.binary.maxBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES;
+  try {
+    return await saveResponseToFile(rawResult.response, { directory, fileBaseName, maxBytes, label: operation.name });
+  } catch (saveError) {
+    throw classifyTransferError(saveError, signal);
+  }
+}
+
+// --- api_request ---------------------------------------------------------------------------------------
+
+function buildApiRequest(restSpec) {
+  if (restSpec.apiRequest === false) return [];
+  const apiRequestOptions = typeof restSpec.apiRequest === "object" ? restSpec.apiRequest : {};
+  const firstReadPath = restSpec.operations.find((operation) => !operation.path.includes("{") && READ_METHODS.has(operation.method))?.path;
+  const apiRequestOperation = createApiRequestOperation({
+    apiName: apiRequestOptions.apiName ?? restSpec.apiName ?? restSpec.name,
+    examplePath: apiRequestOptions.examplePath ?? firstReadPath ?? "/",
+  });
+  const protectedPaths = listProtectedPaths(restSpec.operations);
+  return [{ ...apiRequestOperation, run: (context) => (assertApiRequestPathAllowed(context, protectedPaths), apiRequestOperation.run(context)) }];
+}
+
+// GET operations an agent may not call directly must not be reachable through api_request either.
+function listProtectedPaths(operations) {
+  return operations
+    .filter((operation) => !operation.baseUrl && READ_METHODS.has(operation.method) && (operation.nodeOnly || operation.toolPolicy))
+    .map((operation) => ({
+      operationName: operation.name,
+      pathPattern: templateToPattern(operation.path),
+      optInEnv: operation.nodeOnly ? undefined : TOOL_POLICY_PATTERN.exec(operation.toolPolicy)[1],
+    }));
+}
+
+function templateToPattern(pathTemplate) {
+  const escapedParts = pathTemplate.split(/(\{\+?[^{}]+\})/).map((part) => {
+    if (part.startsWith("{+")) return ".+";
+    if (part.startsWith("{")) return "[^/]+";
+    return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  });
+  return new RegExp(`^${escapedParts.join("").replace(/\/$/, "")}/?$`, "i");
+}
+
+function assertApiRequestPathAllowed({ source, args, environment }, protectedPaths) {
+  if (source !== "tool" || typeof args?.path !== "string") return;
+  const pathname = decodePathname(args.path.split(/[?#]/)[0]);
+  const blocked = protectedPaths.find((protectedPath) => protectedPath.pathPattern.test(pathname) && !(protectedPath.optInEnv && environment?.[protectedPath.optInEnv] === "1"));
+  if (!blocked) return;
+  throw new PluginError(`api_request cannot reach the path of \`${blocked.operationName}\` as an agent tool; use that operation or a workflow node`, { kind: "permission_denied" });
+}
+
+function decodePathname(pathname) {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
 }

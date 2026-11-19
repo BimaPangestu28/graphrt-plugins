@@ -1,61 +1,28 @@
 /**
- * Async jobs and generated-media downloads for declarative REST operations.
+ * Async jobs for declarative REST operations.
  *
- * A `job` operation's create request is the write; this module then polls the status endpoint with the shared
- * pollUntilDone (transient read errors are tolerated) and returns `{job_id, status, result}`. A timeout reports
- * the job id with `retryable: false`, because re-running the operation would start (and pay for) a second job.
- *
- * `download.saveTo` streams the result's URLs into the directory named by an env var, with the public-https checks
- * of public-https-fetch.mjs, and returns `saved_files` next to the remote URLs.
+ * The create request is the write (rest-plugin.mjs sends it). This module reads the job id, polls the status
+ * (a `path` template, or a URL the create response gives at `urlPath`), optionally fetches the result
+ * (`job.result`), and returns `{job_id, status, result}`. Everything runs against one absolute deadline that
+ * started with the call. URLs from responses must be https on the API's own host or a host in `job.allowedHosts`.
  */
-import { randomBytes } from "node:crypto";
-import { isAbsolute } from "node:path";
 import { PluginError } from "./graphrt-plugin.mjs";
-import { collectPathValues, readPath } from "./object-path.mjs";
+import { readPath } from "./object-path.mjs";
 import { pollUntilDone, resolvePollInterval } from "./polling.mjs";
-import { downloadPublicHttpsToFile } from "./public-https-fetch.mjs";
 import { fillPathTemplate } from "./rest-request.mjs";
 
 export const DEFAULT_JOB_INTERVAL_MS = 2000;
-export const DEFAULT_JOB_TIMEOUT_MS = 300000;
 const JOB_TIMEOUT_OVERRIDE_ENV = "GRAPHRT_JOB_TIMEOUT_MS";
 
 /**
- * Reads the job id from the create response, polls until done and returns the result.
+ * Reads the job id from the create response.
  *
- * @param context - Job context (object)
- * @param context.operation - Normalized operation spec with `job` (object)
- * @param context.client - Shared API client (object)
- * @param context.args - Validated arguments (object)
- * @param context.createBody - Body of the create response (object)
- * @param context.environment - Environment variables (object)
- * @param context.signal - Cancellation signal (AbortSignal, optional)
- * @param context.timeoutCapMs - Upper bound for the wait, so the error arrives before the host's timeout (number)
- * @returns `{job_id, status, result}`, or `{job_id, response}` when `wait` is false (Promise<object>)
- * @throws PluginError kinds `api_error` (no id, or the job failed; not retryable), `timeout` (not retryable), `cancelled`
+ * @param job - `job` spec (object)
+ * @param createBody - Create response body (object)
+ * @returns Job id (string)
+ * @throws PluginError kind `api_error` (not retryable) - No id at idPath
  */
-export async function runRestJob({ operation, client, args, createBody, environment, signal, timeoutCapMs }) {
-  const job = operation.job;
-  const jobId = readJobId(job, createBody);
-  if (args.wait === false) return { job_id: jobId, response: createBody };
-  const timeoutMs = resolveJobTimeout(environment, job, timeoutCapMs);
-  const pollRequest = buildPollRequest(job, args, jobId);
-  try {
-    const statusBody = await pollUntilDone({
-      readStatus: () => client.request({ ...pollRequest, signal }),
-      isDone: (statusResult) => job.doneValues.includes(readPath(statusResult, job.statusPath)),
-      isFailed: (statusResult) => describeFailure(job, statusResult),
-      intervalMs: resolvePollInterval(environment, job.intervalMs ?? DEFAULT_JOB_INTERVAL_MS),
-      timeoutMs,
-      signal,
-    });
-    return { job_id: jobId, status: readPath(statusBody, job.statusPath), result: readPath(statusBody, job.resultPath) ?? null };
-  } catch (pollError) {
-    throw describeJobError(pollError, jobId, pollRequest.path, timeoutMs);
-  }
-}
-
-function readJobId(job, createBody) {
+export function readJobId(job, createBody) {
   const jobId = readPath(createBody, job.idPath);
   if (jobId === undefined || jobId === null || jobId === "") {
     throw new PluginError(`The API accepted the request but returned no job id at \`${job.idPath}\`; a job may have started, check before retrying`, {
@@ -66,23 +33,101 @@ function readJobId(job, createBody) {
   return String(jobId);
 }
 
-function resolveJobTimeout(environment, job, timeoutCapMs) {
+/**
+ * The job's time budget: GRAPHRT_JOB_TIMEOUT_MS (tests), else job.timeoutMs, else the cap; never above the cap.
+ *
+ * @param job - `job` spec (object)
+ * @param environment - Environment variables (object)
+ * @param budgetCapMs - limits.timeout_ms minus the job margin (number)
+ * @returns Budget in milliseconds, counted from the start of the call (number)
+ */
+export function resolveJobBudgetMs(job, environment, budgetCapMs) {
   const overrideMs = Number(environment?.[JOB_TIMEOUT_OVERRIDE_ENV]);
-  const configuredMs = Number.isFinite(overrideMs) && overrideMs > 0 ? overrideMs : job.timeoutMs ?? DEFAULT_JOB_TIMEOUT_MS;
-  return Math.max(1, Math.min(configuredMs, timeoutCapMs));
+  const configuredMs = Number.isFinite(overrideMs) && overrideMs > 0 ? overrideMs : job.timeoutMs ?? budgetCapMs;
+  return Math.max(1, Math.min(configuredMs, budgetCapMs));
 }
 
-function buildPollRequest(job, args, jobId) {
-  const method = (job.poll.method ?? "GET").toUpperCase();
-  const path = fillPathTemplate(job.poll.path, { ...args, id: jobId });
-  const pollParams = substituteJobId(job.poll.params ?? {}, jobId);
+/**
+ * Polls until the job finishes and fetches its result.
+ *
+ * @param context - Job context (object)
+ * @param context.operation - Normalized operation spec with `job` (object)
+ * @param context.client - The operation's client, with `clientFor(baseUrl)` and `baseUrl` (object)
+ * @param context.args - Validated arguments (object)
+ * @param context.jobId - Job id from readJobId (string)
+ * @param context.createBody - Create response body, redacted (object)
+ * @param context.environment - Environment variables (object)
+ * @param context.signal - Cancellation signal (AbortSignal, optional)
+ * @param context.deadlineAt - Absolute deadline, ms since epoch (number)
+ * @param context.jobLinks - Object the caller reads after a failure; `status` and `result` URLs are recorded here (object)
+ * @returns `{job_id, status, result}` (Promise<object>)
+ * @throws PluginError kinds `api_error` (failed, or a URL on a host that is not allowed), `timeout`, `cancelled`
+ */
+export async function waitForJob(context) {
+  const { operation, jobId, createBody, environment, signal, deadlineAt, jobLinks } = context;
+  const job = operation.job;
+  const pollTarget = resolveJobRequest(job.poll, context);
+  jobLinks.status = pollTarget.description;
+  const remainingMs = Math.max(1, deadlineAt - Date.now());
+  const statusBody = await pollUntilDone({
+    readStatus: () => pollTarget.client.request({ ...pollTarget.request, signal, redactResponse: true }),
+    isDone: (statusResult) => job.doneValues.includes(readPath(statusResult, job.statusPath)),
+    isFailed: (statusResult) => describeFailure(job, statusResult),
+    intervalMs: resolvePollInterval(environment, job.intervalMs ?? DEFAULT_JOB_INTERVAL_MS),
+    timeoutMs: remainingMs,
+    signal,
+  }).catch((pollError) => {
+    throw describePollError(pollError, jobId, pollTarget.description, remainingMs);
+  });
+  const resultBody = job.result ? await fetchJobResult(context, createBody) : statusBody;
+  return { job_id: jobId, status: readPath(statusBody, job.statusPath), result: readPath(resultBody, job.resultPath) ?? null };
+}
+
+async function fetchJobResult(context, createBody) {
+  const resultTarget = resolveJobRequest(context.operation.job.result, { ...context, createBody });
+  context.jobLinks.result = resultTarget.description;
+  const remainingMs = Math.max(1, context.deadlineAt - Date.now());
+  return resultTarget.client.request({ ...resultTarget.request, signal: context.signal, redactResponse: true, timeoutMs: Math.min(remainingMs, 30000) });
+}
+
+/**
+ * Resolves a poll or result request: a path template (with {id} and path params) or a URL from the create response.
+ *
+ * @param jobRequest - `job.poll` or `job.result` spec (object)
+ * @param context - `{operation, client, args, jobId, createBody}` (object)
+ * @returns `{client, request, description}` (object)
+ * @throws PluginError kind `api_error` (not retryable) - Missing URL, or a URL that is not https on an allowed host
+ */
+export function resolveJobRequest(jobRequest, { operation, client, args, jobId, createBody }) {
+  const method = (jobRequest.method ?? "GET").toUpperCase();
+  const pollParams = Object.fromEntries(Object.entries(jobRequest.params ?? {}).map(([paramName, paramValue]) => [paramName, paramValue === "{id}" ? jobId : paramValue]));
   const isReadMethod = method === "GET" || method === "HEAD";
-  // A status read is safe to repeat, whatever its method.
-  return { method, path, idempotent: true, ...(isReadMethod ? { query: pollParams } : { json: pollParams }) };
+  const payload = isReadMethod ? { query: pollParams } : { json: pollParams };
+  if (jobRequest.path) {
+    const path = fillPathTemplate(jobRequest.path, { ...args, id: jobId });
+    return { client, request: { method, path, idempotent: true, ...payload }, description: `${method} ${path}` };
+  }
+  const jobUrl = checkJobUrl(readPath(createBody, jobRequest.urlPath), operation.job, client.baseUrl, jobRequest.urlPath);
+  const urlClient = client.clientFor(jobUrl.origin);
+  return { client: urlClient, request: { method, path: jobUrl.href, idempotent: true, ...payload }, description: `${method} ${jobUrl.href}` };
 }
 
-function substituteJobId(pollParams, jobId) {
-  return Object.fromEntries(Object.entries(pollParams).map(([paramName, paramValue]) => [paramName, paramValue === "{id}" ? jobId : paramValue]));
+function checkJobUrl(urlValue, job, baseUrl, urlPath) {
+  const refuse = (problem) => {
+    throw new PluginError(`The API's ${urlPath} ${problem}`, { kind: "api_error", retryable: false });
+  };
+  if (typeof urlValue !== "string") refuse("is missing from the create response");
+  let jobUrl;
+  try {
+    jobUrl = new URL(urlValue);
+  } catch {
+    refuse(`is not a URL: ${JSON.stringify(urlValue)}`);
+  }
+  const allowedHosts = new Set([new URL(baseUrl).host, ...(job.allowedHosts ?? [])].map((host) => host.toLowerCase()));
+  if (jobUrl.protocol !== "https:" || !allowedHosts.has(jobUrl.host.toLowerCase()) || jobUrl.username || jobUrl.password) {
+    refuse(`${jobUrl.origin} is not https on an allowed host (${[...allowedHosts].join(", ")})`);
+  }
+  return jobUrl;
 }
 
 function describeFailure(job, statusResult) {
@@ -93,10 +138,10 @@ function describeFailure(job, statusResult) {
   return reason ? JSON.stringify(reason).slice(0, 500) : `status ${JSON.stringify(status)}`;
 }
 
-function describeJobError(pollError, jobId, pollPath, timeoutMs) {
+function describePollError(pollError, jobId, statusDescription, timeoutMs) {
   if (!(pollError instanceof PluginError)) return pollError;
   if (pollError.kind === "timeout") {
-    const message = `Job ${jobId} is still running after ${Math.round(timeoutMs / 1000)} s; check it (api_request GET ${pollPath}) before retrying, a retry starts a new job`;
+    const message = `Job ${jobId} is still running after ${Math.round(timeoutMs / 1000)} s; check it (api_request ${statusDescription}) before retrying, a retry starts a new job`;
     return new PluginError(message, { kind: "timeout", retryable: false });
   }
   if (pollError.kind === "api_error" && pollError.message.startsWith("Processing failed")) {
@@ -106,38 +151,18 @@ function describeJobError(pollError, jobId, pollPath, timeoutMs) {
 }
 
 /**
- * Downloads every https URL found at `saveTo.urlPaths` in the result into `$<envDir>`. A URL that cannot be saved
- * gets an `error` entry instead, so a paid result is never lost to one failed download.
+ * Wraps any failure after the job was created: names the job and its known URLs and makes it not retryable,
+ * because a retry would start (and pay for) a second job. The kind is kept (e.g. `cancelled`).
  *
- * @param context - Download context (object)
- * @param context.operation - Normalized operation spec with `download` (object)
- * @param context.result - Operation result to search for URLs (any)
- * @param context.client - Client with `fetchImpl` and `resolveHostAddresses` (object)
- * @param context.environment - Environment variables (object)
- * @param context.signal - Cancellation signal (AbortSignal, optional)
- * @returns `[{url, path, bytes, content_type} | {url, error}]`; empty when the env var is unset (Promise<Array>)
- * @throws PluginError kinds `invalid_input` (relative directory), `cancelled`
+ * @param jobError - Error thrown after create (any)
+ * @param jobId - Job id (string)
+ * @param jobLinks - `{status?, result?, files?}` known so far (object)
+ * @returns PluginError (PluginError)
  */
-export async function saveDownloads({ operation, result, client, environment, signal }) {
-  const saveTo = operation.download.saveTo;
-  const directory = environment?.[saveTo.envDir]?.trim();
-  if (!directory) return [];
-  if (!isAbsolute(directory)) throw new PluginError(`${saveTo.envDir} must be an absolute directory path`, { kind: "invalid_input" });
-  const urls = [...new Set(saveTo.urlPaths.flatMap((urlPath) => collectPathValues(result, urlPath)).filter((url) => typeof url === "string"))];
-  const batchName = `${operation.name}-${Date.now()}-${randomBytes(3).toString("hex")}`;
-  const savedFiles = [];
-  for (const [index, url] of urls.entries()) {
-    savedFiles.push(await saveOneDownload(url, { directory, fileBaseName: `${batchName}-${index + 1}`, client, signal, maxBytes: saveTo.maxBytes }));
-  }
-  return savedFiles;
-}
-
-async function saveOneDownload(url, { directory, fileBaseName, client, signal, maxBytes }) {
-  try {
-    const downloadOptions = { directory, fileBaseName, fetchImpl: client.fetchImpl, resolveHostAddresses: client.resolveHostAddresses, signal, maxBytes, label: "result URL" };
-    return await downloadPublicHttpsToFile(url, downloadOptions);
-  } catch (downloadError) {
-    if (downloadError?.kind === "cancelled") throw downloadError;
-    return { url, error: String(downloadError?.message ?? downloadError) };
-  }
+export function describeJobError(jobError, jobId, jobLinks) {
+  const message = String(jobError?.message ?? jobError);
+  const linkNotes = [jobLinks.status && `status: ${jobLinks.status}`, jobLinks.result && `result: ${jobLinks.result}`, jobLinks.files?.length && `result URLs: ${jobLinks.files.join(", ")}`].filter(Boolean);
+  const prefixedMessage = message.includes(jobId) ? message : `Job ${jobId}: ${message}`;
+  const fullMessage = linkNotes.length > 0 ? `${prefixedMessage} (${linkNotes.join("; ")})` : prefixedMessage;
+  return new PluginError(fullMessage, { kind: jobError?.kind ?? "api_error", retryable: false });
 }

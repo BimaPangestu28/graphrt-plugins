@@ -1,95 +1,130 @@
 /**
  * Turns validated operation arguments into a shared-client request for a declarative REST operation:
- * path params (each encoded as one segment), query params, header params, a JSON / form / raw body, and the
- * generated `limit`/`cursor` mapped to the API's own pagination names.
+ * path params (one encoded segment each, `{+name}` keeps slashes), query params with array styles, header params
+ * (CR/LF refused), constants, the generated `limit`/`cursor` under the API's own names, and a body encoded here
+ * (JSON, form, raw, text, multipart) so a custom signer sees the exact bytes.
  */
 import { PluginError } from "./graphrt-plugin.mjs";
 import { writePath } from "./object-path.mjs";
 import { pathSegment } from "./path.mjs";
+import { appendQueryString, appendQueryValue, encodeFormBody, encodeTextBody, flattenFormValue } from "./rest-encoding.mjs";
+import { readFileInput } from "./rest-files.mjs";
+import { READ_METHODS } from "./rest-spec-helpers.mjs";
 
-const READ_METHODS = new Set(["GET", "HEAD"]);
 const IDEMPOTENT_FLAGS = { read: undefined, idempotent: true, unsafe: false };
+const UNSAFE_HEADER_VALUE = /[\r\n\0]/;
+const JSON_TYPE = "application/json";
 
 /**
  * Builds the request for one operation call.
  *
  * @param operation - Normalized operation spec (object)
  * @param args - Arguments validated against the operation's schema (object)
- * @returns `{method, path, query, headers, json?, form?, idempotent}` for client.request (object)
- * @throws PluginError kind `invalid_input` - A path param is "." / ".." or a cursor is malformed
+ * @param context - `{baseUrl, environment, fetchImpl, resolveHostAddresses, signal, idempotencyKey?: {header, value}}` (object)
+ * @returns `{method, path, headers, body?, idempotent, timeoutMs?}` for client.requestWithHeaders (Promise<object>)
+ * @throws PluginError kind `invalid_input` - Bad path value, header value or cursor; file inputs that are refused
  */
-export function buildRestRequest(operation, args) {
-  const request = { method: operation.method, path: fillPathTemplate(operation.path, args), query: {}, headers: {}, idempotent: IDEMPOTENT_FLAGS[operation.write] };
-  const body = {};
+export async function buildRestRequest(operation, args, context) {
+  const parts = { queryEntries: [], headers: {}, body: {} };
   for (const [paramName, paramSpec] of Object.entries(operation.params)) {
-    if (paramSpec.in === "path" || args[paramName] === undefined) continue;
-    placeParam(request, body, paramSpec, args[paramName], paramName);
+    if (paramSpec.in !== "path" && args[paramName] !== undefined) placeParam(parts, paramSpec, args[paramName], paramName);
   }
-  applyPaginationInput(operation, args, request, body);
-  attachBody(operation, request, body, args);
+  applyConstants(operation.constants, parts);
+  const cursorUrl = applyPaginationInput(operation, args, parts, context.baseUrl);
+  const path = cursorUrl ?? appendQueryString(fillPathTemplate(operation.path, args), parts.queryEntries);
+  const request = { method: operation.method, path, headers: parts.headers, idempotent: IDEMPOTENT_FLAGS[operation.write] };
+  if (context.idempotencyKey) {
+    request.headers[context.idempotencyKey.header.toLowerCase()] = context.idempotencyKey.value;
+    request.idempotent = true;
+  }
+  await attachBody(operation, args, parts, request, context);
   if (operation.timeoutMs) request.timeoutMs = operation.timeoutMs;
   return request;
 }
 
 /**
- * Replaces `{name}` placeholders with encoded values.
+ * Replaces `{name}` placeholders with one encoded segment and `{+name}` with slash-separated encoded segments.
  *
- * @param pathTemplate - e.g. "/repos/{owner}/{repo}" (string)
+ * @param pathTemplate - e.g. "/repos/{owner}/contents/{+file_path}" (string)
  * @param values - `{name: value}` (object)
- * @returns Path with each value encoded as one segment (string)
- * @throws PluginError kind `invalid_input` - A value is empty, "." or ".."
+ * @returns Path (string)
+ * @throws PluginError kind `invalid_input` - A value or segment is empty, "." or ".."
  */
 export function fillPathTemplate(pathTemplate, values) {
-  return pathTemplate.replace(/\{([^{}]+)\}/g, (placeholder, placeholderName) => pathSegment(values[placeholderName]));
+  return pathTemplate.replace(/\{(\+?)([^{}+]+)\}/g, (placeholder, multiSegment, placeholderName) => {
+    if (!multiSegment) return pathSegment(values[placeholderName]);
+    return String(values[placeholderName] ?? "").split("/").map(pathSegment).join("/");
+  });
 }
 
-function placeParam(request, body, paramSpec, value, paramName) {
+function placeParam(parts, paramSpec, value, paramName) {
   const wireName = paramSpec.wireName ?? paramName;
-  if (paramSpec.in === "query") request.query[wireName] = value;
-  if (paramSpec.in === "header") request.headers[wireName.toLowerCase()] = String(value);
-  if (paramSpec.in === "body") writePath(body, wireName, value);
+  if (paramSpec.in === "query") appendQueryValue(parts.queryEntries, wireName, value, paramSpec.style);
+  if (paramSpec.in === "header") parts.headers[wireName.toLowerCase()] = checkedHeaderValue(paramName, value);
+  if (paramSpec.in === "body") writePath(parts.body, wireName, value);
 }
 
-function attachBody(operation, request, body, args) {
-  if (READ_METHODS.has(operation.method)) return;
-  if (operation.bodyMode === "raw") {
-    const rawParamName = Object.keys(operation.params).find((paramName) => operation.params[paramName].in === "body");
-    if (args[rawParamName] !== undefined) request.json = args[rawParamName];
-    return;
-  }
-  // An operation that declares a body (params or pagination) always sends one, `{}` when every field is omitted.
-  const declaresBody = Object.values(operation.params).some((paramSpec) => paramSpec.in === "body") || operation.pagination?.paramsIn === "body";
-  if (!declaresBody && Object.keys(body).length === 0) return;
-  if (operation.bodyMode === "form") request.form = body;
-  else request.json = body;
+function checkedHeaderValue(paramName, value) {
+  const headerValue = String(value);
+  if (UNSAFE_HEADER_VALUE.test(headerValue)) throw new PluginError(`\`${paramName}\` must not contain line breaks or NUL characters`, { kind: "invalid_input" });
+  return headerValue;
 }
 
-function applyPaginationInput(operation, args, request, body) {
+function applyConstants(constants, parts) {
+  if (!constants) return;
+  for (const [queryName, queryValue] of Object.entries(constants.query ?? {})) appendQueryValue(parts.queryEntries, queryName, queryValue);
+  for (const [bodyPath, bodyValue] of Object.entries(constants.body ?? {})) writePath(parts.body, bodyPath, bodyValue);
+  for (const [headerName, headerValue] of Object.entries(constants.headers ?? {})) parts.headers[headerName.toLowerCase()] = String(headerValue);
+}
+
+// --- pagination input ------------------------------------------------------------------------------
+
+function applyPaginationInput(operation, args, parts, baseUrl) {
+  const pagination = operation.pagination;
+  if (!pagination) return undefined;
   const response = operation.response;
-  if (!operation.pagination) return;
   const place = (wireName, value) => {
     if (value === undefined || !wireName) return;
-    if (operation.pagination.paramsIn === "body") writePath(body, wireName, value);
-    else request.query[wireName] = value;
+    if (pagination.paramsIn === "body") writePath(parts.body, wireName, value);
+    else appendQueryValue(parts.queryEntries, wireName, value);
   };
-  const paginationInputs = {
-    cursor: () => (place(response.cursorParam, args.cursor), place(response.limitParam, args.limit)),
-    link: () => applyLinkCursor(request, args, place, response),
-    page: () => {
-      place(response.pagePagination.pageParam, parsePageCursor(args.cursor, response.pagePagination.firstPage ?? 1));
-      place(response.pagePagination.sizeParam, args.limit);
-    },
-    offset: () => (place(response.offsetPagination.offsetParam, parsePageCursor(args.cursor, 0)), place(response.offsetPagination.limitParam, args.limit)),
+  if (pagination.style === "link" || pagination.style === "nextUrl") {
+    if (args.cursor !== undefined) return checkNextUrlCursor(args.cursor, baseUrl);
+    return void place(response.limitParam, args.limit);
+  }
+  const placements = {
+    cursor: () => [[response.cursorParam, args.cursor], [response.limitParam, args.limit]],
+    lastItem: () => [[response.lastItemCursor.param, args.cursor], [response.limitParam, args.limit]],
+    page: () => [[response.pagePagination.pageParam, parsePageCursor(args.cursor, response.pagePagination.firstPage ?? 1)], [response.pagePagination.sizeParam, args.limit]],
+    offset: () => [[response.offsetPagination.offsetParam, parsePageCursor(args.cursor, 0)], [response.offsetPagination.limitParam, args.limit]],
   };
-  paginationInputs[operation.pagination.style]();
+  for (const [wireName, value] of placements[pagination.style]()) place(wireName, value);
+  return undefined;
 }
 
-// The next link already carries every query parameter, so it replaces the path and query.
-function applyLinkCursor(request, args, place, response) {
-  if (args.cursor === undefined) return place(response.limitParam, args.limit);
-  if (!/^https:\/\//i.test(args.cursor)) throw new PluginError("`cursor` must be the next-page URL returned as next_cursor", { kind: "invalid_input" });
-  request.path = args.cursor;
-  request.query = {};
+/**
+ * Checks that a next-page URL stays on the API: same origin and under the base path.
+ *
+ * @param cursor - next_cursor from an earlier call (string)
+ * @param baseUrl - The client's base URL (string)
+ * @returns The cursor URL, normalized (string)
+ * @throws PluginError kind `invalid_input` - Not a URL, or outside the base URL
+ */
+export function checkNextUrlCursor(cursor, baseUrl) {
+  const refuse = () => {
+    throw new PluginError("`cursor` must be the next_cursor URL returned by an earlier call (on the API's own base URL)", { kind: "invalid_input" });
+  };
+  let cursorUrl;
+  try {
+    cursorUrl = new URL(cursor);
+  } catch {
+    return refuse();
+  }
+  const base = new URL(baseUrl);
+  const basePath = base.pathname.replace(/\/$/, "");
+  const isUnderBase = cursorUrl.pathname === basePath || cursorUrl.pathname.startsWith(`${basePath}/`);
+  if (cursorUrl.origin !== base.origin || !isUnderBase || cursorUrl.username || cursorUrl.password) refuse();
+  return cursorUrl.href;
 }
 
 function parsePageCursor(cursor, minimum) {
@@ -99,4 +134,41 @@ function parsePageCursor(cursor, minimum) {
     throw new PluginError(`\`cursor\` must be a next_cursor value from an earlier call (an integer >= ${minimum})`, { kind: "invalid_input" });
   }
   return pageNumber;
+}
+
+// --- body ------------------------------------------------------------------------------------------
+
+async function attachBody(operation, args, parts, request, context) {
+  if (READ_METHODS.has(operation.method)) return;
+  const bodyParamNames = Object.keys(operation.params).filter((paramName) => operation.params[paramName].in === "body");
+  const declaresBody = bodyParamNames.length > 0 || operation.pagination?.paramsIn === "body" || operation.constants?.body;
+  if (!declaresBody) return;
+  const encoders = {
+    json: () => setBody(request, JSON.stringify(parts.body), operation.contentType ?? JSON_TYPE),
+    raw: () => args[bodyParamNames[0]] !== undefined && setBody(request, JSON.stringify(args[bodyParamNames[0]]), operation.contentType ?? JSON_TYPE),
+    form: () => setBody(request, encodeFormBody(parts.body, operation.formArrays), "application/x-www-form-urlencoded"),
+    text: () => args[bodyParamNames[0]] !== undefined && setBody(request, encodeTextBody(args[bodyParamNames[0]]), operation.contentType ?? "text/plain; charset=utf-8"),
+    multipart: async () => (request.body = await buildMultipartBody(operation, args, parts.body, context)),
+  };
+  await encoders[operation.bodyMode]();
+}
+
+function setBody(request, encodedBody, contentType) {
+  request.body = encodedBody;
+  request.headers["content-type"] = contentType;
+}
+
+// fetch sets the multipart content type (with its boundary) itself.
+async function buildMultipartBody(operation, args, body, context) {
+  const formData = new FormData();
+  const formEntries = [];
+  for (const [paramName, paramSpec] of Object.entries(operation.params)) {
+    if (paramSpec.in !== "body" || !paramSpec.file || args[paramName] === undefined) continue;
+    const fileInput = await readFileInput(String(args[paramName]), { ...context, paramName, fileDirEnv: operation.multipart?.fileDirEnv, maxBytes: operation.multipart?.maxFileBytes });
+    formData.append(paramSpec.wireName ?? paramName, new Blob([fileInput.bytes], { type: fileInput.contentType }), fileInput.fileName);
+    delete body[paramSpec.wireName ?? paramName];
+  }
+  flattenFormValue(formEntries, "", body, "repeat");
+  for (const [fieldName, fieldValue] of formEntries) formData.append(fieldName, fieldValue);
+  return formData;
 }

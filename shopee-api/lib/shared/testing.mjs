@@ -34,6 +34,8 @@ function describeCall(url, init) {
     url: parsedUrl.toString(),
     path: parsedUrl.pathname,
     query: Object.fromEntries(parsedUrl.searchParams),
+    queryEntries: [...parsedUrl.searchParams],
+    formData: init.body instanceof FormData ? init.body : undefined,
     method: init.method ?? "GET",
     headers: init.headers ?? {},
     body,
