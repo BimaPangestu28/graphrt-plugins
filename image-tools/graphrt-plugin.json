@@ -1,0 +1,1031 @@
+{
+  "name": "image-tools",
+  "version": "0.1.0",
+  "description": "Local images with sharp: metadata, resize, crop, rotate, convert (jpeg/png/webp/avif), compress, text or image watermarks and thumbnails, on files in allowed directories",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": [
+      "IMAGE_TOOLS_INPUT_DIRS",
+      "IMAGE_TOOLS_OUTPUT_DIR",
+      "IMAGE_TOOLS_MAX_INPUT_BYTES",
+      "IMAGE_TOOLS_MAX_OUTPUT_BYTES",
+      "IMAGE_TOOLS_MAX_INPUT_PIXELS",
+      "IMAGE_TOOLS_TIMEOUT_SECONDS"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "image-tools.metadata",
+      "title": "Read image metadata",
+      "description": "Format, displayed width and height (after EXIF orientation), channels, colour space, alpha, density, pages and whether EXIF/ICC/XMP data is present",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "image-tools.resize",
+      "title": "Resize an image",
+      "description": "Resizes to target_width and/or target_height (the other side keeps the aspect ratio). `fit` decides how both sides are used: inside (default), cover (crop), contain (pad), fill (stretch), outside",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Target width in pixels"
+          },
+          "target_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Target height in pixels"
+          },
+          "fit": {
+            "type": "string",
+            "enum": [
+              "inside",
+              "cover",
+              "contain",
+              "fill",
+              "outside"
+            ],
+            "default": "inside",
+            "description": "How to fit both sides"
+          },
+          "enlarge": {
+            "type": "boolean",
+            "default": false,
+            "description": "Allow making the image bigger than the original"
+          },
+          "background": {
+            "type": "string",
+            "default": "#ffffff",
+            "description": "Padding colour for fit=contain (hex)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "image-tools.crop",
+      "title": "Crop an image",
+      "description": "Cuts out a rectangle given by left, top, crop_width and crop_height in pixels of the displayed (auto-oriented) image",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "left": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Left edge in pixels"
+          },
+          "top": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Top edge in pixels"
+          },
+          "crop_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Width of the box in pixels"
+          },
+          "crop_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Height of the box in pixels"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "left",
+          "top",
+          "crop_width",
+          "crop_height"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "image-tools.rotate",
+      "title": "Rotate or flip an image",
+      "description": "Rotates by any angle (multiples of 90 are lossless in size; other angles fill corners with `background`) and optionally mirrors vertically (flip) or horizontally (flop)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "angle": {
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "default": 0,
+            "description": "Clockwise angle in degrees"
+          },
+          "flip": {
+            "type": "boolean",
+            "default": false,
+            "description": "Mirror top to bottom"
+          },
+          "flop": {
+            "type": "boolean",
+            "default": false,
+            "description": "Mirror left to right"
+          },
+          "background": {
+            "type": "string",
+            "default": "#000000",
+            "description": "Corner fill colour for non-right angles (hex)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "image-tools.convert",
+      "title": "Convert an image",
+      "description": "Re-encodes an image as jpeg, png, webp, avif, gif or tiff",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "format"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "image-tools.compress",
+      "title": "Compress an image",
+      "description": "Re-encodes at a lower quality (default 75) without metadata, optionally capping the longest side; reports the size saved",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)",
+            "default": 75
+          },
+          "max_dimension": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Shrink so neither side is longer than this"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "image-tools.thumbnails",
+      "title": "Make thumbnails",
+      "description": "Writes up to 10 thumbnails of one image at the given widths (aspect ratio kept, never enlarged), default webp",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "widths": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "default": [
+              128,
+              256,
+              512
+            ],
+            "description": "Widths in pixels (1-16383)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)",
+            "default": "webp"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "image-tools.watermark",
+      "title": "Add a watermark",
+      "description": "Places a text line or a second image (scaled to a share of the width) on an image at one of nine positions, with margin and opacity",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "text": {
+            "type": "string",
+            "description": "Watermark text (at most 200 characters); pass this or `image`"
+          },
+          "image": {
+            "type": "string",
+            "description": "Watermark image inside IMAGE_TOOLS_INPUT_DIRS; pass this or `text`"
+          },
+          "placement": {
+            "type": "string",
+            "enum": [
+              "top-left",
+              "top",
+              "top-right",
+              "left",
+              "center",
+              "right",
+              "bottom-left",
+              "bottom",
+              "bottom-right"
+            ],
+            "default": "bottom-right",
+            "description": "Where to place it"
+          },
+          "margin": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 16,
+            "description": "Distance from the edges in pixels"
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 1,
+            "default": 0.6,
+            "description": "Opacity 0.05-1"
+          },
+          "font_size": {
+            "type": "integer",
+            "minimum": 6,
+            "maximum": 1000,
+            "description": "Text size in pixels (default: 1/25 of the width)"
+          },
+          "color": {
+            "type": "string",
+            "default": "#ffffff",
+            "description": "Text colour (hex)"
+          },
+          "image_scale": {
+            "type": "number",
+            "minimum": 0.02,
+            "maximum": 1,
+            "default": 0.2,
+            "description": "Watermark image width as a share of the input width"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "metadata",
+      "description": "Format, displayed width and height (after EXIF orientation), channels, colour space, alpha, density, pages and whether EXIF/ICC/XMP data is present",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "resize",
+      "description": "Resizes to target_width and/or target_height (the other side keeps the aspect ratio). `fit` decides how both sides are used: inside (default), cover (crop), contain (pad), fill (stretch), outside",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "target_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Target width in pixels"
+          },
+          "target_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Target height in pixels"
+          },
+          "fit": {
+            "type": "string",
+            "enum": [
+              "inside",
+              "cover",
+              "contain",
+              "fill",
+              "outside"
+            ],
+            "default": "inside",
+            "description": "How to fit both sides"
+          },
+          "enlarge": {
+            "type": "boolean",
+            "default": false,
+            "description": "Allow making the image bigger than the original"
+          },
+          "background": {
+            "type": "string",
+            "default": "#ffffff",
+            "description": "Padding colour for fit=contain (hex)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "crop",
+      "description": "Cuts out a rectangle given by left, top, crop_width and crop_height in pixels of the displayed (auto-oriented) image",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "left": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Left edge in pixels"
+          },
+          "top": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Top edge in pixels"
+          },
+          "crop_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Width of the box in pixels"
+          },
+          "crop_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Height of the box in pixels"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "left",
+          "top",
+          "crop_width",
+          "crop_height"
+        ]
+      }
+    },
+    {
+      "name": "rotate",
+      "description": "Rotates by any angle (multiples of 90 are lossless in size; other angles fill corners with `background`) and optionally mirrors vertically (flip) or horizontally (flop)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "angle": {
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "default": 0,
+            "description": "Clockwise angle in degrees"
+          },
+          "flip": {
+            "type": "boolean",
+            "default": false,
+            "description": "Mirror top to bottom"
+          },
+          "flop": {
+            "type": "boolean",
+            "default": false,
+            "description": "Mirror left to right"
+          },
+          "background": {
+            "type": "string",
+            "default": "#000000",
+            "description": "Corner fill colour for non-right angles (hex)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "convert",
+      "description": "Re-encodes an image as jpeg, png, webp, avif, gif or tiff",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input",
+          "format"
+        ]
+      }
+    },
+    {
+      "name": "compress",
+      "description": "Re-encodes at a lower quality (default 75) without metadata, optionally capping the longest side; reports the size saved",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)",
+            "default": 75
+          },
+          "max_dimension": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16383,
+            "description": "Shrink so neither side is longer than this"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "thumbnails",
+      "description": "Writes up to 10 thumbnails of one image at the given widths (aspect ratio kept, never enlarged), default webp",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "widths": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "default": [
+              128,
+              256,
+              512
+            ],
+            "description": "Widths in pixels (1-16383)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)",
+            "default": "webp"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "watermark",
+      "description": "Places a text line or a second image (scaled to a share of the width) on an image at one of nine positions, with margin and opacity",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Image file (jpeg, png, webp, gif, tiff, avif, heif) inside IMAGE_TOOLS_INPUT_DIRS (or IMAGE_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory"
+          },
+          "text": {
+            "type": "string",
+            "description": "Watermark text (at most 200 characters); pass this or `image`"
+          },
+          "image": {
+            "type": "string",
+            "description": "Watermark image inside IMAGE_TOOLS_INPUT_DIRS; pass this or `text`"
+          },
+          "placement": {
+            "type": "string",
+            "enum": [
+              "top-left",
+              "top",
+              "top-right",
+              "left",
+              "center",
+              "right",
+              "bottom-left",
+              "bottom",
+              "bottom-right"
+            ],
+            "default": "bottom-right",
+            "description": "Where to place it"
+          },
+          "margin": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 16,
+            "description": "Distance from the edges in pixels"
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 1,
+            "default": 0.6,
+            "description": "Opacity 0.05-1"
+          },
+          "font_size": {
+            "type": "integer",
+            "minimum": 6,
+            "maximum": 1000,
+            "description": "Text size in pixels (default: 1/25 of the width)"
+          },
+          "color": {
+            "type": "string",
+            "default": "#ffffff",
+            "description": "Text colour (hex)"
+          },
+          "image_scale": {
+            "type": "number",
+            "minimum": 0.02,
+            "maximum": 1,
+            "default": 0.2,
+            "description": "Watermark image width as a share of the input width"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp",
+              "avif",
+              "gif",
+              "tiff"
+            ],
+            "description": "Output format (default: the input's format; heif becomes jpeg)"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Encoder quality 1-100 (jpeg, webp, avif, tiff; for png it enables palette quantisation)"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "Start of the generated output file name (letters, digits, - and _; default: the input's name). A timestamp and random suffix are always added, so nothing is overwritten"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      }
+    }
+  ]
+}

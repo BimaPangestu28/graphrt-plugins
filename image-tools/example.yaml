@@ -1,0 +1,16 @@
+# Read a photo's metadata and save a 320 px webp thumbnail of it.
+#   IMAGE_TOOLS_INPUT_DIRS=~/images/in IMAGE_TOOLS_OUTPUT_DIR=~/images/out graphrt run image-tools/example.yaml --plugins .
+version: "1"
+name: image-tools-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: info, type: image-tools.metadata, input: photo.jpg }
+    - { id: small, type: image-tools.resize, input: photo.jpg, target_width: 320, format: webp, quality: 80 }
+    - id: answer
+      type: answer
+      answer: "{{#info.data.format#}} {{#info.data.width#}}x{{#info.data.height#}} -> {{#small.data.path#}} ({{#small.data.size_bytes#}} bytes)"
+  edges:
+    - { source: start, target: info }
+    - { source: info, target: small }
+    - { source: small, target: answer }

@@ -1,0 +1,16 @@
+# Generate a QR code for a URL, then decode it back from the PNG.
+#   QR_CODE_OUTPUT_DIR=~/qr/out graphrt run qr-code/example.yaml --plugins .
+version: "1"
+name: qr-code-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: make, type: qr-code.generate, text: "https://example.com/menu?table=7", error_correction: Q, output_name: menu }
+    - { id: read, type: qr-code.decode, input: "{{#make.data.path#}}" }
+    - id: answer
+      type: answer
+      answer: "Saved {{#make.data.path#}}; it decodes to {{#read.data.codes.0.text#}}"
+  edges:
+    - { source: start, target: make }
+    - { source: make, target: read }
+    - { source: read, target: answer }

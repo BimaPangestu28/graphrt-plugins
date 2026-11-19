@@ -1,0 +1,16 @@
+# Probe a local clip and save a thumbnail from its middle.
+#   FFMPEG_INPUT_DIRS=~/media/in FFMPEG_OUTPUT_DIR=~/media/out graphrt run ffmpeg/example.yaml --plugins .
+version: "1"
+name: ffmpeg-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: probe, type: ffmpeg.probe, input: clip.mp4 }
+    - { id: thumbnail, type: ffmpeg.thumbnail, input: clip.mp4, time: "0.5", format: png, target_width: 160 }
+    - id: answer
+      type: answer
+      answer: "{{#probe.data.format#}}, {{#probe.data.duration_seconds#}} s; thumbnail: {{#thumbnail.data.path#}}"
+  edges:
+    - { source: start, target: probe }
+    - { source: probe, target: thumbnail }
+    - { source: thumbnail, target: answer }

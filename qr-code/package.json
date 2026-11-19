@@ -1,0 +1,13 @@
+{
+  "name": "graphrt-plugin-qr-code",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: generate QR codes as PNG/SVG and decode QR codes from local images",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "dependencies": {
+    "qrcode": "1.5.4",
+    "zxing-wasm": "3.1.6"
+  }
+}
