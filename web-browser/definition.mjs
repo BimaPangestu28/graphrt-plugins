@@ -23,7 +23,7 @@ export function createPluginDefinition(dependencies = {}) {
   const trackOperation = (operation) => ({ ...operation, run: (runContext) => operationTracker.track(() => operation.run(runContext)) });
   return {
     name: "web-browser",
-    version: "0.1.0",
+    version: "0.2.0",
     description:
       "Read public web pages in a headless browser: readable text or markdown, links, CSS-selector extraction and screenshots. Public hosts only, robots.txt respected, no clicking or typing.",
     tokenEnv: "WEB_BROWSER_SCREENSHOT_DIR",

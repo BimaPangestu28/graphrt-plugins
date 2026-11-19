@@ -80,6 +80,7 @@ test("resolveSettings applies defaults", () => {
     maxConcurrentPages: 2,
     maxDownloadBytes: 15 * 1024 * 1024,
     userAgentOverride: null,
+    liveViewDirectory: null,
   });
 });
 
@@ -92,6 +93,7 @@ test("resolveSettings reads every variable", () => {
     WEB_BROWSER_MAX_PAGES: "4",
     WEB_BROWSER_MAX_DOWNLOAD_MB: "5",
     WEB_BROWSER_USER_AGENT: "MyBot/1.0",
+    GRAPHRT_LIVE_VIEW_DIR: "/tmp/live-view",
   });
   assert.deepEqual(settings, {
     screenshotDirectory: "/home/test/shots",
@@ -100,6 +102,7 @@ test("resolveSettings reads every variable", () => {
     maxConcurrentPages: 4,
     maxDownloadBytes: 5 * 1024 * 1024,
     userAgentOverride: "MyBot/1.0",
+    liveViewDirectory: "/tmp/live-view",
   });
 });
 

@@ -66,6 +66,10 @@ Cancelling a run closes the browser immediately. Tool calls (`google-maps-scrape
 host, so they stop themselves after 290 s with `cancelled`.
 `max_results` may be a number or a whole-number string (e.g. from `{{#start.n#}}`).
 
+Live view: when the host sets `GRAPHRT_LIVE_VIEW_DIR` (an absolute folder; the graphrt desktop app does), the page's
+screen is written there as a small JPEG (max 640×480, quality 50, at most 2 per second) while the search runs, so the
+host can show it live, and deleted when the search ends. Frames stay on the machine and are never logged. Unset: no frames.
+
 ## Errors
 | Kind | When |
 |------|------|
