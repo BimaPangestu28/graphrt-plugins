@@ -14,7 +14,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { REPO_ROOT } from "./plugins.mjs";
-import { buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin, sha256Hex } from "./lib/plugin-package.mjs";
+import { buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin, renderCatalogText, sha256Hex } from "./lib/plugin-package.mjs";
 
 /**
  * Parses command line arguments.
@@ -68,7 +68,7 @@ export function packPlugins(pluginNames, outputDirectory) {
  * @returns `{indexPath, sumsPath}` (object)
  */
 export function writeCatalogFiles(outputDirectory, releasedPlugins) {
-  const catalogText = `${JSON.stringify(buildCatalog(releasedPlugins.map((released) => released.catalogEntry), new Date()), null, 2)}\n`;
+  const catalogText = renderCatalogText(buildCatalog(releasedPlugins.map((released) => released.catalogEntry), new Date()));
   const indexPath = resolve(outputDirectory, "index.json");
   const sumsPath = resolve(outputDirectory, "SHA256SUMS");
   writeFileSync(indexPath, catalogText);

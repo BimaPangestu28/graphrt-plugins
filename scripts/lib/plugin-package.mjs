@@ -38,6 +38,28 @@ const FORBIDDEN_PATH_PATTERNS = [
   { pattern: /\.(pem|key|p12)$/, reason: "key material" },
 ];
 
+/**
+ * Largest `index.json` the graphrt-builder-desktop app downloads (its `MAX_CATALOG_BYTES`). A bigger
+ * catalog fails there and the app silently keeps its saved copy, so publishing refuses one.
+ */
+export const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Serialises the catalog as compact JSON (node config schemas make the indented form ~75% larger).
+ *
+ * @param catalog - Catalog from buildCatalog (object)
+ * @returns `index.json` text, newline-terminated (string)
+ * @throws Error - When the text is larger than MAX_CATALOG_BYTES
+ */
+export function renderCatalogText(catalog) {
+  const catalogText = `${JSON.stringify(catalog)}\n`;
+  const sizeBytes = Buffer.byteLength(catalogText);
+  if (sizeBytes > MAX_CATALOG_BYTES) {
+    throw new Error(`index.json is ${sizeBytes} bytes; the desktop app accepts at most ${MAX_CATALOG_BYTES}. Raise its limit (and this one) first`);
+  }
+  return catalogText;
+}
+
 /** @returns Tag of a plugin release, e.g. `meta-api-v0.1.0` (string) */
 export function releaseTagFor(pluginName, pluginVersion) {
   return `${pluginName}-v${pluginVersion}`;
