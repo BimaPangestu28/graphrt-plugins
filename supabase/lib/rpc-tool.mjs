@@ -215,7 +215,8 @@ async function callFunctionAsUser({ client, args, environment, signal, toolConte
       return [userJwt, publishableKey];
     },
     parseError,
-    timeoutMs: settings.timeoutMs,
+    // The tool's own timeout (below) fires first, so its error names SUPABASE_TOOL_TIMEOUT_MS.
+    timeoutMs: settings.timeoutMs + 1000,
     maxRetries: 0,
   });
   const combinedSignal = combineSignals(signal, settings.timeoutMs);
