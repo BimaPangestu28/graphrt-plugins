@@ -5,12 +5,18 @@
  *
  * Agent policy: reads are tools; inserts, updates, upserts, uploads and function calls need
  * SUPABASE_TOOL_ALLOW_WRITES=1 for tools; row deletes, object deletes and signed URLs are node only; tool uploads
- * never overwrite; api_request as a tool only reaches /rest/v1 reads and storage reads.
+ * never overwrite; api_request as a tool only reaches /rest/v1 reads and storage reads. The `call_function` tool
+ * follows SUPABASE_TOOL_RPC_ALLOWLIST, SUPABASE_TOOL_TIMEOUT_MS and SUPABASE_TOOL_MAX_ROWS (lib/rpc-tool.mjs).
+ *
+ * SUPABASE_TOOL_MODE=user_rpc (multi-user chatbots): the only tool is a per-user `call_function` that sends the end
+ * user's JWT from the host's per-call tool context, never SUPABASE_USER_JWT or the key, and needs the allowlist.
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
 import { guardToolApiRequest } from "./lib/tool-path-policy.mjs";
 import { applyRowQueries, applyUpsertResolution, refuseToolOverwrites, RETURN_PREFERENCE } from "./lib/supabase-policy.mjs";
 import { FILTER_OPERATORS } from "./lib/postgrest-query.mjs";
+import { applyRpcToolLimits, createUserRpcOperation, isUserRpcMode, RPC_TOOL_ENV } from "./lib/rpc-tool.mjs";
+import { createErrorParser } from "./lib/shared/rest-errors.mjs";
 
 const WRITE_OPT_IN = "optIn:SUPABASE_TOOL_ALLOW_WRITES";
 const URL_ENV = "SUPABASE_URL";
@@ -170,6 +176,8 @@ const rowOperations = [
     write: "unsafe",
     checkHint: "read the rows the function changes",
     toolPolicy: WRITE_OPT_IN,
+    // lib/rpc-tool.mjs caps tool results by rows and size (SUPABASE_TOOL_MAX_ROWS).
+    toolOutput: false,
     bodyMode: "raw",
     params: {
       function_name: { in: "path", type: "string", required: true, description: "Function name" },
@@ -273,6 +281,23 @@ const storageOperations = [
   },
 ];
 
+// PostgREST: {code, details, hint, message}; gateway: {message, hint}; Storage: {statusCode, error, code, message}.
+const SUPABASE_ERRORS = {
+  messagePath: ["message", "msg", "error_description"],
+  codePath: "code",
+  kindByCode: {
+    PGRST301: "auth_error",
+    PGRST302: "auth_error",
+    PGRST303: "auth_error",
+    42501: "permission_denied",
+    PGRST202: "not_found",
+    PGRST205: "not_found",
+    InvalidJWT: "auth_error",
+    NoSuchBucket: "not_found",
+    NoSuchKey: "not_found",
+  },
+};
+
 const restDefinition = defineRestPlugin({
   name: "supabase",
   version: "0.1.0",
@@ -281,23 +306,8 @@ const restDefinition = defineRestPlugin({
   limits: { timeout_ms: 130000 },
   baseUrl: resolveProjectUrl,
   auth: { type: "custom", env: "SUPABASE_KEY", authorize: authorizeSupabase },
-  extraEnv: [URL_ENV, USER_JWT_ENV, "SUPABASE_TOOL_API_EXTRA_PATHS"],
-  // PostgREST: {code, details, hint, message}; gateway: {message, hint}; Storage: {statusCode, error, code, message}.
-  errors: {
-    messagePath: ["message", "msg", "error_description"],
-    codePath: "code",
-    kindByCode: {
-      PGRST301: "auth_error",
-      PGRST302: "auth_error",
-      PGRST303: "auth_error",
-      42501: "permission_denied",
-      PGRST202: "not_found",
-      PGRST205: "not_found",
-      InvalidJWT: "auth_error",
-      NoSuchBucket: "not_found",
-      NoSuchKey: "not_found",
-    },
-  },
+  extraEnv: [URL_ENV, USER_JWT_ENV, "SUPABASE_TOOL_API_EXTRA_PATHS", ...RPC_TOOL_ENV],
+  errors: SUPABASE_ERRORS,
   apiRequest: { examplePath: "/rest/v1/<table>?select=id&id=eq.1" },
   operations: [...rowOperations, ...storageOperations],
 });
@@ -314,4 +324,11 @@ const rowQueryDefinition = applyRowQueries(guardedDefinition, {
   filterRequired: ["update_rows", "delete_rows"],
 });
 
-export const pluginDefinition = refuseToolOverwrites(applyUpsertResolution(rowQueryDefinition, "upsert_rows"), "upload_object");
+const policyDefinition = refuseToolOverwrites(applyUpsertResolution(rowQueryDefinition, "upsert_rows"), "upload_object");
+
+export const pluginDefinition = {
+  ...applyRpcToolLimits(policyDefinition, "call_function"),
+  // user_rpc: one per-user RPC tool and nothing else (no select_rows, api_request, writes or storage).
+  resolveToolOperations: (environment) =>
+    isUserRpcMode(environment) ? [createUserRpcOperation({ environment, errors: SUPABASE_ERRORS, createErrorParser })] : undefined,
+};
