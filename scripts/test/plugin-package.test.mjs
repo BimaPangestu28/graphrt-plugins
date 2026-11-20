@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
-  pruneDependencyExtras,
+  MAX_CATALOG_BYTES, pruneDependencyExtras, renderCatalogText,
   assertAllowedPath, buildCatalog, buildCatalogEntry, describeTarballBytes, extractCatalogWarning, findCatalogRegressions, formatSha256Sums,
   isPinnedPath, releaseTagFor, sha256Hex, tarballNameFor, withChecksums,
 } from "../lib/plugin-package.mjs";
@@ -212,4 +212,13 @@ test("drops dependencies' own test folders, .bin and caches, but keeps their run
   } finally {
     rmSync(nodeModules, { recursive: true, force: true });
   }
+});
+
+test("writes the catalog as compact JSON and refuses one the desktop app could not download", () => {
+  const catalog = { schema: 1, plugins: [{ name: "a", nodes: [{ kind: "a.b" }] }] };
+  assert.equal(renderCatalogText(catalog), '{"schema":1,"plugins":[{"name":"a","nodes":[{"kind":"a.b"}]}]}\n');
+  // graphrt-builder-desktop refuses a larger index.json and silently keeps its saved copy.
+  assert.equal(MAX_CATALOG_BYTES, 2 * 1024 * 1024);
+  const oversized = { schema: 1, plugins: [{ name: "a", description: "x".repeat(MAX_CATALOG_BYTES) }] };
+  assert.throws(() => renderCatalogText(oversized), /index\.json is \d+ bytes; the desktop app accepts at most 2097152/);
 });
