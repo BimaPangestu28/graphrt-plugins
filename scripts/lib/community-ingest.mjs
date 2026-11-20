@@ -24,7 +24,7 @@ import {
 import { COMMUNITY_FALLBACK_ICON_SVG, ICON_FILE_NAME, validateIconBytes } from "./plugin-icons.mjs";
 import { findReservedNodeProperties } from "./reserved-parameters.mjs";
 import { readTarGz } from "./tar-archive.mjs";
-import { verifyTarball } from "../verify-plugins.mjs";
+import { verifyTarball } from "./tarball-verification.mjs";
 
 /** Largest community tarball downloaded or mirrored. */
 export const MAX_COMMUNITY_TARBALL_BYTES = 64 * 1024 * 1024;
