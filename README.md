@@ -198,30 +198,65 @@ lists them all.
   whose `checksums` pin every `.mjs`/`.js`/`.cjs`/`.json` file outside `node_modules`. graphrt verifies them on
   install and before every start. `node_modules` is not pinned: npm checked it against the lockfile integrity
   hashes, and hashing all of Playwright before every start would slow every run.
-- **Catalog:** `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/index.json`, with
-  `SHA256SUMS` next to it. It is rebuilt from the published tarballs on every publish:
-  ```json
-  {"schema": 1, "generated_at": "2026-11-18T10:00:00Z", "plugins": [{
-    "name": "meta-api", "version": "0.1.0", "description": "...",
-    "icon_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/icon-meta-api-<12 hex>.svg",
-    "tarball_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz",
-    "sha256": "<hex of the tarball>", "size_bytes": 29257,
-    "permissions": {"network": true, "secrets": true, "env": ["META_ACCESS_TOKEN"]},
-    "needs_browser": false, "node": ">=20", "warning": null, "operations_count": 25,
-    "nodes": [{"kind": "meta-api.get_page", "title": "...", "description": "...",
-      "config_schema": {"type": "object", "properties": {"page_id": {"type": "string"}}},
-      "outputs": [{"name": "data", "type": "any", "description": "API result"}]}],
-    "tools": ["get_page"],
-    "readme_url": "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md"}]}
-  ```
-  Each node carries its `config_schema` (the manifest's JSON Schema, verbatim) and `outputs` (when the manifest
-  declares them), so a builder can write correct steps for a plugin that is not installed yet. `warning` is the
+- **Catalog:** the `catalog` release, rebuilt from the published tarballs on every publish, holds two indexes
+  (both compact JSON) plus `SHA256SUMS`, which lists every tarball, icon, detail file and both indexes.
+  - **v2 (current):** `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/index-v2.json`, a
+    slim index for plugin lists (about 340 KB for 146 plugins; publishing warns above 1 MiB and refuses above 4 MiB):
+    ```json
+    {"schema": 2, "generated_at": "2026-11-21T10:00:00Z", "plugins": [{
+      "name": "meta-api", "display_name": "Facebook & Instagram", "version": "0.1.0", "description": "...",
+      "icon_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/icon-meta-api-<12 hex>.svg",
+      "tarball_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz",
+      "sha256": "<hex of the tarball>", "size_bytes": 29257,
+      "permissions": {"network": true, "secrets": true, "env": ["META_ACCESS_TOKEN"]},
+      "needs_browser": false, "node": ">=20", "warning": null,
+      "status": "beta", "status_reason": "...", "tos_risk": "low", "operations_count": 25,
+      "tools": ["get_page"], "node_kinds": [{"kind": "meta-api.get_page", "title": "Get page"}],
+      "readme_url": "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md",
+      "detail_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/plugin-meta-api-0.1.0.json",
+      "detail_sha256": "<hex of the detail file>", "detail_size_bytes": 23849}]}
+    ```
+    Each entry links the **detail file** of its version, `plugin-<name>-<version>.json` (at most 1 MiB):
+    ```json
+    {"schema": 2, "name": "meta-api", "version": "0.1.0",
+     "nodes": [{"kind": "meta-api.get_page", "title": "...", "description": "...",
+       "config_schema": {"type": "object", "properties": {"page_id": {"type": "string"}}},
+       "outputs": [{"name": "data", "type": "any", "description": "API result"}]}],
+     "tools": [{"name": "get_page", "description": "..."}]}
+    ```
+    A detail file derives only from the released manifest of that version, so it is **immutable**: it is uploaded
+    once, before either index, and a publish that would give an existing detail file other bytes fails. Readers
+    verify `detail_sha256` and can cache it forever under `<name>-<version>`.
+  - **v1 (older apps):** `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/index.json`,
+    `schema: 1`, the same entries with `nodes` instead of `node_kinds`/`detail_*`:
+    ```json
+    {"schema": 1, "generated_at": "2026-11-18T10:00:00Z", "plugins": [{
+      "name": "meta-api", "version": "0.1.0", "...": "the v2 list fields up to operations_count",
+      "nodes": [{"kind": "meta-api.get_page", "title": "...", "description": "...",
+        "config_schema": {"type": "object", "properties": {"page_id": {"type": "string"}}},
+        "outputs": [{"name": "data", "type": "any", "description": "API result"}]}],
+      "tools": ["get_page"],
+      "readme_url": "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md"}]}
+    ```
+    v1 must fit the desktop app's 2 MiB limit (`MAX_CATALOG_BYTES`). While it fits it is published in full; when
+    it would not, it is published without the nodes' `config_schema` and `outputs` (v1 readers treat both as
+    optional) and the publish logs a warning.
+
+  In both, a node's `config_schema` is the manifest's JSON Schema, verbatim, and `outputs` appears when the manifest
+  declares them, so a builder can write correct steps for a plugin that is not installed yet. `warning` is the
   first `> **Warning:**` blockquote of the shipped README as one line (the Terms of Service warning of
   `whatsapp-web` and `google-maps-scraper`), else `null`; `operations_count` is the number of nodes. `icon_url` is
   the plugin's `icon.svg`, a 24×24 SVG published as an asset of the `catalog` release under a name that contains
-  its sha256 prefix, so the URL is immutable (see [docs/icons.md](docs/icons.md)). These fields were added within
-  `schema: 1`: readers that do not know them ignore them.
-- **Desktop app:** reads `index.json`, downloads `tarball_url`, checks `sha256` (and `size_bytes`), extracts it
+  its sha256 prefix, so the URL is immutable (see [docs/icons.md](docs/icons.md)). Fields added within a schema
+  are optional: readers that do not know them ignore them.
+
+  **Asset limit and pruning:** a GitHub release holds at most 1000 assets. Old icons and detail files are kept so
+  that older indexes keep resolving, so the `catalog` release grows with every icon change and plugin version
+  (about 300 assets today). Publishing warns from 900 assets and refuses above 1000. To prune, delete by hand
+  (`gh release delete-asset catalog <name>`) the `icon-*.svg` and `plugin-*.json` assets that the live
+  `index.json` and `index-v2.json` no longer reference; never delete one they reference.
+- **Desktop app:** reads `index-v2.json` (falling back to `index.json` when it is missing or has an unknown
+  `schema`), fetches a plugin's detail file when it needs node schemas, downloads `tarball_url`, checks `sha256` (and `size_bytes`), extracts it
   and installs the `<name>/` directory, for example with `graphrt plugin install <extracted>/<name>`. When
   `needs_browser` is true it then installs Chromium for the bundled Playwright by running
   `node node_modules/playwright/cli.js install chromium` inside the installed plugin directory. Plugin processes
@@ -252,13 +287,16 @@ graphrt plugin install ./meta-api
 - **Tests:** `npm test` runs every suite and fails when the generated files are out of date.
 - **Icons:** `npm run icons` regenerates each `<plugin>/icon.svg` from `icons.json` (needs `npm ci` at the root);
   see [docs/icons.md](docs/icons.md).
-- **Releases:** `npm run pack:plugins [name...]` builds tarballs, `index.json` and `SHA256SUMS` in `dist/`;
+- **Releases:** `npm run pack:plugins [name...]` builds tarballs, `index.json`, `index-v2.json`, detail files
+  (`details/`), icons (`icons/`) and `SHA256SUMS` in `dist/`;
   `npm run verify:plugins dist/*.tar.gz` extracts each one and checks its checksums (add `--graphrt <binary>` to also
   run `graphrt plugin install` into a temporary directory). `npm run publish:plugins` tests, packs and verifies every
   plugin, creates the releases that do not exist yet and refreshes `catalog`; it never changes a published release,
   so bump the version in `definition.mjs` (or `graphrt-plugin.json` for google-maps-scraper) to ship a change.
-  `npm run publish:plugins -- --catalog-only` only rebuilds `index.json` and `SHA256SUMS` from the published tarballs
-  and uploads new icons (after a catalog format, status or icon change); it refuses to drop a plugin or change any version, `sha256` or `size_bytes`.
+  `npm run publish:plugins -- --catalog-only` only rebuilds `index.json`, `index-v2.json`, the detail files and
+  `SHA256SUMS` from the published tarballs and uploads new icons and detail files (after a catalog format, status or
+  icon change); it refuses to drop a plugin or change any version, `sha256` or `size_bytes`, and to replace a
+  published detail file with other bytes.
   `.github/workflows/release.yml` runs the same script on a `<name>-v<version>` tag push or by hand.
 
 ### Multi-user agents

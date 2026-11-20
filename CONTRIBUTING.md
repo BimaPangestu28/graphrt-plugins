@@ -315,7 +315,8 @@ Maintainers do the releasing; contributors never tag or publish.
   changelog in the PR. A new plugin starts at `0.1.0`.
 - Pushing the tag runs [`release.yml`](.github/workflows/release.yml). It checks that the tag matches the manifest
   version, re-checks the generated files, tests the release tooling, then tests, packs and verifies the plugin
-  and refreshes the `catalog` release (`index.json`, `SHA256SUMS` and new plugin icons).
+  and refreshes the `catalog` release (`index.json`, `index-v2.json`, `SHA256SUMS`, new plugin icons and the new
+  version's immutable detail file `plugin-<name>-<version>.json`; see [Install](README.md#install) for the format).
 - Maintainers can also run the workflow by hand (optionally as a `dry_run`) to publish every plugin whose version
   has no release yet.
 - Locally, the same steps are `npm run pack:plugins [name...]`, `npm run verify:plugins dist/*.tar.gz` and

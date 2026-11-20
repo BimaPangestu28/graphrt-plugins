@@ -59,8 +59,10 @@ https://github.com/<owner>/graphrt-plugins/releases/download/catalog/icon-<plugi
 ```
 
 A changed icon gets a new name, so an `icon_url` never changes meaning. Icons are uploaded before `index.json`, so
-every URL in a live catalog resolves, and old icon assets are kept so that older catalogs keep working (a release
-holds up to 1000 assets; prune unreferenced icons by hand if it ever gets close). `SHA256SUMS` lists the icons too.
+every URL in a live catalog resolves, and old icon assets are kept so that older catalogs keep working. The v2
+detail files (`plugin-<name>-<version>.json`) live on the same release, which holds at most 1000 assets: publishing
+warns from 900 and refuses above 1000, so prune icons and detail files that neither live index references (see
+[Install](../README.md#install)). `SHA256SUMS` lists the icons too.
 
 ## Licences and trademarks
 - **Simple Icons** marks are distributed under [CC0 1.0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md).
