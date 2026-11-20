@@ -46,7 +46,7 @@ test("stages each catalog icon under its asset name and lists it in SHA256SUMS",
   try {
     const released = ["meta-api", "open-meteo"].map((pluginName) => {
       const manifest = JSON.parse(readFileSync(join(REPO_ROOT, pluginName, "graphrt-plugin.json"), "utf8"));
-      return { tarballName: `${pluginName}-${manifest.version}.tar.gz`, sha256: "a".repeat(64), catalogEntry: buildCatalogEntry(manifest, { sha256: "a".repeat(64), sizeBytes: 1 }) };
+      return { tarballName: `${pluginName}-${manifest.version}.tar.gz`, sha256: "a".repeat(64), manifest, catalogEntry: buildCatalogEntry(manifest, { sha256: "a".repeat(64), sizeBytes: 1 }) };
     });
     const { indexPath, sumsPath, iconPaths } = writeCatalogFiles(outputDirectory, released);
     const catalog = JSON.parse(readFileSync(indexPath, "utf8"));
