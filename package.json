@@ -11,9 +11,15 @@
     "sync": "node scripts/sync-shared.mjs && node scripts/sync-plugin-status.mjs",
     "check": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check",
     "test": "node scripts/run-tests.mjs",
+    "icons": "node scripts/generate-icons.mjs",
+    "icons:check": "node scripts/generate-icons.mjs --check",
     "pack:plugins": "node scripts/pack-plugins.mjs",
     "verify:plugins": "node scripts/verify-plugins.mjs",
     "publish:plugins": "node scripts/publish-plugins.mjs",
     "ci:local": "scripts/ci-local.sh"
+  },
+  "devDependencies": {
+    "lucide-static": "1.66.0",
+    "simple-icons": "16.36.0"
   }
 }
