@@ -1,7 +1,7 @@
 /**
  * Runs the shared tests and every plugin's tests, checks that copied
- * shared code, generated manifests and status labels are up to date, and that no manifest
- * declares a node parameter graphrt reserves.
+ * shared code, generated manifests and status labels are up to date, that no manifest
+ * declares a node parameter graphrt reserves, and that community-plugins.json is valid.
  *
  * Usage: node scripts/run-tests.mjs
  */
@@ -17,7 +17,8 @@ const testDirectories = readdirSync(REPO_ROOT, { withFileTypes: true })
 const syncCheck = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "sync-shared.mjs"), "--check"], { stdio: "inherit" });
 const statusLabelCheck = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "sync-plugin-status.mjs"), "--check"], { stdio: "inherit" });
 const reservedParameterCheck = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "check-reserved-parameters.mjs")], { stdio: "inherit" });
-let failedSuites = [syncCheck, statusLabelCheck, reservedParameterCheck].filter((check) => check.status !== 0).length;
+const communityRegistryCheck = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "check-community-plugins.mjs")], { stdio: "inherit" });
+let failedSuites = [syncCheck, statusLabelCheck, reservedParameterCheck, communityRegistryCheck].filter((check) => check.status !== 0).length;
 
 for (const testDirectory of testDirectories) {
   const testFiles = readdirSync(join(testDirectory, "test")).filter((fileName) => fileName.endsWith(".test.mjs"));

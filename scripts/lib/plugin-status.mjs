@@ -62,15 +62,28 @@ export function findPluginStatusProblems(pluginStatuses, pluginNames) {
 
 /** Validates one entry's fields. */
 function findEntryProblems(pluginName, statusEntry) {
-  const problems = [];
-  if (!PLUGIN_STATUS_LEVELS.includes(statusEntry.status)) problems.push(`${pluginName}: status \`${statusEntry.status}\` must be one of ${PLUGIN_STATUS_LEVELS.join(", ")}`);
-  if (typeof statusEntry.reason !== "string" || statusEntry.reason.trim() === "") problems.push(`${pluginName}: reason must be a non-empty string`);
-  if (!TOS_RISK_LEVELS.includes(statusEntry.tos_risk)) problems.push(`${pluginName}: tos_risk \`${statusEntry.tos_risk}\` must be one of ${TOS_RISK_LEVELS.join(", ")}`);
-  const hasNotes = typeof statusEntry.tos_notes === "string" && statusEntry.tos_notes.trim() !== "";
-  if (RISKS_NEEDING_NOTES.has(statusEntry.tos_risk) && !hasNotes) problems.push(`${pluginName}: tos_risk ${statusEntry.tos_risk} needs tos_notes`);
+  const problems = findStatusFieldProblems(pluginName, statusEntry);
   for (const fieldName of Object.keys(statusEntry)) {
     if (!ENTRY_FIELDS.has(fieldName)) problems.push(`${pluginName}: unknown field \`${fieldName}\``);
   }
+  return problems;
+}
+
+/**
+ * Checks the maturity fields shared by plugin-status.json and community-plugins.json: a known `status`, a
+ * non-empty `reason`, a known `tos_risk`, and `tos_notes` when the risk is `medium` or `high`.
+ *
+ * @param label - Prefix of each message, usually the plugin name (string)
+ * @param statusFields - `{status, reason, tos_risk, tos_notes?}` (object)
+ * @returns Human-readable problems; empty when the fields are valid (string[])
+ */
+export function findStatusFieldProblems(label, { status, reason, tos_risk: tosRisk, tos_notes: tosNotes }) {
+  const problems = [];
+  if (!PLUGIN_STATUS_LEVELS.includes(status)) problems.push(`${label}: status \`${status}\` must be one of ${PLUGIN_STATUS_LEVELS.join(", ")}`);
+  if (typeof reason !== "string" || reason.trim() === "") problems.push(`${label}: reason must be a non-empty string`);
+  if (!TOS_RISK_LEVELS.includes(tosRisk)) problems.push(`${label}: tos_risk \`${tosRisk}\` must be one of ${TOS_RISK_LEVELS.join(", ")}`);
+  const hasNotes = typeof tosNotes === "string" && tosNotes.trim() !== "";
+  if (RISKS_NEEDING_NOTES.has(tosRisk) && !hasNotes) problems.push(`${label}: tos_risk ${tosRisk} needs tos_notes`);
   return problems;
 }
 

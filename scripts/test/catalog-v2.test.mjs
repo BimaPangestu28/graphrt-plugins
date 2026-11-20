@@ -26,7 +26,7 @@ const sampleManifest = {
 
 const V2_ENTRY_KEYS = [
   "name", "display_name", "version", "description", "icon_url", "tarball_url", "sha256", "size_bytes", "permissions", "needs_browser", "node",
-  "warning", "status", "status_reason", "tos_risk", "operations_count", "tools", "node_kinds", "readme_url", "detail_url", "detail_sha256",
+  "warning", "status", "status_reason", "tos_risk", "source", "publisher", "repository_url", "operations_count", "tools", "node_kinds", "readme_url", "detail_url", "detail_sha256",
   "detail_size_bytes",
 ];
 

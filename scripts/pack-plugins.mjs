@@ -2,8 +2,11 @@
  * Packs plugins into release tarballs with pinned checksums, plus a catalog.
  *
  * Usage: node scripts/pack-plugins.mjs [plugin-name...] [--out <dir>]
- *   plugin-name  plugins to pack (default: every plugin directory)
- *   --out        output directory (default: dist)
+ *        node scripts/pack-plugins.mjs --plugin-dir <dir> [--out <dir>]
+ *   plugin-name   plugins to pack (default: every plugin directory)
+ *   --out         output directory (default: dist)
+ *   --plugin-dir  pack one plugin from any git-tracked directory (a community plugin in its own repository):
+ *                 writes only `<out>/<name>-<version>.tar.gz`, with its root icon.svg, and prints its sha256
  *
  * Writes `<out>/<name>-<version>.tar.gz` per plugin, `<out>/index.json` (the v1
  * catalog for the packed plugins, with release download URLs), `<out>/index-v2.json`
@@ -12,12 +15,12 @@
  * `<out>/SHA256SUMS`. publish-plugins.mjs rebuilds the catalog from the published
  * assets, so it always describes what was actually released.
  */
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { REPO_ROOT } from "./plugins.mjs";
 import {
-  MAX_CATALOG_BYTES, buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin, renderCatalogTextWithinLimit, sha256Hex,
+  MANIFEST_FILE_NAME, MAX_CATALOG_BYTES, buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin, renderCatalogTextWithinLimit, sha256Hex,
 } from "./lib/plugin-package.mjs";
 import { CATALOG_V2_INDEX_NAME, buildCatalogV2, buildCatalogV2Entry, buildPluginDetail, renderCatalogV2Text, renderPluginDetail } from "./lib/catalog-v2.mjs";
 import { readPluginIcon } from "./lib/plugin-icons.mjs";
@@ -31,17 +34,20 @@ export const DETAIL_STAGING_DIRECTORY_NAME = "details";
  * Parses command line arguments.
  *
  * @param argumentList - process.argv without node and the script (string[])
- * @returns `{pluginNames, outputDirectory}` (object)
+ * @returns `{pluginNames, outputDirectory, pluginDirectory}`; pluginDirectory is null unless --plugin-dir is given (object)
  * @throws Error - On an unknown plugin name or option
  */
 export function parsePackArguments(argumentList) {
   const knownPlugins = listPluginNames();
   let outputDirectory = resolve(REPO_ROOT, "dist");
+  let pluginDirectory = null;
   const pluginNames = [];
   for (let index = 0; index < argumentList.length; index += 1) {
     const argument = argumentList[index];
     if (argument === "--out") {
       outputDirectory = resolve(argumentList[++index] ?? "");
+    } else if (argument === "--plugin-dir") {
+      pluginDirectory = resolve(argumentList[++index] ?? "");
     } else if (argument.startsWith("-")) {
       throw new Error(`unknown option ${argument}`);
     } else if (!knownPlugins.includes(argument)) {
@@ -50,7 +56,26 @@ export function parsePackArguments(argumentList) {
       pluginNames.push(argument);
     }
   }
-  return { pluginNames: pluginNames.length > 0 ? pluginNames : knownPlugins, outputDirectory };
+  if (pluginDirectory && pluginNames.length > 0) throw new Error("--plugin-dir packs one directory; do not also name plugins");
+  return { pluginNames: pluginNames.length > 0 ? pluginNames : knownPlugins, outputDirectory, pluginDirectory };
+}
+
+/**
+ * Packs one plugin that lives outside this repo (a community plugin) the way official plugins are packed, with
+ * its root icon.svg included. No catalog files are written.
+ *
+ * @param pluginDirectory - The plugin's directory, tracked by git (string)
+ * @param outputDirectory - Where `<name>-<version>.tar.gz` is written (string)
+ * @returns As packPlugin (object)
+ * @throws Error - When the manifest, the files or npm fail the packing checks
+ */
+export function packExternalPlugin(pluginDirectory, outputDirectory) {
+  const { name: pluginName } = JSON.parse(readFileSync(join(pluginDirectory, MANIFEST_FILE_NAME), "utf8"));
+  if (typeof pluginName !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(pluginName)) throw new Error(`${pluginDirectory}: manifest name \`${pluginName}\` is not a valid plugin name`);
+  mkdirSync(outputDirectory, { recursive: true });
+  const packed = packPlugin(pluginName, { outputDirectory, sourceDirectory: pluginDirectory, includeIcon: true });
+  rmSync(resolve(outputDirectory, ".staging"), { recursive: true, force: true });
+  return packed;
 }
 
 /**
@@ -78,8 +103,9 @@ export function packPlugins(pluginNames, outputDirectory) {
  * the full one would exceed MAX_CATALOG_BYTES; that and an index-v2.json above its warning size are logged.
  *
  * @param outputDirectory - Target directory (string)
- * @param releasedPlugins - `{tarballName, sha256, manifest, catalogEntry}` per plugin; `manifest` is the released
- *   manifest the detail file is derived from (object[])
+ * @param releasedPlugins - `{tarballName, sha256, manifest, catalogEntry, icon?}` per plugin; `manifest` is the released
+ *   manifest the detail file is derived from; `icon` (`{assetName, bytes, sha256}`) is set for community plugins,
+ *   whose icon is not in this repo (object[])
  * @returns `{indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas}`; detailFiles holds
  *   `{assetName, sha256, sizeBytes, stagedPath}` (object)
  * @throws Error - When a plugin has no valid icon.svg or manifest, or a catalog file is too large
@@ -122,12 +148,15 @@ function stageDetailFiles(detailDirectory, releasedPlugins) {
   });
 }
 
-/** Copies each plugin's icon to `<iconDirectory>/<asset name>`, replacing anything staged before. */
+/**
+ * Copies each plugin's icon to `<iconDirectory>/<asset name>`, replacing anything staged before. Official icons
+ * come from the repo; community items carry theirs (`icon`, taken from the tarball or the neutral fallback).
+ */
 function stageCatalogIcons(iconDirectory, releasedPlugins) {
   rmSync(iconDirectory, { recursive: true, force: true });
   mkdirSync(iconDirectory, { recursive: true });
-  return releasedPlugins.map(({ catalogEntry }) => {
-    const icon = readPluginIcon(catalogEntry.name);
+  return releasedPlugins.map(({ catalogEntry, icon: carriedIcon }) => {
+    const icon = carriedIcon ?? readPluginIcon(catalogEntry.name);
     if (!catalogEntry.icon_url.endsWith(`/${icon.assetName}`)) throw new Error(`${catalogEntry.name}: icon.svg changed while the catalog was built`);
     const stagedPath = resolve(iconDirectory, icon.assetName);
     writeFileSync(stagedPath, icon.bytes);
@@ -137,8 +166,9 @@ function stageCatalogIcons(iconDirectory, releasedPlugins) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const { pluginNames, outputDirectory } = parsePackArguments(process.argv.slice(2));
-    for (const packed of packPlugins(pluginNames, outputDirectory)) {
+    const { pluginNames, outputDirectory, pluginDirectory } = parsePackArguments(process.argv.slice(2));
+    const packedPlugins = pluginDirectory ? [packExternalPlugin(pluginDirectory, outputDirectory)] : packPlugins(pluginNames, outputDirectory);
+    for (const packed of packedPlugins) {
       console.log(`${packed.sha256}  ${packed.tarballName}  (${packed.sizeBytes} bytes, ${Object.keys(packed.manifest.checksums).length} pinned files)`);
     }
   } catch (error) {

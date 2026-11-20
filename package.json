@@ -9,7 +9,7 @@
   },
   "scripts": {
     "sync": "node scripts/sync-shared.mjs && node scripts/sync-plugin-status.mjs",
-    "check": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check",
+    "check": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node scripts/check-community-plugins.mjs",
     "test": "node scripts/run-tests.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "icons:check": "node scripts/generate-icons.mjs --check",
