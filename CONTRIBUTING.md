@@ -16,6 +16,7 @@ Everything here describes what the repo already does. When this guide and the co
 - [Commits and pull requests](#commits-and-pull-requests)
 - [Review process](#review-process)
 - [Releases](#releases)
+- [Publishing a community plugin](#publishing-a-community-plugin)
 
 ## Before you start
 
@@ -321,6 +322,22 @@ Maintainers do the releasing; contributors never tag or publish.
   has no release yet.
 - Locally, the same steps are `npm run pack:plugins [name...]`, `npm run verify:plugins dist/*.tar.gz` and
   `npm run publish:plugins`. See [Development](README.md#development).
+
+## Publishing a community plugin
+You can also ship a plugin from your own repository without moving its code here. You release it on your
+GitHub and open a PR that adds one entry to [`community-plugins.json`](community-plugins.json). A maintainer
+reviews the code at your tag, and publishing mirrors the exact reviewed tarball to a `community-<name>-v<version>`
+release of this repo. The catalog then lists it with `source: "community"` and your publisher name.
+
+The full guide is [docs/community-plugins.md](docs/community-plugins.md). It covers scaffolding with
+`graphrt plugin new`, the required files, the tarball layout and `scripts/pack-plugins.mjs --plugin-dir`, the
+agent-safety checklist, releasing, the registry fields, what reviewers check, new versions, removal and yanking,
+and the trust model.
+
+In short:
+- the same agent-safety checklist and status rules apply as for official plugins;
+- every new version needs a new PR and review;
+- `node scripts/verify-plugins.mjs --community <name>` runs the publish checks on your entry.
 
 ## License
 By contributing you agree that your work is licensed under the Apache-2.0 license of this repository.

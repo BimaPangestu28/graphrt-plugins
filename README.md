@@ -210,8 +210,10 @@ lists them all.
       "sha256": "<hex of the tarball>", "size_bytes": 29257,
       "permissions": {"network": true, "secrets": true, "env": ["META_ACCESS_TOKEN"]},
       "needs_browser": false, "node": ">=20", "warning": null,
-      "status": "beta", "status_reason": "...", "tos_risk": "low", "operations_count": 25,
-      "tools": ["get_page"], "node_kinds": [{"kind": "meta-api.get_page", "title": "Get page"}],
+      "status": "beta", "status_reason": "...", "tos_risk": "low",
+      "source": "official", "publisher": "graphrt",
+      "repository_url": "https://github.com/BimaPangestu28/graphrt-plugins/tree/meta-api-v0.1.0/meta-api",
+      "operations_count": 25, "tools": ["get_page"], "node_kinds": [{"kind": "meta-api.get_page", "title": "Get page"}],
       "readme_url": "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md",
       "detail_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/plugin-meta-api-0.1.0.json",
       "detail_sha256": "<hex of the detail file>", "detail_size_bytes": 23849}]}
@@ -247,8 +249,12 @@ lists them all.
   first `> **Warning:**` blockquote of the shipped README as one line (the Terms of Service warning of
   `whatsapp-web` and `google-maps-scraper`), else `null`; `operations_count` is the number of nodes. `icon_url` is
   the plugin's `icon.svg`, a 24×24 SVG published as an asset of the `catalog` release under a name that contains
-  its sha256 prefix, so the URL is immutable (see [docs/icons.md](docs/icons.md)). Fields added within a schema
-  are optional: readers that do not know them ignore them.
+  its sha256 prefix, so the URL is immutable (see [docs/icons.md](docs/icons.md)). `source` is `"official"` (built
+  from this repo; `publisher` `"graphrt"`, `repository_url` the plugin's directory at its release tag) or
+  `"community"` (a reviewed third-party plugin from [community-plugins.json](community-plugins.json); `publisher`
+  and `repository_url` are its developer's, and its tarball is mirrored to a `community-<name>-v<version>` release
+  of this repo, see [docs/community-plugins.md](docs/community-plugins.md)); readers treat a missing `source` as
+  `"official"`. Fields added within a schema are optional: readers that do not know them ignore them.
 
   **Asset limit and pruning:** a GitHub release holds at most 1000 assets. Old icons and detail files are kept so
   that older indexes keep resolving, so the `catalog` release grows with every icon change and plugin version
@@ -298,6 +304,9 @@ graphrt plugin install ./meta-api
   icon change); it refuses to drop a plugin or change any version, `sha256` or `size_bytes`, and to replace a
   published detail file with other bytes.
   `.github/workflows/release.yml` runs the same script on a `<name>-v<version>` tag push or by hand.
+  Every publish (including `--catalog-only`, which uses only already-mirrored tarballs) also lists the
+  [community plugins](docs/community-plugins.md); one that fails a check is skipped with its reason, never failing
+  the publish. `node scripts/verify-plugins.mjs --community <name>` runs those checks for one registry entry.
 
 ### Multi-user agents
 Plugins whose credential belongs to one end user (GitHub, GitLab, Slack, Notion, Google Workspace, Microsoft 365,
