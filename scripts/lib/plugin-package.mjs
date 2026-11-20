@@ -52,16 +52,34 @@ export const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
  * Serialises the catalog as compact JSON (node config schemas make the indented form ~75% larger).
  *
  * @param catalog - Catalog from buildCatalog (object)
+ * @param maxBytes - Size limit (number, default MAX_CATALOG_BYTES)
  * @returns `index.json` text, newline-terminated (string)
- * @throws Error - When the text is larger than MAX_CATALOG_BYTES
+ * @throws Error - When the text is larger than maxBytes
  */
-export function renderCatalogText(catalog) {
+export function renderCatalogText(catalog, maxBytes = MAX_CATALOG_BYTES) {
   const catalogText = `${JSON.stringify(catalog)}\n`;
   const sizeBytes = Buffer.byteLength(catalogText);
-  if (sizeBytes > MAX_CATALOG_BYTES) {
-    throw new Error(`index.json is ${sizeBytes} bytes; the desktop app accepts at most ${MAX_CATALOG_BYTES}. Raise its limit (and this one) first`);
+  if (sizeBytes > maxBytes) {
+    throw new Error(`index.json is ${sizeBytes} bytes; the desktop app accepts at most ${maxBytes}. Raise its limit (and this one) first`);
   }
   return catalogText;
+}
+
+/**
+ * Serialises the v1 catalog so that it always fits: in full while it fits in `maxBytes`, else without the
+ * nodes' `config_schema` and `outputs` (v1 readers treat both as optional; v2 detail files carry them).
+ *
+ * @param catalog - Catalog from buildCatalog (object)
+ * @param maxBytes - Size limit (number, default MAX_CATALOG_BYTES)
+ * @returns `{catalogText, withoutSchemas, fullSizeBytes}`; withoutSchemas is true when the schemas were dropped (object)
+ * @throws Error - When even the catalog without schemas is larger than maxBytes
+ */
+export function renderCatalogTextWithinLimit(catalog, maxBytes = MAX_CATALOG_BYTES) {
+  const fullText = `${JSON.stringify(catalog)}\n`;
+  const fullSizeBytes = Buffer.byteLength(fullText);
+  if (fullSizeBytes <= maxBytes) return { catalogText: fullText, withoutSchemas: false, fullSizeBytes };
+  const plugins = catalog.plugins.map((entry) => ({ ...entry, nodes: entry.nodes.map(({ kind, title, description }) => ({ kind, title, description })) }));
+  return { catalogText: renderCatalogText({ ...catalog, plugins }, maxBytes), withoutSchemas: true, fullSizeBytes };
 }
 
 /** @returns Tag of a plugin release, e.g. `meta-api-v0.1.0` (string) */

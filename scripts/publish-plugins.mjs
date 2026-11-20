@@ -7,19 +7,21 @@
  *                be identical between this commit and the working tree
  *   --out        working directory for tarballs and catalog files (default: dist)
  *   --dry-run    pack, test and verify, print what would be published, change nothing
- *   --catalog-only  skip testing, packing and plugin releases: rebuild `index.json` and
- *                `SHA256SUMS` from the already-published tarballs (their own manifests and
- *                READMEs) and upload them with any new icons. Refuses when a plugin in the live
- *                catalog would be dropped or change version, sha256, size or URL. Use it after
- *                changing the catalog format, a status or an icon; combine with --dry-run to only
- *                write the files.
+ *   --catalog-only  skip testing, packing and plugin releases: rebuild `index.json`,
+ *                `index-v2.json`, the detail files and `SHA256SUMS` from the already-published
+ *                tarballs (their own manifests and READMEs) and upload them with any new icons and
+ *                detail files. Refuses when a plugin in the live catalog would be dropped or change
+ *                version, sha256, size or URL. Use it after changing the catalog format, a status or
+ *                an icon; combine with --dry-run to only write the files.
  *
  * Steps: check generated files are in sync, run each plugin's tests (failing plugins
  * are skipped), pack and verify tarballs, create every missing `<name>-v<version>`
- * release (pre-release for 0.x), then rebuild `index.json` and `SHA256SUMS` from the
- * assets that are actually published and upload them to the `catalog` release, after the
- * plugin icons (`<plugin>/icon.svg`, uploaded as content-addressed `icon-<plugin>-<hash>.svg`
- * assets of the same release; old ones are kept so older catalogs' `icon_url`s still resolve).
+ * release (pre-release for 0.x), then rebuild the catalog from the assets that are
+ * actually published and upload it to the `catalog` release: first the plugin icons
+ * (`<plugin>/icon.svg`, as content-addressed `icon-<plugin>-<hash>.svg`) and the v2 detail
+ * files (`plugin-<name>-<version>.json`, immutable: a published one with other bytes makes
+ * the publish fail) that are not there yet, then `index.json`, `index-v2.json` and
+ * `SHA256SUMS`. Old icons and detail files are kept so older catalogs' URLs still resolve.
  * Existing plugin releases are never modified: bump the version to ship a change.
  *
  * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each
@@ -29,12 +31,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { REPO_ROOT, findSharedPlugins } from "./plugins.mjs";
-import { packPlugins, writeCatalogFiles } from "./pack-plugins.mjs";
+import { DETAIL_STAGING_DIRECTORY_NAME, ICON_STAGING_DIRECTORY_NAME, packPlugins, writeCatalogFiles } from "./pack-plugins.mjs";
 import { verifyTarball } from "./verify-plugins.mjs";
 import {
   CATALOG_TAG, MANIFEST_FILE_NAME, RELEASE_REPOSITORY, buildCatalogEntry, describeTarballBytes, findCatalogRegressions, listPluginNames,
-  releaseAssetUrl, releaseTagFor, tarballNameFor,
+  releaseAssetUrl, releaseTagFor, sha256Hex, tarballNameFor,
 } from "./lib/plugin-package.mjs";
+import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
 
 function parsePublishArguments(argumentList) {
@@ -173,42 +176,91 @@ function collectOtherPublishedPlugins(packedNames, outputDirectory) {
   return released;
 }
 
-const ICON_UPLOAD_BATCH_SIZE = 50;
+const ASSET_UPLOAD_BATCH_SIZE = 50;
+const SHA256_DIGEST_PREFIX = "sha256:";
+// index.json, index-v2.json and SHA256SUMS.
+const CATALOG_INDEX_FILE_COUNT = 3;
 
 /**
- * Lists the staged icons the `catalog` release does not have yet. Icon asset names are
- * content-addressed, so a name that is already published holds the same bytes.
+ * Lists the staged icons and detail files the `catalog` release does not have yet. Icon asset names are
+ * content-addressed, so a published name holds the same bytes. Detail files are immutable: a published one
+ * must hold exactly the rebuilt bytes, else this refuses.
  *
- * @returns `{catalogRelease, newIconPaths}` (object; catalogRelease is null when there is none yet)
+ * @returns `{catalogRelease, newAssetPaths, newIconPaths, newDetailPaths}` (object; catalogRelease is null when there is none yet)
+ * @throws Error - When a published detail file differs from the rebuilt one
  */
-function planCatalogUpload({ iconPaths }) {
+function planCatalogUpload({ iconPaths, detailFiles }, outputDirectory) {
   const catalogRelease = viewRelease(CATALOG_TAG);
-  const publishedNames = new Set((catalogRelease?.assets ?? []).map((asset) => asset.name));
-  return { catalogRelease, newIconPaths: iconPaths.filter((iconPath) => !publishedNames.has(basename(iconPath))) };
+  const publishedAssets = catalogRelease?.assets ?? [];
+  const publishedNames = new Set(publishedAssets.map((asset) => asset.name));
+  const newIconPaths = iconPaths.filter((iconPath) => !publishedNames.has(basename(iconPath)));
+  const stagedNames = new Set(detailFiles.map((detailFile) => detailFile.assetName));
+  const publishedDetails = publishedAssets.filter((asset) => stagedNames.has(asset.name));
+  const { newDetails, conflicts } = planDetailUploads(detailFiles, readPublishedSha256ByName(publishedDetails, outputDirectory));
+  if (conflicts.length > 0) throw detailConflictError(conflicts);
+  const newDetailPaths = newDetails.map((detailFile) => detailFile.stagedPath);
+  warnAboutAssetCount(publishedAssets.length + newIconPaths.length + newDetailPaths.length + (catalogRelease ? 0 : CATALOG_INDEX_FILE_COUNT));
+  return { catalogRelease, newAssetPaths: [...newIconPaths, ...newDetailPaths], newIconPaths, newDetailPaths };
 }
 
-/** Uploads new icons first (so every `icon_url` resolves once index.json is live), then index.json and SHA256SUMS. */
-function uploadCatalog(catalogFiles, { catalogRelease, newIconPaths }, targetCommit) {
-  const { indexPath, sumsPath } = catalogFiles;
+/** sha256 of each published asset: from GitHub's `digest` when it has one, else by downloading the asset. */
+function readPublishedSha256ByName(publishedAssets, outputDirectory) {
+  const sha256ByName = new Map();
+  const undigestedNames = [];
+  for (const asset of publishedAssets) {
+    if (asset.digest?.startsWith(SHA256_DIGEST_PREFIX)) sha256ByName.set(asset.name, asset.digest.slice(SHA256_DIGEST_PREFIX.length));
+    else undigestedNames.push(asset.name);
+  }
+  if (undigestedNames.length === 0) return sha256ByName;
+  const downloadDirectory = join(outputDirectory, "published", CATALOG_TAG, "details");
+  mkdirSync(downloadDirectory, { recursive: true });
+  for (const assetName of undigestedNames) {
+    runGhIdempotent(["release", "download", CATALOG_TAG, "-R", RELEASE_REPOSITORY, "-p", assetName, "-D", downloadDirectory, "--clobber"]);
+    sha256ByName.set(assetName, sha256Hex(readFileSync(join(downloadDirectory, assetName))));
+  }
+  return sha256ByName;
+}
+
+/** Refuses an upload that would exceed GitHub's per-release asset limit, and warns as it gets close. */
+function warnAboutAssetCount(assetCountAfterUpload) {
+  if (assetCountAfterUpload > MAX_RELEASE_ASSETS) {
+    throw new Error(`the ${CATALOG_TAG} release would hold ${assetCountAfterUpload} assets (GitHub allows ${MAX_RELEASE_ASSETS}); prune icons and detail files no index references first`);
+  }
+  if (assetCountAfterUpload >= RELEASE_ASSETS_WARNING_COUNT) {
+    console.error(`warning: the ${CATALOG_TAG} release will hold ${assetCountAfterUpload} of ${MAX_RELEASE_ASSETS} assets; prune icons and detail files no index references`);
+  }
+}
+
+/**
+ * Uploads new icons and detail files first (so every `icon_url` and `detail_url` resolves once an index is
+ * live), then index.json, index-v2.json and SHA256SUMS together.
+ */
+function uploadCatalog(catalogFiles, { catalogRelease, newAssetPaths }, targetCommit) {
+  const indexPaths = [catalogFiles.indexPath, catalogFiles.indexV2Path, catalogFiles.sumsPath];
   if (catalogRelease) {
-    for (let start = 0; start < newIconPaths.length; start += ICON_UPLOAD_BATCH_SIZE) {
-      const iconBatch = newIconPaths.slice(start, start + ICON_UPLOAD_BATCH_SIZE);
-      runGhIdempotent(["release", "upload", CATALOG_TAG, ...iconBatch, "-R", RELEASE_REPOSITORY, "--clobber"]);
+    for (let start = 0; start < newAssetPaths.length; start += ASSET_UPLOAD_BATCH_SIZE) {
+      const assetBatch = newAssetPaths.slice(start, start + ASSET_UPLOAD_BATCH_SIZE);
+      runGhIdempotent(["release", "upload", CATALOG_TAG, ...assetBatch, "-R", RELEASE_REPOSITORY, "--clobber"]);
     }
-    runGhIdempotent(["release", "upload", CATALOG_TAG, indexPath, sumsPath, "-R", RELEASE_REPOSITORY, "--clobber"]);
+    runGhIdempotent(["release", "upload", CATALOG_TAG, ...indexPaths, "-R", RELEASE_REPOSITORY, "--clobber"]);
     return;
   }
-  const notes = [
+  runCommand("gh", ["release", "create", CATALOG_TAG, ...newAssetPaths, ...indexPaths, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
+    "--title", "Plugin catalog", "--notes", renderCatalogReleaseNotes(), "--latest"]);
+}
+
+function renderCatalogReleaseNotes() {
+  return [
     "Catalog of every published graphrt plugin, updated in place on each publish.",
     "",
-    `- \`index.json\`: ${releaseAssetUrl(CATALOG_TAG, "index.json")}`,
+    `- \`${CATALOG_V2_INDEX_NAME}\`: ${releaseAssetUrl(CATALOG_TAG, CATALOG_V2_INDEX_NAME)} (schema 2, slim; each entry links its detail file)`,
+    "- `plugin-<name>-<version>.json`: immutable per-version details (node config schemas and outputs, tool descriptions)",
+    `- \`index.json\`: ${releaseAssetUrl(CATALOG_TAG, "index.json")} (schema 1, for older apps)`,
     `- \`SHA256SUMS\`: ${releaseAssetUrl(CATALOG_TAG, "SHA256SUMS")}`,
     "- `icon-<plugin>-<sha256 prefix>.svg`: plugin icons, named by content (each catalog entry's `icon_url`)",
     "",
     "See the repository README (Install) for the format.",
   ].join("\n");
-  runCommand("gh", ["release", "create", CATALOG_TAG, ...newIconPaths, indexPath, sumsPath, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
-    "--title", "Plugin catalog", "--notes", notes, "--latest"]);
 }
 
 /** Downloads the live catalog `index.json`, or returns null when there is no catalog release yet. */
@@ -242,6 +294,13 @@ function publishPlugins(options, targetCommit) {
   return { released, skipped };
 }
 
+function logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun }) {
+  const v1Note = catalogFiles.v1WithoutSchemas ? " (without node schemas)" : "";
+  console.error(`catalog: index.json ${statSync(catalogFiles.indexPath).size} bytes${v1Note}; ${CATALOG_V2_INDEX_NAME} ${statSync(catalogFiles.indexV2Path).size} bytes`);
+  console.error(`catalog: ${catalogFiles.detailFiles.length} detail files staged in ${join(catalogDirectory, DETAIL_STAGING_DIRECTORY_NAME)}, ${uploadPlan.newDetailPaths.length} not yet on the ${CATALOG_TAG} release`);
+  console.error(`catalog: ${catalogFiles.iconPaths.length} icons staged in ${join(catalogDirectory, ICON_STAGING_DIRECTORY_NAME)}, ${uploadPlan.newIconPaths.length} not yet on the ${CATALOG_TAG} release${dryRun ? " (dry run: nothing uploaded)" : ""}`);
+}
+
 function main() {
   const options = parsePublishArguments(process.argv.slice(2));
   const targetCommit = runCommand("git", ["rev-parse", "--verify", `${options.target}^{commit}`]).stdout.trim();
@@ -249,11 +308,12 @@ function main() {
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
   const catalogFiles = writeCatalogFiles(catalogDirectory, released);
-  const uploadPlan = planCatalogUpload(catalogFiles);
-  console.error(`catalog: index.json ${statSync(catalogFiles.indexPath).size} bytes; ${catalogFiles.iconPaths.length} icons staged in ${join(catalogDirectory, "icons")}, ${uploadPlan.newIconPaths.length} not yet on the ${CATALOG_TAG} release${options.dryRun ? " (dry run: nothing uploaded)" : ""}`);
+  const uploadPlan = planCatalogUpload(catalogFiles, options.outputDirectory);
+  logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun: options.dryRun });
   if (!options.dryRun) uploadCatalog(catalogFiles, uploadPlan, targetCommit);
   const icons = { staged: catalogFiles.iconPaths.length, toUpload: uploadPlan.newIconPaths.map((iconPath) => basename(iconPath)) };
-  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256 })), icons, skipped }, null, 2));
+  const details = { staged: catalogFiles.detailFiles.length, toUpload: uploadPlan.newDetailPaths.map((detailPath) => basename(detailPath)) };
+  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256 })), icons, details, skipped }, null, 2));
 }
 
 try {

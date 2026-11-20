@@ -5,21 +5,27 @@
  *   plugin-name  plugins to pack (default: every plugin directory)
  *   --out        output directory (default: dist)
  *
- * Writes `<out>/<name>-<version>.tar.gz` per plugin, `<out>/index.json` (the
- * catalog for the packed plugins, with release download URLs), `<out>/icons/`
- * (each plugin's icon under its `catalog` release asset name) and
- * `<out>/SHA256SUMS`. publish-plugins.mjs rebuilds index.json from the published
- * assets, so the catalog always describes what was actually released.
+ * Writes `<out>/<name>-<version>.tar.gz` per plugin, `<out>/index.json` (the v1
+ * catalog for the packed plugins, with release download URLs), `<out>/index-v2.json`
+ * (the slim v2 index), `<out>/details/` (one `plugin-<name>-<version>.json` per plugin),
+ * `<out>/icons/` (each plugin's icon under its `catalog` release asset name) and
+ * `<out>/SHA256SUMS`. publish-plugins.mjs rebuilds the catalog from the published
+ * assets, so it always describes what was actually released.
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { REPO_ROOT } from "./plugins.mjs";
-import { buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin, renderCatalogText, sha256Hex } from "./lib/plugin-package.mjs";
+import {
+  MAX_CATALOG_BYTES, buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin, renderCatalogTextWithinLimit, sha256Hex,
+} from "./lib/plugin-package.mjs";
+import { CATALOG_V2_INDEX_NAME, buildCatalogV2, buildCatalogV2Entry, buildPluginDetail, renderCatalogV2Text, renderPluginDetail } from "./lib/catalog-v2.mjs";
 import { readPluginIcon } from "./lib/plugin-icons.mjs";
 
 /** Sub-directory of the catalog output that holds the icons to upload as `catalog` release assets. */
 export const ICON_STAGING_DIRECTORY_NAME = "icons";
+/** Sub-directory of the catalog output that holds the v2 detail files to upload as `catalog` release assets. */
+export const DETAIL_STAGING_DIRECTORY_NAME = "details";
 
 /**
  * Parses command line arguments.
@@ -48,7 +54,7 @@ export function parsePackArguments(argumentList) {
 }
 
 /**
- * Packs the given plugins and writes index.json and SHA256SUMS next to them.
+ * Packs the given plugins and writes the catalog files (writeCatalogFiles) next to them.
  *
  * @param pluginNames - Plugins to pack (string[])
  * @param outputDirectory - Output directory (string)
@@ -66,25 +72,54 @@ export function packPlugins(pluginNames, outputDirectory) {
 }
 
 /**
- * Writes `index.json`, the icons its `icon_url`s name (in `icons/`, under their release asset
- * names) and `SHA256SUMS` (tarballs, icons and index.json) into a directory.
+ * Writes the catalog files into a directory: `index.json` (v1), `index-v2.json`, the detail files it links
+ * (in `details/`), the icons both indexes name (in `icons/`, under their release asset names) and
+ * `SHA256SUMS` (tarballs, icons, detail files and both indexes). v1 is written without node schemas when
+ * the full one would exceed MAX_CATALOG_BYTES; that and an index-v2.json above its warning size are logged.
  *
  * @param outputDirectory - Target directory (string)
- * @param releasedPlugins - `{tarballName, sha256, catalogEntry}` per plugin (object[])
- * @returns `{indexPath, sumsPath, iconPaths}` (object)
- * @throws Error - When a plugin has no valid icon.svg, or the catalog is too large
+ * @param releasedPlugins - `{tarballName, sha256, manifest, catalogEntry}` per plugin; `manifest` is the released
+ *   manifest the detail file is derived from (object[])
+ * @returns `{indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas}`; detailFiles holds
+ *   `{assetName, sha256, sizeBytes, stagedPath}` (object)
+ * @throws Error - When a plugin has no valid icon.svg or manifest, or a catalog file is too large
  */
 export function writeCatalogFiles(outputDirectory, releasedPlugins) {
-  const catalogText = renderCatalogText(buildCatalog(releasedPlugins.map((released) => released.catalogEntry), new Date()));
-  const indexPath = resolve(outputDirectory, "index.json");
-  const sumsPath = resolve(outputDirectory, "SHA256SUMS");
+  const generatedAt = new Date();
+  const v1Catalog = renderCatalogTextWithinLimit(buildCatalog(releasedPlugins.map((released) => released.catalogEntry), generatedAt));
+  if (v1Catalog.withoutSchemas) console.error(`warning: index.json would be ${v1Catalog.fullSizeBytes} bytes (limit ${MAX_CATALOG_BYTES}); written without node config_schema/outputs (they are in the v2 detail files)`);
+  const detailFiles = stageDetailFiles(resolve(outputDirectory, DETAIL_STAGING_DIRECTORY_NAME), releasedPlugins);
+  const v2Entries = releasedPlugins.map(({ catalogEntry }, index) => buildCatalogV2Entry(catalogEntry, detailFiles[index]));
+  const v2Catalog = renderCatalogV2Text(buildCatalogV2(v2Entries, generatedAt));
+  if (v2Catalog.warning) console.error(`warning: ${v2Catalog.warning}`);
   const icons = stageCatalogIcons(resolve(outputDirectory, ICON_STAGING_DIRECTORY_NAME), releasedPlugins);
-  writeFileSync(indexPath, catalogText);
+  const indexPath = resolve(outputDirectory, "index.json");
+  const indexV2Path = resolve(outputDirectory, CATALOG_V2_INDEX_NAME);
+  const sumsPath = resolve(outputDirectory, "SHA256SUMS");
+  writeFileSync(indexPath, v1Catalog.catalogText);
+  writeFileSync(indexV2Path, v2Catalog.catalogText);
   const fileHashes = releasedPlugins.map(({ tarballName, sha256 }) => ({ fileName: tarballName, sha256 }));
-  fileHashes.push(...icons.map(({ assetName, sha256 }) => ({ fileName: assetName, sha256 })));
-  fileHashes.push({ fileName: "index.json", sha256: sha256Hex(Buffer.from(catalogText)) });
+  fileHashes.push(...[...icons, ...detailFiles].map(({ assetName, sha256 }) => ({ fileName: assetName, sha256 })));
+  fileHashes.push({ fileName: "index.json", sha256: sha256Hex(Buffer.from(v1Catalog.catalogText)) });
+  fileHashes.push({ fileName: CATALOG_V2_INDEX_NAME, sha256: sha256Hex(Buffer.from(v2Catalog.catalogText)) });
   writeFileSync(sumsPath, formatSha256Sums(fileHashes));
-  return { indexPath, sumsPath, iconPaths: icons.map(({ stagedPath }) => stagedPath) };
+  const iconPaths = icons.map(({ stagedPath }) => stagedPath);
+  return { indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas: v1Catalog.withoutSchemas };
+}
+
+/** Writes each plugin's detail file to `<detailDirectory>/<asset name>`, replacing anything staged before. */
+function stageDetailFiles(detailDirectory, releasedPlugins) {
+  rmSync(detailDirectory, { recursive: true, force: true });
+  mkdirSync(detailDirectory, { recursive: true });
+  return releasedPlugins.map(({ manifest, catalogEntry }) => {
+    if (manifest?.name !== catalogEntry.name || manifest.version !== catalogEntry.version) {
+      throw new Error(`${catalogEntry.name}: the released manifest is needed to build its detail file`);
+    }
+    const { bytes, ...detailFile } = renderPluginDetail(buildPluginDetail(manifest));
+    const stagedPath = resolve(detailDirectory, detailFile.assetName);
+    writeFileSync(stagedPath, bytes);
+    return { ...detailFile, stagedPath };
+  });
 }
 
 /** Copies each plugin's icon to `<iconDirectory>/<asset name>`, replacing anything staged before. */
