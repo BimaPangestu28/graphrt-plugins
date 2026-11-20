@@ -102,6 +102,25 @@ behalf and forbid spam, so agent tools start read-only. Workflow nodes are never
   refuses every agent message, so the opt-in alone never lets an agent message arbitrary people.
 - A refused call fails with `permission_denied` and sends no request.
 
+## Per-user tokens (multi-user agents)
+
+Set `META_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin meta-api`):
+
+```yaml
+tools: [meta-api/get_page]
+tool_context:
+  meta-api:
+    access_token: "{{#start.meta_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Page access token of a Page that user manages (from `GET /me/accounts` with their user token); `META_PAGE_ID` and `META_IG_USER_ID` are hidden too, so pass `page_id` / `ig_user_id`.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `META_ACCESS_TOKEN`, `META_PAGE_ID`, `META_IG_USER_ID` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Kind | When |
 |------|------|

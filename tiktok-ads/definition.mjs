@@ -256,6 +256,7 @@ const restDefinition = defineRestPlugin({
   apiName: "TikTok API for Business",
   extraEnv: ["TIKTOK_ADS_TOOL_ADVERTISER_IDS", "TIKTOK_ADS_TOOL_MAX_BUDGET", "TIKTOK_ADS_TOOL_API_EXTRA_PATHS", "TIKTOK_ADS_TOOL_ALLOW_LEADS", "TIKTOK_ADS_LEADS_DIR"],
   baseUrl: "https://business-api.tiktok.com/open_api/v1.3",
+  toolUserToken: true,
   auth: { type: "header", header: "Access-Token", env: "TIKTOK_ADS_ACCESS_TOKEN" },
   // Token fields in tool results are stripped by stripSecretFieldsForTools, which truncates afterwards.
   toolOutput: false,

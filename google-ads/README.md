@@ -139,6 +139,27 @@ Set `customer_id` in the example to one of your accounts.
   `/googleAdsFields/<name>`. Invoices, payments accounts, identity verification and long-running operations are
   refused. `access_token`, `refresh_token` and `developer_token` fields are removed from tool results.
 
+## Per-user tokens (multi-user agents)
+
+Set `GOOGLE_ADS_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin google-ads`):
+
+```yaml
+tools: [google-ads/list_accessible_customers]
+tool_context:
+  google-ads:
+    access_token: "{{#start.google_ads_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Google OAuth access token of that user with the `adwords` scope; your app's `GOOGLE_ADS_DEVELOPER_TOKEN` (and `GOOGLE_ADS_LOGIN_CUSTOMER_ID`, if set) are still read from the env.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `GOOGLE_ACCESS_TOKEN`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SERVICE_ACCOUNT_JSON` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Account allowlists and spend caps (`GOOGLE_ADS_TOOL_CUSTOMER_IDS` and `GOOGLE_ADS_TOOL_MAX_DAILY_BUDGET_MICROS`) are per process, so they apply to every end user: list
+  every account your users may change, or leave them unset to keep agent writes refused.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 The first `GoogleAdsFailure` message is shown (e.g. `Oauth token is invalid. (UNAUTHENTICATED)`), else
 `error.message`. `UNAUTHENTICATED` / 401 is `auth_error`, `PERMISSION_DENIED` / 403 `permission_denied` (user

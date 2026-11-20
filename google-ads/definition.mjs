@@ -18,7 +18,7 @@
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
 import { guardSearches, guardToolWrites } from "./lib/google-ads-guards.mjs";
-import { createGoogleErrors, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
+import { createGoogleErrors, GOOGLE_AUTH_ENV, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
 import { createGoogleAdsAuth, GOOGLE_ADS_AUTH_ENV } from "./lib/google-ads-auth.mjs";
 import { createReportOperations, normalizeCustomerIds, simplifyStatusAndBudgetMutates, validateSearchQueries } from "./lib/google-ads-operations.mjs";
 import { capToolAmounts } from "./lib/tool-amount-cap.mjs";
@@ -126,6 +126,7 @@ const restDefinition = defineRestPlugin({
   extraEnv: [...GOOGLE_ADS_AUTH_ENV, "GOOGLE_ADS_TOOL_CUSTOMER_IDS", "GOOGLE_ADS_TOOL_MAX_DAILY_BUDGET_MICROS", "GOOGLE_ADS_TOOL_ALLOW_LEADS", "GOOGLE_ADS_TOOL_API_EXTRA_PATHS"],
   limits: { timeout_ms: 150000 },
   baseUrl: `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`,
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   auth: createGoogleAdsAuth(),
   // Token fields in tool results are stripped by stripSecretFieldsForTools, which truncates afterwards.
   toolOutput: false,

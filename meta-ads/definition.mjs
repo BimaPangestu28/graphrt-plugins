@@ -337,6 +337,7 @@ const restDefinition = defineRestPlugin({
     if (!/^v\d+\.\d+$/.test(graphVersion)) throw new Error(`META_GRAPH_VERSION must look like "${DEFAULT_GRAPH_VERSION}"`);
     return `https://graph.facebook.com/${graphVersion}`;
   },
+  toolUserToken: true,
   auth: { type: "bearer", env: "META_ADS_ACCESS_TOKEN" },
   // Page tokens in tool results are stripped by stripSecretFieldsForTools, which truncates afterwards.
   toolOutput: false,

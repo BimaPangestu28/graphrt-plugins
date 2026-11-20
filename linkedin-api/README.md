@@ -129,6 +129,25 @@ never limited; put a human approval step before them.
 
 A refused call fails with `permission_denied` and sends no request. LinkedIn has no direct-message API in this plugin.
 
+## Per-user tokens (multi-user agents)
+
+Set `LINKEDIN_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin linkedin-api`):
+
+```yaml
+tools: [linkedin-api/get_userinfo]
+tool_context:
+  linkedin-api:
+    access_token: "{{#start.linkedin_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a LinkedIn member access token (3-legged OAuth) of that user; `LINKEDIN_AUTHOR_URN` is hidden too, so tools that act as a member or organization need the `author`/`author_urn`/`owner_urn` argument (LinkedIn still checks that the token may act as it).
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR_URN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Kind | When |
 |------|------|

@@ -137,6 +137,27 @@ The example lists your ad accounts and the last 7 days of spend per campaign of 
   edge (without the opt-in) and anything else are refused, and so is any call whose path or query mentions a token
   or secret (e.g. `fields=access_token`).
 
+## Per-user tokens (multi-user agents)
+
+Set `META_ADS_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin meta-ads`):
+
+```yaml
+tools: [meta-ads/list_ad_accounts]
+tool_context:
+  meta-ads:
+    access_token: "{{#start.meta_ads_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Meta user access token of that user with `ads_read` (and `ads_management` for the capped writes).
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `META_ADS_ACCESS_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Account allowlists and spend caps (`META_ADS_TOOL_ACCOUNT_IDS` and `META_ADS_TOOL_MAX_DAILY_BUDGET`) are per process, so they apply to every end user: list
+  every account your users may change, or leave them unset to keep agent writes refused.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Graph errors show `error_user_msg` or `message` and the code, e.g. `API error 400: Invalid parameter (100)`.
 190 (bad or expired token) is `auth_error`, 10 and 200–299 `permission_denied` (missing permission or App Review),
