@@ -1,0 +1,878 @@
+{
+  "airtable-api": {
+    "source": "simple-icons",
+    "slug": "airtable",
+    "version": "16.36.0",
+    "color": "#18BFFF"
+  },
+  "anthropic": {
+    "source": "simple-icons",
+    "slug": "anthropic",
+    "version": "16.36.0",
+    "color": "#191919"
+  },
+  "apollo": {
+    "source": "lucide",
+    "slug": "user-round-search",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "asana": {
+    "source": "simple-icons",
+    "slug": "asana",
+    "version": "16.36.0",
+    "color": "#F06A6A"
+  },
+  "assemblyai": {
+    "source": "lucide",
+    "slug": "audio-lines",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "bigquery": {
+    "source": "simple-icons",
+    "slug": "googlebigquery",
+    "version": "16.36.0",
+    "color": "#669DF6"
+  },
+  "biteship": {
+    "source": "lucide",
+    "slug": "truck",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "bmkg": {
+    "source": "lucide",
+    "slug": "cloud-sun-rain",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "bps": {
+    "source": "lucide",
+    "slug": "chart-column",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "brevo": {
+    "source": "simple-icons",
+    "slug": "brevo",
+    "version": "16.36.0",
+    "color": "#0B996E"
+  },
+  "calendly": {
+    "source": "simple-icons",
+    "slug": "calendly",
+    "version": "16.36.0",
+    "color": "#006BFF"
+  },
+  "chroma": {
+    "source": "lucide",
+    "slug": "layers",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "clickhouse": {
+    "source": "simple-icons",
+    "slug": "clickhouse",
+    "version": "16.36.0",
+    "color": "#FFCC01"
+  },
+  "clickup": {
+    "source": "simple-icons",
+    "slug": "clickup",
+    "version": "16.36.0",
+    "color": "#7B68EE"
+  },
+  "cloudflare": {
+    "source": "simple-icons",
+    "slug": "cloudflare",
+    "version": "16.36.0",
+    "color": "#F38020"
+  },
+  "coingecko": {
+    "source": "lucide",
+    "slug": "coins",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "computer-control": {
+    "source": "lucide",
+    "slug": "mouse-pointer-click",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "currency-rates": {
+    "source": "lucide",
+    "slug": "arrow-right-left",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "deepgram": {
+    "source": "simple-icons",
+    "slug": "deepgram",
+    "version": "16.36.0",
+    "color": "#13EF93"
+  },
+  "deepl": {
+    "source": "simple-icons",
+    "slug": "deepl",
+    "version": "16.36.0",
+    "color": "#0F2B46"
+  },
+  "discord": {
+    "source": "simple-icons",
+    "slug": "discord",
+    "version": "16.36.0",
+    "color": "#5865F2"
+  },
+  "dropbox": {
+    "source": "simple-icons",
+    "slug": "dropbox",
+    "version": "16.36.0",
+    "color": "#0061FF"
+  },
+  "dynamodb": {
+    "source": "lucide",
+    "slug": "database",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "elasticsearch": {
+    "source": "simple-icons",
+    "slug": "elasticsearch",
+    "version": "16.36.0",
+    "color": "#005571"
+  },
+  "elevenlabs": {
+    "source": "simple-icons",
+    "slug": "elevenlabs",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "email": {
+    "source": "lucide",
+    "slug": "mail",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "embeddings": {
+    "source": "lucide",
+    "slug": "chart-scatter",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "excel-csv": {
+    "source": "lucide",
+    "slug": "sheet",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "fal-ai": {
+    "source": "lucide",
+    "slug": "wand-sparkles",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "ffmpeg": {
+    "source": "simple-icons",
+    "slug": "ffmpeg",
+    "version": "16.36.0",
+    "color": "#007808"
+  },
+  "file-watcher": {
+    "source": "lucide",
+    "slug": "eye",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "firestore": {
+    "source": "simple-icons",
+    "slug": "firebase",
+    "version": "16.36.0",
+    "color": "#DD2C00"
+  },
+  "fonnte": {
+    "source": "lucide",
+    "slug": "message-circle",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "gemini": {
+    "source": "simple-icons",
+    "slug": "googlegemini",
+    "version": "16.36.0",
+    "color": "#8E75B2"
+  },
+  "github": {
+    "source": "simple-icons",
+    "slug": "github",
+    "version": "16.36.0",
+    "color": "#181717"
+  },
+  "gitlab": {
+    "source": "simple-icons",
+    "slug": "gitlab",
+    "version": "16.36.0",
+    "color": "#FC6D26"
+  },
+  "gmail-api": {
+    "source": "simple-icons",
+    "slug": "gmail",
+    "version": "16.36.0",
+    "color": "#EA4335"
+  },
+  "google-ads": {
+    "source": "simple-icons",
+    "slug": "googleads",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "google-analytics": {
+    "source": "simple-icons",
+    "slug": "googleanalytics",
+    "version": "16.36.0",
+    "color": "#E37400"
+  },
+  "google-business-profile-api": {
+    "source": "lucide",
+    "slug": "store",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "google-calendar": {
+    "source": "simple-icons",
+    "slug": "googlecalendar",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "google-docs": {
+    "source": "simple-icons",
+    "slug": "googledocs",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "google-drive": {
+    "source": "simple-icons",
+    "slug": "googledrive",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "google-forms": {
+    "source": "simple-icons",
+    "slug": "googleforms",
+    "version": "16.36.0",
+    "color": "#7248B9"
+  },
+  "google-imagen": {
+    "source": "simple-icons",
+    "slug": "googlegemini",
+    "version": "16.36.0",
+    "color": "#8E75B2"
+  },
+  "google-maps-platform": {
+    "source": "simple-icons",
+    "slug": "googlemaps",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "google-maps-scraper": {
+    "source": "lucide",
+    "slug": "map-pin",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "google-search-console": {
+    "source": "simple-icons",
+    "slug": "googlesearchconsole",
+    "version": "16.36.0",
+    "color": "#458CF5"
+  },
+  "google-sheets": {
+    "source": "simple-icons",
+    "slug": "googlesheets",
+    "version": "16.36.0",
+    "color": "#34A853"
+  },
+  "google-translate": {
+    "source": "simple-icons",
+    "slug": "googletranslate",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "google-veo": {
+    "source": "simple-icons",
+    "slug": "googlecloud",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "google-vision": {
+    "source": "simple-icons",
+    "slug": "googlecloud",
+    "version": "16.36.0",
+    "color": "#4285F4"
+  },
+  "groq": {
+    "source": "lucide",
+    "slug": "cpu",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "hubspot": {
+    "source": "simple-icons",
+    "slug": "hubspot",
+    "version": "16.36.0",
+    "color": "#FF7A59"
+  },
+  "hunter": {
+    "source": "lucide",
+    "slug": "mail-search",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "ideogram": {
+    "source": "lucide",
+    "slug": "palette",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "image-tools": {
+    "source": "lucide",
+    "slug": "crop",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "jira": {
+    "source": "simple-icons",
+    "slug": "jira",
+    "version": "16.36.0",
+    "color": "#0052CC"
+  },
+  "kling": {
+    "source": "lucide",
+    "slug": "clapperboard",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "lazada": {
+    "source": "lucide",
+    "slug": "shopping-bag",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "libur-nasional": {
+    "source": "lucide",
+    "slug": "calendar-days",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "line-messaging": {
+    "source": "simple-icons",
+    "slug": "line",
+    "version": "16.36.0",
+    "color": "#00C300"
+  },
+  "linear": {
+    "source": "simple-icons",
+    "slug": "linear",
+    "version": "16.36.0",
+    "color": "#5E6AD2"
+  },
+  "linkedin-api": {
+    "source": "lucide",
+    "slug": "briefcase-business",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "local-files": {
+    "source": "lucide",
+    "slug": "folder-open",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "luma-ai": {
+    "source": "lucide",
+    "slug": "video",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "macos-notifications": {
+    "source": "lucide",
+    "slug": "bell",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "mailchimp": {
+    "source": "simple-icons",
+    "slug": "mailchimp",
+    "version": "16.36.0",
+    "color": "#FFE01B"
+  },
+  "meta-ads": {
+    "source": "simple-icons",
+    "slug": "meta",
+    "version": "16.36.0",
+    "color": "#0467DF"
+  },
+  "meta-api": {
+    "source": "simple-icons",
+    "slug": "meta",
+    "version": "16.36.0",
+    "color": "#0467DF"
+  },
+  "microsoft-graph": {
+    "source": "lucide",
+    "slug": "network",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "microsoft-teams": {
+    "source": "lucide",
+    "slug": "users",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "midtrans": {
+    "source": "lucide",
+    "slug": "wallet",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "minimax-video": {
+    "source": "lucide",
+    "slug": "circle-play",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "mistral": {
+    "source": "simple-icons",
+    "slug": "mistralai",
+    "version": "16.36.0",
+    "color": "#FA520F"
+  },
+  "mongodb": {
+    "source": "simple-icons",
+    "slug": "mongodb",
+    "version": "16.36.0",
+    "color": "#47A248"
+  },
+  "mysql": {
+    "source": "simple-icons",
+    "slug": "mysql",
+    "version": "16.36.0",
+    "color": "#4479A1"
+  },
+  "neo4j": {
+    "source": "simple-icons",
+    "slug": "neo4j",
+    "version": "16.36.0",
+    "color": "#4581C3"
+  },
+  "news-api": {
+    "source": "lucide",
+    "slug": "newspaper",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "notion-api": {
+    "source": "simple-icons",
+    "slug": "notion",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "ocr-tesseract": {
+    "source": "lucide",
+    "slug": "scan-text",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "ollama": {
+    "source": "simple-icons",
+    "slug": "ollama",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "onedrive": {
+    "source": "lucide",
+    "slug": "cloud",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "open-meteo": {
+    "source": "lucide",
+    "slug": "cloud-sun",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "openai": {
+    "source": "lucide",
+    "slug": "bot",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "openai-audio": {
+    "source": "lucide",
+    "slug": "audio-waveform",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "openai-images": {
+    "source": "lucide",
+    "slug": "image",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "paypal": {
+    "source": "simple-icons",
+    "slug": "paypal",
+    "version": "16.36.0",
+    "color": "#002991"
+  },
+  "pdf-tools": {
+    "source": "lucide",
+    "slug": "file-text",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "pinecone": {
+    "source": "lucide",
+    "slug": "database-zap",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "pipedrive": {
+    "source": "lucide",
+    "slug": "handshake",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "postgres": {
+    "source": "simple-icons",
+    "slug": "postgresql",
+    "version": "16.36.0",
+    "color": "#4169E1"
+  },
+  "qdrant": {
+    "source": "simple-icons",
+    "slug": "qdrant",
+    "version": "16.36.0",
+    "color": "#DC244C"
+  },
+  "qontak": {
+    "source": "lucide",
+    "slug": "messages-square",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "qr-code": {
+    "source": "lucide",
+    "slug": "qr-code",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "rajaongkir": {
+    "source": "lucide",
+    "slug": "package",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "redis": {
+    "source": "simple-icons",
+    "slug": "redis",
+    "version": "16.36.0",
+    "color": "#FF4438"
+  },
+  "replicate": {
+    "source": "simple-icons",
+    "slug": "replicate",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "replicate-video": {
+    "source": "simple-icons",
+    "slug": "replicate",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "resend": {
+    "source": "simple-icons",
+    "slug": "resend",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "rss-reader": {
+    "source": "lucide",
+    "slug": "rss",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "runway": {
+    "source": "lucide",
+    "slug": "film",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "s3": {
+    "source": "lucide",
+    "slug": "hard-drive",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "salesforce": {
+    "source": "lucide",
+    "slug": "contact-round",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "sendgrid": {
+    "source": "lucide",
+    "slug": "send",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "sentry": {
+    "source": "simple-icons",
+    "slug": "sentry",
+    "version": "16.36.0",
+    "color": "#362D59"
+  },
+  "sftp": {
+    "source": "lucide",
+    "slug": "server",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "shell-exec": {
+    "source": "lucide",
+    "slug": "terminal",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "shipper": {
+    "source": "lucide",
+    "slug": "container",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "shopee-api": {
+    "source": "simple-icons",
+    "slug": "shopee",
+    "version": "16.36.0",
+    "color": "#EE4D2D"
+  },
+  "shopify": {
+    "source": "simple-icons",
+    "slug": "shopify",
+    "version": "16.36.0",
+    "color": "#7AB55C"
+  },
+  "slack": {
+    "source": "lucide",
+    "slug": "hash",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "snowflake": {
+    "source": "simple-icons",
+    "slug": "snowflake",
+    "version": "16.36.0",
+    "color": "#29B5E8"
+  },
+  "sqlite": {
+    "source": "simple-icons",
+    "slug": "sqlite",
+    "version": "16.36.0",
+    "color": "#003B57"
+  },
+  "stability-ai": {
+    "source": "lucide",
+    "slug": "brush",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "stable-audio": {
+    "source": "lucide",
+    "slug": "file-music",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "state-store": {
+    "source": "lucide",
+    "slug": "save",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "stripe": {
+    "source": "simple-icons",
+    "slug": "stripe",
+    "version": "16.36.0",
+    "color": "#635BFF"
+  },
+  "supabase": {
+    "source": "simple-icons",
+    "slug": "supabase",
+    "version": "16.36.0",
+    "color": "#3FCF8E"
+  },
+  "telegram-bot": {
+    "source": "simple-icons",
+    "slug": "telegram",
+    "version": "16.36.0",
+    "color": "#26A5E4"
+  },
+  "threads-api": {
+    "source": "simple-icons",
+    "slug": "threads",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "tiktok-ads": {
+    "source": "simple-icons",
+    "slug": "tiktok",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "tiktok-api": {
+    "source": "simple-icons",
+    "slug": "tiktok",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "tiktok-shop-api": {
+    "source": "simple-icons",
+    "slug": "tiktok",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "todoist": {
+    "source": "simple-icons",
+    "slug": "todoist",
+    "version": "16.36.0",
+    "color": "#E44332"
+  },
+  "trello": {
+    "source": "simple-icons",
+    "slug": "trello",
+    "version": "16.36.0",
+    "color": "#0052CC"
+  },
+  "twilio": {
+    "source": "lucide",
+    "slug": "phone",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "typeform": {
+    "source": "simple-icons",
+    "slug": "typeform",
+    "version": "16.36.0",
+    "color": "#262627"
+  },
+  "vercel": {
+    "source": "simple-icons",
+    "slug": "vercel",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "vonage": {
+    "source": "simple-icons",
+    "slug": "vonage",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "wablas": {
+    "source": "lucide",
+    "slug": "message-square",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "weaviate": {
+    "source": "lucide",
+    "slug": "orbit",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "web-browser": {
+    "source": "lucide",
+    "slug": "globe",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "web-search": {
+    "source": "lucide",
+    "slug": "search",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "whatsapp-api": {
+    "source": "simple-icons",
+    "slug": "whatsapp",
+    "version": "16.36.0",
+    "color": "#25D366"
+  },
+  "whatsapp-web": {
+    "source": "lucide",
+    "slug": "smartphone",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "wikipedia": {
+    "source": "simple-icons",
+    "slug": "wikipedia",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "wilayah-indonesia": {
+    "source": "lucide",
+    "slug": "map",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "woocommerce": {
+    "source": "simple-icons",
+    "slug": "woocommerce",
+    "version": "16.36.0",
+    "color": "#96588A"
+  },
+  "x-api": {
+    "source": "simple-icons",
+    "slug": "x",
+    "version": "16.36.0",
+    "color": "#000000"
+  },
+  "xendit": {
+    "source": "lucide",
+    "slug": "credit-card",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "youtube-api": {
+    "source": "simple-icons",
+    "slug": "youtube",
+    "version": "16.36.0",
+    "color": "#FF0000"
+  },
+  "youtube-transcript": {
+    "source": "simple-icons",
+    "slug": "youtube",
+    "version": "16.36.0",
+    "color": "#FF0000"
+  },
+  "zerobounce": {
+    "source": "lucide",
+    "slug": "mail-check",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
+  "zoho-crm": {
+    "source": "simple-icons",
+    "slug": "zoho",
+    "version": "16.36.0",
+    "color": "#E42527"
+  },
+  "zoom": {
+    "source": "simple-icons",
+    "slug": "zoom",
+    "version": "16.36.0",
+    "color": "#0B5CFF"
+  }
+}

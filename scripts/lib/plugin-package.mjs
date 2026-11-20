@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { REPO_ROOT } from "../plugins.mjs";
+import { ICON_FILE_NAME } from "./plugin-icons.mjs";
 import { readPluginStatuses, statusForPlugin } from "./plugin-status.mjs";
 import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
@@ -27,6 +28,8 @@ export const NODE_REQUIREMENT = ">=20";
 
 const PINNED_EXTENSIONS = [".mjs", ".js", ".cjs", ".json"];
 const EXCLUDED_SOURCE_DIRECTORIES = new Set(["test", "node_modules"]);
+// Catalog-only files: the icon is published with the catalog, so changing it needs no plugin release.
+const EXCLUDED_SOURCE_FILES = new Set([ICON_FILE_NAME]);
 const FORBIDDEN_PATH_PATTERNS = [
   { pattern: /(^|\/)\.env($|\.)/, reason: "environment file" },
   { pattern: /(^|\/)\.claude(\/|$)/, reason: "Claude session data" },
@@ -162,9 +165,16 @@ function copyTrackedSourceFiles(pluginName, stagedDirectory) {
   }
 }
 
-function isShippedSourcePath(pluginPath) {
+/**
+ * Says whether a tracked plugin file goes into the release tarball.
+ *
+ * @param pluginPath - `/`-separated path inside the plugin directory (string)
+ * @returns False for tests, node_modules, dotfiles and catalog-only files such as icon.svg (boolean)
+ */
+export function isShippedSourcePath(pluginPath) {
   const segments = pluginPath.split("/");
   if (EXCLUDED_SOURCE_DIRECTORIES.has(segments[0])) return false;
+  if (segments.length === 1 && EXCLUDED_SOURCE_FILES.has(pluginPath)) return false;
   return !segments.some((segment) => segment.startsWith("."));
 }
 
