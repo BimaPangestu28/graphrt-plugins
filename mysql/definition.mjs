@@ -28,7 +28,7 @@ export function createPluginDefinition(dependencies = {}) {
   const operations = [...statementOperations, ...schemaOperations];
   return {
     name: "mysql",
-    version: "0.1.0",
+    version: "0.1.1",
     description: "MySQL and MariaDB: parameterised queries in read-only transactions, writes and DDL (nodes, or agents with an opt-in), tables, columns and query plans",
     tokenEnv: URL_VARIABLE,
     extraEnv: [...CONNECTION_PART_VARIABLES, ...LIMIT_VARIABLES, TOOL_WRITES_VARIABLE],
