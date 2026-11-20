@@ -28,6 +28,7 @@ export const pluginDefinition = {
   name: "google-business-profile-api",
   version: "0.1.0",
   description: "Google Business Profile accounts, locations, reviews, posts and performance metrics via the official Business Profile APIs",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   tokenEnv: "GOOGLE_ACCESS_TOKEN",
   extraEnv: GOOGLE_AUTH_ENV,
   resolveAccessToken: resolveGoogleCredentials,

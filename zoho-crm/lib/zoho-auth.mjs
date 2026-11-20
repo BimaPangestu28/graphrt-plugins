@@ -22,6 +22,8 @@ export const CLIENT_SECRET_ENV = "ZOHO_CLIENT_SECRET";
 export const REFRESH_TOKEN_ENV = "ZOHO_REFRESH_TOKEN";
 export const CRM_API_VERSION = "v8";
 const REFRESH_TRIO = [CLIENT_ID_ENV, CLIENT_SECRET_ENV, REFRESH_TOKEN_ENV];
+/** Env credentials hidden from tools when ZOHO_CRM_TOOL_TOKEN_SOURCE=context (the access token env is the auth's own). */
+export const ZOHO_CREDENTIAL_ENV = [ACCESS_TOKEN_ENV, ...REFRESH_TRIO];
 // https://www.zoho.com/crm/developer/docs/api/v8/multi-dc.html
 const DATA_CENTERS = {
   us: { apiHost: "www.zohoapis.com", accountsHost: "accounts.zoho.com" },

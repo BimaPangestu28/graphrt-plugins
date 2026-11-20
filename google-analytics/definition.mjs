@@ -9,7 +9,7 @@
  * `idempotent`), and all are tools. The scope is analytics.readonly.
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
-import { createGoogleAuth, createGoogleErrors, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
+import { createGoogleAuth, createGoogleErrors, GOOGLE_AUTH_ENV, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
 import { replaceOperation, wrapBatchReportOperation, wrapReportOperation } from "./lib/report-fields.mjs";
 import { wrapPropertyIdOperation } from "./lib/property-id.mjs";
 
@@ -104,6 +104,7 @@ const restDefinition = defineRestPlugin({
   description: "Google Analytics 4: run reports, realtime, pivot and batch reports, metadata and compatibility checks, and list accounts, properties and data streams (read-only; OAuth or service account)",
   apiName: "Google Analytics Data API",
   baseUrl: "https://analyticsdata.googleapis.com/v1beta",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   auth: createGoogleAuth("https://www.googleapis.com/auth/analytics.readonly"),
   errors: createGoogleErrors("error.status"),
   apiRequest: { examplePath: "/properties/<id>/metadata" },

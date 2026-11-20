@@ -187,6 +187,7 @@ export const restDefinition = defineRestPlugin({
   description: "Slack Web API: conversations, history and threads, post/edit messages (opt-in for agents), reactions, users, file uploads and message search",
   apiName: "Slack Web API",
   baseUrl: "https://slack.com/api",
+  toolUserToken: { credentialEnv: [USER_TOKEN_ENV] },
   auth: { type: "bearer", env: "SLACK_BOT_TOKEN" },
   extraEnv: [USER_TOKEN_ENV, UPLOAD_DIR_ENV, SEND_OPT_IN_ENV],
   limits: { timeout_ms: 180000 },

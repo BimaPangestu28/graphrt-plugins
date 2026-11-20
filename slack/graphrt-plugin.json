@@ -15,7 +15,8 @@
       "SLACK_BOT_TOKEN",
       "SLACK_USER_TOKEN",
       "SLACK_UPLOAD_DIR",
-      "SLACK_TOOL_ALLOW_SEND"
+      "SLACK_TOOL_ALLOW_SEND",
+      "SLACK_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

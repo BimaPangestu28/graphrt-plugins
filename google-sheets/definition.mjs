@@ -13,6 +13,7 @@ export const pluginDefinition = {
   name: "google-sheets",
   version: "0.1.0",
   description: "Google Sheets via the official Sheets API v4: spreadsheets, ranges, appends and header-based records",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   tokenEnv: "GOOGLE_ACCESS_TOKEN",
   extraEnv: GOOGLE_AUTH_ENV,
   resolveAccessToken: resolveGoogleCredentials,

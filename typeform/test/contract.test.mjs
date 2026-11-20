@@ -54,7 +54,7 @@ test("manifest: deletes are node only; env is the token, base URL and create opt
   const manifest = buildManifest(pluginDefinition);
   const toolNames = manifest.tools.map((tool) => tool.name);
   for (const nodeOnlyName of ["delete_form", "delete_responses"]) assert.equal(toolNames.includes(nodeOnlyName), false, nodeOnlyName);
-  assert.deepEqual([...manifest.permissions.env].sort(), ["TYPEFORM_BASE_URL", "TYPEFORM_TOKEN", "TYPEFORM_TOOL_ALLOW_CREATE"]);
+  assert.deepEqual([...manifest.permissions.env].sort(), ["TYPEFORM_BASE_URL", "TYPEFORM_TOKEN", "TYPEFORM_TOOL_ALLOW_CREATE", "TYPEFORM_TOOL_TOKEN_SOURCE"]);
 });
 
 test("list_responses pages to older responses with before=<last token>", async () => {

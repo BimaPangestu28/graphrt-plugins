@@ -12,7 +12,8 @@
     "network": true,
     "secrets": true,
     "env": [
-      "HUBSPOT_ACCESS_TOKEN"
+      "HUBSPOT_ACCESS_TOKEN",
+      "HUBSPOT_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

@@ -147,6 +147,7 @@ export const restDefinition = defineRestPlugin({
   description: "Zoom: users, meetings (list, get, create, update; delete is node only), past meetings and participants, cloud recordings (Server-to-Server OAuth; start and download links hidden from agents)",
   apiName: "Zoom API",
   baseUrl: "https://api.zoom.us/v2",
+  toolUserToken: { credentialEnv: [ACCOUNT_ID_ENV, CLIENT_ID_ENV] },
   auth: { type: "custom", env: CLIENT_SECRET_ENV, authorize: authorizeZoomRequest },
   extraEnv: [ACCOUNT_ID_ENV, CLIENT_ID_ENV],
   // Tool output is stripped and then truncated by the wrappers below.

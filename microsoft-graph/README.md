@@ -96,6 +96,25 @@ with no body); look in Sent Items for the message.
   reply or of an event's update notices are not known before the call. Nodes are not limited by the allowlist.
 - `send_draft`, `delete_message` and `delete_event` are node only (a draft's recipients are not checked).
 
+## Per-user tokens (multi-user agents)
+
+Set `MICROSOFT_GRAPH_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin microsoft-graph`):
+
+```yaml
+tools: [microsoft-graph/get_me]
+tool_context:
+  microsoft-graph:
+    access_token: "{{#start.microsoft_graph_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Microsoft identity platform access token for Microsoft Graph (delegated permissions) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_REFRESH_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Graph errors are `{"error": {"code", "message"}}`: `InvalidAuthenticationToken` → `auth_error` (refreshed once),
 `ErrorAccessDenied`/`Forbidden` → `permission_denied`, `ErrorItemNotFound` → `not_found`,

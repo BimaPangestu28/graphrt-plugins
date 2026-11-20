@@ -152,6 +152,25 @@ When an LLM calls an operation as a tool:
 Calendar quotas are per project and per user per minute. Rate limits (`403 rateLimitExceeded`,
 `userRateLimitExceeded`, `429`) are retried with backoff. The daily `quotaExceeded` is not retried.
 
+## Per-user tokens (multi-user agents)
+
+Set `GOOGLE_CALENDAR_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin google-calendar`):
+
+```yaml
+tools: [google-calendar/list_calendars]
+tool_context:
+  google-calendar:
+    access_token: "{{#start.google_calendar_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Google OAuth access token of that user with the scopes this plugin needs.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `GOOGLE_ACCESS_TOKEN`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SERVICE_ACCOUNT_JSON` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Kind | When |
 |------|------|

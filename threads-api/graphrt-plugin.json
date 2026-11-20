@@ -14,7 +14,8 @@
     "env": [
       "THREADS_ACCESS_TOKEN",
       "THREADS_TOOL_ALLOW_POST",
-      "THREADS_TOOL_ALLOW_ENGAGE"
+      "THREADS_TOOL_ALLOW_ENGAGE",
+      "THREADS_API_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

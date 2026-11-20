@@ -27,6 +27,7 @@ export const pluginDefinition = {
   name: "threads-api",
   version: "0.3.0",
   description: "Threads profiles, posts, publishing, replies, mentions and search via the official Threads API",
+  toolUserToken: true,
   tokenEnv: "THREADS_ACCESS_TOKEN",
   extraEnv: [POST_OPT_IN_ENV, ENGAGE_OPT_IN_ENV],
   // Publishing can wait up to 5 minutes per container, plus carousel children.

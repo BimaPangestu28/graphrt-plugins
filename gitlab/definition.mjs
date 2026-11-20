@@ -445,6 +445,7 @@ const restDefinition = defineRestPlugin({
   apiName: "GitLab REST API",
   baseUrl: resolveGitLabApiUrl,
   extraEnv: ["GITLAB_BASE_URL", ALLOWED_PROJECTS_ENV, "GITLAB_TOOL_API_EXTRA_PATHS"],
+  toolUserToken: true,
   auth: { type: "bearer", env: "GITLAB_TOKEN" },
   // Errors are {"message": "401 Unauthorized"} or {"message": {"field": ["..."]}} or {"error": "...", "error_description": "..."}.
   errors: { messagePath: ["message", "error_description", "error"] },

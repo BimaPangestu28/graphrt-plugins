@@ -94,6 +94,25 @@ Set `site_url` in [`example.yaml`](example.yaml) to one of your properties.
 - `api_request` is GET-only for agents. Search Console has no secret-bearing GET endpoints, so no further path
   allowlist is needed.
 
+## Per-user tokens (multi-user agents)
+
+Set `GOOGLE_SEARCH_CONSOLE_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin google-search-console`):
+
+```yaml
+tools: [google-search-console/list_sites]
+tool_context:
+  google-search-console:
+    access_token: "{{#start.google_search_console_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Google OAuth access token of that user with the scopes this plugin needs.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `GOOGLE_ACCESS_TOKEN`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SERVICE_ACCOUNT_JSON` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Errors are `{"error": {"code", "message", "status", "errors": [{"reason"}]}}`, mapped by `status` (and HTTP
 status): `UNAUTHENTICATED`/401 → `auth_error`, `PERMISSION_DENIED`/403 (no access to the property, or the API not

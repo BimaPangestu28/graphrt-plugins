@@ -13,6 +13,7 @@
  *     limits?: { timeout_ms, max_concurrency },
  *     operations: [{ name, title, description, parameters, run }],
  *     resolveToolOperations?: (environment) => operations | undefined,  // tools for this process (default: operations)
+ *     toolUserToken?: { credentialEnv?: [...] },  // opt-in per-user tool tokens, see tool-user-token.mjs
  *   }
  * Each operation becomes node kind `<name>.<operation>` and tool `<operation>`, except operations with
  * `nodeOnly: true` (e.g. token refresh), which are never offered to an LLM as tools.
@@ -21,10 +22,14 @@
  * `{secrets}` (`tool.call` `context`, e.g. the end user's JWT); it is empty for nodes and on hosts that send none.
  * `resolveToolOperations` lets a plugin offer a different tool set per deployment (e.g. one per-user tool); the host
  * takes the tool list the plugin returns in `initialize`, so the manifest's static list is only the default.
+ * `toolUserToken` adds `<PLUGIN>_TOOL_TOKEN_SOURCE`: set to `context`, tool calls use the end user's token from
+ * `toolContext.secrets.access_token` (as if it were a node's `access_token`) and never the env credential; `run`
+ * then also gets that token as `contextAccessToken`.
  */
 import { Plugin, PluginError } from "./graphrt-plugin.mjs";
 import { validateArguments } from "./params.mjs";
 import { assertNoReservedParameters } from "./reserved-node-keys.mjs";
+import { readContextToken, resolveToolTokenMode, rethrowWithoutToken, scrubToken, toolTokenSourceEnv } from "./tool-user-token.mjs";
 
 const NODE_OUTPUTS = [
   { name: "data", type: "any", description: "API result" },
@@ -113,7 +118,7 @@ export function offersNodeToken(pluginDefinition) {
 }
 
 function listPermittedEnv(pluginDefinition) {
-  const envNames = [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? [])].filter(Boolean);
+  const envNames = [pluginDefinition.tokenEnv, ...(pluginDefinition.extraEnv ?? []), toolTokenSourceEnv(pluginDefinition)].filter(Boolean);
   return [...new Set(envNames)];
 }
 
@@ -130,18 +135,40 @@ function listPermittedEnv(pluginDefinition) {
 export function createOperationRunner(pluginDefinition, environment, runnerOptions = {}) {
   assertNoReservedParameters(pluginDefinition);
   const operationsByName = new Map(pluginDefinition.operations.map((operation) => [operation.name, operation]));
+  const toolTokenMode = pluginDefinition.noCredentials ? undefined : resolveToolTokenMode(pluginDefinition, environment);
   return async (operationName, rawArguments, { source, signal, toolContext } = {}) => {
     const operation = operationsByName.get(operationName);
     if (!operation || (operation.nodeOnly && source === "tool")) {
       throw new PluginError(`Unknown operation \`${operationName}\``, { kind: "invalid_input" });
     }
+    const callContext = source === "tool" && toolContext ? toolContext : EMPTY_TOOL_CONTEXT;
+    if (toolTokenMode && source === "tool") {
+      const contextToken = readContextToken(toolTokenMode, pluginDefinition.name, callContext);
+      const callSettings = { environment: toolTokenMode.toolEnvironment, signal, toolContext: callContext, contextToken };
+      return runWithContextToken(pluginDefinition, operation, rawArguments, callSettings, runnerOptions);
+    }
     const args = validateArguments(operation.parameters, rawArguments);
     const accessToken = pluginDefinition.noCredentials ? undefined : await pickAccessToken(pluginDefinition, environment, rawArguments, source);
     const client = pluginDefinition.createClient(buildClientOptions(accessToken, environment, runnerOptions));
-    const callContext = source === "tool" && toolContext ? toolContext : EMPTY_TOOL_CONTEXT;
     const result = await operation.run({ client, args, environment, signal, source, toolContext: callContext });
     return { data: result?.data ?? null, next_cursor: result?.next_cursor ?? null };
   };
+}
+
+// Context mode: the end user's token stands in for a node's `access_token`; the env credential is not visible.
+async function runWithContextToken(pluginDefinition, operation, rawArguments, callSettings, runnerOptions) {
+  const { environment, signal, toolContext, contextToken } = callSettings;
+  try {
+    const args = validateArguments(operation.parameters, rawArguments);
+    const accessToken = pluginDefinition.resolveAccessToken
+      ? await pluginDefinition.resolveAccessToken({ environment, nodeToken: contextToken })
+      : contextToken;
+    const client = pluginDefinition.createClient(buildClientOptions(accessToken, environment, runnerOptions));
+    const result = await operation.run({ client, args, environment, signal, source: "tool", toolContext, contextAccessToken: contextToken });
+    return scrubToken({ data: result?.data ?? null, next_cursor: result?.next_cursor ?? null }, contextToken);
+  } catch (caughtError) {
+    rethrowWithoutToken(caughtError, contextToken);
+  }
 }
 
 // Only test doubles that were given are passed, so a definition's own defaults are never overwritten with undefined.

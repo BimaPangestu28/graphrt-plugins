@@ -34,8 +34,9 @@ export const searchMessagesOperation = {
   run: (context) => searchMessages(context),
 };
 
-async function searchMessages({ client, args, environment, signal, source }) {
-  const userToken = environment?.[USER_TOKEN_ENV]?.trim();
+// With SLACK_TOOL_TOKEN_SOURCE=context the end user's token (a user token) is used and SLACK_USER_TOKEN is hidden.
+async function searchMessages({ client, args, environment, signal, source, contextAccessToken }) {
+  const userToken = contextAccessToken ?? environment?.[USER_TOKEN_ENV]?.trim();
   if (!userToken) throw new PluginError(`search_messages needs a Slack user token: set ${USER_TOKEN_ENV} (xoxp-..., scope search:read) and allow it in permissions.env`, { kind: "auth_error" });
   const page = parsePage(args.cursor);
   const searchClient = createApiClient({

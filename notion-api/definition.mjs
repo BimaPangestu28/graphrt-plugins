@@ -13,6 +13,7 @@ export const pluginDefinition = {
   name: "notion-api",
   version: "0.1.0",
   description: "Notion via the official API: search, pages and properties, database (data source) queries, page content and comments",
+  toolUserToken: true,
   tokenEnv: "NOTION_TOKEN",
   extraEnv: [ALLOW_PEOPLE_ENV],
   createClient: createNotionClient,

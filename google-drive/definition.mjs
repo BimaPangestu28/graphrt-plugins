@@ -10,7 +10,7 @@
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
 import { wrapSearchFiles } from "./lib/drive-query.mjs";
-import { createGoogleAuth, createGoogleErrors, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
+import { createGoogleAuth, createGoogleErrors, GOOGLE_AUTH_ENV, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
 import { FOLDER_ALLOWLIST_ENV, guardToolFolders } from "./lib/folder-policy.mjs";
 import { UPLOAD_DIR_ENV, uploadFileOperation } from "./lib/upload-file.mjs";
 
@@ -148,6 +148,7 @@ const restDefinition = defineRestPlugin({
   description: "Google Drive: list and search files, export and download to a directory, upload, folders, copy, rename/move, sharing (node only) and shared drives (OAuth or service account)",
   apiName: "Google Drive API",
   baseUrl: "https://www.googleapis.com/drive/v3",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   auth: createGoogleAuth("https://www.googleapis.com/auth/drive"),
   extraEnv: [UPLOAD_DIR_ENV, FOLDER_ALLOWLIST_ENV],
   limits: { timeout_ms: 360000 },

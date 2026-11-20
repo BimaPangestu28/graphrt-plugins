@@ -339,6 +339,28 @@ there too unless `sendCredential: false` (public CDNs). `api_request` always use
   So an endpoint that returns a credential on purpose (token exchange) does not fit this layer; hand-write it as a
   nodeOnly operation.
 
+### Per-user tool tokens (`toolUserToken`)
+For APIs where the credential naturally belongs to one end user (OAuth user tokens, personal access tokens), set
+`toolUserToken: true` (or `{credentialEnv: ["OTHER_SECRET_ENV"]}`). The plugin then accepts
+`<PLUGIN>_TOOL_TOKEN_SOURCE` (plugin name upper-cased, `-` → `_`, e.g. `GOOGLE_DRIVE_TOOL_TOKEN_SOURCE`), added to
+`permissions.env` by `npm run sync`:
+
+- unset or `env`: unchanged, tools use the env credential;
+- `context`: every tool call takes its token from graphrt's per-call tool context, `context.secrets.access_token`
+  (an `agent` node's `tool_context: {<plugin>: {access_token: "{{#start.user_token#}}"}}`), exactly as if it were a
+  node's `access_token`. A call without one (missing, empty, masked or malformed) is refused with `auth_error`
+  before any request. The env credential is never used for tools: `auth.env`, the OAuth2 envs and `credentialEnv`
+  are removed from the environment tools see, so no refresh or fallback can pick them up. The token is scrubbed
+  from tool results and errors, on top of the client's own redaction. Nodes are unaffected;
+- any other value: every tool call is refused (`invalid_input`), so a typo never runs with the shared credential.
+
+The mode is resolved once per process, so the default path does no extra work. Hand-written plugins get the same
+behaviour with `toolUserToken` on their definition (operations.mjs); an operation that reads a second credential
+from the env itself (e.g. Slack's user token for search) should use `contextAccessToken` from its `run` context when
+it is set, and list that env in `credentialEnv`. Do not opt in for app or server keys (AI APIs, payments, email
+verification, databases, bots): those are not per user. `scripts/test/tool-user-token-contract.test.mjs` checks
+every plugin that opts in.
+
 ### Time budgets (checked at load)
 - `timeoutMs` (plugin or operation; per attempt) must be at most `limits.timeout_ms - 10 s`.
 - `job.timeoutMs` must be at most `limits.timeout_ms - 15 s`, and a plugin with jobs needs `limits.timeout_ms` of at

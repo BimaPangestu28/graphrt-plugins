@@ -223,6 +223,7 @@ export const restDefinition = defineRestPlugin({
   description: "HubSpot CRM (API 2026-09): contacts, companies, deals, tickets and other objects (list, get, search, create, update), associations, notes, properties, pipelines, owners; archiving is node only",
   apiName: "HubSpot API",
   baseUrl: "https://api.hubapi.com",
+  toolUserToken: true,
   auth: { type: "bearer", env: "HUBSPOT_ACCESS_TOKEN" },
   // Errors are {status: "error", message, correlationId, category, context?}; 429s carry errorType RATE_LIMIT.
   errors: {

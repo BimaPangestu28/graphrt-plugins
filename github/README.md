@@ -99,6 +99,25 @@ The example reads `octocat/Hello-World` and its latest open issues.
   and organization variables; webhook configurations), after decoding and resolving `.`/`..`.
 - Creates and comments are never retried after an unknown outcome; the error says how to check.
 
+## Per-user tokens (multi-user agents)
+
+Set `GITHUB_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin github`):
+
+```yaml
+tools: [github/get_authenticated_user]
+tool_context:
+  github:
+    access_token: "{{#start.github_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a GitHub OAuth app / GitHub App user access token (or a fine-grained PAT) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `GITHUB_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 GitHub's `{"message": ...}` is shown in the error. 401 is `auth_error`, 403 `permission_denied`, a rate limit
 `rate_limited` (see above), 404 `not_found` (also for private repositories the token cannot see), 422

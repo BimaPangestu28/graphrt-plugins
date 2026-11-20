@@ -69,7 +69,9 @@ Do not edit `shared/` or `scripts/` in a plugin PR; if you need a change there, 
 
 ### Protocol and credentials
 - **stdout is the JSON-RPC protocol.** Never `console.log` in plugin code. Log to stderr.
-- **Credentials come only from environment variables.** Never accept a token, password or key as an operation
+- **Credentials come only from environment variables** (or, for per-user tokens, from graphrt's tool call context
+  via `toolUserToken`; see [docs/declarative-plugins.md](docs/declarative-plugins.md#per-user-tool-tokens-toolusertoken)).
+  Never accept a token, password or key as an operation
   argument, and never write one to a file, a log or a test.
 - Credentials are redacted from errors, logs and `api_request` responses. Keep it that way. An endpoint that
   returns a credential on purpose (token exchange) is a hand-written `nodeOnly` operation.

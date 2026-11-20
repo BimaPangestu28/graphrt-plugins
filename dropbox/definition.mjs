@@ -178,6 +178,7 @@ const restDefinition = defineRestPlugin({
   description: "Dropbox: list, search and read metadata, download to a directory, upload up to 150 MB, folders, move/copy (agents: opt-in and a path allowlist); deletes and links node only",
   apiName: "Dropbox API v2",
   baseUrl: "https://api.dropboxapi.com/2",
+  toolUserToken: true,
   auth: {
     type: "oauth2",
     grant: "refresh_token",

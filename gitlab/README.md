@@ -100,6 +100,25 @@ The example reads the token's user and the latest pipelines of the public `gitla
   Workflow nodes can call any path.
 - Creates and comments are never retried after an unknown outcome; the error says how to check.
 
+## Per-user tokens (multi-user agents)
+
+Set `GITLAB_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin gitlab`):
+
+```yaml
+tools: [gitlab/get_current_user]
+tool_context:
+  gitlab:
+    access_token: "{{#start.gitlab_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a GitLab OAuth access token (or personal access token) of that user on `GITLAB_BASE_URL`.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `GITLAB_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 GitLab's `message` (or `error`/`error_description`) is shown. 401 is `auth_error`, 403 `permission_denied`, 404
 `not_found` (also for projects the token cannot see), 400/422 `invalid_input`, 429 `rate_limited`.

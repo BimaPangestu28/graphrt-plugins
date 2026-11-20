@@ -34,6 +34,7 @@ const SPEC_KEYS = [
   "maxRetries",
   "idempotencyKeyHeader",
   "toolOutput",
+  "toolUserToken",
   "operations",
 ];
 const AUTH_KEYS = {
@@ -47,6 +48,18 @@ const AUTH_KEYS = {
 };
 const ERROR_KEYS = ["messagePath", "codePath", "retryAfterPath", "retryAfterUnit", "kindByCode", "kindByStatus", "retryableCodes", "okPath", "okValue", "errorPath"];
 const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
+function validateToolUserToken(spec, fail) {
+  const { toolUserToken } = spec;
+  if (toolUserToken === undefined || toolUserToken === false) return;
+  if (spec.auth?.type === "none") fail("`toolUserToken` needs a credential; auth type `none` has none");
+  if (toolUserToken === true) return;
+  const credentialEnv = toolUserToken?.credentialEnv;
+  const isEnvList = Array.isArray(credentialEnv) && credentialEnv.every((envName) => typeof envName === "string" && envName !== "");
+  if (typeof toolUserToken !== "object" || Object.keys(toolUserToken).some((key) => key !== "credentialEnv") || (credentialEnv !== undefined && !isEnvList)) {
+    fail("`toolUserToken` must be true or `{credentialEnv: [env names]}`");
+  }
+}
 
 /**
  * Validates a REST plugin spec, throwing on the first problem.
@@ -76,6 +89,7 @@ function validatePluginBasics(spec, fail) {
   if (typeof spec.version !== "string" || spec.version === "") fail("`version` is required");
   requireText(spec.description, "`description`", fail);
   validateHostSuffix(spec, fail);
+  validateToolUserToken(spec, fail);
   if (typeof spec.baseUrl !== "function") checkBaseUrl(spec.baseUrl, fail, spec.allowedHostSuffix);
   for (const envName of spec.extraEnv ?? []) checkEnvName(envName, "extraEnv", fail);
   for (const headerName of Object.keys(spec.defaultHeaders ?? {})) checkHeaderName(headerName, "defaultHeaders:", fail);

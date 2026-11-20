@@ -15,7 +15,8 @@
       "VERCEL_TOKEN",
       "VERCEL_TEAM_ID",
       "VERCEL_TOOL_API_EXTRA_PATHS",
-      "VERCEL_TOOL_ALLOW_WRITE"
+      "VERCEL_TOOL_ALLOW_WRITE",
+      "VERCEL_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

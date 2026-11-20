@@ -211,6 +211,7 @@ export const restDefinition = defineRestPlugin({
   description: "Todoist (API v1): projects, sections, tasks (filter, completed, create, quick add, update, move, complete, reopen), labels and comments; deletes are node only",
   apiName: "Todoist API v1",
   baseUrl: "https://api.todoist.com/api/v1",
+  toolUserToken: true,
   auth: { type: "bearer", env: "TODOIST_API_TOKEN" },
   // Errors: {"error_tag": "UNAUTHORIZED", "error_code": 477, "error": "Unauthorized", "http_code": 401,
   // "error_extra": {"retry_after": 3}}.

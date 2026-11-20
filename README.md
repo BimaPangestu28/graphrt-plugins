@@ -256,6 +256,14 @@ graphrt plugin install ./meta-api
   (after a catalog format change); it refuses to drop a plugin or change any version, `sha256` or `size_bytes`.
   `.github/workflows/release.yml` runs the same script on a `<name>-v<version>` tag push or by hand.
 
+### Multi-user agents
+Plugins whose credential belongs to one end user (GitHub, GitLab, Slack, Notion, Google Workspace, Microsoft 365,
+Zoom, Salesforce, HubSpot and others; see each README's "Per-user tokens" section) accept
+`<PLUGIN>_TOOL_TOKEN_SOURCE=context`. Agent tools then act with the end user's own token, which graphrt passes per call
+from the `agent` node's `tool_context` as `access_token`, and never with the plugin's env credential; a call without
+one is refused. Workflow nodes keep using the env. Supabase has its own `SUPABASE_TOOL_MODE=user_rpc`. Details:
+[docs/declarative-plugins.md](docs/declarative-plugins.md#per-user-tool-tokens-toolusertoken).
+
 Want to add a plugin? Read [CONTRIBUTING.md](CONTRIBUTING.md). Design notes and API research are in `docs/superpowers/`.
 
 ## License

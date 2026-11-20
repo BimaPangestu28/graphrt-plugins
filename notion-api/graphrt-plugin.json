@@ -13,7 +13,8 @@
     "secrets": true,
     "env": [
       "NOTION_TOKEN",
-      "NOTION_TOOL_ALLOW_PEOPLE"
+      "NOTION_TOOL_ALLOW_PEOPLE",
+      "NOTION_API_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

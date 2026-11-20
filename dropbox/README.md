@@ -91,6 +91,25 @@ Paths start with `/` (`""` is the root for `list_folder`) or are `id:...` from m
   anyone can download from) are node only.
 - Creates and uploads are never retried after an unknown outcome; the error says how to check.
 
+## Per-user tokens (multi-user agents)
+
+Set `DROPBOX_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin dropbox`):
+
+```yaml
+tools: [dropbox/get_current_account]
+tool_context:
+  dropbox:
+    access_token: "{{#start.dropbox_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Dropbox OAuth access token (short-lived `sl.` token) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `DROPBOX_APP_SECRET`, `DROPBOX_APP_KEY`, `DROPBOX_REFRESH_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 - 401 (`invalid_access_token`, `expired_access_token`): `auth_error` (the token is refreshed once first);
   `missing_scope`: `permission_denied`.

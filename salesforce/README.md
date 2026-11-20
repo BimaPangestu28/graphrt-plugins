@@ -91,6 +91,25 @@ returns `null` data (204); `create_record` returns `{id, success, errors}`.
 - `delete_record` is node only.
 - `api_request` is GET only for agents.
 
+## Per-user tokens (multi-user agents)
+
+Set `SALESFORCE_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin salesforce`):
+
+```yaml
+tools: [salesforce/get_limits]
+tool_context:
+  salesforce:
+    access_token: "{{#start.salesforce_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Salesforce OAuth access token of that user; it must belong to the org at `SALESFORCE_INSTANCE_URL`.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_REFRESH_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Salesforce errors are `[{"message", "errorCode"}]`: `INVALID_SESSION_ID` → `auth_error` (token refreshed once),
 `REQUEST_LIMIT_EXCEEDED` (403) → `rate_limited`, `INSUFFICIENT_ACCESS*` → `permission_denied`,

@@ -12,7 +12,8 @@
     "network": true,
     "secrets": true,
     "env": [
-      "CLICKUP_API_TOKEN"
+      "CLICKUP_API_TOKEN",
+      "CLICKUP_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

@@ -205,6 +205,7 @@ export const restDefinition = defineRestPlugin({
   description: "Asana: workspaces, projects, sections, tasks (list, search, create, update, complete, subtasks) and comments with a personal access token; deletes node only",
   apiName: "Asana API",
   baseUrl: "https://app.asana.com/api/1.0",
+  toolUserToken: true,
   auth: { type: "bearer", env: "ASANA_ACCESS_TOKEN" },
   // Errors are {"errors": [{"message", "help", "phrase"?}]}; 402 means a premium-only feature (e.g. search).
   errors: { messagePath: "errors.0.message", kindByStatus: { 402: "permission_denied" } },

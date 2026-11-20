@@ -25,7 +25,7 @@ const mail = { to: ["ada@example.com"], bcc: ["boss@other.example"], subject: "H
 
 test("manifest: Google credentials, the opt-in, allowlist and attachment dir are allowed env", () => {
   const manifest = buildManifest(pluginDefinition);
-  assert.deepEqual(manifest.permissions.env.sort(), ["GMAIL_ATTACHMENT_DIR", "GMAIL_TOOL_ALLOW_SEND", "GMAIL_TOOL_RECIPIENT_ALLOWLIST", "GOOGLE_ACCESS_TOKEN", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "GOOGLE_SERVICE_ACCOUNT_JSON"]);
+  assert.deepEqual(manifest.permissions.env.sort(), ["GMAIL_API_TOOL_TOKEN_SOURCE", "GMAIL_ATTACHMENT_DIR", "GMAIL_TOOL_ALLOW_SEND", "GMAIL_TOOL_RECIPIENT_ALLOWLIST", "GOOGLE_ACCESS_TOKEN", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "GOOGLE_SERVICE_ACCOUNT_JSON"]);
   const toolNames = manifest.tools.map((tool) => tool.name);
   for (const nodeOnlyName of ["send_draft", "trash_message"]) assert.equal(toolNames.includes(nodeOnlyName), false);
   assert.deepEqual(manifest.tools.find((tool) => tool.name === "send_message").parameters.required, ["to", "subject"]);

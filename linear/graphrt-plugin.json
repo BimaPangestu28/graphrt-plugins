@@ -13,7 +13,8 @@
     "secrets": true,
     "env": [
       "LINEAR_API_KEY",
-      "LINEAR_TOOL_ALLOW_WRITE"
+      "LINEAR_TOOL_ALLOW_WRITE",
+      "LINEAR_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

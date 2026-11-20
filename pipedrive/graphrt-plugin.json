@@ -14,7 +14,8 @@
     "env": [
       "PIPEDRIVE_API_TOKEN",
       "PIPEDRIVE_COMPANY_DOMAIN",
-      "PIPEDRIVE_TOOL_API_EXTRA_PATHS"
+      "PIPEDRIVE_TOOL_API_EXTRA_PATHS",
+      "PIPEDRIVE_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

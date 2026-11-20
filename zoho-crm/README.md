@@ -93,6 +93,25 @@ come from user input.
   and encoded slashes or backslashes are refused. Custom modules stay readable through `list_records` and
   `get_record`.
 
+## Per-user tokens (multi-user agents)
+
+Set `ZOHO_CRM_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin zoho-crm`):
+
+```yaml
+tools: [zoho-crm/list_modules]
+tool_context:
+  zoho-crm:
+    access_token: "{{#start.zoho_crm_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Zoho OAuth access token of that user, from the data center set in `ZOHO_DATA_CENTER`.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `ZOHO_ACCESS_TOKEN`, `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Zoho errors are `{"code", "details", "message", "status": "error"}`: `INVALID_TOKEN`/`AUTHENTICATION_FAILURE` →
 `auth_error`, `OAUTH_SCOPE_MISMATCH`/`NO_PERMISSION` → `permission_denied`, `INVALID_URL_PATTERN` → `not_found`,

@@ -162,6 +162,7 @@ const buildSpec = (tokenUrl) => ({
   description: "OneDrive (Microsoft Graph): browse, search, download to a directory, upload up to 250 MB, folders, rename/move/copy (agents: folder allowlist), sharing links and deletes node only",
   apiName: "Microsoft Graph",
   baseUrl: "https://graph.microsoft.com/v1.0",
+  toolUserToken: true,
   auth: {
     type: "oauth2",
     grant: "refresh_token",

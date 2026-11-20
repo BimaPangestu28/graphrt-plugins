@@ -157,6 +157,7 @@ export const restDefinition = defineRestPlugin({
   description: "Calendly: current user, event types and open times, scheduled events and invitees, availability and busy times, single-use links and bookings (agent opt-in), cancel (node only)",
   apiName: "Calendly API",
   baseUrl: "https://api.calendly.com",
+  toolUserToken: true,
   auth: { type: "bearer", env: "CALENDLY_ACCESS_TOKEN" },
   // Tool output is stripped and then truncated by the wrappers below.
   toolOutput: false,

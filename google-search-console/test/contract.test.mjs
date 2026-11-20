@@ -97,6 +97,7 @@ test("manifest: removals are node only, writes opt-in, Google credentials and th
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_REFRESH_TOKEN",
     "GOOGLE_SEARCH_CONSOLE_TOOL_ALLOW_WRITES",
+    "GOOGLE_SEARCH_CONSOLE_TOOL_TOKEN_SOURCE",
     "GOOGLE_SERVICE_ACCOUNT_JSON",
   ]);
 });

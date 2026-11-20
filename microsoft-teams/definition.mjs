@@ -122,6 +122,7 @@ const buildSpec = (tokenUrl) => ({
   description: "Microsoft Teams via Microsoft Graph: teams, channels, channel messages and replies, chats; agent sends need an opt-in",
   apiName: "Microsoft Graph (Teams)",
   baseUrl: "https://graph.microsoft.com/v1.0",
+  toolUserToken: true,
   auth: {
     type: "oauth2",
     grant: "refresh_token",
