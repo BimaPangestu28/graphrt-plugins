@@ -16,6 +16,7 @@ import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rm
 import { join, relative, sep } from "node:path";
 import { REPO_ROOT } from "../plugins.mjs";
 import { ICON_FILE_NAME, readPluginIcon } from "./plugin-icons.mjs";
+import { displayNameFor } from "./plugin-names.mjs";
 import { readPluginStatuses, statusForPlugin } from "./plugin-status.mjs";
 import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
@@ -350,6 +351,7 @@ export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeT
   const manifestNodes = releasedManifest.nodes ?? [];
   return {
     name,
+    display_name: displayNameFor(name),
     version,
     description: releasedManifest.description ?? "",
     icon_url: releaseAssetUrl(CATALOG_TAG, iconAssetName),

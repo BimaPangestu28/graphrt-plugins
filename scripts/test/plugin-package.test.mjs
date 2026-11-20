@@ -73,6 +73,7 @@ test("carries the maturity status and ToS risk from plugin-status.json", () => {
   assert.equal(entry.status, "beta");
   assert.equal(entry.status_reason, "Checked live with an invalid token only.");
   assert.equal(entry.tos_risk, "low");
+  assert.equal(entry.display_name, "Facebook & Instagram");
   const repoEntry = buildCatalogEntry({ ...sampleManifest, name: "whatsapp-web", nodes: [] }, { sha256: "0", sizeBytes: 1 });
   assert.equal(repoEntry.status, "experimental");
   assert.equal(repoEntry.tos_risk, "high");
