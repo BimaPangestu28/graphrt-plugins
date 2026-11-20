@@ -191,6 +191,7 @@ export const restDefinition = defineRestPlugin({
   description: "Trello: boards, lists, cards, comments, checklists, labels and members; agent writes limited to allowed boards, deletes node only",
   apiName: "Trello REST API",
   baseUrl: "https://api.trello.com/1",
+  toolUserToken: true,
   auth: { type: "custom", env: TOKEN_ENV, authorize: authorizeTrello },
   extraEnv: [API_KEY_ENV, BOARD_ALLOWLIST_ENV],
   // Errors are plain text ("invalid token", "unauthorized permission requested") or {"message", "error"}; 429

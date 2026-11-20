@@ -12,7 +12,8 @@
     "network": true,
     "secrets": true,
     "env": [
-      "ASANA_ACCESS_TOKEN"
+      "ASANA_ACCESS_TOKEN",
+      "ASANA_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

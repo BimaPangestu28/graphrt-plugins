@@ -13,7 +13,7 @@
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
 import { PluginError } from "./lib/shared/graphrt-plugin.mjs";
 import { restrictApiRequestToReadPaths } from "./lib/api-request-allowlist.mjs";
-import { ACCESS_TOKEN_ENV, buildApiBaseUrl, createZohoAuth, DATA_CENTER_ENV, withZohoCredentials } from "./lib/zoho-auth.mjs";
+import { ACCESS_TOKEN_ENV, buildApiBaseUrl, createZohoAuth, DATA_CENTER_ENV, withZohoCredentials, ZOHO_CREDENTIAL_ENV } from "./lib/zoho-auth.mjs";
 
 const STANDARD_MODULES = [
   "Leads", "Contacts", "Accounts", "Deals", "Tasks", "Events", "Calls", "Notes", "Products", "Quotes", "Sales_Orders",
@@ -250,6 +250,7 @@ export const restDefinition = defineRestPlugin({
   description: "Zoho CRM API v8 (any data center): list, get, search and COQL-query records, related records, insert, update and upsert, module and field metadata, users; deletes are node only",
   apiName: "Zoho CRM API",
   baseUrl: buildApiBaseUrl,
+  toolUserToken: { credentialEnv: ZOHO_CREDENTIAL_ENV },
   auth: createZohoAuth(),
   extraEnv: [DATA_CENTER_ENV, ACCESS_TOKEN_ENV],
   errors: ZOHO_ERRORS,

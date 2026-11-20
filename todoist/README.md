@@ -87,6 +87,25 @@ The example lists today's and overdue tasks and your projects.
   GET endpoints (`/user` with the token, backups with download links, uploads, forwarding email addresses,
   workspace invitations) are refused for tools.
 
+## Per-user tokens (multi-user agents)
+
+Set `TODOIST_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin todoist`):
+
+```yaml
+tools: [todoist/get_user]
+tool_context:
+  todoist:
+    access_token: "{{#start.todoist_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is an OAuth access token (or personal API token) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `TODOIST_API_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Todoist errors are `{"error_tag": "...", "error_code": ..., "error": "...", "http_code": ..., "error_extra": {...}}`
 and appear as `error (error_tag)`. `UNAUTHORIZED` (and any 401) is `auth_error`, `FORBIDDEN` `permission_denied`,

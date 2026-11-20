@@ -10,7 +10,7 @@
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
 import { wrapInsertText, wrapReplaceAllText } from "./lib/docs-requests.mjs";
-import { createGoogleAuth, createGoogleErrors, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
+import { createGoogleAuth, createGoogleErrors, GOOGLE_AUTH_ENV, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
 
 const DOCUMENT_ID = { in: "path", type: "string", required: true, description: "Document id (from its URL: /document/d/<id>/edit)" };
 const BATCH_UPDATE_PATH = "/documents/{document_id}:batchUpdate";
@@ -72,6 +72,7 @@ const restDefinition = defineRestPlugin({
   description: "Google Docs: read documents (with tabs), create, insert text, replace text for templates, raw batch updates (OAuth or service account)",
   apiName: "Google Docs API",
   baseUrl: "https://docs.googleapis.com/v1",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   auth: createGoogleAuth("https://www.googleapis.com/auth/documents"),
   errors: createGoogleErrors("error.status"),
   apiRequest: { examplePath: "/documents/<id>" },

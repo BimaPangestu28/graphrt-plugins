@@ -10,7 +10,7 @@
  * deleting them is node only.
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
-import { createGoogleAuth, createGoogleErrors, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
+import { createGoogleAuth, createGoogleErrors, GOOGLE_AUTH_ENV, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
 
 // Scopes for the service account grant: edit forms (forms.body also covers reads and watches) and read responses.
 const FORMS_SCOPES = "https://www.googleapis.com/auth/forms.body https://www.googleapis.com/auth/forms.responses.readonly";
@@ -124,6 +124,7 @@ const restDefinition = defineRestPlugin({
   description: "Google Forms: read forms and responses, create forms, batch edits and publish settings behind opt-ins, Pub/Sub watches (OAuth or service account)",
   apiName: "Google Forms API",
   baseUrl: "https://forms.googleapis.com/v1",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   auth: createGoogleAuth(FORMS_SCOPES),
   errors: createGoogleErrors("error.status"),
   apiRequest: { examplePath: "/forms/<id>" },

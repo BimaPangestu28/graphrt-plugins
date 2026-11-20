@@ -198,6 +198,7 @@ export const restDefinition = defineRestPlugin({
   apiName: "ClickUp API v2",
   baseUrl: "https://api.clickup.com/api/v2",
   // Personal tokens (pk_...) go in Authorization without a prefix; an OAuth token needs "Bearer " in the value.
+  toolUserToken: true,
   auth: { type: "header", header: "Authorization", env: "CLICKUP_API_TOKEN" },
   // Errors are {"err": "Token invalid", "ECODE": "OAUTH_025"} (https://developer.clickup.com/docs/common_errors).
   errors: {

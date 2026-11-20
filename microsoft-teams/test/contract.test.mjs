@@ -93,7 +93,7 @@ test("without MICROSOFT_TENANT_ID the common endpoint is used; malformed tenants
 });
 
 test("manifest lists the OAuth env, the tenant and the send opt-in", () => {
-  assert.deepEqual(buildManifest(pluginDefinition).permissions.env, ["MICROSOFT_CLIENT_SECRET", "MICROSOFT_CLIENT_ID", "MICROSOFT_REFRESH_TOKEN", "MICROSOFT_TENANT_ID", "MICROSOFT_TEAMS_TOOL_ALLOW_SEND"]);
+  assert.deepEqual(buildManifest(pluginDefinition).permissions.env, ["MICROSOFT_CLIENT_SECRET", "MICROSOFT_CLIENT_ID", "MICROSOFT_REFRESH_TOKEN", "MICROSOFT_TENANT_ID", "MICROSOFT_TEAMS_TOOL_ALLOW_SEND", "MICROSOFT_TEAMS_TOOL_TOKEN_SOURCE"]);
 });
 
 test("Graph errors map by error.code", async () => {

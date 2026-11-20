@@ -13,6 +13,7 @@ export const pluginDefinition = {
   name: "google-calendar",
   version: "0.1.0",
   description: "Google Calendar via the official Calendar API v3: calendars, free/busy, free-slot search and events with Google Meet",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   tokenEnv: "GOOGLE_ACCESS_TOKEN",
   extraEnv: [...GOOGLE_AUTH_ENV, TOOL_ALLOWED_IDS_ENV, TOOL_SEND_UPDATES_ENV],
   resolveAccessToken: resolveGoogleCredentials,

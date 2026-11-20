@@ -73,6 +73,25 @@ The example lists your organizations and the five most frequent unresolved issue
 - `api_request` is GET-only for agents and refuses service-hook paths (`.../hooks/`, they return the hook's signing
   secret), after decoding and resolving `.`/`..`.
 
+## Per-user tokens (multi-user agents)
+
+Set `SENTRY_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin sentry`):
+
+```yaml
+tools: [sentry/list_organizations]
+tool_context:
+  sentry:
+    access_token: "{{#start.sentry_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is an OAuth access token (or personal API token) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `SENTRY_AUTH_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Sentry's `{"detail": ...}` is shown. 401 is `auth_error`, 403 `permission_denied` (missing scope), 404 `not_found`
 (also for the wrong region: set `SENTRY_REGION`), 400 `invalid_input`, 429 `rate_limited`.

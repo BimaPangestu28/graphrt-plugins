@@ -12,6 +12,7 @@ export const pluginDefinition = {
   name: "airtable-api",
   version: "0.1.0",
   description: "Airtable via the official Web API: bases and schemas, list/find/get records, create, update and upsert records",
+  toolUserToken: true,
   tokenEnv: "AIRTABLE_TOKEN",
   extraEnv: [BASE_ID_ENV, TOOL_ALLOWED_BASES_ENV],
   createClient: createAirtableClient,

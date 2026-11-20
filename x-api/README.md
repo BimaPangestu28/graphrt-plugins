@@ -130,6 +130,25 @@ automated replies or DMs, so agent tools start read-only. Workflow nodes are nev
 - Even with the opt-ins, X's [Automation Rules](https://help.x.com/en/rules-and-policies/x-automation) still apply:
   no keyword-triggered auto-replies, no automated posts about trending topics, no bulk or spammy actions.
 
+## Per-user tokens (multi-user agents)
+
+Set `X_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin x-api`):
+
+```yaml
+tools: [x-api/get_me]
+tool_context:
+  x-api:
+    access_token: "{{#start.x_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is an X OAuth 2.0 user access token of that user (the user id comes from `/2/users/me`; `X_USER_ID` is not used).
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `X_ACCESS_TOKEN`, `X_USER_ID`, `X_CLIENT_SECRET`, `X_REFRESH_TOKEN`, `X_CLIENT_ID` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Kind | When |
 |------|------|

@@ -85,6 +85,25 @@ The example lists your workspaces and the spaces of the first one.
 - `api_request` is GET-only for agents and limited to the hierarchy, task, comment, view and time-entry reads:
   other GET endpoints (e.g. webhooks, which include their signing secret) are refused for tools.
 
+## Per-user tokens (multi-user agents)
+
+Set `CLICKUP_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin clickup`):
+
+```yaml
+tools: [clickup/get_user]
+tool_context:
+  clickup:
+    access_token: "{{#start.clickup_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is an OAuth access token (or personal API token) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `CLICKUP_API_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 ClickUp errors are `{"err": "...", "ECODE": "..."}` and appear as `message (ECODE)`. `OAUTH_017/019/021/025/077`
 (missing, revoked or invalid token) are `auth_error`; `OAUTH_023/026/027/029` (workspace not authorized for the

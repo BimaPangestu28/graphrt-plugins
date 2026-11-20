@@ -86,6 +86,7 @@ test("manifest: Google credentials and both opt-ins are allowed env; watch chang
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_FORMS_TOOL_ALLOW_EDIT",
     "GOOGLE_FORMS_TOOL_ALLOW_PUBLISH",
+    "GOOGLE_FORMS_TOOL_TOKEN_SOURCE",
     "GOOGLE_REFRESH_TOKEN",
     "GOOGLE_SERVICE_ACCOUNT_JSON",
   ]);

@@ -12,7 +12,8 @@
     "network": true,
     "secrets": true,
     "env": [
-      "TODOIST_API_TOKEN"
+      "TODOIST_API_TOKEN",
+      "TODOIST_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

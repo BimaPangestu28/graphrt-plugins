@@ -85,6 +85,25 @@ The default quota is 10,000 units per day, reset at midnight Pacific Time. Reads
 writes cost 50 (`update_video_metadata` also does a 1-unit read first, live chat sends 20). `list_my_videos` without
 `uploads_playlist_id` costs 2.
 
+## Per-user tokens (multi-user agents)
+
+Set `YOUTUBE_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin youtube-api`):
+
+```yaml
+tools: [youtube-api/get_my_channel]
+tool_context:
+  youtube-api:
+    access_token: "{{#start.youtube_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Google OAuth access token of that user with the YouTube scopes.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `YOUTUBE_ACCESS_TOKEN`, `YOUTUBE_REFRESH_TOKEN`, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Kind | When |
 |------|------|

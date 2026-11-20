@@ -9,7 +9,7 @@
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
 import { RECIPIENT_ALLOWLIST_ENV, SEND_OPT_IN_ENV, wrapCreateDraft, wrapSendMessage } from "./lib/gmail-compose.mjs";
-import { createGoogleAuth, createGoogleErrors, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
+import { createGoogleAuth, createGoogleErrors, GOOGLE_AUTH_ENV, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
 import { replaceOperation } from "./lib/recipient-policy.mjs";
 
 const ATTACHMENT_DIR_ENV = "GMAIL_ATTACHMENT_DIR";
@@ -127,6 +127,7 @@ const restDefinition = defineRestPlugin({
   description: "Gmail API: search and read messages and threads, labels, drafts, attachments, and send mail (agent sends need an opt-in and an optional recipient allowlist)",
   apiName: "Gmail API",
   baseUrl: "https://gmail.googleapis.com/gmail/v1/users/me",
+  toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
   auth: createGoogleAuth("https://www.googleapis.com/auth/gmail.modify"),
   extraEnv: [RECIPIENT_ALLOWLIST_ENV],
   errors: createGoogleErrors("error.errors.0.reason"),

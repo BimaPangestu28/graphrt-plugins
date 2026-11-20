@@ -83,6 +83,25 @@ The example lists your open boards and the lists of the first one.
   organizations, search and members; token, webhook and application paths are refused.
 - Workflow nodes are not limited.
 
+## Per-user tokens (multi-user agents)
+
+Set `TRELLO_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin trello`):
+
+```yaml
+tools: [trello/get_me]
+tool_context:
+  trello:
+    access_token: "{{#start.trello_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Trello token the user granted to your app; `TRELLO_API_KEY` (your app's key) is still read from the env.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `TRELLO_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Trello answers errors in plain text (`invalid token`, `unauthorized permission requested`) or as
 `{"message", "error"}`. 401 is `auth_error`, 403 `permission_denied`, 404 `not_found`, 429 `rate_limited`. Writes

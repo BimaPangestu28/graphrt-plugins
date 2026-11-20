@@ -93,6 +93,7 @@ export const restDefinition = defineRestPlugin({
   apiName: "Typeform API",
   baseUrl: resolveTypeformBaseUrl,
   extraEnv: [BASE_URL_ENV],
+  toolUserToken: true,
   auth: { type: "bearer", env: "TYPEFORM_TOKEN" },
   // Errors are {"code": "...", "description": "...", "details": [...]}; a bad token is 401 UNAUTHORIZED or 403 AUTHENTICATION_ERROR.
   errors: {

@@ -468,6 +468,7 @@ const restDefinition = defineRestPlugin({
   description: "GitHub REST API: repositories, issues, pull requests, file contents, code and issue search, releases, Actions runs and notifications",
   apiName: "GitHub REST API",
   baseUrl: "https://api.github.com",
+  toolUserToken: true,
   auth: { type: "bearer", env: "GITHUB_TOKEN" },
   extraEnv: [ALLOWED_REPOS_ENV],
   defaultHeaders: { accept: "application/vnd.github+json", "x-github-api-version": "2026-03-10" },

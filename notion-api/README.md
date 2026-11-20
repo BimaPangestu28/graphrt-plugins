@@ -108,6 +108,25 @@ List operations take `limit` (1-100) and `cursor` and return `next_cursor` (null
 - `archive_page` moves the page to the trash (`in_trash: true`, Notion's name since 2026-03-11 for `archived`).
   It can be undone with `restore_page`, so it is available to agents.
 
+## Per-user tokens (multi-user agents)
+
+Set `NOTION_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin notion-api`):
+
+```yaml
+tools: [notion-api/search]
+tool_context:
+  notion-api:
+    access_token: "{{#start.notion_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Notion public integration (OAuth) access token of that user's workspace.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `NOTION_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Notion code | kind |
 |-------------|------|

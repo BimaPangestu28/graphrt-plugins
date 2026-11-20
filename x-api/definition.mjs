@@ -55,6 +55,7 @@ export const pluginDefinition = {
   name: "x-api",
   version: "0.2.0",
   description: "X (Twitter) posts, replies, likes, reposts, DMs and media via the official X API v2",
+  toolUserToken: { credentialEnv: ["X_USER_ID", "X_CLIENT_SECRET", "X_REFRESH_TOKEN", "X_CLIENT_ID"] },
   tokenEnv: "X_ACCESS_TOKEN",
   extraEnv: ["X_USER_ID", "X_CLIENT_SECRET", "X_REFRESH_TOKEN", "X_CLIENT_ID", POST_OPT_IN_ENV, DM_OPT_IN_ENV, ENGAGE_OPT_IN_ENV, RECIPIENT_ALLOWLIST_ENV],
   createClient: createXClient,

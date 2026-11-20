@@ -15,7 +15,8 @@
       "GITHUB_TOKEN",
       "GITHUB_TOOL_ALLOWED_REPOS",
       "GITHUB_TOOL_ALLOW_WRITE",
-      "GITHUB_TOOL_ALLOW_CI"
+      "GITHUB_TOOL_ALLOW_CI",
+      "GITHUB_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

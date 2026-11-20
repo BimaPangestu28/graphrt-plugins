@@ -122,6 +122,25 @@ Property values use internal names (see `list_properties`). Dropdown values use 
   decoded repeatedly before the check (`%252e` is `.`), and `.`, `..`, empty segments and encoded slashes or
   backslashes are refused. Nodes are not limited.
 
+## Per-user tokens (multi-user agents)
+
+Set `HUBSPOT_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin hubspot`):
+
+```yaml
+tools: [hubspot/list_objects]
+tool_context:
+  hubspot:
+    access_token: "{{#start.hubspot_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is an OAuth access token (or personal API token) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `HUBSPOT_ACCESS_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 HubSpot errors are `{"status": "error", "message", "correlationId", "category", "context"?}`. The plugin maps
 `category`:

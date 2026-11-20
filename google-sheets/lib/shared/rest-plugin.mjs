@@ -9,6 +9,8 @@
  *   - write "read" and "idempotent" requests are retried after 5xx and network failures; "unsafe" ones never are
  *     (unless an Idempotency-Key makes them safe), and their errors say the outcome is unknown plus `checkHint`.
  *   - path params are encoded segment by segment; next-page URLs must stay under the base URL.
+ *   - `toolUserToken` lets `<PLUGIN>_TOOL_TOKEN_SOURCE=context` take tool tokens from the call context
+ *     (see tool-user-token.mjs); the env credential, including OAuth envs, is then hidden from tools.
  *   - `toolPolicy: "optIn:<ENV>"` refuses tool calls unless <ENV>=1; `nodeOnly` hides the tool entirely;
  *     `api_request` is GET-only for tools and cannot reach the paths of such GET operations.
  *   - jobs and downloads share one deadline that starts with the call and ends before the host's timeout.
@@ -21,6 +23,7 @@ import { createApiRequestOperation } from "./api-request-operation.mjs";
 import { PluginError } from "./graphrt-plugin.mjs";
 import { classifyTransferError, saveResponseToFile } from "./public-https-fetch.mjs";
 import { createAuthHooks, createCredentialResolver, describeAuthEnv } from "./rest-auth.mjs";
+import { listOAuthEnv } from "./rest-oauth.mjs";
 import { listResultUrls, saveDownloads, DEFAULT_MAX_DOWNLOAD_BYTES } from "./rest-downloads.mjs";
 import { createBodyErrorDetector, createErrorParser } from "./rest-errors.mjs";
 import { describeJobError, readJobId, resolveJobBudgetMs, waitForJob } from "./rest-job.mjs";
@@ -58,6 +61,7 @@ export function defineRestPlugin(spec) {
     ...describeCredentials(spec.auth),
     extraEnv: collectExtraEnv(restSpec),
     limits: spec.limits,
+    ...describeToolUserToken(spec),
     createClient: (clientOptions) => createRestClient(spec, clientOptions),
     restSpec,
     operations: [...restSpec.operations.map((operation) => buildOperation(operation, settings)), ...buildApiRequest(restSpec)],
@@ -67,6 +71,14 @@ export function defineRestPlugin(spec) {
 function describeCredentials(auth) {
   if (auth.type === "none") return { tokenEnv: undefined, noCredentials: true };
   return { tokenEnv: describeAuthEnv(auth).tokenEnv, resolveAccessToken: createCredentialResolver(auth) };
+}
+
+// The auth's own secret envs (e.g. an OAuth refresh token) are hidden from tools in context mode too.
+function describeToolUserToken(spec) {
+  if (!spec.toolUserToken) return {};
+  const authEnv = spec.auth.type === "oauth2" ? listOAuthEnv(spec.auth) : [];
+  const credentialEnv = [...authEnv, ...(spec.toolUserToken.credentialEnv ?? [])];
+  return { toolUserToken: { credentialEnv: [...new Set(credentialEnv)] } };
 }
 
 function collectExtraEnv(restSpec) {

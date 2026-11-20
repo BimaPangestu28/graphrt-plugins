@@ -208,6 +208,7 @@ const restDefinition = defineRestPlugin({
   baseUrl: resolveSentryApiUrl,
   allowedHostSuffix: ".sentry.io",
   extraEnv: ["SENTRY_REGION"],
+  toolUserToken: true,
   auth: { type: "bearer", env: "SENTRY_AUTH_TOKEN" },
   // Errors are {"detail": "..."}; validation errors are {"field": ["..."]}.
   errors: { messagePath: ["detail", "detail.message", "status.0", "statusDetails.0"] },

@@ -14,7 +14,8 @@
     "env": [
       "SENTRY_AUTH_TOKEN",
       "SENTRY_REGION",
-      "SENTRY_TOOL_ALLOW_WRITE"
+      "SENTRY_TOOL_ALLOW_WRITE",
+      "SENTRY_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

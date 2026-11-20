@@ -103,6 +103,25 @@ ZOOM_ACCOUNT_ID=... ZOOM_CLIENT_ID=... ZOOM_CLIENT_SECRET=... graphrt run zoom/e
   decoded once before matching; encoded slashes or backslashes (`%2F`, `%5C`, `\`), paths that do not decode, and
   any `%` left in user or webinar ids are refused.
 
+## Per-user tokens (multi-user agents)
+
+Set `ZOOM_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin zoom`):
+
+```yaml
+tools: [zoom/get_me]
+tool_context:
+  zoom:
+    access_token: "{{#start.zoom_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Zoom user-level OAuth access token of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `ZOOM_CLIENT_SECRET`, `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Zoom errors are `{"code": <number>, "message": "..."}`. They map to kinds as follows:
 - 401 and code 124 (invalid access token) → `auth_error`

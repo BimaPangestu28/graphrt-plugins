@@ -112,6 +112,25 @@ Workflow nodes are never limited.
 
 A refused call fails with `permission_denied` and sends no request. The Threads API has no direct messages.
 
+## Per-user tokens (multi-user agents)
+
+Set `THREADS_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin threads-api`):
+
+```yaml
+tools: [threads-api/get_profile]
+tool_context:
+  threads-api:
+    access_token: "{{#start.threads_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Threads user access token of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `THREADS_ACCESS_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Kind | When |
 |------|------|

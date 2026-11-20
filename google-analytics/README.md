@@ -94,6 +94,25 @@ Every operation only reads and is an agent tool. The report methods are POSTs, d
 change nothing, so they are retried after timeouts and 5xx. `api_request` is GET-only for agents and reaches only
 the Data API host.
 
+## Per-user tokens (multi-user agents)
+
+Set `GOOGLE_ANALYTICS_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin google-analytics`):
+
+```yaml
+tools: [google-analytics/run_report]
+tool_context:
+  google-analytics:
+    access_token: "{{#start.google_analytics_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Google OAuth access token of that user with the scopes this plugin needs.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `GOOGLE_ACCESS_TOKEN`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SERVICE_ACCOUNT_JSON` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Errors are `{"error": {"code", "message", "status"}}`, mapped by `status`: `UNAUTHENTICATED` → `auth_error`,
 `PERMISSION_DENIED` → `permission_denied` (no access to the property, or an API not enabled), `NOT_FOUND` →

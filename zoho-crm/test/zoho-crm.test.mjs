@@ -34,7 +34,7 @@ async function runZoho(operationName, args, { environment = TRIO, source = "tool
 
 test("manifest: Zoho envs are allowed; delete is not a tool", () => {
   const manifest = buildManifest(pluginDefinition);
-  assert.deepEqual(manifest.permissions.env.sort(), ["ZOHO_ACCESS_TOKEN", "ZOHO_CLIENT_ID", "ZOHO_CLIENT_SECRET", "ZOHO_DATA_CENTER", "ZOHO_REFRESH_TOKEN"]);
+  assert.deepEqual(manifest.permissions.env.sort(), ["ZOHO_ACCESS_TOKEN", "ZOHO_CLIENT_ID", "ZOHO_CLIENT_SECRET", "ZOHO_CRM_TOOL_TOKEN_SOURCE", "ZOHO_DATA_CENTER", "ZOHO_REFRESH_TOKEN"]);
   const toolNames = manifest.tools.map((tool) => tool.name);
   assert.equal(toolNames.includes("delete_records"), false);
   assert.equal(toolNames.includes("insert_records"), true);

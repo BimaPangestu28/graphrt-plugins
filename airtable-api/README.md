@@ -110,6 +110,25 @@ Airtable allows 5 requests per second per base (and 50 per second per token). A 
 plugin waits once, 30 s or the `Retry-After` when sent, and retries. A second 429 fails `rate_limited`
 (`retryable: true`). A 429 means nothing was written, so this is safe for creates too.
 
+## Per-user tokens (multi-user agents)
+
+Set `AIRTABLE_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin airtable-api`):
+
+```yaml
+tools: [airtable-api/list_bases]
+tool_context:
+  airtable-api:
+    access_token: "{{#start.airtable_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is an Airtable OAuth access token of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `AIRTABLE_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Airtable | kind |
 |----------|------|

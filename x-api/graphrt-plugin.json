@@ -20,7 +20,8 @@
       "X_TOOL_ALLOW_POST",
       "X_TOOL_ALLOW_DM",
       "X_TOOL_ALLOW_ENGAGE",
-      "X_TOOL_RECIPIENT_ALLOWLIST"
+      "X_TOOL_RECIPIENT_ALLOWLIST",
+      "X_API_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

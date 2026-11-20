@@ -101,7 +101,7 @@ async function runAnalytics(operationName, args, { source = "tool", responses = 
 test("every operation is a tool (read-only plugin) and only Google credentials are env", () => {
   const manifest = buildManifest(pluginDefinition);
   assert.equal(manifest.tools.length, pluginDefinition.operations.length);
-  assert.deepEqual(manifest.permissions.env.sort(), ["GOOGLE_ACCESS_TOKEN", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "GOOGLE_SERVICE_ACCOUNT_JSON"]);
+  assert.deepEqual(manifest.permissions.env.sort(), ["GOOGLE_ACCESS_TOKEN", "GOOGLE_ANALYTICS_TOOL_TOKEN_SOURCE", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "GOOGLE_SERVICE_ACCOUNT_JSON"]);
   const runReportTool = manifest.tools.find((tool) => tool.name === "run_report");
   assert.deepEqual(runReportTool.parameters.required, ["property_id", "metrics"]);
   assert.equal(runReportTool.parameters.properties.metrics.items, undefined, "names and objects are both accepted");

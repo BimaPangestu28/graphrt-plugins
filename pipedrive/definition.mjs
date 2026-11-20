@@ -328,6 +328,7 @@ export const restDefinition = defineRestPlugin({
   apiName: "Pipedrive API",
   baseUrl: buildPipedriveBaseUrl,
   allowedHostSuffix: ".pipedrive.com",
+  toolUserToken: true,
   auth: { type: "header", header: "x-api-token", env: "PIPEDRIVE_API_TOKEN" },
   extraEnv: [COMPANY_DOMAIN_ENV, TOOL_API_EXTRA_PATHS_ENV],
   // Errors (v1 and v2): {"success": false, "error": "unauthorized access", "errorCode": 401, "error_info": "..."}.

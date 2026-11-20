@@ -28,6 +28,7 @@ test("manifest: OAuth envs, instance/login URL and version are allowed; delete i
     "SALESFORCE_INSTANCE_URL",
     "SALESFORCE_LOGIN_URL",
     "SALESFORCE_REFRESH_TOKEN",
+    "SALESFORCE_TOOL_TOKEN_SOURCE",
   ]);
   const toolNames = manifest.tools.map((tool) => tool.name);
   assert.equal(toolNames.includes("delete_record"), false);

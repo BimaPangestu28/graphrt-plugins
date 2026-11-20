@@ -14,7 +14,8 @@
     "env": [
       "TRELLO_TOKEN",
       "TRELLO_API_KEY",
-      "TRELLO_TOOL_BOARD_ALLOWLIST"
+      "TRELLO_TOOL_BOARD_ALLOWLIST",
+      "TRELLO_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

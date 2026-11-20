@@ -176,6 +176,7 @@ const buildSpec = ({ grant, tokenUrl }) => ({
   apiName: "Salesforce REST API",
   baseUrl: buildInstanceBaseUrl,
   allowedHostSuffix: SALESFORCE_HOST_SUFFIX,
+  toolUserToken: true,
   auth: {
     type: "oauth2",
     grant,

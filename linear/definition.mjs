@@ -242,6 +242,7 @@ const restDefinition = defineRestPlugin({
   apiName: "Linear GraphQL API",
   baseUrl: "https://api.linear.app",
   // Personal API keys go in Authorization without a prefix (OAuth tokens need "Bearer ", see README).
+  toolUserToken: true,
   auth: { type: "header", header: "Authorization", env: "LINEAR_API_KEY" },
   // GraphQL errors: {"errors": [{"message": "...", "extensions": {"code": "AUTHENTICATION_ERROR"}}]}, also with HTTP 200.
   errors: {

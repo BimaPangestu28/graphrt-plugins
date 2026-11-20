@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildManifest, createOperationRunner } from "../lib/shared/operations.mjs";
 import { createRecordingFetch } from "../lib/shared/testing.mjs";
+import { toolContext } from "../lib/shared/graphrt-plugin.mjs";
 import { pluginDefinition } from "../definition.mjs";
 import { isSlackReadMethodPath } from "../lib/api-request-policy.mjs";
 import { checkUploadUrl } from "../lib/upload-file.mjs";
@@ -12,10 +13,10 @@ import { checkUploadUrl } from "../lib/upload-file.mjs";
 const BOT_TOKEN = "xoxb-test-bot-token-1";
 const USER_TOKEN = "xoxp-test-user-token-1";
 
-async function runSlack(operationName, args, { responses = [], environment = {}, source = "node" } = {}) {
+async function runSlack(operationName, args, { responses = [], environment = {}, source = "node", toolContext } = {}) {
   const recordingFetch = createRecordingFetch(responses);
   const run = createOperationRunner(pluginDefinition, { SLACK_BOT_TOKEN: BOT_TOKEN, ...environment }, { fetchImpl: recordingFetch, resolveHostAddresses: async () => ["93.184.216.34"] });
-  const outcome = await run(operationName, args, { source }).then((output) => ({ output }), (error) => ({ error }));
+  const outcome = await run(operationName, args, { source, toolContext }).then((output) => ({ output }), (error) => ({ error }));
   return { ...outcome, calls: recordingFetch.calls };
 }
 
@@ -33,7 +34,7 @@ const uploadResponses = (completeResponse = { body: { ok: true, files: [{ id: "F
 
 test("manifest: bot token is the credential; user token, upload dir and opt-in are allowed env", () => {
   const manifest = buildManifest(pluginDefinition);
-  assert.deepEqual(manifest.permissions.env, ["SLACK_BOT_TOKEN", "SLACK_USER_TOKEN", "SLACK_UPLOAD_DIR", "SLACK_TOOL_ALLOW_SEND"]);
+  assert.deepEqual(manifest.permissions.env, ["SLACK_BOT_TOKEN", "SLACK_USER_TOKEN", "SLACK_UPLOAD_DIR", "SLACK_TOOL_ALLOW_SEND", "SLACK_TOOL_TOKEN_SOURCE"]);
   assert.equal(manifest.tools.some((tool) => tool.name === "delete_message"), false);
   assert.equal(manifest.tools.at(-1).name, "api_request");
 });
@@ -115,6 +116,23 @@ test("search_messages without a user token is an auth_error and redacts an echoe
   assert.equal(echoed.error.message.includes(USER_TOKEN), false);
   const bad = await runSlack("search_messages", { query: "x", cursor: "zero" }, { environment: { SLACK_USER_TOKEN: USER_TOKEN } });
   assert.equal(bad.error.kind, "invalid_input");
+});
+
+test("SLACK_TOOL_TOKEN_SOURCE=context: tools, search_messages included, use the end user's token, never the env tokens", async () => {
+  const contextMode = { SLACK_USER_TOKEN: USER_TOKEN, SLACK_TOOL_TOKEN_SOURCE: "context" };
+  const endUserToken = "xoxp-end-user-token-9";
+  const callContext = toolContext({ secrets: { access_token: endUserToken } });
+  const searched = await runSlack("search_messages", { query: "deploy" }, { responses: [{ body: { ok: true, messages: { matches: [], paging: { pages: 1 } } } }], environment: contextMode, source: "tool", toolContext: callContext });
+  if (searched.error) throw searched.error;
+  assert.equal(searched.calls[0].headers.authorization, `Bearer ${endUserToken}`);
+  const listed = await runSlack("list_conversations", {}, { responses: [{ body: { ok: true, channels: [] } }], environment: contextMode, source: "tool", toolContext: callContext });
+  if (listed.error) throw listed.error;
+  assert.equal(listed.calls[0].headers.authorization, `Bearer ${endUserToken}`);
+  const refused = await runSlack("search_messages", { query: "deploy" }, { environment: contextMode, source: "tool" });
+  assert.equal(refused.error.kind, "auth_error");
+  assert.equal(refused.calls.length, 0);
+  const node = await runSlack("search_messages", { query: "deploy" }, { responses: [{ body: { ok: true, messages: { matches: [], paging: { pages: 1 } } } }], environment: contextMode, toolContext: callContext });
+  assert.equal(node.calls[0].headers.authorization, `Bearer ${USER_TOKEN}`, "nodes keep SLACK_USER_TOKEN");
 });
 
 test("api_request as a tool only reaches Slack read methods (Slack runs writes sent as GET)", async () => {

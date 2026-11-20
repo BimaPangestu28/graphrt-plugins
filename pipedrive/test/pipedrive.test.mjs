@@ -31,7 +31,7 @@ test("manifest: deletes are node only, the token and domain env are declared", (
     assert.equal(toolNames.includes(deleteName), false, deleteName);
     assert.equal(manifest.nodes.some((node) => node.kind.endsWith(`.${deleteName}`)), true, deleteName);
   }
-  assert.deepEqual(manifest.permissions.env.sort(), ["PIPEDRIVE_API_TOKEN", "PIPEDRIVE_COMPANY_DOMAIN", "PIPEDRIVE_TOOL_API_EXTRA_PATHS"]);
+  assert.deepEqual(manifest.permissions.env.sort(), ["PIPEDRIVE_API_TOKEN", "PIPEDRIVE_COMPANY_DOMAIN", "PIPEDRIVE_TOOL_API_EXTRA_PATHS", "PIPEDRIVE_TOOL_TOKEN_SOURCE"]);
 });
 
 test("PIPEDRIVE_COMPANY_DOMAIN picks the company host; bad values are refused before any request", async () => {

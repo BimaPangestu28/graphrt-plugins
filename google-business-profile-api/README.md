@@ -107,6 +107,25 @@ graphrt run google-business-profile-api/example.yaml --plugins .
   `path` is relative to that base, e.g. `/categories` on `business_information`.
 - **Polling:** graphrt plugins can't receive webhooks. To react to new reviews, run a workflow on a schedule.
 
+## Per-user tokens (multi-user agents)
+
+Set `GOOGLE_BUSINESS_PROFILE_API_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin google-business-profile-api`):
+
+```yaml
+tools: [google-business-profile-api/list_accounts]
+tool_context:
+  google-business-profile-api:
+    access_token: "{{#start.google_business_profile_api_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a Google OAuth access token of that user with the scopes this plugin needs.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `GOOGLE_ACCESS_TOKEN`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_SERVICE_ACCOUNT_JSON` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 | Kind | When |
 |------|------|

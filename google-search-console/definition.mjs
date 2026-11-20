@@ -12,7 +12,7 @@
  * as tools; removing a site or a sitemap is node only.
  */
 import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
-import { createGoogleAuth, createGoogleErrors, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
+import { createGoogleAuth, createGoogleErrors, GOOGLE_AUTH_ENV, withGoogleCredentials } from "./lib/google-rest-auth.mjs";
 
 export const WRITE_OPT_IN_ENV = "GOOGLE_SEARCH_CONSOLE_TOOL_ALLOW_WRITES";
 export const READONLY_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
@@ -155,6 +155,7 @@ export const pluginDefinition = withGoogleCredentials(
     description: "Google Search Console: search analytics (clicks, impressions, CTR, position), URL inspection, sites and sitemaps; agent writes need an opt-in, removals are node only (OAuth or service account)",
     apiName: "Google Search Console API",
     baseUrl: "https://searchconsole.googleapis.com",
+    toolUserToken: { credentialEnv: GOOGLE_AUTH_ENV },
     auth: createSearchConsoleAuth(),
     extraEnv: [WRITE_OPT_IN_ENV],
     // Search Console still answers in the v3 style: {"error": {"code", "message", "errors": [{"reason"}], "status"?}}.

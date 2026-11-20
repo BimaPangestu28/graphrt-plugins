@@ -211,6 +211,7 @@ const buildSpec = (tokenUrl) => ({
   description: "Microsoft Graph: Outlook mail (list, read, send, drafts, replies), calendar events and users; agent sends need an opt-in and an optional recipient allowlist",
   apiName: "Microsoft Graph",
   baseUrl: "https://graph.microsoft.com/v1.0",
+  toolUserToken: true,
   auth: {
     type: "oauth2",
     grant: "refresh_token",

@@ -100,6 +100,25 @@ CALENDLY_ACCESS_TOKEN=... graphrt run calendly/example.yaml --plugins .
 - Writes are never retried after an unknown outcome. To check whether a booking was made, call
   `list_scheduled_events` with `invitee_email` first.
 
+## Per-user tokens (multi-user agents)
+
+Set `CALENDLY_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin calendly`):
+
+```yaml
+tools: [calendly/get_me]
+tool_context:
+  calendly:
+    access_token: "{{#start.calendly_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is an OAuth access token (or personal API token) of that user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `CALENDLY_ACCESS_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 Calendly errors are `{"title", "message", "details"}`. They are reported as `message (title)` and map to kinds
 as follows:

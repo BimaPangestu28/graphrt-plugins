@@ -265,6 +265,7 @@ const restDefinition = defineRestPlugin({
   apiName: "Vercel REST API",
   baseUrl: "https://api.vercel.com",
   extraEnv: ["VERCEL_TEAM_ID", "VERCEL_TOOL_API_EXTRA_PATHS"],
+  toolUserToken: true,
   auth: { type: "bearer", env: "VERCEL_TOKEN" },
   // Errors are {"error": {"code": "forbidden", "message": "Not authorized", "invalidToken": true}}: the invalidToken flag
   // marks a bad token (Vercel answers 403, not 401), so it is the code that maps to auth_error.
