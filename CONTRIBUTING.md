@@ -219,6 +219,11 @@ Add one row to the plugin table in [README.md](README.md#plugins):
 The Status and ToS risk cells are overwritten by `npm run sync` from `plugin-status.json`. The last column is the
 number of operations (nodes) listed in the generated `OPERATIONS.md`.
 
+### plugin-names.json entry
+Add the plugin's display name to [`plugin-names.json`](plugin-names.json), e.g. `"currency-rates": "Currency Rates"`.
+Use the brand's own spelling ("GitHub", "OpenAI Images", "WhatsApp Cloud API"), at most 60 characters. The
+catalog publishes it as `display_name` and the desktop app shows it; `npm test` fails if a plugin has none.
+
 ### plugin-status.json entry
 Add an entry for your plugin (`npm run sync` fails if a plugin has none):
 
