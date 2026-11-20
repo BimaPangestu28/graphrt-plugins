@@ -125,6 +125,27 @@ Set `advertiser_id` in the example to one of your ad accounts. It reads the acco
 - `api_request` is GET-only for agents and limited to `/advertiser/info/`, `/campaign/get/`, `/adgroup/get/`,
   `/ad/get/`, `/report/integrated/get/`, `/page/get/`, `/lead/field/get/`, `/pixel/list/` and `/identity/get/`.
 
+## Per-user tokens (multi-user agents)
+
+Set `TIKTOK_ADS_TOOL_TOKEN_SOURCE=context` when one agent serves many end users: every tool call then uses the end user's own
+token, sent by graphrt per call from the `agent` node's `tool_context` (needs a graphrt host with tool call context
+and `--trust-plugin tiktok-ads`):
+
+```yaml
+tools: [tiktok-ads/get_advertiser_info]
+tool_context:
+  tiktok-ads:
+    access_token: "{{#start.tiktok_ads_token#}}"   # the end user's token, e.g. from your app's login
+```
+
+- `access_token` is a TikTok Marketing API access token of that advertiser user.
+- A tool call without it (missing, empty or masked) is refused with `auth_error` before any request. Tools never fall
+  back to `TIKTOK_ADS_ACCESS_TOKEN` in this mode; workflow nodes still use them.
+- The token is redacted from tool results and errors and never logged. The other tool limits above still apply.
+- Account allowlists and spend caps (`TIKTOK_ADS_TOOL_ADVERTISER_IDS` and `TIKTOK_ADS_TOOL_MAX_BUDGET`) are per process, so they apply to every end user: list
+  every account your users may change, or leave them unset to keep agent writes refused.
+- Unset (or `env`) keeps the default: tools use the env credential. Any other value refuses every tool call.
+
 ## Errors
 TikTok answers most failures with HTTP 200 and `code != 0`; the plugin turns them into errors with the message and
 code, e.g. `Access token is incorrect or has been revoked. (40105)`. 40101–40108 and 40113 are `auth_error`; 40001,

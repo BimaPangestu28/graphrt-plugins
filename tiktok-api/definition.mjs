@@ -63,6 +63,7 @@ export const pluginDefinition = {
   name: "tiktok-api",
   version: "0.3.0",
   description: "TikTok profile, videos and Content Posting (Open API), plus comments and DMs (Business API), via the official TikTok APIs",
+  toolUserToken: { credentialEnv: ["TIKTOK_BUSINESS_ACCESS_TOKEN", "TIKTOK_BUSINESS_ID", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"] },
   tokenEnv: "TIKTOK_ACCESS_TOKEN",
   extraEnv: ["TIKTOK_BUSINESS_ACCESS_TOKEN", "TIKTOK_BUSINESS_ID", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN", POST_OPT_IN_ENV, ENGAGE_OPT_IN_ENV, DM_OPT_IN_ENV],
   limits: { timeout_ms: 420000 },

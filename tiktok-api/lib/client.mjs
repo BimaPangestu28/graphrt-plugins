@@ -93,7 +93,7 @@ function createBusinessApiClient(businessToken, hasNodeOverride, fetchImpl) {
     authorize: ({ headers }) => {
       if (hasNodeOverride) {
         throw new PluginError(
-          "A node's `access_token` only applies to Open API operations; Business operations always use TIKTOK_BUSINESS_ACCESS_TOKEN. Remove `access_token` from this node.",
+          "A node's `access_token` (or a per-user tool token, TIKTOK_API_TOOL_TOKEN_SOURCE=context) only applies to Open API operations; Business operations always use TIKTOK_BUSINESS_ACCESS_TOKEN. Remove `access_token` from this node, or use a workflow node for Business operations.",
           { kind: "invalid_input" },
         );
       }

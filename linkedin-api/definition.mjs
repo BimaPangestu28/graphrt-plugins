@@ -35,6 +35,7 @@ export function createPluginDefinition(dependencies = {}) {
     name: "linkedin-api",
     version: "0.2.0",
     description: "LinkedIn member and organization posts, images, comments and reactions via the official LinkedIn REST API",
+    toolUserToken: { credentialEnv: ["LINKEDIN_AUTHOR_URN"] },
     tokenEnv: "LINKEDIN_ACCESS_TOKEN",
     extraEnv: ["LINKEDIN_AUTHOR_URN", "LINKEDIN_VERSION", POST_OPT_IN_ENV, ENGAGE_OPT_IN_ENV],
     limits: { timeout_ms: 240000 },

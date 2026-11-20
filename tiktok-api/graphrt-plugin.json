@@ -20,7 +20,8 @@
       "TIKTOK_REFRESH_TOKEN",
       "TIKTOK_TOOL_ALLOW_POST",
       "TIKTOK_TOOL_ALLOW_ENGAGE",
-      "TIKTOK_TOOL_ALLOW_DM"
+      "TIKTOK_TOOL_ALLOW_DM",
+      "TIKTOK_API_TOOL_TOKEN_SOURCE"
     ]
   },
   "limits": {

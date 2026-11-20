@@ -42,6 +42,7 @@ export const pluginDefinition = {
   name: "meta-api",
   version: "0.2.0",
   description: "Facebook Page, Instagram, Messenger and Instagram Direct via the official Meta Graph API",
+  toolUserToken: { credentialEnv: ["META_PAGE_ID", "META_IG_USER_ID"] },
   tokenEnv: "META_ACCESS_TOKEN",
   extraEnv: ["META_PAGE_ID", "META_IG_USER_ID", "META_GRAPH_VERSION", POST_OPT_IN_ENV, ENGAGE_OPT_IN_ENV, DM_OPT_IN_ENV, RECIPIENT_ALLOWLIST_ENV],
   limits: { timeout_ms: 420000 },

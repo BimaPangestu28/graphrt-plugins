@@ -258,7 +258,7 @@ graphrt plugin install ./meta-api
 
 ### Multi-user agents
 Plugins whose credential belongs to one end user (GitHub, GitLab, Slack, Notion, Google Workspace, Microsoft 365,
-Zoom, Salesforce, HubSpot and others; see each README's "Per-user tokens" section) accept
+Zoom, Salesforce, HubSpot, LinkedIn, Meta, TikTok, the ads APIs and others; see each README's "Per-user tokens" section) accept
 `<PLUGIN>_TOOL_TOKEN_SOURCE=context`. Agent tools then act with the end user's own token, which graphrt passes per call
 from the `agent` node's `tool_context` as `access_token`, and never with the plugin's env credential; a call without
 one is refused. Workflow nodes keep using the env. Supabase has its own `SUPABASE_TOOL_MODE=user_rpc`. Details:
