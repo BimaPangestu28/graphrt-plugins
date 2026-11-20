@@ -37,11 +37,13 @@ export function createTarGz(entries, { mtimeSeconds }) {
  * Reads a gzip-compressed tar archive produced by createTarGz (or any plain ustar/PAX archive).
  *
  * @param archiveBytes - The .tar.gz bytes (Buffer)
+ * @param options - Reading options
+ * @param options.maxUnpackedBytes - Refuse archives that decompress to more than this (number, default: no limit)
  * @returns Entries ({path: string, type: "file"|"directory", content: Buffer, mode: number}[])
- * @throws Error - When the archive contains a symlink, hard link or other unsupported entry
+ * @throws Error - When the archive contains a symlink, hard link or other unsupported entry, or is too large unpacked
  */
-export function readTarGz(archiveBytes) {
-  const tarBytes = gunzipSync(archiveBytes);
+export function readTarGz(archiveBytes, { maxUnpackedBytes = undefined } = {}) {
+  const tarBytes = gunzipArchive(archiveBytes, maxUnpackedBytes);
   const entries = [];
   let offset = 0;
   let pendingPaxPath = null;
@@ -67,6 +69,16 @@ export function readTarGz(archiveBytes) {
     entries.push({ path: entryPath, type: typeFlag === DIRECTORY_TYPE ? "directory" : "file", content: Buffer.from(content), mode });
   }
   return entries;
+}
+
+function gunzipArchive(archiveBytes, maxUnpackedBytes) {
+  if (maxUnpackedBytes === undefined) return gunzipSync(archiveBytes);
+  try {
+    return gunzipSync(archiveBytes, { maxOutputLength: maxUnpackedBytes });
+  } catch (error) {
+    if (error.code === "ERR_BUFFER_TOO_LARGE" || error instanceof RangeError) throw new Error(`archive unpacks to more than ${maxUnpackedBytes} bytes`);
+    throw error;
+  }
 }
 
 function encodeEntry(entry, mtimeSeconds) {
@@ -136,7 +148,13 @@ function parsePaxPath(paxContent) {
   return null;
 }
 
-function assertSafeArchivePath(archivePath) {
+/**
+ * Rejects archive paths that could escape the extraction directory or are ambiguous.
+ *
+ * @param archivePath - `/`-separated entry path without a trailing slash (string)
+ * @throws Error - On an absolute path or an empty, `.` or `..` segment
+ */
+export function assertSafeArchivePath(archivePath) {
   const segments = archivePath.split("/");
   if (archivePath.startsWith("/") || segments.some((segment) => segment === ".." || segment === "" || segment === ".")) {
     throw new Error(`unsafe archive path \`${archivePath}\``);

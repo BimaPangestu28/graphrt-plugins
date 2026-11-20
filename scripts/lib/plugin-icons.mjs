@@ -134,18 +134,31 @@ export function iconAssetNameFor(pluginName, svgBytes) {
 export function readPluginIcon(pluginName, repositoryRoot = REPO_ROOT) {
   const filePath = join(repositoryRoot, pluginName, ICON_FILE_NAME);
   if (!existsSync(filePath)) throw new Error(`${pluginName}: no ${ICON_FILE_NAME} (add it to ${ICON_SOURCES_FILE_NAME} and run scripts/generate-icons.mjs)`);
-  const bytes = readFileSync(filePath);
+  const { bytes, sha256, assetName } = validateIconBytes(pluginName, readFileSync(filePath));
+  return { pluginName, filePath, bytes, sha256, assetName };
+}
+
+/**
+ * Checks icon bytes against the size limit and the SVG allowlist, wherever they come from (a plugin
+ * directory here, or the root of a community plugin's tarball).
+ *
+ * @param pluginName - Plugin name, for messages and the asset name (string)
+ * @param bytes - The icon file bytes (Buffer)
+ * @returns `{pluginName, bytes, sha256, assetName}` (object)
+ * @throws Error - When the icon is too large or fails the allowlist
+ */
+export function validateIconBytes(pluginName, bytes) {
   if (bytes.length > MAX_ICON_BYTES) throw new Error(`${pluginName}: ${ICON_FILE_NAME} is ${bytes.length} bytes; the limit is ${MAX_ICON_BYTES}`);
   const problems = findIconProblems(bytes.toString("utf8"));
   if (problems.length > 0) throw new Error(`${pluginName}: unsafe ${ICON_FILE_NAME}: ${problems.join("; ")}`);
-  return {
-    pluginName,
-    filePath,
-    bytes,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    assetName: iconAssetNameFor(pluginName, bytes),
-  };
+  return { pluginName, bytes, sha256: createHash("sha256").update(bytes).digest("hex"), assetName: iconAssetNameFor(pluginName, bytes) };
 }
+
+/**
+ * Neutral icon for a community plugin whose tarball has no usable icon.svg: the Lucide `puzzle` glyph
+ * (lucide-static 1.66.0, ISC), rendered by scripts/generate-icons.mjs in the neutral accent colour.
+ */
+export const COMMUNITY_FALLBACK_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/></svg>\n';
 
 /**
  * Reads `icons.json`, the source of every plugin icon.

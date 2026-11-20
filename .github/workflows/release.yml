@@ -4,6 +4,8 @@
 #   publish that plugin, or
 # - run it by hand (workflow_dispatch) to publish every plugin whose version has no
 #   release yet; existing releases are never modified.
+# Every run also ingests community-plugins.json: new entries are verified and mirrored to
+# `community-<name>-v<version>` releases (see docs/community-plugins.md).
 # Locally, the same thing is `node scripts/publish-plugins.mjs` with an authenticated gh.
 name: Release plugins
 
@@ -30,6 +32,8 @@ concurrency:
 
 jobs:
   publish:
+    # `community-<name>-v<version>` tags are mirror releases created by publish-plugins.mjs, not plugins of this repo.
+    if: github.event_name != 'push' || !startsWith(github.ref_name, 'community-')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

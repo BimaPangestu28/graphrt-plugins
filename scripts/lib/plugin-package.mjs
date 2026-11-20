@@ -26,6 +26,12 @@ export const RELEASE_REPOSITORY = process.env.GRAPHRT_PLUGINS_REPOSITORY || "Bim
 export const CATALOG_TAG = "catalog";
 export const CATALOG_SCHEMA_VERSION = 1;
 export const NODE_REQUIREMENT = ">=20";
+/** Catalog `source` of plugins built from this monorepo; readers treat a missing `source` as this. */
+export const OFFICIAL_SOURCE = "official";
+/** Catalog `source` of third-party plugins listed in community-plugins.json, reviewed and mirrored here. */
+export const COMMUNITY_SOURCE = "community";
+/** Catalog `publisher` of official plugins. */
+export const OFFICIAL_PUBLISHER = "graphrt";
 
 const PINNED_EXTENSIONS = [".mjs", ".js", ".cjs", ".json"];
 const EXCLUDED_SOURCE_DIRECTORIES = new Set(["test", "node_modules"]);
@@ -112,12 +118,13 @@ export function listPluginNames() {
 /**
  * Reads a plugin's source manifest and checks it can be released.
  *
- * @param pluginName - Plugin directory name (string)
+ * @param pluginName - Plugin name (string)
+ * @param sourceDirectory - The plugin's directory (string, default: `<repo>/<pluginName>`)
  * @returns The parsed manifest (object)
- * @throws Error - When the manifest name does not match the directory or the version is missing
+ * @throws Error - When the manifest name does not match the plugin name or the version is missing
  */
-export function readSourceManifest(pluginName) {
-  const manifest = JSON.parse(readFileSync(join(REPO_ROOT, pluginName, MANIFEST_FILE_NAME), "utf8"));
+export function readSourceManifest(pluginName, sourceDirectory = join(REPO_ROOT, pluginName)) {
+  const manifest = JSON.parse(readFileSync(join(sourceDirectory, MANIFEST_FILE_NAME), "utf8"));
   if (manifest.name !== pluginName) throw new Error(`${pluginName}: manifest name \`${manifest.name}\` must match the directory`);
   if (!/^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$/.test(manifest.version ?? "")) {
     throw new Error(`${pluginName}: manifest version \`${manifest.version}\` must be semver`);
@@ -129,24 +136,28 @@ export function readSourceManifest(pluginName) {
 /**
  * Packs one plugin into `<outputDirectory>/<name>-<version>.tar.gz`.
  *
- * @param pluginName - Plugin directory name (string)
+ * @param pluginName - Plugin name (string)
  * @param options - Packing options
  * @param options.outputDirectory - Where the tarball is written (string)
+ * @param options.sourceDirectory - The plugin's git-tracked directory (string, default: `<repo>/<pluginName>`); another
+ *   directory packs a plugin that lives outside this repo, e.g. a community plugin in its own repository
+ * @param options.includeIcon - Ship the root `icon.svg` in the tarball (boolean, default false: official icons are
+ *   published with the catalog instead; community tarballs must carry theirs)
  * @returns `{name, version, tag, tarballName, tarballPath, sha256, sizeBytes, manifest, readmeText}` (object)
  * @throws Error - When npm fails, a symlink or forbidden file would be shipped, or the manifest is invalid
  */
-export function packPlugin(pluginName, { outputDirectory }) {
-  const sourceManifest = readSourceManifest(pluginName);
+export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join(REPO_ROOT, pluginName), includeIcon = false }) {
+  const sourceManifest = readSourceManifest(pluginName, sourceDirectory);
   const stagingRoot = join(outputDirectory, ".staging");
   const stagedDirectory = join(stagingRoot, pluginName);
   rmSync(stagedDirectory, { recursive: true, force: true });
   try {
-    copyTrackedSourceFiles(pluginName, stagedDirectory);
+    copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon });
     installProductionDependencies(stagedDirectory);
     const stagedFiles = listStagedFiles(stagedDirectory);
     const releasedManifest = withChecksums(sourceManifest, computeChecksums(stagedDirectory, stagedFiles));
     writeFileSync(join(stagedDirectory, MANIFEST_FILE_NAME), `${JSON.stringify(releasedManifest, null, 2)}\n`);
-    const tarballBytes = createTarGz(buildArchiveEntries(stagedDirectory, pluginName), { mtimeSeconds: lastCommitTime(pluginName) });
+    const tarballBytes = createTarGz(buildArchiveEntries(stagedDirectory, pluginName), { mtimeSeconds: lastCommitTime(sourceDirectory) });
     const tarballName = tarballNameFor(pluginName, sourceManifest.version);
     const tarballPath = join(outputDirectory, tarballName);
     writeFileSync(tarballPath, tarballBytes);
@@ -170,15 +181,16 @@ export function packPlugin(pluginName, { outputDirectory }) {
  * Lists the plugin files git tracks, minus tests and dotfiles, so untracked local
  * state (profiles, .env files, caches) can never reach a release.
  */
-function copyTrackedSourceFiles(pluginName, stagedDirectory) {
-  const gitResult = spawnSync("git", ["ls-files", "-z", "--", pluginName], { cwd: REPO_ROOT, encoding: "utf8" });
-  if (gitResult.status !== 0) throw new Error(`${pluginName}: git ls-files failed: ${gitResult.stderr}`);
-  const trackedPaths = gitResult.stdout.split("\0").filter(Boolean).map((trackedPath) => trackedPath.slice(pluginName.length + 1));
-  const shippedPaths = trackedPaths.filter((pluginPath) => isShippedSourcePath(pluginPath));
-  if (!shippedPaths.includes("plugin.mjs")) throw new Error(`${pluginName}: plugin.mjs is not tracked by git`);
+function copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon }) {
+  // Run inside the plugin directory: `git ls-files -- .` prints paths relative to it.
+  const gitResult = spawnSync("git", ["ls-files", "-z", "--", "."], { cwd: sourceDirectory, encoding: "utf8" });
+  if (gitResult.status !== 0) throw new Error(`${sourceDirectory}: git ls-files failed (the plugin must be in a git repository): ${gitResult.stderr}`);
+  const trackedPaths = gitResult.stdout.split("\0").filter(Boolean);
+  const shippedPaths = trackedPaths.filter((pluginPath) => isShippedSourcePath(pluginPath, { includeIcon }));
+  if (!shippedPaths.includes("plugin.mjs")) throw new Error(`${sourceDirectory}: plugin.mjs is not tracked by git`);
   for (const pluginPath of shippedPaths) {
-    const sourcePath = join(REPO_ROOT, pluginName, pluginPath);
-    if (!lstatSync(sourcePath).isFile()) throw new Error(`${pluginName}: \`${pluginPath}\` is not a regular file`);
+    const sourcePath = join(sourceDirectory, pluginPath);
+    if (!lstatSync(sourcePath).isFile()) throw new Error(`${sourceDirectory}: \`${pluginPath}\` is not a regular file`);
     mkdirSync(join(stagedDirectory, pluginPath, ".."), { recursive: true });
     cpSync(sourcePath, join(stagedDirectory, pluginPath));
   }
@@ -188,12 +200,15 @@ function copyTrackedSourceFiles(pluginName, stagedDirectory) {
  * Says whether a tracked plugin file goes into the release tarball.
  *
  * @param pluginPath - `/`-separated path inside the plugin directory (string)
+ * @param options - Selection options
+ * @param options.includeIcon - Keep the root icon.svg (boolean, default false; community tarballs carry it)
  * @returns False for tests, node_modules, dotfiles and catalog-only files such as icon.svg (boolean)
  */
-export function isShippedSourcePath(pluginPath) {
+export function isShippedSourcePath(pluginPath, { includeIcon = false } = {}) {
   const segments = pluginPath.split("/");
   if (EXCLUDED_SOURCE_DIRECTORIES.has(segments[0])) return false;
-  if (segments.length === 1 && EXCLUDED_SOURCE_FILES.has(pluginPath)) return false;
+  const isShippedIcon = includeIcon && pluginPath === ICON_FILE_NAME;
+  if (segments.length === 1 && EXCLUDED_SOURCE_FILES.has(pluginPath) && !isShippedIcon) return false;
   return !segments.some((segment) => segment.startsWith("."));
 }
 
@@ -330,8 +345,8 @@ function buildArchiveEntries(stagedDirectory, pluginName) {
 }
 
 /** Commit time of the plugin's last change: a stable mtime so repacking is reproducible. */
-function lastCommitTime(pluginName) {
-  const gitResult = spawnSync("git", ["log", "-1", "--format=%ct", "--", pluginName], { cwd: REPO_ROOT, encoding: "utf8" });
+function lastCommitTime(sourceDirectory) {
+  const gitResult = spawnSync("git", ["log", "-1", "--format=%ct", "--", "."], { cwd: sourceDirectory, encoding: "utf8" });
   const commitSeconds = Number.parseInt(gitResult.stdout.trim(), 10);
   return Number.isFinite(commitSeconds) ? commitSeconds : 0;
 }
@@ -360,34 +375,74 @@ export function sha256Hex(bytes) {
  * @returns A catalog `plugins[]` entry (object)
  * @throws Error - When the plugin has no entry in plugin-status.json, or no valid icon.svg
  */
-export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, pluginStatuses = readPluginStatuses(), readIcon = readPluginIcon) {
+export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = readPluginStatuses(), readIcon = readPluginIcon) {
   const { name, version } = releasedManifest;
   const statusEntry = statusForPlugin(pluginStatuses, name);
   const { assetName: iconAssetName } = readIcon(name);
   const tag = releaseTagFor(name, version);
+  return assembleCatalogEntry(releasedManifest, tarball, {
+    displayName: displayNameFor(name),
+    iconAssetName,
+    tarballUrl: releaseAssetUrl(tag, tarballNameFor(name, version)),
+    needsBrowser: needsBrowser(releasedManifest),
+    statusEntry,
+    source: OFFICIAL_SOURCE,
+    publisher: OFFICIAL_PUBLISHER,
+    repositoryUrl: officialPluginTreeUrl(name, tag),
+    readmeUrl: `https://github.com/${RELEASE_REPOSITORY}/blob/${tag}/${name}/README.md`,
+  });
+}
+
+/**
+ * Assembles a catalog entry from a released manifest, its tarball and the listing data that does not come from
+ * the tarball. Shared by official entries (buildCatalogEntry) and community entries (community-ingest.mjs).
+ *
+ * @param releasedManifest - The manifest inside the tarball (object)
+ * @param tarball - `{sha256, sizeBytes, readmeText}` of the published tarball (object)
+ * @param listing - Listing data (object)
+ * @param listing.displayName - `display_name` (string)
+ * @param listing.iconAssetName - The icon's `catalog` release asset name (string)
+ * @param listing.tarballUrl - Where the published tarball is downloaded (string)
+ * @param listing.needsBrowser - Whether the plugin depends on Playwright (boolean)
+ * @param listing.statusEntry - `{status, reason, tos_risk}` (object)
+ * @param listing.source - `"official"` or `"community"` (string)
+ * @param listing.publisher - Who maintains the plugin (string)
+ * @param listing.repositoryUrl - https URL of the plugin's source (string)
+ * @param listing.readmeUrl - https URL of the plugin README (string)
+ * @returns A catalog `plugins[]` entry (object)
+ */
+export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, listing) {
   const permissions = releasedManifest.permissions ?? {};
   const manifestNodes = releasedManifest.nodes ?? [];
   return {
-    name,
-    display_name: displayNameFor(name),
-    version,
+    name: releasedManifest.name,
+    display_name: listing.displayName,
+    version: releasedManifest.version,
     description: releasedManifest.description ?? "",
-    icon_url: releaseAssetUrl(CATALOG_TAG, iconAssetName),
-    tarball_url: releaseAssetUrl(tag, tarballNameFor(name, version)),
+    icon_url: releaseAssetUrl(CATALOG_TAG, listing.iconAssetName),
+    tarball_url: listing.tarballUrl,
     sha256,
     size_bytes: sizeBytes,
     permissions: { network: Boolean(permissions.network), secrets: Boolean(permissions.secrets), env: permissions.env ?? [] },
-    needs_browser: needsBrowser(releasedManifest),
+    needs_browser: listing.needsBrowser,
     node: NODE_REQUIREMENT,
     warning: readmeText ? extractCatalogWarning(readmeText) : null,
-    status: statusEntry.status,
-    status_reason: statusEntry.reason,
-    tos_risk: statusEntry.tos_risk,
+    status: listing.statusEntry.status,
+    status_reason: listing.statusEntry.reason,
+    tos_risk: listing.statusEntry.tos_risk,
+    source: listing.source,
+    publisher: listing.publisher,
+    repository_url: listing.repositoryUrl,
     operations_count: manifestNodes.length,
     nodes: manifestNodes.map((manifestNode) => buildCatalogNode(manifestNode)),
     tools: (releasedManifest.tools ?? []).map((tool) => tool.name),
-    readme_url: `https://github.com/${RELEASE_REPOSITORY}/blob/${tag}/${name}/README.md`,
+    readme_url: listing.readmeUrl,
   };
+}
+
+/** @returns This repo's tree URL of an official plugin at its release tag (string) */
+export function officialPluginTreeUrl(pluginName, releaseTag) {
+  return `https://github.com/${RELEASE_REPOSITORY}/tree/${releaseTag}/${pluginName}`;
 }
 
 /**
@@ -454,11 +509,13 @@ export function extractCatalogWarning(readmeText) {
  *
  * @param tarballName - Asset name, e.g. `meta-api-0.1.0.tar.gz` (string)
  * @param tarballBytes - The tarball bytes (Buffer)
+ * @param options - Reading options
+ * @param options.maxUnpackedBytes - Refuse a tarball that unpacks to more than this (number, default: no limit)
  * @returns `{tarballName, sha256, sizeBytes, manifest, readmeText}` (object)
  * @throws Error - When the tarball has no top-level `<name>/graphrt-plugin.json`
  */
-export function describeTarballBytes(tarballName, tarballBytes) {
-  const archiveEntries = readTarGz(tarballBytes);
+export function describeTarballBytes(tarballName, tarballBytes, { maxUnpackedBytes = undefined } = {}) {
+  const archiveEntries = readTarGz(tarballBytes, { maxUnpackedBytes });
   const findTopLevelFile = (fileName) =>
     archiveEntries.find((entry) => entry.type === "file" && entry.path.endsWith(`/${fileName}`) && entry.path.split("/").length === 2);
   const manifestEntry = findTopLevelFile(MANIFEST_FILE_NAME);
@@ -475,7 +532,8 @@ export function describeTarballBytes(tarballName, tarballBytes) {
 
 /**
  * Lists how a rebuilt catalog differs from the previous one in what it must keep:
- * every previous plugin still listed, with the same version, sha256 and size.
+ * every previous official plugin still listed, with the same version, sha256 and size. Community
+ * entries are not compared: they change version or disappear through community-plugins.json.
  *
  * @param previousCatalog - The catalog currently published (object)
  * @param nextEntries - The rebuilt catalog entries (object[])
@@ -484,7 +542,8 @@ export function describeTarballBytes(tarballName, tarballBytes) {
 export function findCatalogRegressions(previousCatalog, nextEntries) {
   const nextByName = new Map(nextEntries.map((entry) => [entry.name, entry]));
   const regressions = [];
-  for (const previousEntry of previousCatalog.plugins ?? []) {
+  // Community entries come and go with community-plugins.json (a new version, a removal), so only official ones are kept.
+  for (const previousEntry of (previousCatalog.plugins ?? []).filter((entry) => entry.source !== COMMUNITY_SOURCE)) {
     const nextEntry = nextByName.get(previousEntry.name);
     if (!nextEntry) {
       regressions.push(`${previousEntry.name}: missing from the rebuilt catalog`);
@@ -501,7 +560,17 @@ export function findCatalogRegressions(previousCatalog, nextEntries) {
 function needsBrowser(releasedManifest) {
   const packageJsonPath = join(REPO_ROOT, releasedManifest.name, "package.json");
   if (!existsSync(packageJsonPath)) return false;
-  const dependencies = JSON.parse(readFileSync(packageJsonPath, "utf8")).dependencies ?? {};
+  return dependsOnBrowser(JSON.parse(readFileSync(packageJsonPath, "utf8")));
+}
+
+/**
+ * Says whether a plugin's package.json depends on Playwright (the catalog's `needs_browser`).
+ *
+ * @param packageJson - Parsed package.json, or null (object|null)
+ * @returns True when `dependencies` names playwright or playwright-core (boolean)
+ */
+export function dependsOnBrowser(packageJson) {
+  const dependencies = packageJson?.dependencies ?? {};
   return Object.keys(dependencies).some((dependencyName) => dependencyName === "playwright" || dependencyName === "playwright-core");
 }
 

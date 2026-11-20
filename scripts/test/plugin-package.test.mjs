@@ -67,6 +67,13 @@ test("builds a catalog entry with download and readme URLs", () => {
   assert.equal(entry.size_bytes, 123);
 });
 
+test("marks official entries with source official, publisher graphrt and this repo's tree URL", () => {
+  const entry = buildCatalogEntry(sampleManifest, { sha256: "f".repeat(64), sizeBytes: 123 });
+  assert.equal(entry.source, "official");
+  assert.equal(entry.publisher, "graphrt");
+  assert.equal(entry.repository_url, "https://github.com/BimaPangestu28/graphrt-plugins/tree/meta-api-v0.1.0/meta-api");
+});
+
 test("carries the maturity status and ToS risk from plugin-status.json", () => {
   const pluginStatuses = { "meta-api": { status: "beta", reason: "Checked live with an invalid token only.", tos_risk: "low", tos_notes: "Spam rules." } };
   const entry = buildCatalogEntry(sampleManifest, { sha256: "0", sizeBytes: 1 }, pluginStatuses);
@@ -182,6 +189,17 @@ test("flags rebuilt catalogs that drop plugins or change their tarballs", () => 
     "meta-api: size_bytes 10 -> 11",
     "x-api: missing from the rebuilt catalog",
   ]);
+});
+
+test("does not hold community entries to the previous catalog: they change through community-plugins.json", () => {
+  const officialEntry = buildCatalogEntry(sampleManifest, { sha256: "a".repeat(64), sizeBytes: 10 });
+  const communityEntry = { ...officialEntry, name: "acme-crm", version: "1.0.0", source: "community" };
+  const previousCatalog = buildCatalog([officialEntry, communityEntry], new Date());
+  assert.deepEqual(findCatalogRegressions(previousCatalog, [officialEntry]), [], "a removed community entry is no regression");
+  assert.deepEqual(findCatalogRegressions(previousCatalog, [officialEntry, { ...communityEntry, version: "1.1.0" }]), []);
+  const unlabelledEntry = { ...officialEntry, name: "x-api" };
+  delete unlabelledEntry.source;
+  assert.deepEqual(findCatalogRegressions(buildCatalog([unlabelledEntry], new Date()), []), ["x-api: missing from the rebuilt catalog"], "a missing source means official");
 });
 
 test("drops dependencies' own test folders, .bin and caches, but keeps their runtime files", () => {

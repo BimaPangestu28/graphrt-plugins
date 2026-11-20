@@ -9,24 +9,9 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "./plugins.mjs";
-import { isReservedNodeKey } from "../shared/lib/reserved-node-keys.mjs";
+import { findReservedNodeProperties } from "./lib/reserved-parameters.mjs";
 
 const MANIFEST_FILE_NAME = "graphrt-plugin.json";
-
-/**
- * Lists `<plugin> <node kind>: <property>` for every reserved node config property in one manifest.
- *
- * @param pluginName - Plugin directory name, for the report (string)
- * @param manifest - Parsed graphrt-plugin.json (object)
- * @returns Offender descriptions (string[])
- */
-function findReservedNodeProperties(pluginName, manifest) {
-  return (manifest.nodes ?? []).flatMap((nodeDescriptor) =>
-    Object.keys(nodeDescriptor.config_schema?.properties ?? {})
-      .filter(isReservedNodeKey)
-      .map((propertyName) => `${pluginName} ${nodeDescriptor.kind}: \`${propertyName}\``),
-  );
-}
 
 function listPluginManifests() {
   return readdirSync(REPO_ROOT, { withFileTypes: true })

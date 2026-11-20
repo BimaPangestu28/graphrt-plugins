@@ -24,6 +24,12 @@
  * `SHA256SUMS`. Old icons and detail files are kept so older catalogs' URLs still resolve.
  * Existing plugin releases are never modified: bump the version to ship a change.
  *
+ * Community plugins (community-plugins.json, see docs/community-plugins.md) are added to every catalog: each
+ * entry's tarball is taken from its mirror release `community-<name>-v<version>` in this repo or, when there is
+ * none yet (not with --catalog-only), downloaded from the developer's GitHub release, checked against the
+ * reviewed sha256 and the same checks as official tarballs, and mirrored there unchanged. An entry that fails
+ * is skipped (listed under `skipped` with its reason); it never fails the official publish.
+ *
  * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each
  * tarball with `graphrt plugin install` into a temporary directory.
  */
@@ -34,11 +40,13 @@ import { REPO_ROOT, findSharedPlugins } from "./plugins.mjs";
 import { DETAIL_STAGING_DIRECTORY_NAME, ICON_STAGING_DIRECTORY_NAME, packPlugins, writeCatalogFiles } from "./pack-plugins.mjs";
 import { verifyTarball } from "./verify-plugins.mjs";
 import {
-  CATALOG_TAG, MANIFEST_FILE_NAME, RELEASE_REPOSITORY, buildCatalogEntry, describeTarballBytes, findCatalogRegressions, listPluginNames,
-  releaseAssetUrl, releaseTagFor, sha256Hex, tarballNameFor,
+  CATALOG_TAG, COMMUNITY_SOURCE, MANIFEST_FILE_NAME, RELEASE_REPOSITORY, buildCatalogEntry, describeTarballBytes, findCatalogRegressions,
+  listPluginNames, releaseAssetUrl, releaseTagFor, sha256Hex, tarballNameFor,
 } from "./lib/plugin-package.mjs";
 import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
+import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
+import { downloadHttpsBytes, ingestCommunityPlugins } from "./lib/community-ingest.mjs";
 
 function parsePublishArguments(argumentList) {
   const options = { pluginNames: [], target: "HEAD", outputDirectory: resolve(REPO_ROOT, "dist"), dryRun: false, catalogOnly: false };
@@ -121,13 +129,19 @@ function viewRelease(releaseTag) {
   return JSON.parse(result.stdout);
 }
 
-/** Downloads a published tarball and describes it from its own bytes, manifest and README. */
-function describePublishedTarball(releaseTag, tarballName, outputDirectory) {
+/** Downloads one asset of a release of this repo into `<out>/published/<tag>/` and returns its bytes. */
+function downloadReleaseAsset(releaseTag, assetName, outputDirectory) {
   const downloadDirectory = join(outputDirectory, "published", releaseTag);
   mkdirSync(downloadDirectory, { recursive: true });
-  runGhIdempotent(["release", "download", releaseTag, "-R", RELEASE_REPOSITORY, "-p", tarballName, "-D", downloadDirectory, "--clobber"]);
+  runGhIdempotent(["release", "download", releaseTag, "-R", RELEASE_REPOSITORY, "-p", assetName, "-D", downloadDirectory, "--clobber"]);
+  return readFileSync(join(downloadDirectory, assetName));
+}
+
+/** Downloads a published tarball and describes it from its own bytes, manifest and README. */
+function describePublishedTarball(releaseTag, tarballName, outputDirectory) {
+  const tarballBytes = downloadReleaseAsset(releaseTag, tarballName, outputDirectory);
   try {
-    return describeTarballBytes(tarballName, readFileSync(join(downloadDirectory, tarballName)));
+    return describeTarballBytes(tarballName, tarballBytes);
   } catch (error) {
     throw new Error(`${releaseTag}: published ${error.message}`);
   }
@@ -282,6 +296,67 @@ function rebuildCatalogOnly(options) {
   return released;
 }
 
+/**
+ * The GitHub side of community mirroring: mirror releases are read with gh and created once, never modified.
+ *
+ * @param options - `{outputDirectory}` (object)
+ * @param targetCommit - Commit new mirror tags point at (string)
+ * @returns The `mirror` object community-ingest.mjs expects (object)
+ */
+function createGithubMirror({ outputDirectory }, targetCommit) {
+  return {
+    readMirroredTarball(releaseTag, tarballName) {
+      const mirrorRelease = viewRelease(releaseTag);
+      if (!mirrorRelease) return null;
+      if (!mirrorRelease.assets.some((asset) => asset.name === tarballName)) throw new Error(`${releaseTag}: release exists without ${tarballName}; fix it by hand`);
+      return downloadReleaseAsset(releaseTag, tarballName, outputDirectory);
+    },
+    createMirrorRelease({ releaseTag, tarballPath, title, notes, prerelease }) {
+      const notesPath = join(outputDirectory, `${releaseTag}.notes.md`);
+      writeFileSync(notesPath, notes);
+      const releaseArguments = ["release", "create", releaseTag, tarballPath, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
+        "--title", title, "--notes-file", notesPath, "--latest=false"];
+      if (prerelease) releaseArguments.push("--prerelease");
+      runCommand("gh", releaseArguments);
+    },
+  };
+}
+
+/** sha256 of a `catalog` release asset (or undefined when it is not published), for the community detail-file check. */
+function createPublishedCatalogLookup(outputDirectory) {
+  let publishedAssets = null;
+  return (assetName) => {
+    publishedAssets ??= viewRelease(CATALOG_TAG)?.assets ?? [];
+    const publishedAsset = publishedAssets.filter((asset) => asset.name === assetName);
+    return publishedAsset.length === 0 ? undefined : readPublishedSha256ByName(publishedAsset, outputDirectory).get(assetName);
+  };
+}
+
+/**
+ * Ingests every community-plugins.json entry; never throws for a bad entry or registry file.
+ *
+ * @returns `{released, skipped}` (Promise<object>)
+ */
+async function collectCommunityPlugins(options, targetCommit) {
+  let registry;
+  try {
+    registry = readCommunityPlugins();
+  } catch (error) {
+    console.error(`community: skipping every community plugin, community-plugins.json is unreadable: ${error.message}`);
+    return { released: [], skipped: [{ name: "community-plugins.json", source: COMMUNITY_SOURCE, reason: error.message }] };
+  }
+  return ingestCommunityPlugins(registry, {
+    officialNames: listRepoDirectoryNames(),
+    workDirectory: join(options.outputDirectory, "community"),
+    catalogOnly: options.catalogOnly,
+    dryRun: options.dryRun,
+    graphrtBinary: process.env.GRAPHRT_BIN || null,
+    mirror: createGithubMirror(options, targetCommit),
+    downloadTarball: (url) => downloadHttpsBytes(url),
+    findPublishedCatalogSha256: createPublishedCatalogLookup(options.outputDirectory),
+  });
+}
+
 /** Tests, packs and verifies plugins, then publishes missing releases; returns every published plugin. */
 function publishPlugins(options, targetCommit) {
   const { passing, skipped } = selectPassingPlugins(options.pluginNames);
@@ -301,10 +376,13 @@ function logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun 
   console.error(`catalog: ${catalogFiles.iconPaths.length} icons staged in ${join(catalogDirectory, ICON_STAGING_DIRECTORY_NAME)}, ${uploadPlan.newIconPaths.length} not yet on the ${CATALOG_TAG} release${dryRun ? " (dry run: nothing uploaded)" : ""}`);
 }
 
-function main() {
+async function main() {
   const options = parsePublishArguments(process.argv.slice(2));
   const targetCommit = runCommand("git", ["rev-parse", "--verify", `${options.target}^{commit}`]).stdout.trim();
   const { released, skipped } = options.catalogOnly ? { released: rebuildCatalogOnly(options), skipped: [] } : publishPlugins(options, targetCommit);
+  const community = await collectCommunityPlugins(options, targetCommit);
+  released.push(...community.released);
+  skipped.push(...community.skipped);
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
   const catalogFiles = writeCatalogFiles(catalogDirectory, released);
@@ -313,12 +391,10 @@ function main() {
   if (!options.dryRun) uploadCatalog(catalogFiles, uploadPlan, targetCommit);
   const icons = { staged: catalogFiles.iconPaths.length, toUpload: uploadPlan.newIconPaths.map((iconPath) => basename(iconPath)) };
   const details = { staged: catalogFiles.detailFiles.length, toUpload: uploadPlan.newDetailPaths.map((detailPath) => basename(detailPath)) };
-  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256 })), icons, details, skipped }, null, 2));
+  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256, source: catalogEntry.source })), icons, details, skipped }, null, 2));
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   console.error(`publish-plugins: ${error.message}`);
   process.exit(1);
-}
+});
