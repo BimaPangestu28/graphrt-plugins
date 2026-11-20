@@ -32,6 +32,24 @@ const RESULT_KEYS = new Set(["outputs", "branch", "writes", "usage", "metadata",
 /** Default line limit; the host announces its own in `initialize` (`max_message_bytes`). */
 export const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
 
+/** Feature a host lists in `initialize` when `tool.call` may carry a `context`. */
+export const TOOL_CONTEXT_FEATURE = "tool_context";
+
+/**
+ * The second argument of a tool handler: `{secrets}` from `tool.call` `context`
+ * (empty when the host sent none). Only string values are kept.
+ */
+export function toolContext(context) {
+  const secrets = {};
+  const given = context?.secrets;
+  if (given && typeof given === "object" && !Array.isArray(given)) {
+    for (const [name, value] of Object.entries(given)) {
+      if (typeof value === "string") secrets[name] = value;
+    }
+  }
+  return Object.freeze({ secrets: Object.freeze(secrets) });
+}
+
 /** Best-effort request id from a line that could not be read. */
 function recoverId(text) {
   const match = /"id"\s*:\s*("(?:[^"\\]|\\.)*"|-?\d+)/.exec(text.slice(0, 4096));
@@ -118,7 +136,12 @@ export class Plugin {
     return this;
   }
 
-  /** Register a tool `async (args) => string | {text, data?, is_error?}`. */
+  /**
+   * Register a tool `async (args, context) => string | {text, data?, is_error?}`.
+   * `context.secrets` holds per-call values from the host (e.g. the end user's
+   * JWT from an `agent` node's `tool_context`); it is `{}` unless the plugin
+   * requests `permissions.secrets` and is trusted. Never log or return them.
+   */
   tool(spec, handler) {
     this._tools.set(spec.name, { spec: { description: "", parameters: { type: "object" }, ...spec }, handler });
     return this;
@@ -260,7 +283,7 @@ export class Plugin {
         return;
       }
       try {
-        let result = await tool.handler(params.arguments ?? {});
+        let result = await tool.handler(params.arguments ?? {}, toolContext(params.context));
         if (typeof result === "string") result = { text: result };
         this._reply(id, { text: "", is_error: false, ...(result ?? {}) });
       } catch (e) {

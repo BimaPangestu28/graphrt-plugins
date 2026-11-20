@@ -12,11 +12,15 @@
  *     noCredentials?: true,                   // public API: network but no token, no secrets, no node `access_token`
  *     limits?: { timeout_ms, max_concurrency },
  *     operations: [{ name, title, description, parameters, run }],
+ *     resolveToolOperations?: (environment) => operations | undefined,  // tools for this process (default: operations)
  *   }
  * Each operation becomes node kind `<name>.<operation>` and tool `<operation>`, except operations with
  * `nodeOnly: true` (e.g. token refresh), which are never offered to an LLM as tools.
- * `run({ client, args, environment, signal, source })` returns `{ data, next_cursor? }`; `source` is "node" or "tool". Tool calls get a deadline
- * `signal` (see resolveToolDeadlineMs) because the host cannot cancel a tool call.
+ * `run({ client, args, environment, signal, source, toolContext })` returns `{ data, next_cursor? }`; `source` is "node" or "tool". Tool calls get a deadline
+ * `signal` (see resolveToolDeadlineMs) because the host cannot cancel a tool call. `toolContext` is the host's per-call
+ * `{secrets}` (`tool.call` `context`, e.g. the end user's JWT); it is empty for nodes and on hosts that send none.
+ * `resolveToolOperations` lets a plugin offer a different tool set per deployment (e.g. one per-user tool); the host
+ * takes the tool list the plugin returns in `initialize`, so the manifest's static list is only the default.
  */
 import { Plugin, PluginError } from "./graphrt-plugin.mjs";
 import { validateArguments } from "./params.mjs";
@@ -34,6 +38,7 @@ const DEFAULT_LIMITS = { timeout_ms: 120000, max_concurrency: 8 };
 // A tool call must give up before the host's timeout, so its error still reaches the agent.
 const TOOL_DEADLINE_MARGIN_MS = 10000;
 const MIN_TOOL_DEADLINE_MS = 5000;
+const EMPTY_TOOL_CONTEXT = Object.freeze({ secrets: Object.freeze({}) });
 
 /**
  * Builds node and tool descriptors for every operation.
@@ -118,14 +123,14 @@ function listPermittedEnv(pluginDefinition) {
  * @param pluginDefinition - Plugin definition (object)
  * @param environment - Environment variables, usually process.env (object)
  * @param runnerOptions - Optional `{fetchImpl, resolveHostAddresses}` passed to createClient, for tests (object)
- * @returns `(operationName, rawArguments, {source, signal}) => Promise<{data, next_cursor}>`
+ * @returns `(operationName, rawArguments, {source, signal, toolContext}) => Promise<{data, next_cursor}>`
  * @throws PluginError kinds `invalid_input` (unknown operation or bad args), `auth_error` (no token)
  * @throws Error - At creation, when a parameter name is one graphrt takes from nodes (see reserved-node-keys.mjs)
  */
 export function createOperationRunner(pluginDefinition, environment, runnerOptions = {}) {
   assertNoReservedParameters(pluginDefinition);
   const operationsByName = new Map(pluginDefinition.operations.map((operation) => [operation.name, operation]));
-  return async (operationName, rawArguments, { source, signal } = {}) => {
+  return async (operationName, rawArguments, { source, signal, toolContext } = {}) => {
     const operation = operationsByName.get(operationName);
     if (!operation || (operation.nodeOnly && source === "tool")) {
       throw new PluginError(`Unknown operation \`${operationName}\``, { kind: "invalid_input" });
@@ -133,7 +138,8 @@ export function createOperationRunner(pluginDefinition, environment, runnerOptio
     const args = validateArguments(operation.parameters, rawArguments);
     const accessToken = pluginDefinition.noCredentials ? undefined : await pickAccessToken(pluginDefinition, environment, rawArguments, source);
     const client = pluginDefinition.createClient(buildClientOptions(accessToken, environment, runnerOptions));
-    const result = await operation.run({ client, args, environment, signal, source });
+    const callContext = source === "tool" && toolContext ? toolContext : EMPTY_TOOL_CONTEXT;
+    const result = await operation.run({ client, args, environment, signal, source, toolContext: callContext });
     return { data: result?.data ?? null, next_cursor: result?.next_cursor ?? null };
   };
 }
@@ -150,9 +156,10 @@ function buildClientOptions(accessToken, environment, runnerOptions) {
  *
  * @param pluginDefinition - Plugin definition (object)
  * @param environment - Environment variables (object, default process.env)
+ * @param streams - `{input, output}` for Plugin.run, for tests (object, default stdin/stdout)
  * @returns Promise that resolves when the host shuts the plugin down
  */
-export function startPlugin(pluginDefinition, environment = process.env) {
+export function startPlugin(pluginDefinition, environment = process.env, streams = undefined) {
   const runOperation = createOperationRunner(pluginDefinition, environment);
   const toolDeadlineMs = resolveToolDeadlineMs(pluginDefinition);
   const plugin = new Plugin(pluginDefinition.name);
@@ -160,11 +167,15 @@ export function startPlugin(pluginDefinition, environment = process.env) {
     plugin.node(`${pluginDefinition.name}.${operation.name}`, async (ctx, req) => ({
       outputs: await runOperation(operation.name, req.config, { source: "node", signal: ctx.signal }),
     }));
+  }
+  const toolOperations = pluginDefinition.resolveToolOperations?.(environment);
+  const runToolOperation = toolOperations ? createOperationRunner({ ...pluginDefinition, operations: toolOperations }, environment) : runOperation;
+  for (const operation of toolOperations ?? pluginDefinition.operations) {
     if (operation.nodeOnly) continue;
     const toolSpec = { name: operation.name, description: operation.description, parameters: operation.parameters };
-    plugin.tool(toolSpec, createToolHandler(runOperation, operation.name, toolDeadlineMs));
+    plugin.tool(toolSpec, createToolHandler(runToolOperation, operation.name, toolDeadlineMs));
   }
-  return plugin.run();
+  return plugin.run(streams);
 }
 
 /**
@@ -188,11 +199,12 @@ export function resolveToolDeadlineMs(pluginDefinition) {
  * @param runOperation - Function from createOperationRunner (function)
  * @param operationName - Operation to run (string)
  * @param deadlineMs - Deadline for each call, from resolveToolDeadlineMs (number)
- * @returns `async (toolArguments) => {text, data}` (function)
+ * @returns `async (toolArguments, toolContext) => {text, data}`; toolContext is the SDK's per-call `{secrets}`
+ *   (absent on older SDKs) (function)
  */
 export function createToolHandler(runOperation, operationName, deadlineMs) {
-  return async (toolArguments) => {
-    const output = await runOperation(operationName, toolArguments, { source: "tool", signal: AbortSignal.timeout(deadlineMs) });
+  return async (toolArguments, toolContext) => {
+    const output = await runOperation(operationName, toolArguments, { source: "tool", signal: AbortSignal.timeout(deadlineMs), toolContext });
     return { text: JSON.stringify(output), data: output };
   };
 }

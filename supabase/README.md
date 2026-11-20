@@ -14,6 +14,9 @@ never inject PostgREST operators or extra conditions. It is built with the decla
   `upsert_rows` (merge or ignore duplicates, `on_conflict`), `update_rows` and `delete_rows` (node only), both
   requiring at least one filter
 - **Functions:** `call_function` (RPC `POST /rest/v1/rpc/<name>` with named arguments)
+- **Per-user mode for chatbots:** `SUPABASE_TOOL_MODE=user_rpc` makes `call_function` the only agent tool and sends
+  each call as the end user (their JWT from the agent's `tool_context`), so one plugin process serves many users
+  ([Multi-user chatbots](#multi-user-chatbots-user_rpc))
 - **Schema:** `get_api_schema` (OpenAPI of the exposed tables and functions; needs a secret or `service_role` key
   since Supabase removed anon access in February 2026)
 - **Storage:** `list_buckets`, `get_bucket`, `list_objects`, `get_object_info`, `download_object` (into
@@ -62,6 +65,10 @@ No `npm install` needed: the plugin has no dependencies.
 | `SUPABASE_DOWNLOAD_DIR` | for downloads | Absolute directory for `download_object` |
 | `SUPABASE_UPLOAD_DIR` | for local uploads | Directory that local `upload_object` files must be inside (https URLs work without it) |
 | `SUPABASE_TOOL_API_EXTRA_PATHS` | no | More read paths for agent `api_request`, comma-separated, `*` = one segment |
+| `SUPABASE_TOOL_MODE` | no | `default`, or `user_rpc` for [multi-user chatbots](#multi-user-chatbots-user_rpc) |
+| `SUPABASE_TOOL_RPC_ALLOWLIST` | in `user_rpc` | Functions the `call_function` tool may call, comma-separated (e.g. `get_balance,list_orders`); others are refused. Unset: any function in the default mode, none in `user_rpc` |
+| `SUPABASE_TOOL_TIMEOUT_MS` | no | Deadline of one `call_function` tool call, 1000-120000 (default 30000) |
+| `SUPABASE_TOOL_MAX_ROWS` | no | Array results of the `call_function` tool are cut to this many rows, with a note to the model, 1-1000 (default 100) |
 
 **Getting a key:** Supabase dashboard → Project Settings → API Keys. Copy the project URL and the publishable key.
 Create a secret key only for trusted backend workflows.
@@ -105,7 +112,10 @@ column defaults for keys a row leaves out (`missing=default`).
 - **Reads** (`select_rows`, `get_api_schema`, storage lists, info and downloads) are agent tools. PostgREST runs
   GET requests in read-only transactions.
 - **Writes need `SUPABASE_TOOL_ALLOW_WRITES=1`:** `insert_rows`, `upsert_rows`, `update_rows`, `upload_object`
-  and `call_function` (a function may write, and POST runs volatile functions read-write).
+  and `call_function` (a function may write, and POST runs volatile functions read-write). The `call_function`
+  tool also follows `SUPABASE_TOOL_RPC_ALLOWLIST`, `SUPABASE_TOOL_TIMEOUT_MS` and `SUPABASE_TOOL_MAX_ROWS`.
+- **`SUPABASE_TOOL_MODE=user_rpc`** replaces all of the tools with one per-user `call_function`
+  ([Multi-user chatbots](#multi-user-chatbots-user_rpc)).
 - **Tool uploads never overwrite:** `upload_object` with `upsert: true` is refused for tools.
 - **Node only:** `delete_rows`, `delete_objects`, and `create_signed_url` (anyone with the link can read the file).
 - **`update_rows` and `delete_rows` need at least one filter**, for nodes too, so a missing filter never changes or
@@ -113,6 +123,44 @@ column defaults for keys a row leaves out (`missing=default`).
 - **`api_request`** is GET-only for agents and reaches only `/rest/v1/...` and Storage reads (`/storage/v1/bucket`,
   `/storage/v1/object/...`). Auth admin (`/auth/v1/admin/users`), Edge Functions (`/functions/v1`, which run code
   with your key), GraphQL and other services are refused; extend with `SUPABASE_TOOL_API_EXTRA_PATHS`.
+
+## Multi-user chatbots (`user_rpc`)
+For an agent that chats with many signed-in users through `graphrt serve` (e.g. a Flutter app with Supabase Auth),
+run the plugin with:
+```bash
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_KEY=sb_publishable_...                       # publishable or anon key only
+SUPABASE_TOOL_MODE=user_rpc
+SUPABASE_TOOL_RPC_ALLOWLIST=get_balance,list_orders   # the functions the bot may call
+graphrt serve ... --trust-plugin supabase
+```
+and pass the user's access token to the tool through the agent's `tool_context` (never as a tool argument, which the
+model writes and events record):
+```yaml
+- id: bot
+  type: agent
+  tools: [supabase/call_function]
+  tool_context:
+    supabase: { user_jwt: "{{#start.user_jwt#}}" }   # a secret input of the run
+```
+Each call is `POST /rest/v1/rpc/<name>` with `apikey: <SUPABASE_KEY>` and `Authorization: Bearer <user_jwt>`, so the
+function runs as that user and row level security applies. In this mode:
+- `call_function` is the **only** tool: `select_rows`, `api_request`, writes and storage are not offered, and
+  `SUPABASE_TOOL_ALLOW_WRITES` is not needed (what a function may change is up to the function and RLS).
+- A call without a user JWT (missing, empty, masked because the plugin is not trusted, or not a JWT) is refused with
+  `auth_error`. The plugin **never** falls back to `SUPABASE_USER_JWT` or `SUPABASE_KEY` as Bearer. A token with the
+  `service_role` role, and a secret or `service_role` `SUPABASE_KEY`, are refused too.
+- Function names outside `SUPABASE_TOOL_RPC_ALLOWLIST` are refused before any request, with a message listing the
+  allowed ones (so a prompt-injected "call `delete_all_users`" goes nowhere). Without the allowlist every call is
+  refused. The allowed names are also shown to the model in the tool's description.
+- Only the `public` schema (or the Data API's default) is used; functions are called with named arguments.
+- The JWT is redacted from results and errors and never logged.
+
+Requires a graphrt host with the tool call context (`tool_context` in the `initialize` features); older hosts send no
+context, so every `user_rpc` call is refused. Workflow nodes are unchanged by the mode.
+
+Write the functions for the bot with care: `security invoker` (the default) keeps RLS in force; a `security definer`
+function runs as its owner and must check `auth.uid()` itself.
 
 ## Errors
 PostgREST errors (`{code, message, details, hint}`) and Storage errors (`{statusCode, error, message}`) keep their
