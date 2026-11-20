@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { REPO_ROOT } from "../plugins.mjs";
-import { ICON_FILE_NAME } from "./plugin-icons.mjs";
+import { ICON_FILE_NAME, readPluginIcon } from "./plugin-icons.mjs";
 import { readPluginStatuses, statusForPlugin } from "./plugin-status.mjs";
 import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
@@ -336,12 +336,15 @@ export function sha256Hex(bytes) {
  * @param tarball.readmeText - The plugin README shipped in the tarball, or null (string|null)
  * @param pluginStatuses - Maturity labels by plugin name (object, default: the repo's plugin-status.json). They come
  *   from the repo at catalog time, not from the tarball, so relabelling a plugin needs no new release
+ * @param readIcon - Returns `{assetName}` for a plugin name (function, default: readPluginIcon). Like the status, the
+ *   icon comes from the repo at catalog time; `icon_url` points at its content-addressed `catalog` release asset
  * @returns A catalog `plugins[]` entry (object)
- * @throws Error - When the plugin has no entry in plugin-status.json
+ * @throws Error - When the plugin has no entry in plugin-status.json, or no valid icon.svg
  */
-export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, pluginStatuses = readPluginStatuses()) {
+export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, pluginStatuses = readPluginStatuses(), readIcon = readPluginIcon) {
   const { name, version } = releasedManifest;
   const statusEntry = statusForPlugin(pluginStatuses, name);
+  const { assetName: iconAssetName } = readIcon(name);
   const tag = releaseTagFor(name, version);
   const permissions = releasedManifest.permissions ?? {};
   const manifestNodes = releasedManifest.nodes ?? [];
@@ -349,6 +352,7 @@ export function buildCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeT
     name,
     version,
     description: releasedManifest.description ?? "",
+    icon_url: releaseAssetUrl(CATALOG_TAG, iconAssetName),
     tarball_url: releaseAssetUrl(tag, tarballNameFor(name, version)),
     sha256,
     size_bytes: sizeBytes,

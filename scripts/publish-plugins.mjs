@@ -9,22 +9,25 @@
  *   --dry-run    pack, test and verify, print what would be published, change nothing
  *   --catalog-only  skip testing, packing and plugin releases: rebuild `index.json` and
  *                `SHA256SUMS` from the already-published tarballs (their own manifests and
- *                READMEs) and upload them. Refuses when a plugin in the live catalog would be
- *                dropped or change version, sha256, size or URL. Use it after changing the
- *                catalog format; combine with --dry-run to only write the files.
+ *                READMEs) and upload them with any new icons. Refuses when a plugin in the live
+ *                catalog would be dropped or change version, sha256, size or URL. Use it after
+ *                changing the catalog format, a status or an icon; combine with --dry-run to only
+ *                write the files.
  *
  * Steps: check generated files are in sync, run each plugin's tests (failing plugins
  * are skipped), pack and verify tarballs, create every missing `<name>-v<version>`
  * release (pre-release for 0.x), then rebuild `index.json` and `SHA256SUMS` from the
- * assets that are actually published and upload them to the `catalog` release.
+ * assets that are actually published and upload them to the `catalog` release, after the
+ * plugin icons (`<plugin>/icon.svg`, uploaded as content-addressed `icon-<plugin>-<hash>.svg`
+ * assets of the same release; old ones are kept so older catalogs' `icon_url`s still resolve).
  * Existing plugin releases are never modified: bump the version to ship a change.
  *
  * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each
  * tarball with `graphrt plugin install` into a temporary directory.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
 import { REPO_ROOT, findSharedPlugins } from "./plugins.mjs";
 import { packPlugins, writeCatalogFiles } from "./pack-plugins.mjs";
 import { verifyTarball } from "./verify-plugins.mjs";
@@ -170,10 +173,28 @@ function collectOtherPublishedPlugins(packedNames, outputDirectory) {
   return released;
 }
 
-function uploadCatalog(catalogDirectory, targetCommit) {
-  const indexPath = join(catalogDirectory, "index.json");
-  const sumsPath = join(catalogDirectory, "SHA256SUMS");
-  if (viewRelease(CATALOG_TAG)) {
+const ICON_UPLOAD_BATCH_SIZE = 50;
+
+/**
+ * Lists the staged icons the `catalog` release does not have yet. Icon asset names are
+ * content-addressed, so a name that is already published holds the same bytes.
+ *
+ * @returns `{catalogRelease, newIconPaths}` (object; catalogRelease is null when there is none yet)
+ */
+function planCatalogUpload({ iconPaths }) {
+  const catalogRelease = viewRelease(CATALOG_TAG);
+  const publishedNames = new Set((catalogRelease?.assets ?? []).map((asset) => asset.name));
+  return { catalogRelease, newIconPaths: iconPaths.filter((iconPath) => !publishedNames.has(basename(iconPath))) };
+}
+
+/** Uploads new icons first (so every `icon_url` resolves once index.json is live), then index.json and SHA256SUMS. */
+function uploadCatalog(catalogFiles, { catalogRelease, newIconPaths }, targetCommit) {
+  const { indexPath, sumsPath } = catalogFiles;
+  if (catalogRelease) {
+    for (let start = 0; start < newIconPaths.length; start += ICON_UPLOAD_BATCH_SIZE) {
+      const iconBatch = newIconPaths.slice(start, start + ICON_UPLOAD_BATCH_SIZE);
+      runGhIdempotent(["release", "upload", CATALOG_TAG, ...iconBatch, "-R", RELEASE_REPOSITORY, "--clobber"]);
+    }
     runGhIdempotent(["release", "upload", CATALOG_TAG, indexPath, sumsPath, "-R", RELEASE_REPOSITORY, "--clobber"]);
     return;
   }
@@ -182,10 +203,11 @@ function uploadCatalog(catalogDirectory, targetCommit) {
     "",
     `- \`index.json\`: ${releaseAssetUrl(CATALOG_TAG, "index.json")}`,
     `- \`SHA256SUMS\`: ${releaseAssetUrl(CATALOG_TAG, "SHA256SUMS")}`,
+    "- `icon-<plugin>-<sha256 prefix>.svg`: plugin icons, named by content (each catalog entry's `icon_url`)",
     "",
     "See the repository README (Install) for the format.",
   ].join("\n");
-  runCommand("gh", ["release", "create", CATALOG_TAG, indexPath, sumsPath, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
+  runCommand("gh", ["release", "create", CATALOG_TAG, ...newIconPaths, indexPath, sumsPath, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
     "--title", "Plugin catalog", "--notes", notes, "--latest"]);
 }
 
@@ -226,9 +248,12 @@ function main() {
   const { released, skipped } = options.catalogOnly ? { released: rebuildCatalogOnly(options), skipped: [] } : publishPlugins(options, targetCommit);
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
-  writeCatalogFiles(catalogDirectory, released);
-  if (!options.dryRun) uploadCatalog(catalogDirectory, targetCommit);
-  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256 })), skipped }, null, 2));
+  const catalogFiles = writeCatalogFiles(catalogDirectory, released);
+  const uploadPlan = planCatalogUpload(catalogFiles);
+  console.error(`catalog: index.json ${statSync(catalogFiles.indexPath).size} bytes; ${catalogFiles.iconPaths.length} icons staged in ${join(catalogDirectory, "icons")}, ${uploadPlan.newIconPaths.length} not yet on the ${CATALOG_TAG} release${options.dryRun ? " (dry run: nothing uploaded)" : ""}`);
+  if (!options.dryRun) uploadCatalog(catalogFiles, uploadPlan, targetCommit);
+  const icons = { staged: catalogFiles.iconPaths.length, toUpload: uploadPlan.newIconPaths.map((iconPath) => basename(iconPath)) };
+  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256 })), icons, skipped }, null, 2));
 }
 
 try {
