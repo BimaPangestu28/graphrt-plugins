@@ -61,7 +61,24 @@ export interface ToolSpec {
   parameters?: Record<string, unknown>;
 }
 
+/** Feature a host lists in `initialize` when `tool.call` may carry a `context`. */
+export declare const TOOL_CONTEXT_FEATURE: "tool_context";
+
+/**
+ * Per-call values from the host, outside the model-written arguments (`tool.call`
+ * `context`). `secrets` is empty unless the plugin requests `permissions.secrets`
+ * and the operator trusts it.
+ */
+export interface ToolContext {
+  readonly secrets: Readonly<Record<string, string>>;
+}
+
+/** Normalize a `tool.call` `context` (missing or malformed parts become empty). */
+export declare function toolContext(context: unknown): ToolContext;
+
 export type ToolResult = string | { text: string; data?: unknown; is_error?: boolean };
+
+export type ToolHandler = (args: Record<string, any>, context: ToolContext) => ToolResult | Promise<ToolResult>;
 
 export type NodeHandler = (
   ctx: RunContext,
@@ -72,6 +89,6 @@ export declare class Plugin {
   constructor(name: string);
   readonly name: string;
   node(kind: string, handler: NodeHandler, descriptor?: Record<string, unknown>): this;
-  tool(spec: ToolSpec, handler: (args: Record<string, any>) => ToolResult | Promise<ToolResult>): this;
+  tool(spec: ToolSpec, handler: ToolHandler): this;
   run(options?: { input?: NodeJS.ReadableStream; output?: NodeJS.WritableStream }): Promise<void>;
 }
