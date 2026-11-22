@@ -4,7 +4,12 @@ import {
   communityReleaseTagFor, expectedTarballUrl, findCommunityEntryProblems, findCommunityPluginProblems, listRepoDirectoryNames, readCommunityPlugins,
   versionFromTag, withPendingReviewStandIns,
 } from "../lib/community-plugins.mjs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { listPluginNames } from "../lib/plugin-package.mjs";
+import { REPO_ROOT } from "../plugins.mjs";
 import { renderCommunityReleaseNotes } from "../lib/community-ingest.mjs";
 
 const OFFICIAL_NAMES = ["currency-rates", "github", "shared", "scripts", "community-legacy"];
@@ -157,4 +162,30 @@ test("refuses entries still pending review, and offers stand-ins only for a cont
   assert.deepEqual(findCommunityEntryProblems("acme-crm", withPendingReviewStandIns(pendingEntry), OFFICIAL_NAMES), []);
   const reviewedEntry = validEntry();
   assert.equal(withPendingReviewStandIns(reviewedEntry), reviewedEntry);
+});
+
+test("the registry check is strict for pull requests and lenient, with error annotations, for the release flow", () => {
+  const scratchDirectory = mkdtempSync(join(tmpdir(), "community-check-test-"));
+  try {
+    const registryPath = join(scratchDirectory, "community-plugins.json");
+    writeFileSync(registryPath, JSON.stringify({ "acme-crm": validEntry({ tag: "latest" }) }));
+    const checkScript = join(REPO_ROOT, "scripts", "check-community-plugins.mjs");
+    const strict = spawnSync(process.execPath, [checkScript, "--registry", registryPath], { encoding: "utf8" });
+    assert.equal(strict.status, 1);
+    assert.match(strict.stderr, /is invalid:\n {2}acme-crm: tag `latest` must be v<semver>/);
+    const lenient = spawnSync(process.execPath, [checkScript, "--lenient", "--registry", registryPath], { encoding: "utf8" });
+    assert.equal(lenient.status, 0);
+    assert.match(lenient.stdout, /^::error title=community-plugins.json::acme-crm: tag `latest` must be v<semver>.* \(the publish skips this entry\)$/m);
+  } finally {
+    rmSync(scratchDirectory, { recursive: true, force: true });
+  }
+});
+
+test("npm run check stays strict and the release flow uses the lenient check:release", () => {
+  const { scripts } = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
+  assert.match(scripts.check, /check-community-plugins\.mjs$/);
+  assert.match(scripts["check:release"], /check-community-plugins\.mjs --lenient$/);
+  const workflowDirectory = join(REPO_ROOT, ".github", "workflows");
+  assert.match(readFileSync(join(workflowDirectory, "release.yml"), "utf8"), /run: npm run check:release/);
+  assert.match(readFileSync(join(workflowDirectory, "ci.yml"), "utf8"), /run: npm run check\n/);
 });

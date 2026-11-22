@@ -406,6 +406,11 @@ function logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun 
   console.error(`catalog: ${catalogFiles.iconPaths.length} icons staged in ${join(catalogDirectory, ICON_STAGING_DIRECTORY_NAME)}, ${uploadPlan.newIconPaths.length} not yet on the ${CATALOG_TAG} release${dryRun ? " (dry run: nothing uploaded)" : ""}`);
 }
 
+/** One GitHub error annotation per skipped community entry: visible on the run, without failing it. */
+function annotateSkippedCommunityPlugins(skippedEntries) {
+  for (const { name, reason } of skippedEntries) console.log(`::error title=community plugin ${name}::${`skipped: ${reason}`.replace(/[\r\n%]/g, " ")}`);
+}
+
 async function main() {
   const options = parsePublishArguments(process.argv.slice(2));
   const targetCommit = runCommand("git", ["rev-parse", "--verify", `${options.target}^{commit}`]).stdout.trim();
@@ -413,6 +418,7 @@ async function main() {
   const community = await collectCommunityPlugins(options, targetCommit);
   released.push(...community.released);
   skipped.push(...community.skipped);
+  if (process.env.GITHUB_ACTIONS === "true") annotateSkippedCommunityPlugins(community.skipped);
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
   const catalogFiles = writeCatalogFiles(catalogDirectory, released);

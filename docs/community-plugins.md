@@ -222,9 +222,11 @@ A maintainer runs the release workflow (or `node scripts/publish-plugins.mjs`). 
 8. adds the plugin to `index.json`, `index-v2.json` and its immutable detail file
    `plugin-<name>-<version>.json`, and uploads its icon to the `catalog` release.
 
-An entry that fails any step is skipped with its reason in the publish output, and the rest of the catalog
-still publishes. `--catalog-only` lists community plugins too, but only from tarballs that are already
-mirrored.
+An entry that fails any step is skipped with its reason in the publish output (and an error annotation on the
+workflow run), and the rest of the catalog still publishes. The same holds for an entry that is invalid in
+`community-plugins.json` itself: pull request CI runs the strict `npm run check`, but the release workflow runs
+`npm run check:release`, which reports registry problems as annotations without stopping official releases.
+`--catalog-only` lists community plugins too, but only from tarballs that are already mirrored.
 
 ### The graphrt check
 `graphrt plugin install` and `graphrt plugin list` may start the plugin, so for an untrusted tarball they run

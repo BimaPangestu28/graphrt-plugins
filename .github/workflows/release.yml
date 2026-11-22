@@ -49,8 +49,10 @@ jobs:
       - name: Install plugin dependencies
         run: scripts/install-plugin-dependencies.sh
 
+      # Lenient for community-plugins.json: an invalid entry is an error annotation and the publish skips it,
+      # so it never blocks official releases. Pull requests get the strict `npm run check` (ci.yml).
       - name: Check generated files
-        run: npm run check
+        run: npm run check:release
 
       - name: Test release tooling
         run: node --test scripts/test/*.test.mjs
