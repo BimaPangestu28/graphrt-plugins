@@ -23,10 +23,10 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildCatalogV2Entry, buildPluginDetail, renderPluginDetail } from "./catalog-v2.mjs";
 import { communityReleaseTagFor, findCommunityEntryProblems, versionFromTag } from "./community-plugins.mjs";
-import { findCommunityRuntimeProblems } from "./community-manifest.mjs";
+import { findCommunityRuntimeProblems, findCommunityTextProblems } from "./community-manifest.mjs";
 import { findRebuildDifferences, rebuildCommunityPluginFromTag, summarizeRebuildDifferences } from "./community-rebuild.mjs";
 import {
-  COMMUNITY_SOURCE, MANIFEST_FILE_NAME, README_FILE_NAME, assembleCatalogEntry, dependsOnBrowser, isPinnedPath, releaseAssetUrl, sha256Hex,
+  COMMUNITY_SOURCE, MANIFEST_FILE_NAME, README_FILE_NAME, assembleCatalogEntry, dependsOnBrowser, extractCatalogWarning, isPinnedPath, releaseAssetUrl, sha256Hex,
   stripCatalogEntrySchemas, tarballNameFor,
 } from "./plugin-package.mjs";
 import { COMMUNITY_FALLBACK_ICON_SVG, ICON_FILE_NAME, validateIconBytes } from "./plugin-icons.mjs";
@@ -184,6 +184,9 @@ export function verifyCommunityTarball(pluginName, registryEntry, tarballBytes, 
   if (manifest.version !== version) reject(pluginName, `manifest version \`${manifest.version}\` does not match tag ${registryEntry.tag}`);
   const runtimeProblems = findCommunityRuntimeProblems(manifest);
   if (runtimeProblems.length > 0) reject(pluginName, `manifest runtime: ${runtimeProblems.join("; ")}`);
+  const readmeText = findTopLevelFile(archiveEntries, pluginName, README_FILE_NAME)?.content.toString("utf8") ?? null;
+  const textProblems = findCommunityTextProblems(pluginName, manifest, readmeText === null ? null : extractCatalogWarning(readmeText));
+  if (textProblems.length > 0) reject(pluginName, `manifest text: ${textProblems.slice(0, 10).join("; ")}${textProblems.length > 10 ? `; and ${textProblems.length - 10} more` : ""}`);
   const tarballPath = runOfficialTarballChecks(pluginName, tarballBytes, { version, workDirectory, graphrtBinary });
   assertEveryCodeFilePinned(pluginName, archiveEntries, manifest.checksums ?? {});
   const reservedProperties = findReservedNodeProperties(pluginName, manifest);
@@ -191,7 +194,7 @@ export function verifyCommunityTarball(pluginName, registryEntry, tarballBytes, 
   return {
     version,
     manifest,
-    readmeText: findTopLevelFile(archiveEntries, pluginName, README_FILE_NAME)?.content.toString("utf8") ?? null,
+    readmeText,
     packageJson: parseTopLevelJson(pluginName, archiveEntries, "package.json"),
     icon: selectCommunityIcon(pluginName, findTopLevelFile(archiveEntries, pluginName, ICON_FILE_NAME), log),
     tarballPath,

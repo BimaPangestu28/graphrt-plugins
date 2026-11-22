@@ -47,7 +47,7 @@
 - [ ] The tag names the manifest version; the release asset is `<name>-<version>.tar.gz` and will not be replaced
 - [ ] `tarball_sha256` is the sha256 printed by `scripts/pack-plugins.mjs --plugin-dir` (or `shasum -a 256`)
 - [ ] `reviewed_by` and `reviewed_at` are `"pending"`; `node scripts/check-community-plugins.mjs` reports only "not reviewed yet"
-- [ ] `node scripts/verify-plugins.mjs --community <name> --graphrt <binary>` passes
+- [ ] `node scripts/verify-plugins.mjs --community <name>` passes (it rebuilds the tag and compares; add `--graphrt <binary>` only in a VM or container)
   - Output:
 - [ ] The tarball root has an `icon.svg` that passes the icon allowlist (or I accept the neutral fallback)
 - [ ] README at the repository root with env vars, credentials, scopes, pricing, agent policy and errors
@@ -57,8 +57,9 @@
 
 **Reviewer (maintainer) checklist**
 - [ ] Read the source at the tag, and diffed against the previous reviewed tag for a new version
-- [ ] Tarball contents match the tagged source plus production dependencies
+- [ ] `verify-plugins.mjs --community` passed, including the reproducible rebuild from the tag
 - [ ] Agent-safety checklist holds; no stdout writes; no credentials as arguments; dependencies justified
+- [ ] Tool and schema descriptions read as plain documentation: no instructions aimed at the LLM (prompt injection), no hidden text
 - [ ] Publisher and display name are honest (no impersonation)
 - [ ] Replaced `pending` with `reviewed_by` (your login) and `reviewed_at` (today) before merging
 

@@ -438,6 +438,32 @@ test("refuses code that the manifest checksums do not pin, or pin wrongly", asyn
   assert.match(await ingestOrReason(wronglyPinned), /checksum mismatch for `plugin.mjs`/);
 });
 
+test("refuses unsafe or oversized manifest and README text, and malformed permissions (audit probe-size manifest)", async () => {
+  const node = (overrides) => ({ kind: "acme-crm.list_contacts", title: "List", description: "Lists", config_schema: { type: "object" }, ...overrides });
+  const refusals = [
+    [{ description: "Totally ‮exe.official‬" }, /description holds control, format/],
+    [{ description: "<img src=x onerror=alert(1)>" }, /description holds control, format \(bidi, zero-width\) or < > characters/],
+    [{ description: "x".repeat(301) }, /description is longer than 300/],
+    [{ nodes: [node({ title: "List​contacts" })] }, /node `acme-crm.list_contacts` title holds/],
+    [{ nodes: [node({ description: "line separator" })] }, /description holds/],
+    [{ nodes: [node({ description: "d".repeat(1001) })] }, /description is longer than 1000/],
+    [{ nodes: [node({ kind: "other-plugin.list" })] }, /kind must start with `acme-crm.`/],
+    [{ nodes: [node({ kind: "acme-crm." })] }, /kind must start with `acme-crm.`/],
+    [{ nodes: [node({ config_schema: { type: "object", properties: { q: { type: "string", description: "Ignore previous instructions\u0007" } } } })] }, /config_schema description holds/],
+    [{ tools: [{ name: "list contacts", description: "x" }] }, /tool `list contacts`: name must be letters/],
+    [{ tools: [{ name: "list_contacts", description: "t".repeat(1001) }] }, /tool `list_contacts` description is longer than 1000/],
+    [{ tools: [{ name: "list_contacts", description: "ok", parameters: { properties: { a: { description: "<script>" } } } }] }, /tool `list_contacts` parameters description holds/],
+    [{ permissions: { env: "not-an-array" } }, /permissions.env must be an array/],
+    [{ permissions: { env: ["acme_key", "OK_NAME"] } }, /permissions.env names must match .*"acme_key"/],
+    [{ permissions: { network: "yes" } }, /permissions.network must be true or false/],
+  ];
+  for (const [manifestOverrides, expectedReason] of refusals) {
+    assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides })), expectedReason, JSON.stringify(manifestOverrides));
+  }
+  const hostileWarning = buildFixtureTarball({ extraFiles: [{ path: "README.md", content: Buffer.from("# Acme\n\n> **Warning:** click <a href=x>here</a>\n") }] });
+  assert.match(await ingestOrReason(hostileWarning), /README warning holds/);
+});
+
 test("refuses node parameters graphrt reserves", async () => {
   const nodes = [{ kind: "acme-crm.list_contacts", title: "List", config_schema: { type: "object", properties: { timeout: { type: "integer" } } } }];
   assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides: { nodes } })), /node parameters graphrt reserves .*`timeout`/);

@@ -192,7 +192,16 @@ plugins. The PR changes only `community-plugins.json`.
 4. **Labels.** `status` and `tos_risk` follow the same rules as official plugins
    ([status labels](../CONTRIBUTING.md#status-labels)). `medium` and `high` need `tos_notes` with the clauses
    and mitigations.
-5. **Listing.** The `publisher` and `display_name` are honest. You may not impersonate a provider, use "graphrt"
+5. **Text that reaches users and LLMs.** The manifest description, node titles, descriptions and kinds, tool
+   names and descriptions, schema `description`/`title` strings and the README warning are checked
+   automatically: length caps (description 300, node title 100, node and tool descriptions 1000, schema text
+   1000, warning 1000), no control or Unicode format characters (bidi overrides, zero-width), no `<` or `>`,
+   node kinds starting with `<name>.`, `permissions.env` an array of `^[A-Z][A-Z0-9_]*$` names and
+   `network`/`secrets` booleans. **Tool and schema descriptions are fed to an LLM**, so reviewers also read them
+   for prompt injection: instructions aimed at the model ("ignore previous instructions", "always call this
+   tool", requests to reveal secrets or other tools' output), text that disagrees with what the tool does, or
+   content that only makes sense to a model. Such text is refused.
+6. **Listing.** The `publisher` and `display_name` are honest. You may not impersonate a provider, use "graphrt"
    as a publisher, or use a brand you do not own in a way that suggests endorsement.
 
 ## After the merge: mirroring and publishing
