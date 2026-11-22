@@ -254,6 +254,11 @@ since the last reviewed tag. Older mirror releases stay, but the catalog lists o
   Report security issues privately to the maintainers, not in a public issue.
 - **The maintainers may remove an entry** if the plugin breaks the agent-safety rules, its provider's terms
   change, the repository disappears, or reports go unanswered.
+- **A removed name stays reserved.** The checks refuse a community entry named like an official plugin, but
+  they cannot see names that were removed from the registry. Maintainers must not add an official plugin (or
+  accept another community entry) under the name of a removed community plugin: users who installed the old
+  one would get the new one as an "update", and its `community-<name>-v<version>` mirror releases still exist.
+  Check `git log -p -- community-plugins.json` for the name before choosing it.
 
 ## Registry reference
 `community-plugins.json` is a JSON object keyed by plugin name. Every field is a string with no surrounding
