@@ -66,14 +66,16 @@ export function parsePackArguments(argumentList) {
  *
  * @param pluginDirectory - The plugin's directory, tracked by git (string)
  * @param outputDirectory - Where `<name>-<version>.tar.gz` is written (string)
+ * @param options - Packing options
+ * @param options.commandEnvironment - Environment of git and npm (object, default: process.env)
  * @returns As packPlugin (object)
  * @throws Error - When the manifest, the files or npm fail the packing checks
  */
-export function packExternalPlugin(pluginDirectory, outputDirectory) {
+export function packExternalPlugin(pluginDirectory, outputDirectory, { commandEnvironment = process.env } = {}) {
   const { name: pluginName } = JSON.parse(readFileSync(join(pluginDirectory, MANIFEST_FILE_NAME), "utf8"));
   if (typeof pluginName !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(pluginName)) throw new Error(`${pluginDirectory}: manifest name \`${pluginName}\` is not a valid plugin name`);
   mkdirSync(outputDirectory, { recursive: true });
-  const packed = packPlugin(pluginName, { outputDirectory, sourceDirectory: pluginDirectory, includeIcon: true });
+  const packed = packPlugin(pluginName, { outputDirectory, sourceDirectory: pluginDirectory, includeIcon: true, commandEnvironment });
   rmSync(resolve(outputDirectory, ".staging"), { recursive: true, force: true });
   return packed;
 }

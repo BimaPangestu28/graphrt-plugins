@@ -40,14 +40,20 @@ The desktop app shows these plugins with `source: "community"`, your `publisher`
   permissions its manifest declares.
 
 ## 1. Scaffold the plugin
+**Only Node plugins are accepted as community plugins today.** The manifest must say `"runtime": "process"`,
+`"command": "node"` and `"args": ["<entrypoint>"]`, where the entrypoint is one `.mjs`/`.js`/`.cjs` file inside
+the plugin that is pinned in `checksums` (normally `plugin.mjs`). Node flags in `args` (`--require`, `--import`,
+...), a process `env`, `inherit_env`, `cwd` and `allow_unprefixed_kinds` are refused. Python, Rust, WASM and
+HTTP plugins cannot be listed yet, because reviewers could not rebuild and pin what they would run.
+
 Start with the graphrt CLI:
 
 ```bash
-graphrt plugin new acme-crm --lang typescript   # or python, rust
+graphrt plugin new acme-crm --lang typescript
 cd acme-crm && git init
 ```
 
-For a Node plugin you can also copy the structure of an official one. [`open-meteo/`](../open-meteo/) is a
+You can also copy the structure of an official one. [`open-meteo/`](../open-meteo/) is a
 declarative REST plugin and [`meta-api/`](../meta-api/) is a hand-written one. If you build on `shared/lib`,
 copy it into your repo, since your plugin must carry everything it runs.
 
@@ -165,8 +171,12 @@ Use the **Community plugin** section of the pull request template. Remove the se
 plugins. The PR changes only `community-plugins.json`.
 
 ## What reviewers check
-1. **The code at your tag.** Reviewers read the source at `tag`, and what is in the tarball (the tarball must
-   match the tagged source plus production dependencies). They check correctness against the provider's
+1. **The code at your tag.** Reviewers read the source at `tag`. The tarball must be a **reproducible rebuild**
+   of that tag: the maintainer step clones `repository_url` at `tag` (shallow, no submodules, no git hooks, an
+   isolated environment), packs it with this repo's packer (`npm ci --omit=dev --ignore-scripts`, a
+   `package-lock.json` required when there are dependencies), and requires the same file set with the same bytes
+   as your tarball, `node_modules` and unpinned files included. A mismatch skips the entry with a diff summary,
+   so pack with `scripts/pack-plugins.mjs --plugin-dir` from a clean checkout of the tag. They check correctness against the provider's
    official docs, every item of the agent-safety checklist, error handling, credential handling, logging (no
    stdout, no secrets) and dependencies (necessary, maintained, locked).
 2. **The tarball.** `verify-plugins.mjs --community` must pass. It covers the sha256, the layout, safe paths,
@@ -191,9 +201,11 @@ A maintainer runs the release workflow (or `node scripts/publish-plugins.mjs`). 
    links, non-octal sizes, bad checksums, data after the end of the archive and multi-member gzip are refused)
    and re-packs it canonically;
 5. runs the checks listed above on the repack (and `graphrt plugin install` when enabled, see below);
-6. creates the mirror release with the repack, if it does not exist yet. An existing mirror is never
+6. rebuilds the plugin from the tag and compares it with the tarball (only when creating a mirror; an existing
+   mirror passed this check when it was created);
+7. creates the mirror release with the repack, if it does not exist yet. An existing mirror is never
    modified;
-7. adds the plugin to `index.json`, `index-v2.json` and its immutable detail file
+8. adds the plugin to `index.json`, `index-v2.json` and its immutable detail file
    `plugin-<name>-<version>.json`, and uploads its icon to the `catalog` release.
 
 An entry that fails any step is skipped with its reason in the publish output, and the rest of the catalog

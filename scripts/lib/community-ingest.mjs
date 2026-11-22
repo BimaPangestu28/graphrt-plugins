@@ -23,6 +23,8 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildCatalogV2Entry, buildPluginDetail, renderPluginDetail } from "./catalog-v2.mjs";
 import { communityReleaseTagFor, findCommunityEntryProblems, versionFromTag } from "./community-plugins.mjs";
+import { findCommunityRuntimeProblems } from "./community-manifest.mjs";
+import { findRebuildDifferences, rebuildCommunityPluginFromTag, summarizeRebuildDifferences } from "./community-rebuild.mjs";
 import {
   COMMUNITY_SOURCE, MANIFEST_FILE_NAME, README_FILE_NAME, assembleCatalogEntry, dependsOnBrowser, isPinnedPath, releaseAssetUrl, sha256Hex,
   tarballNameFor,
@@ -150,6 +152,8 @@ export function verifyCommunityTarball(pluginName, registryEntry, tarballBytes, 
   const manifest = parseTopLevelJson(pluginName, archiveEntries, MANIFEST_FILE_NAME);
   if (manifest?.name !== pluginName) reject(pluginName, `manifest name \`${manifest?.name}\` does not match the registry name`);
   if (manifest.version !== version) reject(pluginName, `manifest version \`${manifest.version}\` does not match tag ${registryEntry.tag}`);
+  const runtimeProblems = findCommunityRuntimeProblems(manifest);
+  if (runtimeProblems.length > 0) reject(pluginName, `manifest runtime: ${runtimeProblems.join("; ")}`);
   const tarballPath = runOfficialTarballChecks(pluginName, tarballBytes, { version, workDirectory, graphrtBinary });
   assertEveryCodeFilePinned(pluginName, archiveEntries, manifest.checksums ?? {});
   const reservedProperties = findReservedNodeProperties(pluginName, manifest);
@@ -271,6 +275,8 @@ export function assertCatalogFilesFit(pluginName, catalogItem, findPublishedCata
  * @param context.mirror - `{readMirroredTarball(tag, assetName) -> Buffer|null, readMirrorNotes(tag) -> string|null,
  *   createMirrorRelease({releaseTag, tarballPath, title, notes, prerelease})}` (object)
  * @param context.downloadTarball - Downloads the developer's tarball: `(url) -> Promise<Buffer>` (function)
+ * @param context.rebuildFromTag - Rebuilds the plugin from its tag: `(pluginName, registryEntry) -> entries` (function,
+ *   default: rebuildCommunityPluginFromTag cloning `repository_url`)
  * @param context.findPublishedCatalogSha256 - See assertCatalogFilesFit (function, default: nothing published)
  * @param context.log - Logs a line (function, default console.error)
  * @returns The catalog item plus `mirrorAction` ("mirrored", "would mirror" or "mirror created") (Promise<object>)
@@ -283,11 +289,14 @@ export async function ingestCommunityPlugin(pluginName, registryEntry, context) 
   const version = versionFromTag(registryEntry.tag);
   const releaseTag = communityReleaseTagFor(pluginName, version);
   const mirroredBytes = readReusableMirror(pluginName, registryEntry, { ...context, releaseTag, tarballName: tarballNameFor(pluginName, version) });
-  const shippedBytes = mirroredBytes ?? (await fetchAndRepack(pluginName, registryEntry, context)).repackBytes;
+  const fetched = mirroredBytes ? null : await fetchAndRepack(pluginName, registryEntry, context);
+  const shippedBytes = mirroredBytes ?? fetched.repackBytes;
   const verified = verifyCommunityTarball(pluginName, registryEntry, shippedBytes, { workDirectory, graphrtBinary, log });
   const shippedSha256 = sha256Hex(shippedBytes);
   const catalogItem = buildCommunityCatalogItem(pluginName, registryEntry, verified, { sha256: shippedSha256, sizeBytes: shippedBytes.length });
   assertCatalogFilesFit(pluginName, catalogItem, context.findPublishedCatalogSha256 ?? (() => undefined));
+  // A mirror was rebuilt and compared when it was created; a new one needs the rebuild now.
+  if (fetched) await assertMatchesRebuildFromTag(pluginName, registryEntry, fetched.archiveEntries, context);
   const mirrorAction = mirroredBytes ? "mirrored" : context.dryRun ? "would mirror" : "mirror created";
   if (mirrorAction === "mirror created") createMirror(pluginName, registryEntry, { mirror: context.mirror, releaseTag, version, tarballPath: verified.tarballPath, shippedSha256 });
   log(`${releaseTag}: ${mirrorAction === "mirrored" ? "already mirrored, unchanged" : mirrorAction} (repack ${shippedSha256} of the reviewed upload ${registryEntry.tarball_sha256})`);
@@ -311,6 +320,20 @@ function readReusableMirror(pluginName, registryEntry, { mirror, catalogOnly = f
   const isCanonical = withRejection(pluginName, () => isCanonicalTarGz(mirroredBytes, { mtimeSeconds: COMMUNITY_REPACK_MTIME_SECONDS, maxUnpackedBytes: MAX_COMMUNITY_UNPACKED_BYTES }));
   if (!isCanonical) reject(pluginName, `${releaseTag} holds a ${tarballName} that is not a canonical repack; a mirrored release is never modified, so release a new version`);
   return mirroredBytes;
+}
+
+/**
+ * Rebuilds the plugin from its tag (community-rebuild.mjs) and refuses it unless the rebuilt files equal the
+ * author's tarball. `context.rebuildFromTag(pluginName, registryEntry)` replaces the git clone (tests).
+ */
+async function assertMatchesRebuildFromTag(pluginName, registryEntry, authorEntries, context) {
+  const rebuildFromTag = context.rebuildFromTag ?? ((name, entry) => rebuildCommunityPluginFromTag({
+    pluginName: name, cloneUrl: entry.repository_url, tag: entry.tag, workDirectory: context.workDirectory, maxUnpackedBytes: MAX_COMMUNITY_UNPACKED_BYTES,
+  }));
+  mkdirSync(context.workDirectory, { recursive: true });
+  const rebuiltEntries = await withRejectionAsync(pluginName, async () => rebuildFromTag(pluginName, registryEntry), `rebuild from tag ${registryEntry.tag} failed`);
+  const differences = findRebuildDifferences(authorEntries, rebuiltEntries);
+  if (differences.length > 0) reject(pluginName, `the tarball does not match a rebuild from tag ${registryEntry.tag} (${differences.length} differences): ${summarizeRebuildDifferences(differences)}`);
 }
 
 async function fetchAndRepack(pluginName, registryEntry, { downloadTarball }) {
@@ -399,11 +422,11 @@ function withRejection(pluginName, action, reasonPrefix = null) {
   }
 }
 
-async function withRejectionAsync(pluginName, action) {
+async function withRejectionAsync(pluginName, action, reasonPrefix = null) {
   try {
     return await action();
   } catch (error) {
     if (error instanceof CommunityPluginRejection) throw error;
-    reject(pluginName, error.message);
+    reject(pluginName, reasonPrefix ? `${reasonPrefix}: ${error.message}` : error.message);
   }
 }

