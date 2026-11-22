@@ -5,6 +5,7 @@ import {
   versionFromTag, withPendingReviewStandIns,
 } from "../lib/community-plugins.mjs";
 import { listPluginNames } from "../lib/plugin-package.mjs";
+import { renderCommunityReleaseNotes } from "../lib/community-ingest.mjs";
 
 const OFFICIAL_NAMES = ["currency-rates", "github", "shared", "scripts", "community-legacy"];
 
@@ -108,8 +109,42 @@ test("applies the plugin-status.json rules to status and ToS labels", () => {
   assert.match(problemsOf({ tos_risk: "high" }).join("\n"), /tos_risk high needs tos_notes/);
 });
 
+test("blocks every spoofing string of the audit's probe-registry.mjs", () => {
+  const probes = {
+    "publisher Cyrillic a": { publisher: "Gr\u0430phRT" },
+    "publisher ZWSP": { publisher: "graph\u200brt" },
+    "publisher RLM": { publisher: "Acme\u200f" },
+    "display ALM U+061C": { display_name: "X\u061c" },
+    "display LS U+2028": { display_name: "X\u2028Y" },
+    "display BOM": { display_name: "X\ufeff" },
+    "publisher markdown link": { publisher: "[Official team](https://evil.example)" },
+    "display html": { display_name: "<img src=x onerror=alert(1)>" },
+    "display RLO": { display_name: "X\u202e" },
+    "status_reason zero-width": { status_reason: "Fine\u200b" },
+  };
+  for (const [label, overrides] of Object.entries(probes)) {
+    assert.ok(problemsOf(overrides).length > 0, `${label} must be blocked`);
+  }
+});
+
+test("publisher and display_name are printable ASCII without markup and never claim to be official or graphrt", () => {
+  for (const publisher of ["Acme `team`", "Acme <x>", "Acme (official)", "Acme [x]", "Acme\u00e9", "OFFICIAL builds", "The Graphrt team", "\uff27raphRT"]) {
+    assert.ok(problemsOf({ publisher }).length > 0, `publisher ${JSON.stringify(publisher)} must be refused`);
+  }
+  assert.match(problemsOf({ display_name: "Official Stripe" }).join("\n"), /display_name must not contain "official" or "graphrt"/);
+  assert.match(problemsOf({ display_name: "graphRT CRM" }).join("\n"), /must not contain "official" or "graphrt"/);
+  assert.match(problemsOf({ publisher: "Acme <x>" }).join("\n"), /publisher must be printable ASCII without < > \[ \] \( \) or backticks/);
+  assert.deepEqual(problemsOf({ publisher: "Acme Inc. & Partners", display_name: "Acme CRM: Contacts / Deals" }), []);
+});
+
+test("mirror release notes escape the publisher and display name", () => {
+  const notes = renderCommunityReleaseNotes("acme-crm", validEntry({ publisher: "Acme *bold* @someone", display_name: "Acme_CRM #1" }), "1.2.0", "b".repeat(64));
+  assert.match(notes, /\*\*Acme\\_CRM \\#1\*\*/);
+  assert.match(notes, /published by Acme \\\*bold\\\* \\@someone\./);
+});
+
 test("checks the publisher and the review record", () => {
-  assert.match(problemsOf({ publisher: "GraphRT Labs" }).join("\n"), /must not name graphrt/);
+  assert.match(problemsOf({ publisher: "GraphRT Labs" }).join("\n"), /publisher must not contain "official" or "graphrt"/);
   assert.match(problemsOf({ reviewed_by: "not a login" }).join("\n"), /reviewed_by must be/);
   assert.match(problemsOf({ reviewed_at: "2026-02-30" }).join("\n"), /reviewed_at `2026-02-30` must be a date/);
   assert.match(problemsOf({ reviewed_at: "20/11/2026" }).join("\n"), /must be a date/);

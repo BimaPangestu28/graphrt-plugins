@@ -418,7 +418,7 @@ function createMirror(pluginName, registryEntry, { mirror, releaseTag, version, 
  */
 export function renderCommunityReleaseNotes(pluginName, registryEntry, version, mirroredSha256) {
   return [
-    `Community plugin **${registryEntry.display_name}** (\`${pluginName}\`) ${version}, published by ${registryEntry.publisher}.`,
+    `Community plugin **${escapeMarkdown(registryEntry.display_name)}** (\`${pluginName}\`) ${version}, published by ${escapeMarkdown(registryEntry.publisher)}.`,
     "",
     `- Source: ${registryEntry.repository_url} at tag \`${registryEntry.tag}\``,
     `- Original asset: ${registryEntry.tarball_url}`,
@@ -429,6 +429,16 @@ export function renderCommunityReleaseNotes(pluginName, registryEntry, version, 
     "",
     "This is a canonical repack of the reviewed release asset: the same files and bytes, rewritten by graphrt-plugins' own tar writer. It is never modified. A new version needs a new review (see docs/community-plugins.md).",
   ].join("\n");
+}
+
+/**
+ * Escapes text for a Markdown release body: every character Markdown or a GitHub mention could interpret.
+ *
+ * @param text - Plain text (string)
+ * @returns The escaped text (string)
+ */
+export function escapeMarkdown(text) {
+  return text.replace(/[\\`*_{}[\]()#+\-.!|<>~@&]/g, (character) => `\\${character}`);
 }
 
 /**

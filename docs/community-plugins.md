@@ -255,7 +255,7 @@ since the last reviewed tag. Older mirror releases stay, but the catalog lists o
 
 ## Registry reference
 `community-plugins.json` is a JSON object keyed by plugin name. Every field is a string with no surrounding
-whitespace and no control or bidi characters. `scripts/lib/community-plugins.mjs` enforces these rules:
+whitespace and no control characters, Unicode format characters (bidi marks, zero-width characters) or line separators. `scripts/lib/community-plugins.mjs` enforces these rules:
 
 | Field | Rule |
 |-------|------|
@@ -264,8 +264,8 @@ whitespace and no control or bidi characters. `scripts/lib/community-plugins.mjs
 | `tag` | `v<semver>` or `<semver>`, ≤ 64 characters; the version is the tag without `v` |
 | `tarball_url` | exactly `<repository_url>/releases/download/<tag>/<name>-<version>.tar.gz` |
 | `tarball_sha256` | 64 lowercase hex characters |
-| `publisher` | ≤ 60 characters, must not contain "graphrt" |
-| `display_name` | ≤ 60 characters |
+| `publisher` | ≤ 60 characters of printable ASCII without `< > [ ] ( )` or backticks; must not contain "official" or "graphrt" (case-insensitive, after NFKC normalisation) |
+| `display_name` | same rules as `publisher` |
 | `status` | `stable`, `beta` or `experimental` |
 | `status_reason` | ≤ 500 characters |
 | `tos_risk` | `none`, `low`, `medium` or `high` |
