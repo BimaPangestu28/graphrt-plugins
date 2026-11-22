@@ -4,10 +4,12 @@
  * the uploaded assets hold the bytes that were meant to be uploaded.
  *
  * Upload order of the catalog: icons and detail files first (every URL an index names resolves before the index
- * is live), then `index-v2.json` and `index.json` together, then `SHA256SUMS` last. GitHub has no atomic
- * multi-asset update, so a reader can still, for a few seconds, see one index updated and the other not yet,
- * or both indexes new while SHA256SUMS still lists the previous ones; readers that check SHA256SUMS should retry
- * on a mismatch.
+ * is live), then the index signatures (`index-v2.json.minisig`, `index.json.minisig`), then `index-v2.json` and
+ * `index.json` together, then `SHA256SUMS` last. GitHub has no atomic multi-asset update, so a reader can still,
+ * for a few seconds, see one index updated and the other not yet, an OLD index next to its NEW signature (it
+ * fails verification: retry), or both indexes new while SHA256SUMS still lists the previous ones; readers that
+ * check a signature or SHA256SUMS should fetch again on a mismatch. Signatures go first so that a new index is
+ * never served with an old signature once the index upload has finished.
  */
 import { basename } from "node:path";
 
@@ -29,7 +31,7 @@ export function planReleaseAction(existingRelease, assetName) {
 /**
  * Orders the catalog upload into sequential batches (each batch is one `gh release upload`).
  *
- * @param catalogFiles - From writeCatalogFiles: `{indexPath, indexV2Path, sumsPath}` (object)
+ * @param catalogFiles - From writeCatalogFiles: `{indexPath, indexV2Path, sumsPath, signaturePaths?}` (object)
  * @param newAssetPaths - Icons and detail files the release does not have yet (string[])
  * @param batchSize - Largest number of new assets per batch (number, default 50)
  * @returns Paths per batch, in upload order (string[][])
@@ -37,6 +39,7 @@ export function planReleaseAction(existingRelease, assetName) {
 export function planCatalogUploadBatches(catalogFiles, newAssetPaths, batchSize = 50) {
   const batches = [];
   for (let start = 0; start < newAssetPaths.length; start += batchSize) batches.push(newAssetPaths.slice(start, start + batchSize));
+  if (catalogFiles.signaturePaths?.length > 0) batches.push([...catalogFiles.signaturePaths]);
   batches.push([catalogFiles.indexV2Path, catalogFiles.indexPath]);
   batches.push([catalogFiles.sumsPath]);
   return batches;

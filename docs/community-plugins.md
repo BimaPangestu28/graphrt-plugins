@@ -35,6 +35,10 @@ The desktop app shows these plugins with `source: "community"`, your `publisher`
   repack, publishing refuses the entry. To ship a change, release a new version.
 - **Every version is reviewed.** No version reaches the catalog without its own pull request and review. Nothing
   updates automatically.
+- **The catalog that lists you is signed.** `index-v2.json` and `index.json` carry minisign signatures made with
+  the maintainers' key (public key: [`catalog-signing.pub`](../catalog-signing.pub)). Your entry's `sha256` in
+  the signed index pins the mirrored repack, so a reader that verifies the signature knows the tarball it
+  downloads is the one that was reviewed, wherever it was served from. You never sign anything yourself.
 - **Review is not a warranty.** A review lowers the risk; it does not remove it. Your status label (`beta`,
   `experimental`) and your ToS risk are shown to users as for official plugins, and the plugin runs with the
   permissions its manifest declares.

@@ -200,10 +200,26 @@ lists them all.
   hashes, and hashing all of Playwright before every start would slow every run.
 - **Catalog:** the `catalog` release, rebuilt from the published tarballs on every publish, holds two indexes
   (both compact JSON) plus `SHA256SUMS`, which lists every tarball, icon, detail file and both indexes.
-  A publish uploads new icons and detail files first, then `index-v2.json` and `index.json` together, then
-  `SHA256SUMS` last, and checks the uploaded digests. GitHub cannot replace several assets at once, so for a few
-  seconds a reader may see one index updated and the other not, or new indexes next to the previous
-  `SHA256SUMS`; on a checksum mismatch, fetch again.
+  - **Signatures:** both indexes are signed with [minisign](https://jedisct1.github.io/minisign/):
+    `index-v2.json.minisig` and `index.json.minisig` sit next to them (and are listed in `SHA256SUMS`). The
+    public key is [`catalog-signing.pub`](catalog-signing.pub) (key id `CB1AEE339F05C2BD`):
+    ```
+    RWS9wgWfM+4ayykVUw9LH3DOjwa+g/JFaREz3FWd/U8GJaa6q4WrNd9c
+    ```
+    Verify with `minisign -V -p catalog-signing.pub -m index-v2.json` (it reads `index-v2.json.minisig`). The
+    signed trusted comment reads `graphrt-plugins index-v2.json plugins=<count> generated_at=<time>`; a reader
+    should check that `generated_at` matches the index it verified, and refuse an index older than one it has
+    already seen.
+  - **Key rotation:** readers keep a *list* of accepted public keys and accept a signature made by any of them.
+    To rotate, publish the new public key in a release of the reader first (old and new key both accepted),
+    then switch `catalog-signing.pub` and the `GRAPHRT_CATALOG_SIGNING_KEY` secret to the new key, and drop the
+    old key from readers once every supported reader version has the new one. A compromised key is removed
+    from readers at once.
+  - **Upload order:** a publish uploads new icons and detail files first, then both signatures, then
+    `index-v2.json` and `index.json` together, then `SHA256SUMS` last, and checks the uploaded digests. GitHub
+    cannot replace several assets at once, so for a few seconds a reader may see an old index next to its new
+    signature (verification fails), one index updated and the other not, or new indexes next to the previous
+    `SHA256SUMS`; on a signature or checksum mismatch, fetch again after a short delay.
   - **v2 (current):** `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/index-v2.json`, a
     slim index for plugin lists (about 340 KB for 146 plugins; publishing warns above 1 MiB and refuses above 4 MiB):
     ```json

@@ -316,8 +316,16 @@ Maintainers do the releasing; contributors never tag or publish.
   changelog in the PR. A new plugin starts at `0.1.0`.
 - Pushing the tag runs [`release.yml`](.github/workflows/release.yml). It checks that the tag matches the manifest
   version, re-checks the generated files, tests the release tooling, then tests, packs and verifies the plugin
-  and refreshes the `catalog` release (`index.json`, `index-v2.json`, `SHA256SUMS`, new plugin icons and the new
-  version's immutable detail file `plugin-<name>-<version>.json`; see [Install](README.md#install) for the format).
+  and refreshes the `catalog` release (`index.json`, `index-v2.json`, their minisign signatures, `SHA256SUMS`, new
+  plugin icons and the new version's immutable detail file `plugin-<name>-<version>.json`; see
+  [Install](README.md#install) for the format).
+- **The catalog is signed.** The publish signs both indexes with the minisign secret key at
+  `GRAPHRT_CATALOG_SIGNING_KEY` (default `~/.graphrt/keys/catalog-minisign.key`; in CI the workflow writes the
+  `GRAPHRT_CATALOG_SIGNING_KEY` secret to a mode-600 temp file), verifies the signatures with the committed
+  [`catalog-signing.pub`](catalog-signing.pub) and only then uploads. Without the key a real publish refuses to
+  upload an unsigned catalog; `--dry-run` signs when the key is there and otherwise warns. The secret key never
+  goes into the repo, logs or test fixtures (tests generate a throwaway key). Rotation is described in
+  [Install](README.md#install).
 - Maintainers can also run the workflow by hand (optionally as a `dry_run`) to publish every plugin whose version
   has no release yet.
 - Locally, the same steps are `npm run pack:plugins [name...]`, `npm run verify:plugins dist/*.tar.gz` and

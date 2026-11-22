@@ -17,7 +17,7 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { REPO_ROOT } from "./plugins.mjs";
 import {
   COMMUNITY_SOURCE, MANIFEST_FILE_NAME, MAX_CATALOG_BYTES, buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin,
@@ -167,12 +167,18 @@ function findCatalogOverflow(sizes, { officialNeedsStripping, maxV1Bytes, maxV2B
  * @param releasedPlugins - `{tarballName, sha256, manifest, catalogEntry, icon?}` per plugin; `manifest` is the released
  *   manifest the detail file is derived from; `icon` (`{assetName, bytes, sha256}`) is set for community plugins,
  *   whose icon is not in this repo (object[])
- * @param limits - `{maxV1Bytes, maxV2Bytes}` for fitCommunityPluginsIntoCatalog (object, default: the desktop app's limits)
- * @returns `{indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas, skipped}`; detailFiles holds
- *   `{assetName, sha256, sizeBytes, stagedPath}`; skipped lists the community plugins left out to fit (object)
- * @throws Error - When a plugin has no valid icon.svg or manifest, or the official plugins alone are too large
+ * @param options - Options
+ * @param options.maxV1Bytes - index.json limit for fitCommunityPluginsIntoCatalog (number, default: the desktop app's)
+ * @param options.maxV2Bytes - index-v2.json limit (number, default: the desktop app's)
+ * @param options.signIndexes - Signs the written indexes before SHA256SUMS is written: `([{path, name, catalog}]) ->
+ *   signature paths` (function, default: no signatures; publish-plugins.mjs passes catalog-signing.mjs)
+ * @returns `{indexPath, indexV2Path, sumsPath, signaturePaths, iconPaths, detailFiles, v1WithoutSchemas, skipped}`;
+ *   detailFiles holds `{assetName, sha256, sizeBytes, stagedPath}`; skipped lists the community plugins left out
+ *   to fit (object)
+ * @throws Error - When a plugin has no valid icon.svg or manifest, the official plugins alone are too large, or
+ *   signing fails
  */
-export function writeCatalogFiles(outputDirectory, allReleasedPlugins, limits = {}) {
+export function writeCatalogFiles(outputDirectory, allReleasedPlugins, { signIndexes = () => [], ...limits } = {}) {
   const generatedAt = new Date();
   const { kept: releasedPlugins, dropped } = fitCommunityPluginsIntoCatalog(allReleasedPlugins, { generatedAt, ...limits });
   dropped.forEach(({ name, reason }) => console.error(`community ${name}: ${reason}`));
@@ -188,13 +194,18 @@ export function writeCatalogFiles(outputDirectory, allReleasedPlugins, limits = 
   const sumsPath = resolve(outputDirectory, "SHA256SUMS");
   writeFileSync(indexPath, v1Catalog.catalogText);
   writeFileSync(indexV2Path, v2Catalog.catalogText);
+  const signaturePaths = signIndexes([
+    { path: indexV2Path, name: CATALOG_V2_INDEX_NAME, catalog: JSON.parse(v2Catalog.catalogText) },
+    { path: indexPath, name: "index.json", catalog: JSON.parse(v1Catalog.catalogText) },
+  ]);
   const fileHashes = releasedPlugins.map(({ tarballName, sha256 }) => ({ fileName: tarballName, sha256 }));
   fileHashes.push(...[...icons, ...detailFiles].map(({ assetName, sha256 }) => ({ fileName: assetName, sha256 })));
   fileHashes.push({ fileName: "index.json", sha256: sha256Hex(Buffer.from(v1Catalog.catalogText)) });
   fileHashes.push({ fileName: CATALOG_V2_INDEX_NAME, sha256: sha256Hex(Buffer.from(v2Catalog.catalogText)) });
+  fileHashes.push(...signaturePaths.map((signaturePath) => ({ fileName: basename(signaturePath), sha256: sha256Hex(readFileSync(signaturePath)) })));
   writeFileSync(sumsPath, formatSha256Sums(fileHashes));
   const iconPaths = icons.map(({ stagedPath }) => stagedPath);
-  return { indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas: v1Catalog.withoutSchemas, skipped: dropped };
+  return { indexPath, indexV2Path, sumsPath, signaturePaths, iconPaths, detailFiles, v1WithoutSchemas: v1Catalog.withoutSchemas, skipped: dropped };
 }
 
 /** Writes each plugin's detail file to `<detailDirectory>/<asset name>`, replacing anything staged before. */

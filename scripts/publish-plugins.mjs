@@ -48,6 +48,7 @@ import {
 } from "./lib/plugin-package.mjs";
 import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
+import { signCatalogIndexes } from "./lib/catalog-signing.mjs";
 import { findUploadedDigestMismatches, planCatalogUploadBatches, planReleaseAction } from "./lib/release-plan.mjs";
 import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
 import { downloadHttpsBytes, ingestCommunityPlugins, selectCommunityGraphrtBinary } from "./lib/community-ingest.mjs";
@@ -206,8 +207,8 @@ function collectOtherPublishedPlugins(packedNames, outputDirectory) {
 
 const ASSET_UPLOAD_BATCH_SIZE = 50;
 const SHA256_DIGEST_PREFIX = "sha256:";
-// index.json, index-v2.json and SHA256SUMS.
-const CATALOG_INDEX_FILE_COUNT = 3;
+// index.json, index-v2.json, their two .minisig signatures and SHA256SUMS.
+const CATALOG_INDEX_FILE_COUNT = 5;
 
 /**
  * Lists the staged icons and detail files the `catalog` release does not have yet. Icon asset names are
@@ -261,7 +262,7 @@ function warnAboutAssetCount(assetCountAfterUpload) {
 
 /**
  * Uploads new icons and detail files first (so every `icon_url` and `detail_url` resolves once an index is
- * live), then index-v2.json and index.json together, then SHA256SUMS last (planCatalogUploadBatches), and checks
+ * live), then the index signatures, then index-v2.json and index.json together, then SHA256SUMS last (planCatalogUploadBatches), and checks
  * the release digests afterwards. GitHub cannot replace several assets atomically: for a few seconds a reader
  * may see one index updated and not the other, or new indexes with the previous SHA256SUMS.
  */
@@ -290,6 +291,7 @@ function renderCatalogReleaseNotes() {
     `- \`${CATALOG_V2_INDEX_NAME}\`: ${releaseAssetUrl(CATALOG_TAG, CATALOG_V2_INDEX_NAME)} (schema 2, slim; each entry links its detail file)`,
     "- `plugin-<name>-<version>.json`: immutable per-version details (node config schemas and outputs, tool descriptions)",
     `- \`index.json\`: ${releaseAssetUrl(CATALOG_TAG, "index.json")} (schema 1, for older apps)`,
+    "- `index-v2.json.minisig`, `index.json.minisig`: minisign signatures of both indexes (public key: `catalog-signing.pub` in the repository)",
     `- \`SHA256SUMS\`: ${releaseAssetUrl(CATALOG_TAG, "SHA256SUMS")}`,
     "- `icon-<plugin>-<sha256 prefix>.svg`: plugin icons, named by content (each catalog entry's `icon_url`)",
     "",
@@ -421,7 +423,8 @@ async function main() {
   if (process.env.GITHUB_ACTIONS === "true") annotateSkippedCommunityPlugins(community.skipped);
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
-  const catalogFiles = writeCatalogFiles(catalogDirectory, released);
+  const signIndexes = (indexes) => signCatalogIndexes(indexes, { dryRun: options.dryRun });
+  const catalogFiles = writeCatalogFiles(catalogDirectory, released, { signIndexes });
   skipped.push(...catalogFiles.skipped);
   const droppedNames = new Set(catalogFiles.skipped.map(({ name }) => name));
   const listed = released.filter(({ catalogEntry }) => !droppedNames.has(catalogEntry.name));
