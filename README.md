@@ -200,6 +200,10 @@ lists them all.
   hashes, and hashing all of Playwright before every start would slow every run.
 - **Catalog:** the `catalog` release, rebuilt from the published tarballs on every publish, holds two indexes
   (both compact JSON) plus `SHA256SUMS`, which lists every tarball, icon, detail file and both indexes.
+  A publish uploads new icons and detail files first, then `index-v2.json` and `index.json` together, then
+  `SHA256SUMS` last, and checks the uploaded digests. GitHub cannot replace several assets at once, so for a few
+  seconds a reader may see one index updated and the other not, or new indexes next to the previous
+  `SHA256SUMS`; on a checksum mismatch, fetch again.
   - **v2 (current):** `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/index-v2.json`, a
     slim index for plugin lists (about 340 KB for 146 plugins; publishing warns above 1 MiB and refuses above 4 MiB):
     ```json

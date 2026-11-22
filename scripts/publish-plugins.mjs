@@ -48,6 +48,7 @@ import {
 } from "./lib/plugin-package.mjs";
 import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
+import { findUploadedDigestMismatches, planCatalogUploadBatches } from "./lib/release-plan.mjs";
 import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
 import { downloadHttpsBytes, ingestCommunityPlugins, selectCommunityGraphrtBinary } from "./lib/community-ingest.mjs";
 import { runTestSuite } from "./lib/plugin-test-runner.mjs";
@@ -245,20 +246,26 @@ function warnAboutAssetCount(assetCountAfterUpload) {
 
 /**
  * Uploads new icons and detail files first (so every `icon_url` and `detail_url` resolves once an index is
- * live), then index.json, index-v2.json and SHA256SUMS together.
+ * live), then index-v2.json and index.json together, then SHA256SUMS last (planCatalogUploadBatches), and checks
+ * the release digests afterwards. GitHub cannot replace several assets atomically: for a few seconds a reader
+ * may see one index updated and not the other, or new indexes with the previous SHA256SUMS.
  */
 function uploadCatalog(catalogFiles, { catalogRelease, newAssetPaths }, targetCommit) {
-  const indexPaths = [catalogFiles.indexPath, catalogFiles.indexV2Path, catalogFiles.sumsPath];
+  const uploadBatches = planCatalogUploadBatches(catalogFiles, newAssetPaths, ASSET_UPLOAD_BATCH_SIZE);
   if (catalogRelease) {
-    for (let start = 0; start < newAssetPaths.length; start += ASSET_UPLOAD_BATCH_SIZE) {
-      const assetBatch = newAssetPaths.slice(start, start + ASSET_UPLOAD_BATCH_SIZE);
-      runGhIdempotent(["release", "upload", CATALOG_TAG, ...assetBatch, "-R", RELEASE_REPOSITORY, "--clobber"]);
-    }
-    runGhIdempotent(["release", "upload", CATALOG_TAG, ...indexPaths, "-R", RELEASE_REPOSITORY, "--clobber"]);
-    return;
+    for (const assetBatch of uploadBatches) runGhIdempotent(["release", "upload", CATALOG_TAG, ...assetBatch, "-R", RELEASE_REPOSITORY, "--clobber"]);
+  } else {
+    runCommand("gh", ["release", "create", CATALOG_TAG, ...uploadBatches.flat(), "-R", RELEASE_REPOSITORY, "--target", targetCommit,
+      "--title", "Plugin catalog", "--notes", renderCatalogReleaseNotes(), "--latest"]);
   }
-  runCommand("gh", ["release", "create", CATALOG_TAG, ...newAssetPaths, ...indexPaths, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
-    "--title", "Plugin catalog", "--notes", renderCatalogReleaseNotes(), "--latest"]);
+  assertUploadedDigests(uploadBatches.flat());
+}
+
+/** Re-reads the `catalog` release and refuses when an uploaded asset's GitHub digest differs from the local file. */
+function assertUploadedDigests(uploadedPaths) {
+  const mismatches = findUploadedDigestMismatches(uploadedPaths, viewRelease(CATALOG_TAG)?.assets ?? [], (filePath) => sha256Hex(readFileSync(filePath)));
+  if (mismatches.length > 0) throw new Error(`the ${CATALOG_TAG} release does not hold what was uploaded:\n  ${mismatches.join("\n  ")}`);
+  console.error(`catalog: ${uploadedPaths.length} uploaded assets checked against the release digests`);
 }
 
 function renderCatalogReleaseNotes() {
