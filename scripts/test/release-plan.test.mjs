@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { findUploadedDigestMismatches, planCatalogUploadBatches } from "../lib/release-plan.mjs";
+import { findUploadedDigestMismatches, planCatalogUploadBatches, planReleaseAction } from "../lib/release-plan.mjs";
+
+test("a release without its asset is resumed by uploading the asset, never refused", () => {
+  assert.equal(planReleaseAction(null, "demo-1.0.0.tar.gz"), "create");
+  assert.equal(planReleaseAction({ assets: [] }, "demo-1.0.0.tar.gz"), "upload");
+  assert.equal(planReleaseAction({ assets: [{ name: "other.txt" }] }, "demo-1.0.0.tar.gz"), "upload");
+  assert.equal(planReleaseAction({ assets: [{ name: "demo-1.0.0.tar.gz" }] }, "demo-1.0.0.tar.gz"), "exists");
+});
 
 test("uploads new icons and details first, then both indexes together, then SHA256SUMS last", () => {
   const catalogFiles = { indexPath: "/c/index.json", indexV2Path: "/c/index-v2.json", sumsPath: "/c/SHA256SUMS" };

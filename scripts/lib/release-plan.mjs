@@ -14,6 +14,19 @@ import { basename } from "node:path";
 const SHA256_DIGEST_PREFIX = "sha256:";
 
 /**
+ * Decides what to do with a release that should hold one asset.
+ *
+ * @param existingRelease - `gh release view --json assets` output, or null when there is no release (object|null)
+ * @param assetName - The asset the release must hold (string)
+ * @returns "create" (no release), "upload" (the release exists without the asset: a half-created release to
+ *   resume) or "exists" (object)
+ */
+export function planReleaseAction(existingRelease, assetName) {
+  if (!existingRelease) return "create";
+  return existingRelease.assets.some((asset) => asset.name === assetName) ? "exists" : "upload";
+}
+
+/**
  * Orders the catalog upload into sequential batches (each batch is one `gh release upload`).
  *
  * @param catalogFiles - From writeCatalogFiles: `{indexPath, indexV2Path, sumsPath}` (object)

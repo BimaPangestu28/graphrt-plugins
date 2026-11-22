@@ -48,7 +48,7 @@ import {
 } from "./lib/plugin-package.mjs";
 import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
-import { findUploadedDigestMismatches, planCatalogUploadBatches } from "./lib/release-plan.mjs";
+import { findUploadedDigestMismatches, planCatalogUploadBatches, planReleaseAction } from "./lib/release-plan.mjs";
 import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
 import { downloadHttpsBytes, ingestCommunityPlugins, selectCommunityGraphrtBinary } from "./lib/community-ingest.mjs";
 import { runTestSuite } from "./lib/plugin-test-runner.mjs";
@@ -155,14 +155,27 @@ function createPluginRelease(packed, targetCommit, outputDirectory) {
   runCommand("gh", releaseArguments);
 }
 
+/**
+ * Uploads the one asset of a release that exists without it. No `--clobber`: if the asset appeared meanwhile,
+ * gh refuses and the publish stops instead of replacing it.
+ */
+function uploadMissingAsset(releaseTag, assetPath) {
+  runCommand("gh", ["release", "upload", releaseTag, assetPath, "-R", RELEASE_REPOSITORY]);
+}
+
 /** Publishes missing releases and returns `{tarballName, sha256, catalogEntry}` for every published plugin. */
 function publishPluginReleases(packedPlugins, { targetCommit, outputDirectory, dryRun }) {
   const released = [];
   for (const packed of packedPlugins) {
-    const existingRelease = viewRelease(packed.tag);
-    const hasAsset = existingRelease?.assets.some((asset) => asset.name === packed.tarballName);
-    if (existingRelease && !hasAsset) throw new Error(`${packed.tag}: release exists without ${packed.tarballName}; fix it by hand`);
-    if (existingRelease) {
+    const releaseAction = planReleaseAction(viewRelease(packed.tag), packed.tarballName);
+    if (releaseAction === "upload") {
+      // A half-created release (the create failed after the tag): resume it with the missing asset.
+      console.error(`${packed.tag}: release exists without ${packed.tarballName}; ${dryRun ? "would upload" : "uploading"} it (${packed.sha256})`);
+      if (!dryRun) uploadMissingAsset(packed.tag, packed.tarballPath);
+      released.push({ ...packed, catalogEntry: buildCatalogEntry(packed.manifest, packed) });
+      continue;
+    }
+    if (releaseAction === "exists") {
       const published = describePublishedTarball(packed.tag, packed.tarballName, outputDirectory);
       const status = published.sha256 === packed.sha256 ? "unchanged" : "differs from the local build (bump the version to ship changes)";
       console.error(`${packed.tag}: already published, ${status}`);
@@ -182,7 +195,9 @@ function collectOtherPublishedPlugins(packedNames, outputDirectory) {
   for (const pluginName of listPluginNames().filter((name) => !packedNames.has(name))) {
     const version = JSON.parse(readFileSync(join(REPO_ROOT, pluginName, MANIFEST_FILE_NAME), "utf8")).version;
     const releaseTag = releaseTagFor(pluginName, version);
-    if (!viewRelease(releaseTag)) continue;
+    const releaseAction = planReleaseAction(viewRelease(releaseTag), tarballNameFor(pluginName, version));
+    if (releaseAction === "upload") console.error(`${releaseTag}: release exists without its tarball; a publish of ${pluginName} resumes it`);
+    if (releaseAction !== "exists") continue;
     const published = describePublishedTarball(releaseTag, tarballNameFor(pluginName, version), outputDirectory);
     released.push({ ...published, catalogEntry: buildCatalogEntry(published.manifest, published) });
   }
@@ -310,10 +325,10 @@ function rebuildCatalogOnly(options) {
  */
 function createGithubMirror({ outputDirectory }, targetCommit) {
   return {
+    // A mirror release without its tarball (a half-created one) reads as "not mirrored": the ingest then verifies
+    // a fresh repack and createMirrorRelease resumes the release.
     readMirroredTarball(releaseTag, tarballName) {
-      const mirrorRelease = viewRelease(releaseTag);
-      if (!mirrorRelease) return null;
-      if (!mirrorRelease.assets.some((asset) => asset.name === tarballName)) throw new Error(`${releaseTag}: release exists without ${tarballName}; fix it by hand`);
+      if (planReleaseAction(viewRelease(releaseTag), tarballName) !== "exists") return null;
       return downloadReleaseAsset(releaseTag, tarballName, outputDirectory);
     },
     readMirrorNotes(releaseTag) {
@@ -323,6 +338,12 @@ function createGithubMirror({ outputDirectory }, targetCommit) {
     createMirrorRelease({ releaseTag, tarballPath, title, notes, prerelease }) {
       const notesPath = join(outputDirectory, `${releaseTag}.notes.md`);
       writeFileSync(notesPath, notes);
+      if (planReleaseAction(viewRelease(releaseTag), basename(tarballPath)) === "upload") {
+        // Resume a half-created mirror: its notes must record the upload this repack was made from.
+        runCommand("gh", ["release", "edit", releaseTag, "-R", RELEASE_REPOSITORY, "--notes-file", notesPath]);
+        uploadMissingAsset(releaseTag, tarballPath);
+        return;
+      }
       const releaseArguments = ["release", "create", releaseTag, tarballPath, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
         "--title", title, "--notes-file", notesPath, "--latest=false"];
       if (prerelease) releaseArguments.push("--prerelease");
