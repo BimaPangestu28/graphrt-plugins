@@ -12,6 +12,7 @@ import { COMMUNITY_FALLBACK_ICON_SVG, iconAssetNameFor } from "../lib/plugin-ico
 import { buildCatalogEntry, listPluginNames, sha256Hex } from "../lib/plugin-package.mjs";
 import { listRepoDirectoryNames } from "../lib/community-plugins.mjs";
 import { createTarGz } from "../lib/tar-archive.mjs";
+import { rawDirectory, rawFile, rawHeader, rawPaxHeader, rawTarGz } from "./fixtures/raw-tar.mjs";
 import { packExternalPlugin, writeCatalogFiles } from "../pack-plugins.mjs";
 import { REPO_ROOT } from "../plugins.mjs";
 
@@ -233,13 +234,42 @@ test("refuses forbidden files and key material", async () => {
   assert.match(await ingestOrReason(buildFixtureTarball({ extraFiles: [{ path: "certs/server.pem", content: Buffer.from("x") }] })), /refusing to ship `certs\/server.pem` \(key material\)/);
 });
 
+/** Recomputes a ustar header's checksum after a test edited it in place. */
+function rewriteHeaderChecksum(header) {
+  header.fill(0x20, 148, 156);
+  const checksum = header.reduce((sum, byte) => sum + byte, 0);
+  header.write(`${checksum.toString(8).padStart(6, "0")}\0 `, 148, "latin1");
+}
+
 test("refuses archive paths that escape the plugin directory", async () => {
   const safeBytes = buildFixtureTarball({ extraFiles: [{ path: "evil.txt", content: Buffer.from("x") }] });
   const tarBytes = gunzipSync(safeBytes);
   const headerOffset = tarBytes.indexOf(Buffer.from("acme-crm/evil.txt\0"));
   tarBytes.write("acme-crm/../e.txt", headerOffset, "latin1");
+  rewriteHeaderChecksum(tarBytes.subarray(headerOffset, headerOffset + 512));
   const traversalBytes = gzipSync(tarBytes);
   assert.match(await ingestOrReason(traversalBytes), /unsafe archive path `acme-crm\/..\/e.txt`/);
+});
+
+test("refuses every archive the system tar would read differently (audit probe-tar)", async () => {
+  const pinnedSource = "export default 1;\n";
+  const benign = JSON.stringify({ name: PLUGIN_NAME, version: "1.2.0", command: "node", args: ["plugin.mjs"], checksums: { "plugin.mjs": sha256Hex(Buffer.from(pinnedSource)) }, nodes: [] });
+  const hostile = JSON.stringify({ name: PLUGIN_NAME, version: "1.2.0", description: "INSTALLED", permissions: { secrets: true }, checksums: { "plugin.mjs": sha256Hex(Buffer.from(pinnedSource)) }, nodes: [] });
+  const prefix = () => [rawDirectory(PLUGIN_NAME), rawFile(`${PLUGIN_NAME}/plugin.mjs`, pinnedSource), rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, benign)];
+  const hiddenEntries = Buffer.concat([...rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, hostile), ...rawFile(`${PLUGIN_NAME}/unpinned.mjs`, "evil()")]);
+  const probes = {
+    "duplicate manifest": [...prefix(), rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, hostile)],
+    "lone zero block": [...prefix(), [Buffer.alloc(512)], rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, hostile)],
+    "PAX size override": [...prefix(), rawPaxHeader({ size: "0" }), [rawHeader({ name: `${PLUGIN_NAME}/pad.txt`, size: hiddenEntries.length }), hiddenEntries]],
+    "hidden hard link": [...prefix(), rawPaxHeader({ size: "0" }), [rawHeader({ name: `${PLUGIN_NAME}/link`, type: "1", linkname: "/etc/passwd" })]],
+    "PAX path with NUL": [...prefix(), rawPaxHeader({ path: `${PLUGIN_NAME}/graphrt-plugin.json\u0000x` }), rawFile(`${PLUGIN_NAME}/other.txt`, hostile)],
+    "case-variant manifest": [...prefix(), rawFile(`${PLUGIN_NAME}/GRAPHRT-PLUGIN.JSON`, hostile)],
+  };
+  for (const [label, blocks] of Object.entries(probes)) {
+    const reason = await ingestOrReason(rawTarGz(blocks));
+    assert.ok(reason, `${label} must be refused`);
+    assert.match(reason, /duplicate|end-of-archive|PAX|unsupported tar entry type/, label);
+  }
 });
 
 test("a gzip bomb is refused by the unpacked size cap", async () => {
