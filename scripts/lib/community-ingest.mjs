@@ -27,7 +27,7 @@ import { findCommunityRuntimeProblems } from "./community-manifest.mjs";
 import { findRebuildDifferences, rebuildCommunityPluginFromTag, summarizeRebuildDifferences } from "./community-rebuild.mjs";
 import {
   COMMUNITY_SOURCE, MANIFEST_FILE_NAME, README_FILE_NAME, assembleCatalogEntry, dependsOnBrowser, isPinnedPath, releaseAssetUrl, sha256Hex,
-  tarballNameFor,
+  stripCatalogEntrySchemas, tarballNameFor,
 } from "./plugin-package.mjs";
 import { COMMUNITY_FALLBACK_ICON_SVG, ICON_FILE_NAME, validateIconBytes } from "./plugin-icons.mjs";
 import { findReservedNodeProperties } from "./reserved-parameters.mjs";
@@ -38,8 +38,15 @@ import { verifyTarball } from "./tarball-verification.mjs";
 export const MAX_COMMUNITY_TARBALL_BYTES = 64 * 1024 * 1024;
 /** Largest size a community tarball may unpack to (guards against gzip bombs). */
 export const MAX_COMMUNITY_UNPACKED_BYTES = 256 * 1024 * 1024;
-/** Largest `index-v2.json` entry of one community plugin, so one listing cannot crowd the index past its limit. */
+/**
+ * Largest `index-v2.json` entry of one community plugin, so one listing cannot crowd the index past its limit.
+ * Its node descriptions count too: index-v2.json does not carry them, but the schema-stripped index.json does.
+ */
 export const MAX_COMMUNITY_V2_ENTRY_BYTES = 16 * 1024;
+/** Largest `index.json` entry of one community plugin, with node schemas. */
+export const MAX_COMMUNITY_V1_ENTRY_BYTES = 64 * 1024;
+/** Largest `index.json` entry of one community plugin without node schemas (what index.json falls back to). */
+export const MAX_COMMUNITY_V1_STRIPPED_ENTRY_BYTES = 16 * 1024;
 export const COMMUNITY_DOWNLOAD_TIMEOUT_MS = 120_000;
 /** mtime of every entry of a canonical community repack, so the repack depends only on paths, bytes and modes. */
 export const COMMUNITY_REPACK_MTIME_SECONDS = 0;
@@ -267,21 +274,33 @@ export function buildCommunityCatalogItem(pluginName, registryEntry, verified, {
 
 /**
  * Checks what the catalog would publish for the item: its detail file fits and, when the `catalog` release already
- * has a detail file of that name, holds the same bytes (detail files are immutable); its v2 entry stays small.
+ * has a detail file of that name, holds the same bytes (detail files are immutable); its index.json entry (with
+ * and without node schemas) and its v2 entry (plus node descriptions) stay within the community budgets.
  *
  * @param pluginName - Registry name (string)
  * @param catalogItem - From buildCommunityCatalogItem (object)
  * @param findPublishedCatalogSha256 - Returns the sha256 of a `catalog` release asset, or undefined (function)
+ * @param budgets - Byte budgets (object, default: the MAX_COMMUNITY_* constants)
+ * @param budgets.maxV1Bytes - index.json entry with schemas (number)
+ * @param budgets.maxV1StrippedBytes - index.json entry without schemas (number)
+ * @param budgets.maxV2Bytes - index-v2.json entry plus node descriptions (number)
  * @throws CommunityPluginRejection - When the detail file would change or an entry is too large
  */
-export function assertCatalogFilesFit(pluginName, catalogItem, findPublishedCatalogSha256) {
+export function assertCatalogFilesFit(pluginName, catalogItem, findPublishedCatalogSha256, budgets = {}) {
+  const { maxV1Bytes = MAX_COMMUNITY_V1_ENTRY_BYTES, maxV1StrippedBytes = MAX_COMMUNITY_V1_STRIPPED_ENTRY_BYTES, maxV2Bytes = MAX_COMMUNITY_V2_ENTRY_BYTES } = budgets;
+  const { catalogEntry } = catalogItem;
+  const v1EntryBytes = Buffer.byteLength(JSON.stringify(catalogEntry));
+  if (v1EntryBytes > maxV1Bytes) reject(pluginName, `its index.json entry is ${v1EntryBytes} bytes; the limit is ${maxV1Bytes}`);
+  const v1StrippedBytes = Buffer.byteLength(JSON.stringify(stripCatalogEntrySchemas(catalogEntry)));
+  if (v1StrippedBytes > maxV1StrippedBytes) reject(pluginName, `its index.json entry without node schemas is ${v1StrippedBytes} bytes; the limit is ${maxV1StrippedBytes}`);
   const renderedDetail = withRejection(pluginName, () => renderPluginDetail(buildPluginDetail(catalogItem.manifest)));
   const publishedSha256 = findPublishedCatalogSha256(renderedDetail.assetName);
   if (publishedSha256 !== undefined && publishedSha256 !== renderedDetail.sha256) {
     reject(pluginName, `${renderedDetail.assetName} is already published with other bytes (detail files are immutable)`);
   }
-  const v2EntryBytes = Buffer.byteLength(JSON.stringify(buildCatalogV2Entry(catalogItem.catalogEntry, renderedDetail)));
-  if (v2EntryBytes > MAX_COMMUNITY_V2_ENTRY_BYTES) reject(pluginName, `its index-v2.json entry is ${v2EntryBytes} bytes; the limit is ${MAX_COMMUNITY_V2_ENTRY_BYTES}`);
+  const descriptionBytes = catalogEntry.nodes.reduce((total, node) => total + Buffer.byteLength(node.description ?? ""), 0);
+  const v2EntryBytes = Buffer.byteLength(JSON.stringify(buildCatalogV2Entry(catalogEntry, renderedDetail))) + descriptionBytes;
+  if (v2EntryBytes > maxV2Bytes) reject(pluginName, `its index-v2.json entry with its node descriptions is ${v2EntryBytes} bytes; the limit is ${maxV2Bytes}`);
 }
 
 /**

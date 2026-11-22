@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import {
-  CommunityPluginRejection, MAX_COMMUNITY_V2_ENTRY_BYTES, downloadHttpsBytes, ingestCommunityPlugin, ingestCommunityPlugins, parseMirrorSourceSha256,
+  CommunityPluginRejection, downloadHttpsBytes, ingestCommunityPlugin, ingestCommunityPlugins, parseMirrorSourceSha256,
   renderCommunityReleaseNotes,
 } from "../lib/community-ingest.mjs";
 import { COMMUNITY_FALLBACK_ICON_SVG, iconAssetNameFor } from "../lib/plugin-icons.mjs";
@@ -463,7 +463,7 @@ test("refuses a detail file that would change a published one, and oversized ind
   const findPublishedCatalogSha256 = (assetName) => (assetName === "plugin-acme-crm-1.2.0.json" ? "0".repeat(64) : undefined);
   assert.match(await ingestOrReason(tarballBytes, {}, { findPublishedCatalogSha256 }), /plugin-acme-crm-1.2.0.json is already published with other bytes/);
   const manyTools = Array.from({ length: 2000 }, (unused, index) => ({ name: `tool_${index}`, description: "x" }));
-  assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides: { tools: manyTools } })), new RegExp(`index-v2.json entry is \\d+ bytes; the limit is ${MAX_COMMUNITY_V2_ENTRY_BYTES}`));
+  assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides: { tools: manyTools } })), /index.json entry without node schemas is \d+ bytes; the limit is 16384/);
 });
 
 test("skips failing entries with their reason and keeps the good ones", async () => {

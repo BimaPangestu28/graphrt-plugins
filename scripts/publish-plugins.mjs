@@ -388,12 +388,15 @@ async function main() {
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
   const catalogFiles = writeCatalogFiles(catalogDirectory, released);
+  skipped.push(...catalogFiles.skipped);
+  const droppedNames = new Set(catalogFiles.skipped.map(({ name }) => name));
+  const listed = released.filter(({ catalogEntry }) => !droppedNames.has(catalogEntry.name));
   const uploadPlan = planCatalogUpload(catalogFiles, options.outputDirectory);
   logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun: options.dryRun });
   if (!options.dryRun) uploadCatalog(catalogFiles, uploadPlan, targetCommit);
   const icons = { staged: catalogFiles.iconPaths.length, toUpload: uploadPlan.newIconPaths.map((iconPath) => basename(iconPath)) };
   const details = { staged: catalogFiles.detailFiles.length, toUpload: uploadPlan.newDetailPaths.map((detailPath) => basename(detailPath)) };
-  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256, source: catalogEntry.source })), icons, details, skipped }, null, 2));
+  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: listed.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256, source: catalogEntry.source })), icons, details, skipped }, null, 2));
 }
 
 main().catch((error) => {

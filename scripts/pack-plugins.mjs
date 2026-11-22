@@ -20,9 +20,12 @@ import { pathToFileURL } from "node:url";
 import { join, resolve } from "node:path";
 import { REPO_ROOT } from "./plugins.mjs";
 import {
-  MANIFEST_FILE_NAME, MAX_CATALOG_BYTES, buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin, renderCatalogTextWithinLimit, sha256Hex,
+  COMMUNITY_SOURCE, MANIFEST_FILE_NAME, MAX_CATALOG_BYTES, buildCatalog, buildCatalogEntry, formatSha256Sums, listPluginNames, packPlugin,
+  renderCatalogTextWithinLimit, sha256Hex, stripCatalogEntrySchemas,
 } from "./lib/plugin-package.mjs";
-import { CATALOG_V2_INDEX_NAME, buildCatalogV2, buildCatalogV2Entry, buildPluginDetail, renderCatalogV2Text, renderPluginDetail } from "./lib/catalog-v2.mjs";
+import {
+  CATALOG_V2_INDEX_NAME, MAX_CATALOG_V2_BYTES, buildCatalogV2, buildCatalogV2Entry, buildPluginDetail, renderCatalogV2Text, renderPluginDetail,
+} from "./lib/catalog-v2.mjs";
 import { readPluginIcon } from "./lib/plugin-icons.mjs";
 
 /** Sub-directory of the catalog output that holds the icons to upload as `catalog` release assets. */
@@ -99,6 +102,62 @@ export function packPlugins(pluginNames, outputDirectory) {
 }
 
 /**
+ * Byte sizes of the catalog files for a set of plugins, as writeCatalogFiles would render them.
+ *
+ * @param releasedPlugins - As for writeCatalogFiles (object[])
+ * @param generatedAt - Generation time (Date)
+ * @returns `{v1FullBytes, v1StrippedBytes, v2Bytes}` (object)
+ */
+export function measureCatalogSizes(releasedPlugins, generatedAt) {
+  const catalogEntries = releasedPlugins.map(({ catalogEntry }) => catalogEntry);
+  const v2Entries = releasedPlugins.map(({ manifest, catalogEntry }) => buildCatalogV2Entry(catalogEntry, renderPluginDetail(buildPluginDetail(manifest))));
+  const renderedBytes = (document) => Buffer.byteLength(`${JSON.stringify(document)}\n`);
+  return {
+    v1FullBytes: renderedBytes(buildCatalog(catalogEntries, generatedAt)),
+    v1StrippedBytes: renderedBytes(buildCatalog(catalogEntries.map((entry) => stripCatalogEntrySchemas(entry)), generatedAt)),
+    v2Bytes: renderedBytes(buildCatalogV2(v2Entries, generatedAt)),
+  };
+}
+
+/**
+ * Keeps community plugins out of the catalog, largest first, until index.json and index-v2.json fit, so that
+ * community size never fails the official publish and never strips official node schemas: when the official
+ * plugins alone fit index.json with schemas, the kept plugins do too. Official plugins are always kept.
+ *
+ * @param releasedPlugins - As for writeCatalogFiles (object[])
+ * @param options - Limits
+ * @param options.generatedAt - Generation time (Date)
+ * @param options.maxV1Bytes - index.json limit (number, default MAX_CATALOG_BYTES)
+ * @param options.maxV2Bytes - index-v2.json limit (number, default MAX_CATALOG_V2_BYTES)
+ * @returns `{kept, dropped}`; dropped holds `{name, source: "community", reason}` (object)
+ */
+export function fitCommunityPluginsIntoCatalog(releasedPlugins, { generatedAt, maxV1Bytes = MAX_CATALOG_BYTES, maxV2Bytes = MAX_CATALOG_V2_BYTES }) {
+  const isCommunity = ({ catalogEntry }) => catalogEntry.source === COMMUNITY_SOURCE;
+  if (!releasedPlugins.some(isCommunity)) return { kept: releasedPlugins, dropped: [] };
+  const officialPlugins = releasedPlugins.filter((released) => !isCommunity(released));
+  const officialNeedsStripping = measureCatalogSizes(officialPlugins, generatedAt).v1FullBytes > maxV1Bytes;
+  const entryBytes = ({ catalogEntry }) => Buffer.byteLength(JSON.stringify(officialNeedsStripping ? stripCatalogEntrySchemas(catalogEntry) : catalogEntry));
+  let communityPlugins = releasedPlugins.filter(isCommunity).sort((left, right) => entryBytes(right) - entryBytes(left));
+  const dropped = [];
+  while (communityPlugins.length > 0) {
+    const overflow = findCatalogOverflow(measureCatalogSizes([...officialPlugins, ...communityPlugins], generatedAt), { officialNeedsStripping, maxV1Bytes, maxV2Bytes });
+    if (!overflow) break;
+    const [largest, ...rest] = communityPlugins;
+    dropped.push({ name: largest.catalogEntry.name, source: COMMUNITY_SOURCE, reason: `left out of this catalog: ${overflow} (largest community entries are dropped first)` });
+    communityPlugins = rest;
+  }
+  const keptNames = new Set([...officialPlugins, ...communityPlugins].map(({ catalogEntry }) => catalogEntry.name));
+  return { kept: releasedPlugins.filter(({ catalogEntry }) => keptNames.has(catalogEntry.name)), dropped };
+}
+
+function findCatalogOverflow(sizes, { officialNeedsStripping, maxV1Bytes, maxV2Bytes }) {
+  const v1Bytes = officialNeedsStripping ? sizes.v1StrippedBytes : sizes.v1FullBytes;
+  if (v1Bytes > maxV1Bytes) return `index.json would exceed ${maxV1Bytes} bytes`;
+  if (sizes.v2Bytes > maxV2Bytes) return `${CATALOG_V2_INDEX_NAME} would exceed ${maxV2Bytes} bytes`;
+  return null;
+}
+
+/**
  * Writes the catalog files into a directory: `index.json` (v1), `index-v2.json`, the detail files it links
  * (in `details/`), the icons both indexes name (in `icons/`, under their release asset names) and
  * `SHA256SUMS` (tarballs, icons, detail files and both indexes). v1 is written without node schemas when
@@ -108,13 +167,16 @@ export function packPlugins(pluginNames, outputDirectory) {
  * @param releasedPlugins - `{tarballName, sha256, manifest, catalogEntry, icon?}` per plugin; `manifest` is the released
  *   manifest the detail file is derived from; `icon` (`{assetName, bytes, sha256}`) is set for community plugins,
  *   whose icon is not in this repo (object[])
- * @returns `{indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas}`; detailFiles holds
- *   `{assetName, sha256, sizeBytes, stagedPath}` (object)
- * @throws Error - When a plugin has no valid icon.svg or manifest, or a catalog file is too large
+ * @param limits - `{maxV1Bytes, maxV2Bytes}` for fitCommunityPluginsIntoCatalog (object, default: the desktop app's limits)
+ * @returns `{indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas, skipped}`; detailFiles holds
+ *   `{assetName, sha256, sizeBytes, stagedPath}`; skipped lists the community plugins left out to fit (object)
+ * @throws Error - When a plugin has no valid icon.svg or manifest, or the official plugins alone are too large
  */
-export function writeCatalogFiles(outputDirectory, releasedPlugins) {
+export function writeCatalogFiles(outputDirectory, allReleasedPlugins, limits = {}) {
   const generatedAt = new Date();
-  const v1Catalog = renderCatalogTextWithinLimit(buildCatalog(releasedPlugins.map((released) => released.catalogEntry), generatedAt));
+  const { kept: releasedPlugins, dropped } = fitCommunityPluginsIntoCatalog(allReleasedPlugins, { generatedAt, ...limits });
+  dropped.forEach(({ name, reason }) => console.error(`community ${name}: ${reason}`));
+  const v1Catalog = renderCatalogTextWithinLimit(buildCatalog(releasedPlugins.map((released) => released.catalogEntry), generatedAt), limits.maxV1Bytes);
   if (v1Catalog.withoutSchemas) console.error(`warning: index.json would be ${v1Catalog.fullSizeBytes} bytes (limit ${MAX_CATALOG_BYTES}); written without node config_schema/outputs (they are in the v2 detail files)`);
   const detailFiles = stageDetailFiles(resolve(outputDirectory, DETAIL_STAGING_DIRECTORY_NAME), releasedPlugins);
   const v2Entries = releasedPlugins.map(({ catalogEntry }, index) => buildCatalogV2Entry(catalogEntry, detailFiles[index]));
@@ -132,7 +194,7 @@ export function writeCatalogFiles(outputDirectory, releasedPlugins) {
   fileHashes.push({ fileName: CATALOG_V2_INDEX_NAME, sha256: sha256Hex(Buffer.from(v2Catalog.catalogText)) });
   writeFileSync(sumsPath, formatSha256Sums(fileHashes));
   const iconPaths = icons.map(({ stagedPath }) => stagedPath);
-  return { indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas: v1Catalog.withoutSchemas };
+  return { indexPath, indexV2Path, sumsPath, iconPaths, detailFiles, v1WithoutSchemas: v1Catalog.withoutSchemas, skipped: dropped };
 }
 
 /** Writes each plugin's detail file to `<detailDirectory>/<asset name>`, replacing anything staged before. */

@@ -84,8 +84,19 @@ export function renderCatalogTextWithinLimit(catalog, maxBytes = MAX_CATALOG_BYT
   const fullText = `${JSON.stringify(catalog)}\n`;
   const fullSizeBytes = Buffer.byteLength(fullText);
   if (fullSizeBytes <= maxBytes) return { catalogText: fullText, withoutSchemas: false, fullSizeBytes };
-  const plugins = catalog.plugins.map((entry) => ({ ...entry, nodes: entry.nodes.map(({ kind, title, description }) => ({ kind, title, description })) }));
+  const plugins = catalog.plugins.map((entry) => stripCatalogEntrySchemas(entry));
   return { catalogText: renderCatalogText({ ...catalog, plugins }, maxBytes), withoutSchemas: true, fullSizeBytes };
+}
+
+/**
+ * A v1 catalog entry without its nodes' `config_schema` and `outputs`, as index.json carries it when the full
+ * catalog would be too large.
+ *
+ * @param catalogEntry - Entry from buildCatalogEntry or assembleCatalogEntry (object)
+ * @returns The stripped copy (object)
+ */
+export function stripCatalogEntrySchemas(catalogEntry) {
+  return { ...catalogEntry, nodes: catalogEntry.nodes.map(({ kind, title, description }) => ({ kind, title, description })) };
 }
 
 /** @returns Tag of a plugin release, e.g. `meta-api-v0.1.0` (string) */

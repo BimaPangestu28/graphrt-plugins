@@ -110,6 +110,10 @@ may not be absolute and may not contain `..`. It must not contain `.env*`, `.git
 `.DS_Store`, browser profiles, Playwright browser downloads or key material (`*.pem`, `*.key`, `*.p12`). The
 compressed tarball may be at most 64 MiB, and at most 256 MiB unpacked.
 
+Your catalog listing has a size budget too: at most 64 KB in `index.json` with node schemas, 16 KB without them,
+and 16 KB in `index-v2.json` counting your node descriptions. If the whole catalog would still be too large, the
+publish leaves community plugins out, largest first, until it fits; official plugins are never affected.
+
 The easiest way to get this right is this repo's packer. Run it from a clone of graphrt-plugins against your
 plugin directory, which must be a git repository. Only files git tracks are packed; `test/` and dotfiles are
 left out:
