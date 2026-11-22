@@ -65,7 +65,8 @@ jobs:
           if [ "$EVENT_NAME" = "push" ]; then
             plugin_name="${REF_NAME%-v*}"
             tag_version="${REF_NAME##*-v}"
-            manifest_version="$(node -p "require('./${plugin_name}/graphrt-plugin.json').version")"
+            # The name comes from the tag: the script validates it and reads the manifest with fs (no code interpolation).
+            manifest_version="$(node scripts/read-manifest-version.mjs "$plugin_name")"
             if [ "$manifest_version" != "$tag_version" ]; then
               echo "::error::tag $REF_NAME does not match ${plugin_name}/graphrt-plugin.json version $manifest_version"
               exit 1
