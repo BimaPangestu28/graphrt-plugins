@@ -6,12 +6,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import {
-  CommunityPluginRejection, MAX_COMMUNITY_V2_ENTRY_BYTES, downloadHttpsBytes, ingestCommunityPlugin, ingestCommunityPlugins,
+  CommunityPluginRejection, MAX_COMMUNITY_V2_ENTRY_BYTES, downloadHttpsBytes, ingestCommunityPlugin, ingestCommunityPlugins, parseMirrorSourceSha256,
+  renderCommunityReleaseNotes,
 } from "../lib/community-ingest.mjs";
 import { COMMUNITY_FALLBACK_ICON_SVG, iconAssetNameFor } from "../lib/plugin-icons.mjs";
 import { buildCatalogEntry, listPluginNames, sha256Hex } from "../lib/plugin-package.mjs";
 import { listRepoDirectoryNames } from "../lib/community-plugins.mjs";
-import { createTarGz } from "../lib/tar-archive.mjs";
+import { createTarGz, isCanonicalTarGz, readTarGz, repackTarGz } from "../lib/tar-archive.mjs";
 import { rawDirectory, rawFile, rawHeader, rawPaxHeader, rawTarGz } from "./fixtures/raw-tar.mjs";
 import { packExternalPlugin, writeCatalogFiles } from "../pack-plugins.mjs";
 import { REPO_ROOT } from "../plugins.mjs";
@@ -65,18 +66,26 @@ function registryEntryFor(tarballBytes, overrides = {}) {
   };
 }
 
-/** A fake of this repo's releases: mirror tags to bytes, and every release created. */
+/** A fake of this repo's releases: mirror tags to `{bytes, notes}`, and every release created. */
 function createFakeMirror(existingMirrors = {}) {
   const releases = new Map(Object.entries(existingMirrors));
   const created = [];
   return {
     created,
-    readMirroredTarball: (releaseTag) => releases.get(releaseTag) ?? null,
+    readMirroredTarball: (releaseTag) => releases.get(releaseTag)?.bytes ?? null,
+    readMirrorNotes: (releaseTag) => releases.get(releaseTag)?.notes ?? null,
     createMirrorRelease: (release) => {
       created.push({ ...release, bytes: readFileSync(release.tarballPath) });
-      releases.set(release.releaseTag, readFileSync(release.tarballPath));
+      releases.set(release.releaseTag, { bytes: readFileSync(release.tarballPath), notes: release.notes });
     },
   };
+}
+
+/** The mirror release a previous publish created for the author's tarball: the canonical repack plus its notes. */
+function mirrorReleaseFor(authorBytes, entryOverrides = {}) {
+  const repackBytes = repackTarGz(authorBytes);
+  const registryEntry = registryEntryFor(authorBytes, entryOverrides);
+  return { bytes: repackBytes, notes: renderCommunityReleaseNotes(PLUGIN_NAME, registryEntry, "1.2.0", sha256Hex(repackBytes)) };
 }
 
 function createContext(tarballBytes, overrides = {}) {
@@ -120,10 +129,15 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
     assert.deepEqual(downloads, ["https://github.com/acme/graphrt-acme-crm/releases/download/v1.2.0/acme-crm-1.2.0.tar.gz"]);
     assert.equal(released[0].mirrorAction, "mirror created");
     const [mirrorRelease] = context.mirror.created;
+    const repackBytes = repackTarGz(tarballBytes);
     assert.equal(mirrorRelease.releaseTag, "community-acme-crm-v1.2.0");
-    assert.deepEqual(mirrorRelease.bytes, tarballBytes, "the mirror holds the exact reviewed bytes");
+    assert.deepEqual(mirrorRelease.bytes, repackBytes, "the mirror holds our canonical repack, never the author's bytes");
+    assert.notDeepEqual(mirrorRelease.bytes, tarballBytes);
+    assert.deepEqual(readTarGz(mirrorRelease.bytes).map(({ path, content }) => [path, content]), readTarGz(tarballBytes).map(({ path, content }) => [path, content]).sort(([left], [right]) => (left < right ? -1 : 1)));
     assert.equal(mirrorRelease.prerelease, false);
     assert.match(mirrorRelease.notes, /Reviewed by @a-maintainer on 2026-11-20/);
+    assert.equal(parseMirrorSourceSha256(mirrorRelease.notes), sha256Hex(tarballBytes), "the notes record the reviewed upload");
+    assert.match(mirrorRelease.notes, new RegExp(`Mirrored \\(canonical repack\\) sha256: \`${sha256Hex(repackBytes)}\``));
 
     const officialManifest = JSON.parse(readFileSync(join(REPO_ROOT, "currency-rates", "graphrt-plugin.json"), "utf8"));
     const official = { tarballName: "currency-rates-0.1.0.tar.gz", sha256: "b".repeat(64), sizeBytes: 10, manifest: officialManifest };
@@ -140,8 +154,8 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
       assert.equal(entry.display_name, "Acme CRM");
       assert.equal(entry.version, "1.2.0");
       assert.equal(entry.tarball_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/community-acme-crm-v1.2.0/acme-crm-1.2.0.tar.gz");
-      assert.equal(entry.sha256, sha256Hex(tarballBytes));
-      assert.equal(entry.size_bytes, tarballBytes.length);
+      assert.equal(entry.sha256, sha256Hex(repackBytes), "the catalog pins the repack");
+      assert.equal(entry.size_bytes, repackBytes.length);
       assert.equal(entry.status, "beta");
       assert.equal(entry.tos_risk, "low");
       assert.equal(entry.warning, "Writes go to your live CRM.");
@@ -163,22 +177,38 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
     assert.deepEqual(detail.tools, [{ name: "list_contacts", description: "Lists CRM contacts" }]);
     assert.deepEqual(detail.nodes[0].outputs, [{ name: "contacts", type: "array" }]);
     assert.ok(catalogFiles.iconPaths.some((iconPath) => readFileSync(iconPath, "utf8") === VALID_ICON), "the community icon is staged");
-    assert.match(readFileSync(catalogFiles.sumsPath, "utf8"), new RegExp(`${sha256Hex(tarballBytes)}  acme-crm-1.2.0.tar.gz`));
+    assert.match(readFileSync(catalogFiles.sumsPath, "utf8"), new RegExp(`${sha256Hex(repackBytes)}  acme-crm-1.2.0.tar.gz`));
   } finally {
     cleanUp();
     rmSync(catalogDirectory, { recursive: true, force: true });
   }
 });
 
-test("reuses an existing mirror with the same bytes and never downloads or recreates it", async () => {
+test("reuses an existing mirror of the reviewed upload and never downloads or recreates it", async () => {
   const tarballBytes = buildFixtureTarball();
-  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": tarballBytes });
+  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": mirrorReleaseFor(tarballBytes) });
   const { context, downloads, cleanUp } = createContext(tarballBytes, { mirror });
   try {
     const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(tarballBytes), context);
     assert.equal(ingested.mirrorAction, "mirrored");
+    assert.equal(ingested.sha256, sha256Hex(repackTarGz(tarballBytes)));
     assert.deepEqual(downloads, []);
     assert.deepEqual(mirror.created, []);
+  } finally {
+    cleanUp();
+  }
+});
+
+test("the repack is deterministic: repacking the mirrored repack gives the same bytes", async () => {
+  const tarballBytes = buildFixtureTarball();
+  const { context, cleanUp } = createContext(tarballBytes);
+  try {
+    const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(tarballBytes), context);
+    const [mirrorRelease] = context.mirror.created;
+    assert.equal(isCanonicalTarGz(mirrorRelease.bytes), true);
+    assert.deepEqual(repackTarGz(mirrorRelease.bytes), mirrorRelease.bytes);
+    assert.deepEqual(repackTarGz(repackTarGz(tarballBytes)), mirrorRelease.bytes);
+    assert.equal(ingested.sha256, sha256Hex(mirrorRelease.bytes));
   } finally {
     cleanUp();
   }
@@ -199,7 +229,7 @@ test("a dry run reports the mirror it would create and creates nothing", async (
 test("--catalog-only uses mirrored tarballs only", async () => {
   const tarballBytes = buildFixtureTarball();
   assert.match(await ingestOrReason(tarballBytes, {}, { catalogOnly: true }), /not mirrored yet \(no community-acme-crm-v1.2.0 release\)/);
-  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": tarballBytes });
+  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": mirrorReleaseFor(tarballBytes) });
   assert.equal(await ingestOrReason(tarballBytes, {}, { catalogOnly: true, mirror }), null);
 });
 
@@ -209,11 +239,16 @@ test("refuses a tarball whose sha256 differs from the reviewed one, before readi
   assert.match(reason, /tarball sha256 [0-9a-f]{64} does not match the reviewed/);
 });
 
-test("refuses to reuse a mirror release that holds other bytes", async () => {
+test("refuses to reuse a mirror release made from another upload, or one that is not a canonical repack", async () => {
   const tarballBytes = buildFixtureTarball();
-  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": buildFixtureTarball({ manifestOverrides: { description: "changed" } }) });
-  assert.match(await ingestOrReason(tarballBytes, {}, { mirror }), /already holds acme-crm-1.2.0.tar.gz with sha256 .* a mirrored release is never modified/);
-  assert.deepEqual(mirror.created, []);
+  const otherUpload = buildFixtureTarball({ manifestOverrides: { description: "changed" } });
+  const otherMirror = createFakeMirror({ "community-acme-crm-v1.2.0": mirrorReleaseFor(otherUpload) });
+  assert.match(await ingestOrReason(tarballBytes, {}, { mirror: otherMirror }), /was mirrored from the upload with sha256 [0-9a-f]{64}, not the reviewed .* a mirrored release is never modified/);
+  assert.deepEqual(otherMirror.created, []);
+  const unrecordedMirror = createFakeMirror({ "community-acme-crm-v1.2.0": { bytes: repackTarGz(tarballBytes), notes: "hand-made release" } });
+  assert.match(await ingestOrReason(tarballBytes, {}, { mirror: unrecordedMirror }), /mirrored from the upload with sha256 \(not recorded\)/);
+  const rawMirror = createFakeMirror({ "community-acme-crm-v1.2.0": { ...mirrorReleaseFor(tarballBytes), bytes: tarballBytes } });
+  assert.match(await ingestOrReason(tarballBytes, {}, { mirror: rawMirror }), /holds a acme-crm-1.2.0.tar.gz that is not a canonical repack/);
 });
 
 test("refuses manifests whose name or version do not match the entry and its tag", async () => {

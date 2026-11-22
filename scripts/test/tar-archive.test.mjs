@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { gzipSync } from "node:zlib";
-import { createTarGz, readTarGz } from "../lib/tar-archive.mjs";
+import { gunzipSync, gzipSync } from "node:zlib";
+import { createTarGz, isCanonicalTarGz, readTarGz, repackTarGz } from "../lib/tar-archive.mjs";
 import { padToBlock, rawDirectory, rawFile, rawHeader, rawPaxHeader, rawTar, rawTarGz } from "./fixtures/raw-tar.mjs";
 
 const fixedTime = { mtimeSeconds: 1_700_000_000 };
@@ -146,4 +146,18 @@ test("refuses unnormalised paths, a file used as a directory and files named lik
   assert.throws(() => readTarGz(rawTarGz([rawDirectory("evil"), rawFile("evil/lib", "x"), rawFile("evil/lib/a.mjs", "x")])), /`evil\/lib\/a.mjs` is inside the file `evil\/lib`/);
   assert.throws(() => readTarGz(rawTarGz([rawDirectory("evil"), rawFile("evil/lib/", "")])), /unsafe archive path `evil\/lib\/`/);
   assert.throws(() => readTarGz(rawTarGz([rawDirectory("evil"), rawFile("evil/a\u0001b", "")])), /control characters/);
+});
+
+test("a repack of a parsed archive is canonical: repacking the repack gives identical bytes", () => {
+  const original = rawTarGz([rawDirectory("evil"), rawFile("evil/plugin.mjs", "export default 1;\n", { mode: 0o755 }), rawFile("evil/graphrt-plugin.json", benignManifest)]);
+  const repack = repackTarGz(original);
+  assert.deepEqual(repackTarGz(repack), repack);
+  assert.equal(isCanonicalTarGz(repack), true);
+  assert.equal(isCanonicalTarGz(original), false, "the raw archive has other header bytes (mtime, uid fields)");
+  assert.equal(isCanonicalTarGz(gzipSync(gunzipSync(repack), { level: 1 })), true, "recompression does not matter, the tar stream does");
+  assert.deepEqual(readTarGz(repack).map(({ path, type, mode, content }) => [path, type, mode, content.toString()]), [
+    ["evil", "directory", 0o755, ""],
+    ["evil/graphrt-plugin.json", "file", 0o644, benignManifest],
+    ["evil/plugin.mjs", "file", 0o755, "export default 1;\n"],
+  ]);
 });

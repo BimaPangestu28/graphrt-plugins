@@ -16,7 +16,7 @@
  * }
  * ```
  *
- * The plugin version is the tag without its leading `v`. Publishing mirrors the exact reviewed bytes into a
+ * The plugin version is the tag without its leading `v`. Publishing mirrors a canonical repack of the reviewed tarball into a
  * release of this repo (`community-<name>-v<version>`), so the catalog never links to the developer's repo for
  * a download. docs/community-plugins.md describes the process; community-ingest.mjs does the mirroring.
  */

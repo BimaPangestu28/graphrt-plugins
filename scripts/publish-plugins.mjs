@@ -27,8 +27,9 @@
  * Community plugins (community-plugins.json, see docs/community-plugins.md) are added to every catalog: each
  * entry's tarball is taken from its mirror release `community-<name>-v<version>` in this repo or, when there is
  * none yet (not with --catalog-only), downloaded from the developer's GitHub release, checked against the
- * reviewed sha256 and the same checks as official tarballs, and mirrored there unchanged. An entry that fails
- * is skipped (listed under `skipped` with its reason); it never fails the official publish.
+ * reviewed sha256, re-packed canonically by our own tar writer, given the same checks as official tarballs, and
+ * that repack is mirrored there (the catalog `sha256` is the repack's). An entry that fails is skipped (listed
+ * under `skipped` with its reason); it never fails the official publish.
  *
  * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each
  * tarball with `graphrt plugin install` into a temporary directory.
@@ -310,6 +311,10 @@ function createGithubMirror({ outputDirectory }, targetCommit) {
       if (!mirrorRelease) return null;
       if (!mirrorRelease.assets.some((asset) => asset.name === tarballName)) throw new Error(`${releaseTag}: release exists without ${tarballName}; fix it by hand`);
       return downloadReleaseAsset(releaseTag, tarballName, outputDirectory);
+    },
+    readMirrorNotes(releaseTag) {
+      const result = runGhIdempotent(["release", "view", releaseTag, "-R", RELEASE_REPOSITORY, "--json", "body"]);
+      return JSON.parse(result.stdout).body ?? null;
     },
     createMirrorRelease({ releaseTag, tarballPath, title, notes, prerelease }) {
       const notesPath = join(outputDirectory, `${releaseTag}.notes.md`);

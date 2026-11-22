@@ -38,7 +38,7 @@ async function reviewCommunityEntries(pluginNames, graphrtBinary) {
   const { downloadHttpsBytes, ingestCommunityPlugin } = await import("./lib/community-ingest.mjs");
   const registry = readCommunityPlugins();
   const workDirectory = mkdtempSync(join(tmpdir(), "graphrt-community-review-"));
-  const reviewMirror = { readMirroredTarball: () => null, createMirrorRelease: () => { throw new Error("review never mirrors"); } };
+  const reviewMirror = { readMirroredTarball: () => null, readMirrorNotes: () => null, createMirrorRelease: () => { throw new Error("review never mirrors"); } };
   let failureCount = 0;
   try {
     for (const pluginName of pluginNames) {

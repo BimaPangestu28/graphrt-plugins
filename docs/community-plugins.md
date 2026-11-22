@@ -23,13 +23,16 @@ The desktop app shows these plugins with `source: "community"`, your `publisher`
 - [Registry reference](#registry-reference)
 
 ## Trust model
-- **We review the code at your tag and ship exactly those bytes.** The registry entry pins your tag and the
-  sha256 of your release tarball. Publishing downloads the tarball, refuses it unless its sha256 matches, checks
-  it, and mirrors the same bytes to a release of this repo named `community-<name>-v<version>`. The catalog
-  links only to that mirror, so if you later move the tag, replace the asset or delete your repo, users still
-  get the reviewed bytes, and nothing else.
-- **A mirror is immutable.** It is created once and never modified. If a mirror already holds different bytes
-  under that name, publishing refuses the entry. To ship a change, release a new version.
+- **We review the code at your tag and ship exactly those files.** The registry entry pins your tag and the
+  sha256 of your release tarball. Publishing downloads the tarball, refuses it unless its sha256 matches, reads
+  it with a strict tar parser, and **re-packs it canonically** with this repo's own tar writer (same paths, same
+  bytes, executable bits kept; fixed mtime and headers). Your exact upload bytes are never shipped: the repack is
+  what is checked, mirrored to a release of this repo named `community-<name>-v<version>`, and pinned by the
+  catalog `sha256`. The catalog links only to that mirror, so if you later move the tag, replace the asset or
+  delete your repo, users still get the reviewed files, and nothing else.
+- **A mirror is immutable.** It is created once and never modified. Its release notes record the sha256 of the
+  upload it was made from. If a mirror under that name was made from another upload, or does not hold a canonical
+  repack, publishing refuses the entry. To ship a change, release a new version.
 - **Every version is reviewed.** No version reaches the catalog without its own pull request and review. Nothing
   updates automatically.
 - **Review is not a warranty.** A review lowers the risk; it does not remove it. Your status label (`beta`,
@@ -184,10 +187,13 @@ A maintainer runs the release workflow (or `node scripts/publish-plugins.mjs`). 
 2. uses the mirror release `community-<name>-v<version>` when it exists. Otherwise it downloads `tarball_url`
    over https (GitHub hosts only, size-capped);
 3. verifies `tarball_sha256` **before** reading or extracting anything;
-4. runs the checks listed above (and `graphrt plugin install` when `GRAPHRT_BIN` is set);
-5. creates the mirror release with the exact bytes, if it does not exist yet. An existing mirror is never
+4. reads the tarball with the strict tar parser (duplicate or case-variant paths, PAX keys other than `path`,
+   links, non-octal sizes, bad checksums, data after the end of the archive and multi-member gzip are refused)
+   and re-packs it canonically;
+5. runs the checks listed above on the repack (and `graphrt plugin install` when enabled, see below);
+6. creates the mirror release with the repack, if it does not exist yet. An existing mirror is never
    modified;
-6. adds the plugin to `index.json`, `index-v2.json` and its immutable detail file
+7. adds the plugin to `index.json`, `index-v2.json` and its immutable detail file
    `plugin-<name>-<version>.json`, and uploads its icon to the `catalog` release.
 
 An entry that fails any step is skipped with its reason in the publish output, and the rest of the catalog

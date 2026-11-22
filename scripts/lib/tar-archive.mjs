@@ -111,6 +111,47 @@ export function readTarGz(archiveBytes, { maxUnpackedBytes = undefined } = {}) {
   throw new Error("tar data has no end-of-archive marker");
 }
 
+/**
+ * Turns read entries back into createTar entries (the executable bit is the only mode kept).
+ *
+ * @param readEntries - Entries from readTarGz (object[])
+ * @returns Entries for createTar / createTarGz (object[])
+ */
+export function toWritableEntries(readEntries) {
+  return readEntries.map(({ path, type, content, mode }) => (type === "directory" ? { path, type } : { path, type, content, executable: (mode & 0o111) !== 0 }));
+}
+
+/**
+ * Re-packs a tarball canonically: the strictly parsed entries are written again by createTarGz with a fixed
+ * mtime, so the result depends only on the paths, the bytes and the executable bits, never on how the author's
+ * tool wrote headers. Repacking a repack gives the same bytes.
+ *
+ * @param archiveBytes - The .tar.gz bytes (Buffer)
+ * @param options - Repack options
+ * @param options.mtimeSeconds - mtime of every entry (number, default 0)
+ * @param options.maxUnpackedBytes - As for readTarGz (number, default: no limit)
+ * @returns The canonical .tar.gz bytes (Buffer)
+ * @throws Error - When readTarGz refuses the archive
+ */
+export function repackTarGz(archiveBytes, { mtimeSeconds = 0, maxUnpackedBytes = undefined } = {}) {
+  return createTarGz(toWritableEntries(readTarGz(archiveBytes, { maxUnpackedBytes })), { mtimeSeconds });
+}
+
+/**
+ * Says whether a tarball is already canonical (what repackTarGz writes). The uncompressed tar streams are
+ * compared, so a zlib upgrade that changes the compressed bytes does not matter.
+ *
+ * @param archiveBytes - The .tar.gz bytes (Buffer)
+ * @param options - As for repackTarGz (object)
+ * @returns True when the tar stream equals the canonical one (boolean)
+ * @throws Error - When readTarGz refuses the archive
+ */
+export function isCanonicalTarGz(archiveBytes, { mtimeSeconds = 0, maxUnpackedBytes = undefined } = {}) {
+  const tarBytes = gunzipSingleMember(archiveBytes, maxUnpackedBytes);
+  const canonicalTar = createTar(toWritableEntries(readTarGz(archiveBytes, { maxUnpackedBytes })), { mtimeSeconds });
+  return canonicalTar.equals(tarBytes);
+}
+
 function parseHeader(header) {
   const name = decodeHeaderString(header, 0, 100);
   const prefix = decodeHeaderString(header, 345, 155);

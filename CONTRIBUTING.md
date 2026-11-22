@@ -326,7 +326,7 @@ Maintainers do the releasing; contributors never tag or publish.
 ## Publishing a community plugin
 You can also ship a plugin from your own repository without moving its code here. You release it on your
 GitHub and open a PR that adds one entry to [`community-plugins.json`](community-plugins.json). A maintainer
-reviews the code at your tag, and publishing mirrors the exact reviewed tarball to a `community-<name>-v<version>`
+reviews the code at your tag, and publishing mirrors a canonical repack of the reviewed tarball to a `community-<name>-v<version>`
 release of this repo. The catalog then lists it with `source: "community"` and your publisher name.
 
 The full guide is [docs/community-plugins.md](docs/community-plugins.md). It covers scaffolding with
