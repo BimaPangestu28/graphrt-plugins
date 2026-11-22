@@ -84,8 +84,19 @@ export function renderCatalogTextWithinLimit(catalog, maxBytes = MAX_CATALOG_BYT
   const fullText = `${JSON.stringify(catalog)}\n`;
   const fullSizeBytes = Buffer.byteLength(fullText);
   if (fullSizeBytes <= maxBytes) return { catalogText: fullText, withoutSchemas: false, fullSizeBytes };
-  const plugins = catalog.plugins.map((entry) => ({ ...entry, nodes: entry.nodes.map(({ kind, title, description }) => ({ kind, title, description })) }));
+  const plugins = catalog.plugins.map((entry) => stripCatalogEntrySchemas(entry));
   return { catalogText: renderCatalogText({ ...catalog, plugins }, maxBytes), withoutSchemas: true, fullSizeBytes };
+}
+
+/**
+ * A v1 catalog entry without its nodes' `config_schema` and `outputs`, as index.json carries it when the full
+ * catalog would be too large.
+ *
+ * @param catalogEntry - Entry from buildCatalogEntry or assembleCatalogEntry (object)
+ * @returns The stripped copy (object)
+ */
+export function stripCatalogEntrySchemas(catalogEntry) {
+  return { ...catalogEntry, nodes: catalogEntry.nodes.map(({ kind, title, description }) => ({ kind, title, description })) };
 }
 
 /** @returns Tag of a plugin release, e.g. `meta-api-v0.1.0` (string) */
@@ -143,21 +154,23 @@ export function readSourceManifest(pluginName, sourceDirectory = join(REPO_ROOT,
  *   directory packs a plugin that lives outside this repo, e.g. a community plugin in its own repository
  * @param options.includeIcon - Ship the root `icon.svg` in the tarball (boolean, default false: official icons are
  *   published with the catalog instead; community tarballs must carry theirs)
+ * @param options.commandEnvironment - Environment of the git and npm commands (object, default: process.env; a
+ *   community rebuild passes an isolated one)
  * @returns `{name, version, tag, tarballName, tarballPath, sha256, sizeBytes, manifest, readmeText}` (object)
  * @throws Error - When npm fails, a symlink or forbidden file would be shipped, or the manifest is invalid
  */
-export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join(REPO_ROOT, pluginName), includeIcon = false }) {
+export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join(REPO_ROOT, pluginName), includeIcon = false, commandEnvironment = process.env }) {
   const sourceManifest = readSourceManifest(pluginName, sourceDirectory);
   const stagingRoot = join(outputDirectory, ".staging");
   const stagedDirectory = join(stagingRoot, pluginName);
   rmSync(stagedDirectory, { recursive: true, force: true });
   try {
-    copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon });
-    installProductionDependencies(stagedDirectory);
+    copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon, commandEnvironment });
+    installProductionDependencies(stagedDirectory, commandEnvironment);
     const stagedFiles = listStagedFiles(stagedDirectory);
     const releasedManifest = withChecksums(sourceManifest, computeChecksums(stagedDirectory, stagedFiles));
     writeFileSync(join(stagedDirectory, MANIFEST_FILE_NAME), `${JSON.stringify(releasedManifest, null, 2)}\n`);
-    const tarballBytes = createTarGz(buildArchiveEntries(stagedDirectory, pluginName), { mtimeSeconds: lastCommitTime(sourceDirectory) });
+    const tarballBytes = createTarGz(buildArchiveEntries(stagedDirectory, pluginName), { mtimeSeconds: lastCommitTime(sourceDirectory, commandEnvironment) });
     const tarballName = tarballNameFor(pluginName, sourceManifest.version);
     const tarballPath = join(outputDirectory, tarballName);
     writeFileSync(tarballPath, tarballBytes);
@@ -181,9 +194,9 @@ export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join
  * Lists the plugin files git tracks, minus tests and dotfiles, so untracked local
  * state (profiles, .env files, caches) can never reach a release.
  */
-function copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon }) {
+function copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon, commandEnvironment }) {
   // Run inside the plugin directory: `git ls-files -- .` prints paths relative to it.
-  const gitResult = spawnSync("git", ["ls-files", "-z", "--", "."], { cwd: sourceDirectory, encoding: "utf8" });
+  const gitResult = spawnSync("git", ["ls-files", "-z", "--", "."], { cwd: sourceDirectory, encoding: "utf8", env: commandEnvironment });
   if (gitResult.status !== 0) throw new Error(`${sourceDirectory}: git ls-files failed (the plugin must be in a git repository): ${gitResult.stderr}`);
   const trackedPaths = gitResult.stdout.split("\0").filter(Boolean);
   const shippedPaths = trackedPaths.filter((pluginPath) => isShippedSourcePath(pluginPath, { includeIcon }));
@@ -216,7 +229,7 @@ export function isShippedSourcePath(pluginPath, { includeIcon = false } = {}) {
  * Runs `npm ci --omit=dev` when the plugin has npm dependencies. Browser downloads
  * and install scripts are disabled: the host installs Playwright's Chromium later.
  */
-function installProductionDependencies(stagedDirectory) {
+function installProductionDependencies(stagedDirectory, commandEnvironment) {
   const packageJsonPath = join(stagedDirectory, "package.json");
   if (!existsSync(packageJsonPath)) return;
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
@@ -225,7 +238,7 @@ function installProductionDependencies(stagedDirectory) {
   const npmResult = spawnSync(
     "npm",
     ["ci", "--omit=dev", "--omit=optional", "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel=error"],
-    { cwd: stagedDirectory, stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" } },
+    { cwd: stagedDirectory, stdio: ["ignore", "inherit", "inherit"], env: { ...commandEnvironment, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" } },
   );
   if (npmResult.status !== 0) throw new Error(`${stagedDirectory}: npm ci failed (exit ${npmResult.status})`);
   pruneDependencyExtras(join(stagedDirectory, "node_modules"));
@@ -345,8 +358,8 @@ function buildArchiveEntries(stagedDirectory, pluginName) {
 }
 
 /** Commit time of the plugin's last change: a stable mtime so repacking is reproducible. */
-function lastCommitTime(sourceDirectory) {
-  const gitResult = spawnSync("git", ["log", "-1", "--format=%ct", "--", "."], { cwd: sourceDirectory, encoding: "utf8" });
+function lastCommitTime(sourceDirectory, commandEnvironment) {
+  const gitResult = spawnSync("git", ["log", "-1", "--format=%ct", "--", "."], { cwd: sourceDirectory, encoding: "utf8", env: commandEnvironment });
   const commitSeconds = Number.parseInt(gitResult.stdout.trim(), 10);
   return Number.isFinite(commitSeconds) ? commitSeconds : 0;
 }

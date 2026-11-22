@@ -23,28 +23,41 @@ The desktop app shows these plugins with `source: "community"`, your `publisher`
 - [Registry reference](#registry-reference)
 
 ## Trust model
-- **We review the code at your tag and ship exactly those bytes.** The registry entry pins your tag and the
-  sha256 of your release tarball. Publishing downloads the tarball, refuses it unless its sha256 matches, checks
-  it, and mirrors the same bytes to a release of this repo named `community-<name>-v<version>`. The catalog
-  links only to that mirror, so if you later move the tag, replace the asset or delete your repo, users still
-  get the reviewed bytes, and nothing else.
-- **A mirror is immutable.** It is created once and never modified. If a mirror already holds different bytes
-  under that name, publishing refuses the entry. To ship a change, release a new version.
+- **We review the code at your tag and ship exactly those files.** The registry entry pins your tag and the
+  sha256 of your release tarball. Publishing downloads the tarball, refuses it unless its sha256 matches, reads
+  it with a strict tar parser, and **re-packs it canonically** with this repo's own tar writer (same paths, same
+  bytes, executable bits kept; fixed mtime and headers). Your exact upload bytes are never shipped: the repack is
+  what is checked, mirrored to a release of this repo named `community-<name>-v<version>`, and pinned by the
+  catalog `sha256`. The catalog links only to that mirror, so if you later move the tag, replace the asset or
+  delete your repo, users still get the reviewed files, and nothing else.
+- **A mirror is immutable.** It is created once and never modified. Its release notes record the sha256 of the
+  upload it was made from. If a mirror under that name was made from another upload, or does not hold a canonical
+  repack, publishing refuses the entry. To ship a change, release a new version.
 - **Every version is reviewed.** No version reaches the catalog without its own pull request and review. Nothing
   updates automatically.
+- **The catalog that lists you is signed.** `index-v2.json` and `index.json` carry minisign signatures made with
+  the maintainers' key (public key: [`catalog-signing.pub`](../catalog-signing.pub)). Your entry's `sha256` in
+  the signed index pins the mirrored repack, so a reader that verifies the signature knows the tarball it
+  downloads is the one that was reviewed, wherever it was served from. You never sign anything yourself.
 - **Review is not a warranty.** A review lowers the risk; it does not remove it. Your status label (`beta`,
   `experimental`) and your ToS risk are shown to users as for official plugins, and the plugin runs with the
   permissions its manifest declares.
 
 ## 1. Scaffold the plugin
+**Only Node plugins are accepted as community plugins today.** The manifest must say `"runtime": "process"`,
+`"command": "node"` and `"args": ["<entrypoint>"]`, where the entrypoint is one `.mjs`/`.js`/`.cjs` file inside
+the plugin that is pinned in `checksums` (normally `plugin.mjs`). Node flags in `args` (`--require`, `--import`,
+...), a process `env`, `inherit_env`, `cwd` and `allow_unprefixed_kinds` are refused. Python, Rust, WASM and
+HTTP plugins cannot be listed yet, because reviewers could not rebuild and pin what they would run.
+
 Start with the graphrt CLI:
 
 ```bash
-graphrt plugin new acme-crm --lang typescript   # or python, rust
+graphrt plugin new acme-crm --lang typescript
 cd acme-crm && git init
 ```
 
-For a Node plugin you can also copy the structure of an official one. [`open-meteo/`](../open-meteo/) is a
+You can also copy the structure of an official one. [`open-meteo/`](../open-meteo/) is a
 declarative REST plugin and [`meta-api/`](../meta-api/) is a hand-written one. If you build on `shared/lib`,
 copy it into your repo, since your plugin must carry everything it runs.
 
@@ -100,6 +113,10 @@ The tarball may contain only regular files and directories: no symlinks, hard li
 may not be absolute and may not contain `..`. It must not contain `.env*`, `.git`, `.claude`, `.cache`,
 `.DS_Store`, browser profiles, Playwright browser downloads or key material (`*.pem`, `*.key`, `*.p12`). The
 compressed tarball may be at most 64 MiB, and at most 256 MiB unpacked.
+
+Your catalog listing has a size budget too: at most 64 KB in `index.json` with node schemas, 16 KB without them,
+and 16 KB in `index-v2.json` counting your node descriptions. If the whole catalog would still be too large, the
+publish leaves community plugins out, largest first, until it fits; official plugins are never affected.
 
 The easiest way to get this right is this repo's packer. Run it from a clone of graphrt-plugins against your
 plugin directory, which must be a git repository. Only files git tracks are packed; `test/` and dotfiles are
@@ -162,19 +179,33 @@ Use the **Community plugin** section of the pull request template. Remove the se
 plugins. The PR changes only `community-plugins.json`.
 
 ## What reviewers check
-1. **The code at your tag.** Reviewers read the source at `tag`, and what is in the tarball (the tarball must
-   match the tagged source plus production dependencies). They check correctness against the provider's
+1. **The code at your tag.** Reviewers read the source at `tag`. The tarball must be a **reproducible rebuild**
+   of that tag: the maintainer step clones `repository_url` at `tag` (shallow, no submodules, no git hooks, an
+   isolated environment), packs it with this repo's packer (`npm ci --omit=dev --ignore-scripts`, a
+   `package-lock.json` required when there are dependencies), and requires the same file set with the same bytes
+   as your tarball, `node_modules` and unpinned files included. A mismatch skips the entry with a diff summary,
+   so pack with `scripts/pack-plugins.mjs --plugin-dir` from a clean checkout of the tag. They check correctness against the provider's
    official docs, every item of the agent-safety checklist, error handling, credential handling, logging (no
    stdout, no secrets) and dependencies (necessary, maintained, locked).
 2. **The tarball.** `verify-plugins.mjs --community` must pass. It covers the sha256, the layout, safe paths,
    forbidden files and key material, checksums, the name and version against the entry and tag, pinned code,
-   reserved parameters and the icon. With `--graphrt` it also checks that graphrt accepts the plugin.
+   reserved parameters and the icon. With `--graphrt` it also checks that graphrt accepts the plugin (this runs
+   the plugin's code, see [The graphrt check](#the-graphrt-check)).
 3. **Tests and a live check.** Your tests pass, and one run of `example.yaml` with an invalid credential returns
    a clean `auth_error` (or a real read for a public no-auth API).
 4. **Labels.** `status` and `tos_risk` follow the same rules as official plugins
    ([status labels](../CONTRIBUTING.md#status-labels)). `medium` and `high` need `tos_notes` with the clauses
    and mitigations.
-5. **Listing.** The `publisher` and `display_name` are honest. You may not impersonate a provider, use "graphrt"
+5. **Text that reaches users and LLMs.** The manifest description, node titles, descriptions and kinds, tool
+   names and descriptions, schema `description`/`title` strings and the README warning are checked
+   automatically: length caps (description 300, node title 100, node and tool descriptions 1000, schema text
+   1000, warning 1000), no control or Unicode format characters (bidi overrides, zero-width), no `<` or `>`,
+   node kinds starting with `<name>.`, `permissions.env` an array of `^[A-Z][A-Z0-9_]*$` names and
+   `network`/`secrets` booleans. **Tool and schema descriptions are fed to an LLM**, so reviewers also read them
+   for prompt injection: instructions aimed at the model ("ignore previous instructions", "always call this
+   tool", requests to reveal secrets or other tools' output), text that disagrees with what the tool does, or
+   content that only makes sense to a model. Such text is refused.
+6. **Listing.** The `publisher` and `display_name` are honest. You may not impersonate a provider, use "graphrt"
    as a publisher, or use a brand you do not own in a way that suggests endorsement.
 
 ## After the merge: mirroring and publishing
@@ -184,15 +215,34 @@ A maintainer runs the release workflow (or `node scripts/publish-plugins.mjs`). 
 2. uses the mirror release `community-<name>-v<version>` when it exists. Otherwise it downloads `tarball_url`
    over https (GitHub hosts only, size-capped);
 3. verifies `tarball_sha256` **before** reading or extracting anything;
-4. runs the checks listed above (and `graphrt plugin install` when `GRAPHRT_BIN` is set);
-5. creates the mirror release with the exact bytes, if it does not exist yet. An existing mirror is never
+4. reads the tarball with the strict tar parser (duplicate or case-variant paths, PAX keys other than `path`,
+   links, non-octal sizes, bad checksums, data after the end of the archive and multi-member gzip are refused)
+   and re-packs it canonically;
+5. runs the checks listed above on the repack (and `graphrt plugin install` only when enabled, see [The graphrt check](#the-graphrt-check));
+6. rebuilds the plugin from the tag and compares it with the tarball (only when creating a mirror; an existing
+   mirror passed this check when it was created);
+7. creates the mirror release with the repack, if it does not exist yet. An existing mirror is never
    modified;
-6. adds the plugin to `index.json`, `index-v2.json` and its immutable detail file
+8. adds the plugin to `index.json`, `index-v2.json` and its immutable detail file
    `plugin-<name>-<version>.json`, and uploads its icon to the `catalog` release.
 
-An entry that fails any step is skipped with its reason in the publish output, and the rest of the catalog
-still publishes. `--catalog-only` lists community plugins too, but only from tarballs that are already
-mirrored.
+An entry that fails any step is skipped with its reason in the publish output (and an error annotation on the
+workflow run), and the rest of the catalog still publishes. The same holds for an entry that is invalid in
+`community-plugins.json` itself: pull request CI runs the strict `npm run check`, but the release workflow runs
+`npm run check:release`, which reports registry problems as annotations without stopping official releases.
+`--catalog-only` lists community plugins too, but only from tarballs that are already mirrored.
+
+### The graphrt check
+`graphrt plugin install` and `graphrt plugin list` may start the plugin, so for an untrusted tarball they run
+the author's code. They run with an isolated environment (no `GH_TOKEN` or other variables, no gh, git or npm
+configuration, `HOME` set to a temporary directory, only `PATH` and locale variables kept) and install into
+their own temporary directory, but that is not a sandbox: the code still runs as you, with network access.
+
+- **Run `--graphrt` on community tarballs only in a VM or a container** with nothing of value in it.
+  `verify-plugins.mjs --community --graphrt` prints a warning.
+- The publish does not run it on community tarballs unless `GRAPHRT_CHECK_COMMUNITY=1` is set as well as
+  `GRAPHRT_BIN` (it warns when it does). With `GRAPHRT_BIN` alone, only official tarballs get the check.
+- Plugin test suites in the publish step run with the same isolated environment.
 
 ## New versions
 Every new version needs a new pull request that updates your entry: the new `tag`, `tarball_url` and
@@ -208,10 +258,15 @@ since the last reviewed tag. Older mirror releases stay, but the catalog lists o
   Report security issues privately to the maintainers, not in a public issue.
 - **The maintainers may remove an entry** if the plugin breaks the agent-safety rules, its provider's terms
   change, the repository disappears, or reports go unanswered.
+- **A removed name stays reserved.** The checks refuse a community entry named like an official plugin, but
+  they cannot see names that were removed from the registry. Maintainers must not add an official plugin (or
+  accept another community entry) under the name of a removed community plugin: users who installed the old
+  one would get the new one as an "update", and its `community-<name>-v<version>` mirror releases still exist.
+  Check `git log -p -- community-plugins.json` for the name before choosing it.
 
 ## Registry reference
 `community-plugins.json` is a JSON object keyed by plugin name. Every field is a string with no surrounding
-whitespace and no control or bidi characters. `scripts/lib/community-plugins.mjs` enforces these rules:
+whitespace and no control characters, Unicode format characters (bidi marks, zero-width characters) or line separators. `scripts/lib/community-plugins.mjs` enforces these rules:
 
 | Field | Rule |
 |-------|------|
@@ -220,8 +275,8 @@ whitespace and no control or bidi characters. `scripts/lib/community-plugins.mjs
 | `tag` | `v<semver>` or `<semver>`, ≤ 64 characters; the version is the tag without `v` |
 | `tarball_url` | exactly `<repository_url>/releases/download/<tag>/<name>-<version>.tar.gz` |
 | `tarball_sha256` | 64 lowercase hex characters |
-| `publisher` | ≤ 60 characters, must not contain "graphrt" |
-| `display_name` | ≤ 60 characters |
+| `publisher` | ≤ 60 characters of printable ASCII without `< > [ ] ( )` or backticks; must not contain "official" or "graphrt" (case-insensitive, after NFKC normalisation) |
+| `display_name` | same rules as `publisher` |
 | `status` | `stable`, `beta` or `experimental` |
 | `status_reason` | ≤ 500 characters |
 | `tos_risk` | `none`, `low`, `medium` or `high` |

@@ -27,11 +27,14 @@
  * Community plugins (community-plugins.json, see docs/community-plugins.md) are added to every catalog: each
  * entry's tarball is taken from its mirror release `community-<name>-v<version>` in this repo or, when there is
  * none yet (not with --catalog-only), downloaded from the developer's GitHub release, checked against the
- * reviewed sha256 and the same checks as official tarballs, and mirrored there unchanged. An entry that fails
- * is skipped (listed under `skipped` with its reason); it never fails the official publish.
+ * reviewed sha256, re-packed canonically by our own tar writer, given the same checks as official tarballs, and
+ * that repack is mirrored there (the catalog `sha256` is the repack's). An entry that fails is skipped (listed
+ * under `skipped` with its reason); it never fails the official publish.
  *
- * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each
- * tarball with `graphrt plugin install` into a temporary directory.
+ * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each official
+ * tarball with `graphrt plugin install` into a temporary directory; community tarballs get that check only
+ * with GRAPHRT_CHECK_COMMUNITY=1 as well (it may run their code: VM or container only). Plugin tests and
+ * graphrt run with an isolated environment (no GH_TOKEN, a temporary HOME).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -45,8 +48,11 @@ import {
 } from "./lib/plugin-package.mjs";
 import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
+import { signCatalogIndexes } from "./lib/catalog-signing.mjs";
+import { findUploadedDigestMismatches, planCatalogUploadBatches, planReleaseAction } from "./lib/release-plan.mjs";
 import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
-import { downloadHttpsBytes, ingestCommunityPlugins } from "./lib/community-ingest.mjs";
+import { downloadHttpsBytes, ingestCommunityPlugins, selectCommunityGraphrtBinary } from "./lib/community-ingest.mjs";
+import { runTestSuite } from "./lib/plugin-test-runner.mjs";
 
 function parsePublishArguments(argumentList) {
   const options = { pluginNames: [], target: "HEAD", outputDirectory: resolve(REPO_ROOT, "dist"), dryRun: false, catalogOnly: false };
@@ -90,12 +96,6 @@ function runGhIdempotent(ghArguments, { allowFailure = false } = {}) {
     if (result.status !== 0 && !allowFailure) throw new Error(`gh ${ghArguments.slice(0, 3).join(" ")} failed: ${result.stderr.trim()}`);
     return result;
   }
-}
-
-function runTestSuite(directory) {
-  if (!existsSync(join(directory, "test"))) return true;
-  const result = spawnSync("sh", ["-c", "node --test --test-reporter=dot test/*.test.mjs"], { cwd: directory, stdio: "inherit" });
-  return result.status === 0;
 }
 
 /** Runs each plugin's tests (and the shared tests for shared-based plugins); returns the names that pass. */
@@ -156,14 +156,27 @@ function createPluginRelease(packed, targetCommit, outputDirectory) {
   runCommand("gh", releaseArguments);
 }
 
+/**
+ * Uploads the one asset of a release that exists without it. No `--clobber`: if the asset appeared meanwhile,
+ * gh refuses and the publish stops instead of replacing it.
+ */
+function uploadMissingAsset(releaseTag, assetPath) {
+  runCommand("gh", ["release", "upload", releaseTag, assetPath, "-R", RELEASE_REPOSITORY]);
+}
+
 /** Publishes missing releases and returns `{tarballName, sha256, catalogEntry}` for every published plugin. */
 function publishPluginReleases(packedPlugins, { targetCommit, outputDirectory, dryRun }) {
   const released = [];
   for (const packed of packedPlugins) {
-    const existingRelease = viewRelease(packed.tag);
-    const hasAsset = existingRelease?.assets.some((asset) => asset.name === packed.tarballName);
-    if (existingRelease && !hasAsset) throw new Error(`${packed.tag}: release exists without ${packed.tarballName}; fix it by hand`);
-    if (existingRelease) {
+    const releaseAction = planReleaseAction(viewRelease(packed.tag), packed.tarballName);
+    if (releaseAction === "upload") {
+      // A half-created release (the create failed after the tag): resume it with the missing asset.
+      console.error(`${packed.tag}: release exists without ${packed.tarballName}; ${dryRun ? "would upload" : "uploading"} it (${packed.sha256})`);
+      if (!dryRun) uploadMissingAsset(packed.tag, packed.tarballPath);
+      released.push({ ...packed, catalogEntry: buildCatalogEntry(packed.manifest, packed) });
+      continue;
+    }
+    if (releaseAction === "exists") {
       const published = describePublishedTarball(packed.tag, packed.tarballName, outputDirectory);
       const status = published.sha256 === packed.sha256 ? "unchanged" : "differs from the local build (bump the version to ship changes)";
       console.error(`${packed.tag}: already published, ${status}`);
@@ -183,7 +196,9 @@ function collectOtherPublishedPlugins(packedNames, outputDirectory) {
   for (const pluginName of listPluginNames().filter((name) => !packedNames.has(name))) {
     const version = JSON.parse(readFileSync(join(REPO_ROOT, pluginName, MANIFEST_FILE_NAME), "utf8")).version;
     const releaseTag = releaseTagFor(pluginName, version);
-    if (!viewRelease(releaseTag)) continue;
+    const releaseAction = planReleaseAction(viewRelease(releaseTag), tarballNameFor(pluginName, version));
+    if (releaseAction === "upload") console.error(`${releaseTag}: release exists without its tarball; a publish of ${pluginName} resumes it`);
+    if (releaseAction !== "exists") continue;
     const published = describePublishedTarball(releaseTag, tarballNameFor(pluginName, version), outputDirectory);
     released.push({ ...published, catalogEntry: buildCatalogEntry(published.manifest, published) });
   }
@@ -192,8 +207,8 @@ function collectOtherPublishedPlugins(packedNames, outputDirectory) {
 
 const ASSET_UPLOAD_BATCH_SIZE = 50;
 const SHA256_DIGEST_PREFIX = "sha256:";
-// index.json, index-v2.json and SHA256SUMS.
-const CATALOG_INDEX_FILE_COUNT = 3;
+// index.json, index-v2.json, their two .minisig signatures and SHA256SUMS.
+const CATALOG_INDEX_FILE_COUNT = 5;
 
 /**
  * Lists the staged icons and detail files the `catalog` release does not have yet. Icon asset names are
@@ -247,20 +262,26 @@ function warnAboutAssetCount(assetCountAfterUpload) {
 
 /**
  * Uploads new icons and detail files first (so every `icon_url` and `detail_url` resolves once an index is
- * live), then index.json, index-v2.json and SHA256SUMS together.
+ * live), then the index signatures, then index-v2.json and index.json together, then SHA256SUMS last (planCatalogUploadBatches), and checks
+ * the release digests afterwards. GitHub cannot replace several assets atomically: for a few seconds a reader
+ * may see one index updated and not the other, or new indexes with the previous SHA256SUMS.
  */
 function uploadCatalog(catalogFiles, { catalogRelease, newAssetPaths }, targetCommit) {
-  const indexPaths = [catalogFiles.indexPath, catalogFiles.indexV2Path, catalogFiles.sumsPath];
+  const uploadBatches = planCatalogUploadBatches(catalogFiles, newAssetPaths, ASSET_UPLOAD_BATCH_SIZE);
   if (catalogRelease) {
-    for (let start = 0; start < newAssetPaths.length; start += ASSET_UPLOAD_BATCH_SIZE) {
-      const assetBatch = newAssetPaths.slice(start, start + ASSET_UPLOAD_BATCH_SIZE);
-      runGhIdempotent(["release", "upload", CATALOG_TAG, ...assetBatch, "-R", RELEASE_REPOSITORY, "--clobber"]);
-    }
-    runGhIdempotent(["release", "upload", CATALOG_TAG, ...indexPaths, "-R", RELEASE_REPOSITORY, "--clobber"]);
-    return;
+    for (const assetBatch of uploadBatches) runGhIdempotent(["release", "upload", CATALOG_TAG, ...assetBatch, "-R", RELEASE_REPOSITORY, "--clobber"]);
+  } else {
+    runCommand("gh", ["release", "create", CATALOG_TAG, ...uploadBatches.flat(), "-R", RELEASE_REPOSITORY, "--target", targetCommit,
+      "--title", "Plugin catalog", "--notes", renderCatalogReleaseNotes(), "--latest"]);
   }
-  runCommand("gh", ["release", "create", CATALOG_TAG, ...newAssetPaths, ...indexPaths, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
-    "--title", "Plugin catalog", "--notes", renderCatalogReleaseNotes(), "--latest"]);
+  assertUploadedDigests(uploadBatches.flat());
+}
+
+/** Re-reads the `catalog` release and refuses when an uploaded asset's GitHub digest differs from the local file. */
+function assertUploadedDigests(uploadedPaths) {
+  const mismatches = findUploadedDigestMismatches(uploadedPaths, viewRelease(CATALOG_TAG)?.assets ?? [], (filePath) => sha256Hex(readFileSync(filePath)));
+  if (mismatches.length > 0) throw new Error(`the ${CATALOG_TAG} release does not hold what was uploaded:\n  ${mismatches.join("\n  ")}`);
+  console.error(`catalog: ${uploadedPaths.length} uploaded assets checked against the release digests`);
 }
 
 function renderCatalogReleaseNotes() {
@@ -270,6 +291,7 @@ function renderCatalogReleaseNotes() {
     `- \`${CATALOG_V2_INDEX_NAME}\`: ${releaseAssetUrl(CATALOG_TAG, CATALOG_V2_INDEX_NAME)} (schema 2, slim; each entry links its detail file)`,
     "- `plugin-<name>-<version>.json`: immutable per-version details (node config schemas and outputs, tool descriptions)",
     `- \`index.json\`: ${releaseAssetUrl(CATALOG_TAG, "index.json")} (schema 1, for older apps)`,
+    "- `index-v2.json.minisig`, `index.json.minisig`: minisign signatures of both indexes (public key: `catalog-signing.pub` in the repository)",
     `- \`SHA256SUMS\`: ${releaseAssetUrl(CATALOG_TAG, "SHA256SUMS")}`,
     "- `icon-<plugin>-<sha256 prefix>.svg`: plugin icons, named by content (each catalog entry's `icon_url`)",
     "",
@@ -305,15 +327,25 @@ function rebuildCatalogOnly(options) {
  */
 function createGithubMirror({ outputDirectory }, targetCommit) {
   return {
+    // A mirror release without its tarball (a half-created one) reads as "not mirrored": the ingest then verifies
+    // a fresh repack and createMirrorRelease resumes the release.
     readMirroredTarball(releaseTag, tarballName) {
-      const mirrorRelease = viewRelease(releaseTag);
-      if (!mirrorRelease) return null;
-      if (!mirrorRelease.assets.some((asset) => asset.name === tarballName)) throw new Error(`${releaseTag}: release exists without ${tarballName}; fix it by hand`);
+      if (planReleaseAction(viewRelease(releaseTag), tarballName) !== "exists") return null;
       return downloadReleaseAsset(releaseTag, tarballName, outputDirectory);
+    },
+    readMirrorNotes(releaseTag) {
+      const result = runGhIdempotent(["release", "view", releaseTag, "-R", RELEASE_REPOSITORY, "--json", "body"]);
+      return JSON.parse(result.stdout).body ?? null;
     },
     createMirrorRelease({ releaseTag, tarballPath, title, notes, prerelease }) {
       const notesPath = join(outputDirectory, `${releaseTag}.notes.md`);
       writeFileSync(notesPath, notes);
+      if (planReleaseAction(viewRelease(releaseTag), basename(tarballPath)) === "upload") {
+        // Resume a half-created mirror: its notes must record the upload this repack was made from.
+        runCommand("gh", ["release", "edit", releaseTag, "-R", RELEASE_REPOSITORY, "--notes-file", notesPath]);
+        uploadMissingAsset(releaseTag, tarballPath);
+        return;
+      }
       const releaseArguments = ["release", "create", releaseTag, tarballPath, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
         "--title", title, "--notes-file", notesPath, "--latest=false"];
       if (prerelease) releaseArguments.push("--prerelease");
@@ -350,7 +382,7 @@ async function collectCommunityPlugins(options, targetCommit) {
     workDirectory: join(options.outputDirectory, "community"),
     catalogOnly: options.catalogOnly,
     dryRun: options.dryRun,
-    graphrtBinary: process.env.GRAPHRT_BIN || null,
+    graphrtBinary: selectCommunityGraphrtBinary(process.env, console.error),
     mirror: createGithubMirror(options, targetCommit),
     downloadTarball: (url) => downloadHttpsBytes(url),
     findPublishedCatalogSha256: createPublishedCatalogLookup(options.outputDirectory),
@@ -376,6 +408,11 @@ function logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun 
   console.error(`catalog: ${catalogFiles.iconPaths.length} icons staged in ${join(catalogDirectory, ICON_STAGING_DIRECTORY_NAME)}, ${uploadPlan.newIconPaths.length} not yet on the ${CATALOG_TAG} release${dryRun ? " (dry run: nothing uploaded)" : ""}`);
 }
 
+/** One GitHub error annotation per skipped community entry: visible on the run, without failing it. */
+function annotateSkippedCommunityPlugins(skippedEntries) {
+  for (const { name, reason } of skippedEntries) console.log(`::error title=community plugin ${name}::${`skipped: ${reason}`.replace(/[\r\n%]/g, " ")}`);
+}
+
 async function main() {
   const options = parsePublishArguments(process.argv.slice(2));
   const targetCommit = runCommand("git", ["rev-parse", "--verify", `${options.target}^{commit}`]).stdout.trim();
@@ -383,15 +420,20 @@ async function main() {
   const community = await collectCommunityPlugins(options, targetCommit);
   released.push(...community.released);
   skipped.push(...community.skipped);
+  if (process.env.GITHUB_ACTIONS === "true") annotateSkippedCommunityPlugins(community.skipped);
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
-  const catalogFiles = writeCatalogFiles(catalogDirectory, released);
+  const signIndexes = (indexes) => signCatalogIndexes(indexes, { dryRun: options.dryRun });
+  const catalogFiles = writeCatalogFiles(catalogDirectory, released, { signIndexes });
+  skipped.push(...catalogFiles.skipped);
+  const droppedNames = new Set(catalogFiles.skipped.map(({ name }) => name));
+  const listed = released.filter(({ catalogEntry }) => !droppedNames.has(catalogEntry.name));
   const uploadPlan = planCatalogUpload(catalogFiles, options.outputDirectory);
   logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun: options.dryRun });
   if (!options.dryRun) uploadCatalog(catalogFiles, uploadPlan, targetCommit);
   const icons = { staged: catalogFiles.iconPaths.length, toUpload: uploadPlan.newIconPaths.map((iconPath) => basename(iconPath)) };
   const details = { staged: catalogFiles.detailFiles.length, toUpload: uploadPlan.newDetailPaths.map((detailPath) => basename(detailPath)) };
-  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: released.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256, source: catalogEntry.source })), icons, details, skipped }, null, 2));
+  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: listed.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256, source: catalogEntry.source })), icons, details, skipped }, null, 2));
 }
 
 main().catch((error) => {
