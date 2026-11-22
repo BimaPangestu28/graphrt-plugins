@@ -45,6 +45,10 @@ jobs:
         with:
           node-version: 22
 
+      # Without the plugins' own node_modules, dependency-backed plugin tests would fail or skip at publish time.
+      - name: Install plugin dependencies
+        run: scripts/install-plugin-dependencies.sh
+
       - name: Check generated files
         run: npm run check
 
