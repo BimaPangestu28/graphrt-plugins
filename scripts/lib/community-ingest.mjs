@@ -48,6 +48,29 @@ export const GITHUB_DOWNLOAD_HOSTS = new Set(["github.com", "objects.githubuserc
 const MAX_REDIRECTS = 5;
 const SOURCE_SHA256_NOTE_PATTERN = /^- Original asset sha256: `([0-9a-f]{64})`$/m;
 
+/** Set to `1` (with GRAPHRT_BIN) to run `graphrt plugin install/list` on community tarballs. */
+export const COMMUNITY_GRAPHRT_OPT_IN_VARIABLE = "GRAPHRT_CHECK_COMMUNITY";
+export const COMMUNITY_GRAPHRT_WARNING = "warning: the graphrt check runs untrusted community code on this machine (with an isolated environment, but as you and with network access); run it only in a VM or a container";
+
+/**
+ * The graphrt binary for the community install check: `graphrt plugin install/list` may run plugin code, so on
+ * community tarballs it runs only when explicitly enabled, and then with a warning.
+ *
+ * @param environment - Variables to read GRAPHRT_BIN and GRAPHRT_CHECK_COMMUNITY from (object, e.g. process.env)
+ * @param log - Logs a line (function)
+ * @returns The binary, or null when the check is off (string|null)
+ */
+export function selectCommunityGraphrtBinary(environment, log) {
+  const graphrtBinary = environment.GRAPHRT_BIN || null;
+  if (!graphrtBinary) return null;
+  if (environment[COMMUNITY_GRAPHRT_OPT_IN_VARIABLE] !== "1") {
+    log(`community: GRAPHRT_BIN is set, but graphrt plugin install is not run on community tarballs unless ${COMMUNITY_GRAPHRT_OPT_IN_VARIABLE}=1 (VM or container only)`);
+    return null;
+  }
+  log(COMMUNITY_GRAPHRT_WARNING);
+  return graphrtBinary;
+}
+
 /** A community entry that cannot be listed; the publish skips it with this message. */
 export class CommunityPluginRejection extends Error {
   constructor(pluginName, reason) {

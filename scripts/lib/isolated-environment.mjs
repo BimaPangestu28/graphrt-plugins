@@ -12,7 +12,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 /** Variables passed through unchanged when they are set: needed to find tools and run, never secrets. */
-const PASSED_THROUGH_VARIABLES = ["PATH", "TMPDIR", "LANG", "LC_ALL", "TZ", "SYSTEMROOT", "PLAYWRIGHT_BROWSERS_PATH"];
+const PASSED_THROUGH_VARIABLES = ["PATH", "TMPDIR", "CI", "LANG", "LC_ALL", "TZ", "SYSTEMROOT", "PLAYWRIGHT_BROWSERS_PATH"];
 
 /**
  * Builds the environment of an isolated command.

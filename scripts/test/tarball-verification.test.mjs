@@ -107,3 +107,28 @@ test("runs graphrt plugin install into its own temporary directory, outside the 
     assert.ok(!existsSync(extractionRoot) && !existsSync(installDirectory), "both temporary directories are removed");
   });
 });
+
+test("runs graphrt with an isolated environment: no tokens, a temporary HOME, PATH kept", () => {
+  withScratchDirectory((scratchDirectory) => {
+    const tarballPath = writeDemoTarball(scratchDirectory);
+    const environmentLogPath = join(scratchDirectory, "graphrt-env.log");
+    const graphrtPath = join(scratchDirectory, "env-graphrt.sh");
+    writeFileSync(graphrtPath, `#!/bin/sh\nenv >> '${environmentLogPath}'\nif [ "$2" = install ]; then exit 0; fi\necho '[{"name":"demo","nodes":[]}]'\n`, { mode: 0o755 });
+    const savedVariables = { GH_TOKEN: process.env.GH_TOKEN, GITHUB_TOKEN: process.env.GITHUB_TOKEN, AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY };
+    Object.assign(process.env, { GH_TOKEN: "ghp_test_secret", GITHUB_TOKEN: "ghs_test_secret", AWS_SECRET_ACCESS_KEY: "aws_test_secret" });
+    try {
+      verifyTarball(tarballPath, { graphrtBinary: graphrtPath });
+    } finally {
+      for (const [name, value] of Object.entries(savedVariables)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+    const loggedEnvironment = readFileSync(environmentLogPath, "utf8");
+    assert.doesNotMatch(loggedEnvironment, /test_secret/);
+    assert.match(loggedEnvironment, new RegExp(`^PATH=${process.env.PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
+    const homeDirectory = /^HOME=(.*)$/m.exec(loggedEnvironment)[1];
+    assert.notEqual(homeDirectory, process.env.HOME);
+    assert.match(homeDirectory, /graphrt-plugin-install-/);
+  });
+});

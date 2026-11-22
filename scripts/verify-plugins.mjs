@@ -5,9 +5,10 @@
  *        node scripts/verify-plugins.mjs --community <name...> [--graphrt <path>]
  *
  * `--community` reviews community-plugins.json entries instead: it downloads each entry's tarball from the
- * developer's GitHub release and runs every check a publish runs before mirroring it (sha256, these checks, the
- * manifest name/version against the entry and tag, pinned code, reserved parameters, the icon). Nothing is
- * mirrored or published.
+ * developer's GitHub release and runs every check a publish runs before mirroring it (sha256, the canonical
+ * repack, these checks, the manifest name/version/runtime against the entry and tag, pinned code, reserved
+ * parameters, the icon, the reproducible rebuild from the tag). Nothing is mirrored or published. `--graphrt`
+ * with `--community` runs the plugin's code: do that only in a VM or a container (a warning is printed).
  *
  * For each tarball: every entry is a file or directory under one top-level
  * `<name>/` directory, the strict tar reader accepts the archive (it is extracted from
@@ -35,7 +36,8 @@ export { verifyTarball };
  */
 async function reviewCommunityEntries(pluginNames, graphrtBinary) {
   const { readCommunityPlugins, listRepoDirectoryNames, withPendingReviewStandIns } = await import("./lib/community-plugins.mjs");
-  const { downloadHttpsBytes, ingestCommunityPlugin } = await import("./lib/community-ingest.mjs");
+  const { COMMUNITY_GRAPHRT_WARNING, downloadHttpsBytes, ingestCommunityPlugin } = await import("./lib/community-ingest.mjs");
+  if (graphrtBinary) console.error(COMMUNITY_GRAPHRT_WARNING);
   const registry = readCommunityPlugins();
   const workDirectory = mkdtempSync(join(tmpdir(), "graphrt-community-review-"));
   const reviewMirror = { readMirroredTarball: () => null, readMirrorNotes: () => null, createMirrorRelease: () => { throw new Error("review never mirrors"); } };

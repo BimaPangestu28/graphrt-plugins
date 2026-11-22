@@ -31,8 +31,10 @@
  * that repack is mirrored there (the catalog `sha256` is the repack's). An entry that fails is skipped (listed
  * under `skipped` with its reason); it never fails the official publish.
  *
- * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each
- * tarball with `graphrt plugin install` into a temporary directory.
+ * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each official
+ * tarball with `graphrt plugin install` into a temporary directory; community tarballs get that check only
+ * with GRAPHRT_CHECK_COMMUNITY=1 as well (it may run their code: VM or container only). Plugin tests and
+ * graphrt run with an isolated environment (no GH_TOKEN, a temporary HOME).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -47,7 +49,8 @@ import {
 import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
 import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
-import { downloadHttpsBytes, ingestCommunityPlugins } from "./lib/community-ingest.mjs";
+import { downloadHttpsBytes, ingestCommunityPlugins, selectCommunityGraphrtBinary } from "./lib/community-ingest.mjs";
+import { runTestSuite } from "./lib/plugin-test-runner.mjs";
 
 function parsePublishArguments(argumentList) {
   const options = { pluginNames: [], target: "HEAD", outputDirectory: resolve(REPO_ROOT, "dist"), dryRun: false, catalogOnly: false };
@@ -91,12 +94,6 @@ function runGhIdempotent(ghArguments, { allowFailure = false } = {}) {
     if (result.status !== 0 && !allowFailure) throw new Error(`gh ${ghArguments.slice(0, 3).join(" ")} failed: ${result.stderr.trim()}`);
     return result;
   }
-}
-
-function runTestSuite(directory) {
-  if (!existsSync(join(directory, "test"))) return true;
-  const result = spawnSync("sh", ["-c", "node --test --test-reporter=dot test/*.test.mjs"], { cwd: directory, stdio: "inherit" });
-  return result.status === 0;
 }
 
 /** Runs each plugin's tests (and the shared tests for shared-based plugins); returns the names that pass. */
@@ -355,7 +352,7 @@ async function collectCommunityPlugins(options, targetCommit) {
     workDirectory: join(options.outputDirectory, "community"),
     catalogOnly: options.catalogOnly,
     dryRun: options.dryRun,
-    graphrtBinary: process.env.GRAPHRT_BIN || null,
+    graphrtBinary: selectCommunityGraphrtBinary(process.env, console.error),
     mirror: createGithubMirror(options, targetCommit),
     downloadTarball: (url) => downloadHttpsBytes(url),
     findPublishedCatalogSha256: createPublishedCatalogLookup(options.outputDirectory),

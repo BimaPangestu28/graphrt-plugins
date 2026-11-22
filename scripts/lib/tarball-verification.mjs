@@ -9,12 +9,14 @@
  * overrides and links, so the files checked here could differ from the files a host installs. Instead the parsed
  * entries (regular files and directories only) are written into a fresh mkdtemp, and the whole temporary root
  * is walked afterwards to refuse anything that is not a regular file or directory. `graphrt plugin install
- * --dir` writes into a second, separate mkdtemp, so nothing in the extracted tree can redirect it.
+ * --dir` writes into a second, separate mkdtemp, so nothing in the extracted tree can redirect it, and graphrt
+ * runs with an isolated environment (isolated-environment.mjs).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { buildIsolatedEnvironment } from "./isolated-environment.mjs";
 import { assertAllowedPath, MANIFEST_FILE_NAME, sha256Hex } from "./plugin-package.mjs";
 import { readTarGz } from "./tar-archive.mjs";
 
@@ -25,11 +27,10 @@ import { readTarGz } from "./tar-archive.mjs";
  * @param options - Verification options
  * @param options.graphrtBinary - graphrt binary to run install/list with, or null (string|null)
  * @param options.maxUnpackedBytes - Refuse a tarball that unpacks to more than this (number, default: no limit)
- * @param options.graphrtEnvironment - Environment of the graphrt commands (object, default: process.env)
  * @returns `{name, version, pinnedFiles}` (object)
  * @throws Error - On the first failed check
  */
-export function verifyTarball(tarballPath, { graphrtBinary = null, maxUnpackedBytes = undefined, graphrtEnvironment = process.env } = {}) {
+export function verifyTarball(tarballPath, { graphrtBinary = null, maxUnpackedBytes = undefined } = {}) {
   const archiveEntries = readTarGz(readFileSync(tarballPath), { maxUnpackedBytes });
   const pluginName = assertSingleTopLevelDirectory(archiveEntries);
   const extractionRoot = mkdtempSync(join(tmpdir(), "graphrt-plugin-verify-"));
@@ -42,7 +43,7 @@ export function verifyTarball(tarballPath, { graphrtBinary = null, maxUnpackedBy
     assertManifestMatchesTarball(manifest, pluginName, basename(tarballPath));
     assertChecksumsMatch(pluginDirectory, manifest.checksums ?? {});
     assertDependenciesInstalled(pluginDirectory);
-    if (graphrtBinary) assertGraphrtAccepts(graphrtBinary, pluginDirectory, pluginName, graphrtEnvironment);
+    if (graphrtBinary) assertGraphrtAccepts(graphrtBinary, pluginDirectory, pluginName);
     return { name: pluginName, version: manifest.version, pinnedFiles: Object.keys(manifest.checksums).length };
   } finally {
     rmSync(extractionRoot, { recursive: true, force: true });
@@ -133,11 +134,15 @@ function assertDependenciesInstalled(pluginDirectory) {
   }
 }
 
-function assertGraphrtAccepts(graphrtBinary, pluginDirectory, pluginName, graphrtEnvironment) {
+/**
+ * `graphrt plugin install/list` may start the plugin, so they run with an isolated environment (no tokens, a
+ * temporary HOME, only PATH and a few locale variables) in their own temporary directory.
+ */
+function assertGraphrtAccepts(graphrtBinary, pluginDirectory, pluginName) {
   const installRoot = mkdtempSync(join(tmpdir(), "graphrt-plugin-install-"));
   try {
     const installDirectory = join(installRoot, "plugins");
-    const commandOptions = { encoding: "utf8", env: graphrtEnvironment, cwd: installRoot };
+    const commandOptions = { encoding: "utf8", env: buildIsolatedEnvironment(join(installRoot, "home")), cwd: installRoot };
     const installResult = spawnSync(graphrtBinary, ["plugin", "install", pluginDirectory, "--dir", installDirectory], commandOptions);
     if (installResult.status !== 0) throw new Error(`graphrt plugin install failed: ${installResult.stderr || installResult.stdout}`);
     const listResult = spawnSync(graphrtBinary, ["plugin", "list", "--json", "--no-default-plugins", "--plugins", installDirectory], commandOptions);

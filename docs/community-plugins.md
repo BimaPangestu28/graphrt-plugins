@@ -181,7 +181,8 @@ plugins. The PR changes only `community-plugins.json`.
    stdout, no secrets) and dependencies (necessary, maintained, locked).
 2. **The tarball.** `verify-plugins.mjs --community` must pass. It covers the sha256, the layout, safe paths,
    forbidden files and key material, checksums, the name and version against the entry and tag, pinned code,
-   reserved parameters and the icon. With `--graphrt` it also checks that graphrt accepts the plugin.
+   reserved parameters and the icon. With `--graphrt` it also checks that graphrt accepts the plugin (this runs
+   the plugin's code, see [The graphrt check](#the-graphrt-check)).
 3. **Tests and a live check.** Your tests pass, and one run of `example.yaml` with an invalid credential returns
    a clean `auth_error` (or a real read for a public no-auth API).
 4. **Labels.** `status` and `tos_risk` follow the same rules as official plugins
@@ -200,7 +201,7 @@ A maintainer runs the release workflow (or `node scripts/publish-plugins.mjs`). 
 4. reads the tarball with the strict tar parser (duplicate or case-variant paths, PAX keys other than `path`,
    links, non-octal sizes, bad checksums, data after the end of the archive and multi-member gzip are refused)
    and re-packs it canonically;
-5. runs the checks listed above on the repack (and `graphrt plugin install` when enabled, see below);
+5. runs the checks listed above on the repack (and `graphrt plugin install` only when enabled, see [The graphrt check](#the-graphrt-check));
 6. rebuilds the plugin from the tag and compares it with the tarball (only when creating a mirror; an existing
    mirror passed this check when it was created);
 7. creates the mirror release with the repack, if it does not exist yet. An existing mirror is never
@@ -211,6 +212,18 @@ A maintainer runs the release workflow (or `node scripts/publish-plugins.mjs`). 
 An entry that fails any step is skipped with its reason in the publish output, and the rest of the catalog
 still publishes. `--catalog-only` lists community plugins too, but only from tarballs that are already
 mirrored.
+
+### The graphrt check
+`graphrt plugin install` and `graphrt plugin list` may start the plugin, so for an untrusted tarball they run
+the author's code. They run with an isolated environment (no `GH_TOKEN` or other variables, no gh, git or npm
+configuration, `HOME` set to a temporary directory, only `PATH` and locale variables kept) and install into
+their own temporary directory, but that is not a sandbox: the code still runs as you, with network access.
+
+- **Run `--graphrt` on community tarballs only in a VM or a container** with nothing of value in it.
+  `verify-plugins.mjs --community --graphrt` prints a warning.
+- The publish does not run it on community tarballs unless `GRAPHRT_CHECK_COMMUNITY=1` is set as well as
+  `GRAPHRT_BIN` (it warns when it does). With `GRAPHRT_BIN` alone, only official tarballs get the check.
+- Plugin test suites in the publish step run with the same isolated environment.
 
 ## New versions
 Every new version needs a new pull request that updates your entry: the new `tag`, `tarball_url` and
