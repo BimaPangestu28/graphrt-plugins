@@ -10,11 +10,12 @@
  * mirrored or published.
  *
  * For each tarball: every entry is a file or directory under one top-level
- * `<name>/` directory, the archive extracts with the system `tar`, the extracted
- * tree has no symlinks or forbidden files, `plugin.mjs` is present and pinned,
- * and every `checksums` entry matches. With `--graphrt` (or $GRAPHRT_BIN), it also
- * runs `graphrt plugin install <dir> --dir <temp>` and `graphrt plugin list`
- * against that temporary directory only, never `~/.graphrt`.
+ * `<name>/` directory, the strict tar reader accepts the archive (it is extracted from
+ * those parsed entries, never with the system `tar`), the extracted tree has no symlinks
+ * or forbidden files, `plugin.mjs` is present and pinned, and every `checksums` entry
+ * matches. With `--graphrt` (or $GRAPHRT_BIN), it also runs `graphrt plugin install
+ * <dir> --dir <temp>` and `graphrt plugin list` against a separate temporary directory
+ * only, never `~/.graphrt`.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
