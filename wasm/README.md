@@ -27,6 +27,6 @@ Node.js 22, 2026-11-24):
 | Warm run, p50 / p95 | 1.80 / 2.75 ms | 1.79 / 2.06 ms |
 | RSS after runs (serve + plugin) | 127.0 MiB | 9.2 MiB |
 
-Behaviour: the 33 shared cases in [`test/`](test/) give the same results, error kinds and messages and HTTP
+Behaviour: the 36 shared cases in [`test/`](test/) give the same results, error kinds and messages and HTTP
 requests (two message differences by design: transport errors, and the HTTP reason phrase); graphrt's
 examples/supabase-chatbot smoke and security e2e (real PostgREST + Postgres, hostile model) pass with this build.
