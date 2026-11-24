@@ -107,6 +107,8 @@ const REDACTED: &str = "[redacted]";
 #[derive(Clone)]
 pub struct Client<'a> {
     pub api: &'a Value,
+    /// The API's name in the spec (`apis`).
+    pub api_name: String,
     pub base_url: String,
     pub credential: Option<String>,
 }

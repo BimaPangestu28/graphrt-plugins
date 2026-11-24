@@ -1,5 +1,5 @@
 //! WebAssembly build of the web-search plugin. The three providers (Tavily, Brave Search, SerpAPI) are declarative
-//! APIs in spec.json (exported from web-search/lib/search-providers.mjs); `search` and `search_news` are hooks, like
+//! APIs in spec.jsonl (exported from web-search/lib/search-providers.mjs); `search` and `search_news` are hooks, like
 //! the hand-written operations of web-search/definition.mjs: WEB_SEARCH_PROVIDER picks the provider, the neutral
 //! arguments become the provider's, and its response becomes
 //! `{provider, query, answer, results: [{title, url, snippet, published_at, source}]}`.
@@ -207,6 +207,6 @@ fn normalize_serpapi(body: &Value, kind: SearchKind) -> Result<(Value, Vec<Value
 }
 
 pub const MANIFEST: &str = include_str!("../manifest.json");
-pub const SPEC: &str = include_str!("../spec.json");
+pub const SPEC: &str = include_str!("../spec.jsonl");
 
 rest_kit::export_rest_plugin!(MANIFEST, SPEC, WebSearch);

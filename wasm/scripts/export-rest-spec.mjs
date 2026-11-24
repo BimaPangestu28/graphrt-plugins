@@ -5,7 +5,8 @@
  *
  * For each port directory `wasm/<plugin>/` with a `rest-port.json`:
  *   - `manifest.json`: what `graphrt_describe` returns, the Node.js plugin's nodes and tools byte for byte;
- *   - `spec.json`: the runtime spec rest-kit reads (APIs, operations, params, auth, errors, pagination);
+ *   - `spec.jsonl`: the runtime spec rest-kit reads (APIs, operations, params, auth, errors, pagination), one
+ *     JSON document per line so a call parses only what it uses (rest-kit/src/spec.rs);
  *   - `graphrt-plugin.json`: the install manifest (`runtime: wasm`) with the Node.js plugin's permissions and limits.
  *
  * `rest-port.json`: `{"definition": "pluginDefinition", "apis": {"main": "restDefinition"}, "module": "x.wasm"}`;
@@ -51,6 +52,7 @@ export async function exportPort(portName) {
   const nodeManifest = buildManifest(pluginDefinition);
   const { nodes, tools } = buildDescriptors(pluginDefinition);
   const manifest = { name: pluginDefinition.name, version: pluginDefinition.version, description: pluginDefinition.description, nodes, tools };
+  const operations = describeOperations(pluginDefinition, apiDefinitions[0]);
   const spec = {
     name: pluginDefinition.name,
     version: pluginDefinition.version,
@@ -58,8 +60,8 @@ export async function exportPort(portName) {
     noCredentials: pluginDefinition.noCredentials === true,
     toolTokenSourceEnv: toolTokenSourceEnv(pluginDefinition) ?? null,
     toolCredentialEnv: describeToolCredentialEnv(pluginDefinition),
-    operations: describeOperations(pluginDefinition, apiDefinitions[0]),
-    apis: Object.fromEntries(apiDefinitions.map(([apiName, apiDefinition]) => [apiName, describeApi(apiName, apiDefinition)])),
+    operations,
+    apis: Object.fromEntries(apiDefinitions.map(([apiName, apiDefinition]) => [apiName, describeApi(apiName, apiDefinition, outerNamesOf(operations, apiName))])),
   };
   const installManifest = {
     name: nodeManifest.name,
@@ -75,9 +77,20 @@ export async function exportPort(portName) {
   };
   return {
     "manifest.json": `${JSON.stringify(manifest)}\n`,
-    "spec.json": `${JSON.stringify(spec)}\n`,
+    "spec.jsonl": renderSpecLines(spec),
     "graphrt-plugin.json": `${JSON.stringify(installManifest, null, 2)}\n`,
   };
+}
+
+// One JSON document per line (rest-kit/src/spec.rs): a call parses only the lines it uses.
+function renderSpecLines({ operations, apis, ...plugin }) {
+  const lines = [{ plugin: { ...plugin, operations: operations.map(({ schema, ...operation }) => operation) } }];
+  for (const operation of operations) lines.push({ schema: operation.name, value: operation.schema });
+  for (const [apiName, { operations: apiOperations, ...api }] of Object.entries(apis)) {
+    lines.push({ api: apiName, value: api });
+    for (const [operationName, operation] of Object.entries(apiOperations)) lines.push({ operation: `${apiName}/${operationName}`, value: operation });
+  }
+  return lines.map((line) => `${JSON.stringify(line)}\n`).join("");
 }
 
 function describeToolCredentialEnv(pluginDefinition) {
@@ -97,7 +110,13 @@ function describeOperations(pluginDefinition, [mainApiName, mainApi]) {
   }));
 }
 
-function describeApi(apiName, apiDefinition) {
+// Operations an outer operation of the same name runs: they are validated with the outer schema, so their own is
+// left out of the spec (the hooks validate the others' arguments with it).
+function outerNamesOf(operations, apiName) {
+  return new Set(operations.filter((operation) => operation.api === apiName).map((operation) => operation.name));
+}
+
+function describeApi(apiName, apiDefinition, outerNames) {
   const restSpec = apiDefinition.restSpec;
   if (!restSpec) throw new Error(`api ${apiName}: not a defineRestPlugin definition`);
   if (!SUPPORTED_AUTH.has(restSpec.auth.type)) throw new Error(`${restSpec.name}: auth type ${restSpec.auth.type} is not supported by rest-kit`);
@@ -115,7 +134,7 @@ function describeApi(apiName, apiDefinition) {
     toolOutput: restSpec.toolOutput ?? null,
     apiRequest: Boolean(apiRequest),
     protectedPaths: apiRequest ? describeProtectedPaths(restSpec.operations) : [],
-    operations: Object.fromEntries(restSpec.operations.map((operation) => [operation.name, describeRestOperation(restSpec.name, operation, apiDefinition)])),
+    operations: Object.fromEntries(restSpec.operations.map((operation) => [operation.name, describeRestOperation(restSpec.name, operation, outerNames.has(operation.name) ? undefined : apiDefinition)])),
   };
 }
 
@@ -141,7 +160,7 @@ function describeRestOperation(specName, operation, apiDefinition) {
       return [paramName, Object.fromEntries(RUNTIME_PARAM_FIELDS.filter((field) => paramSpec[field] !== undefined).map((field) => [field, paramSpec[field]]))];
     }),
   );
-  runtimeOperation.schema = stripDescriptions(apiDefinition.operations.find((built) => built.name === operation.name).parameters);
+  if (apiDefinition) runtimeOperation.schema = stripDescriptions(apiDefinition.operations.find((built) => built.name === operation.name).parameters);
   return runtimeOperation;
 }
 

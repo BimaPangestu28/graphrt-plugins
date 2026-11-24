@@ -8,6 +8,7 @@ use crate::client::Transport;
 use crate::error::RestError;
 use crate::js;
 use crate::runner::{Hooks, Kit, Source};
+use crate::spec::Spec;
 
 /// A buffer of `len` bytes for the host to write a request into (never freed: one instance per call).
 pub fn alloc(len: i32) -> i32 {
@@ -35,13 +36,13 @@ unsafe fn input<'a>(ptr: i32, len: i32) -> &'a [u8] {
 }
 
 /// `graphrt_run`.
-pub fn run(ptr: i32, len: i32, spec: &str, hooks: &dyn Hooks) -> i64 {
+pub fn run(ptr: i32, len: i32, spec: &'static str, hooks: &dyn Hooks) -> i64 {
     // SAFETY: the host wrote `len` bytes at `ptr`, a buffer from `alloc`.
     leak(respond_run(unsafe { input(ptr, len) }, spec, hooks, &crate::client::HostTransport))
 }
 
 /// `graphrt_tool_call`.
-pub fn tool_call(ptr: i32, len: i32, spec: &str, hooks: &dyn Hooks) -> i64 {
+pub fn tool_call(ptr: i32, len: i32, spec: &'static str, hooks: &dyn Hooks) -> i64 {
     // SAFETY: the host wrote `len` bytes at `ptr`, a buffer from `alloc`.
     leak(respond_tool_call(unsafe { input(ptr, len) }, spec, hooks, &crate::client::HostTransport))
 }
@@ -51,10 +52,10 @@ fn object_at(request: &Value, pointer: &str) -> Map<String, Value> {
 }
 
 /// A node run request (`{kind, config, env}`) to its response JSON.
-pub fn respond_run(input: &[u8], spec_text: &str, hooks: &dyn Hooks, transport: &dyn Transport) -> String {
+pub fn respond_run(input: &[u8], spec_text: &'static str, hooks: &dyn Hooks, transport: &dyn Transport) -> String {
     let outcome = parse(input, spec_text).and_then(|(request, spec)| {
         let kind = request["kind"].as_str().unwrap_or_default();
-        let name = spec["name"]
+        let name = spec.plugin()["name"]
             .as_str()
             .and_then(|plugin| kind.strip_prefix(plugin))
             .and_then(|rest| rest.strip_prefix('.'))
@@ -69,7 +70,12 @@ pub fn respond_run(input: &[u8], spec_text: &str, hooks: &dyn Hooks, transport: 
 }
 
 /// A tool call (`{name, arguments, context, env}`) to its response JSON: `{text, data}` or `{error}`.
-pub fn respond_tool_call(input: &[u8], spec_text: &str, hooks: &dyn Hooks, transport: &dyn Transport) -> String {
+pub fn respond_tool_call(
+    input: &[u8],
+    spec_text: &'static str,
+    hooks: &dyn Hooks,
+    transport: &dyn Transport,
+) -> String {
     let outcome = parse(input, spec_text).and_then(|(request, spec)| {
         let name = request["name"].as_str().unwrap_or_default().to_owned();
         let kit = Kit::new(
@@ -91,10 +97,9 @@ pub fn respond_tool_call(input: &[u8], spec_text: &str, hooks: &dyn Hooks, trans
     }
 }
 
-fn parse(input: &[u8], spec_text: &str) -> Result<(Value, Value), RestError> {
+fn parse(input: &[u8], spec_text: &'static str) -> Result<(Value, Spec), RestError> {
     // serde_json's error text would link float formatting into the module; the host only sends valid JSON.
     let request = serde_json::from_slice(input)
         .map_err(|_| RestError::new("invalid_request", "the request is not valid JSON"))?;
-    let spec = serde_json::from_str(spec_text).map_err(|_| RestError::plugin("the embedded spec is not valid JSON"))?;
-    Ok((request, spec))
+    Ok((request, Spec::new(spec_text)?))
 }

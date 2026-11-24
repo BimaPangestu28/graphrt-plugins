@@ -1,6 +1,6 @@
 //! rest-kit: one small runtime for graphrt WebAssembly builds of declarative REST plugins.
 //!
-//! A plugin is data: `manifest.json` (its nodes and tools) and `spec.json` (APIs, operations, params, auth,
+//! A plugin is data: `manifest.json` (its nodes and tools) and `spec.jsonl` (APIs, operations, params, auth,
 //! errors, pagination, limits), both exported from the Node.js plugin's `defineRestPlugin` definition by
 //! `wasm/scripts/export-rest-spec.mjs` and embedded in the plugin's module at build time. Plugin-specific code is a
 //! small [`Hooks`] implementation. The behaviour is a port of `shared/lib` (rest-plugin, rest-request,
@@ -10,7 +10,7 @@
 //! ```ignore
 //! struct NoHooks;
 //! impl rest_kit::Hooks for NoHooks {}
-//! rest_kit::export_rest_plugin!(include_str!("../manifest.json"), include_str!("../spec.json"), NoHooks);
+//! rest_kit::export_rest_plugin!(include_str!("../manifest.json"), include_str!("../spec.jsonl"), NoHooks);
 //! ```
 
 pub mod abi;
@@ -22,6 +22,7 @@ pub mod path;
 pub mod request;
 pub mod response;
 pub mod runner;
+pub mod spec;
 pub mod url;
 
 pub use client::{Client, Transport};

@@ -13,6 +13,7 @@ use crate::js;
 use crate::params::validate_arguments;
 use crate::request::build_rest_request;
 use crate::response::{shape_rest_response, truncate_for_tool, OperationResult};
+use crate::spec::Spec;
 use crate::url::{decode_uri_component, encode_uri_component, Url};
 
 const UNKNOWN_OUTCOME_MARKER: &str = "outcome unknown";
@@ -43,7 +44,7 @@ pub trait Hooks {
 
 /// One call's view of the plugin: its spec, environment, tool context and transport.
 pub struct Kit<'a> {
-    pub spec: &'a Value,
+    spec: &'a Spec,
     pub source: Source,
     env: Map<String, Value>,
     secrets: Map<String, Value>,
@@ -54,7 +55,7 @@ pub struct Kit<'a> {
 
 impl<'a> Kit<'a> {
     pub fn new(
-        spec: &'a Value,
+        spec: &'a Spec,
         source: Source,
         env: Map<String, Value>,
         secrets: Map<String, Value>,
@@ -69,15 +70,27 @@ impl<'a> Kit<'a> {
         self.env.get(name).and_then(Value::as_str)
     }
 
-    /// The API spec `name` (`apis` in spec.json).
-    pub fn api(&self, name: &str) -> Result<&'a Value, RestError> {
-        self.spec["apis"].get(name).ok_or_else(|| RestError::plugin(format!("spec has no API `{name}`")))
+    /// Plugin-level settings of the spec.
+    pub fn plugin(&self) -> &'static Value {
+        self.spec.plugin()
+    }
+
+    /// API `name`'s settings.
+    pub fn api(&self, name: &str) -> Result<&'static Value, RestError> {
+        self.spec.api(name).ok_or_else(|| RestError::plugin(format!("spec has no API `{name}`")))
+    }
+
+    /// Operation `operation` of API `api`.
+    pub fn operation(&self, api: &str, operation: &str) -> Result<&'static Value, RestError> {
+        self.spec
+            .operation(api, operation)
+            .ok_or_else(|| RestError::invalid_input(format!("Unknown operation `{operation}`")))
     }
 
     /// Runs operation `name` with raw node config or tool arguments: `{data, next_cursor}` or the error.
     pub fn run(mut self, name: &str, raw_arguments: &Value) -> Result<OperationResult, RestError> {
         let outer =
-            self.spec["operations"].as_array().into_iter().flatten().find(|operation| operation["name"] == name);
+            self.plugin()["operations"].as_array().into_iter().flatten().find(|operation| operation["name"] == name);
         let Some(outer) = outer.filter(|operation| !(operation["nodeOnly"] == true && self.source == Source::Tool))
         else {
             return Err(RestError::invalid_input(format!("Unknown operation `{name}`")));
@@ -86,7 +99,8 @@ impl<'a> Kit<'a> {
             return self.run_operation_call(outer, name, raw_arguments);
         };
         let token = self.read_context_token(&source_env)?;
-        for credential_env in self.spec["toolCredentialEnv"].as_array().into_iter().flatten().filter_map(Value::as_str)
+        for credential_env in
+            self.plugin()["toolCredentialEnv"].as_array().into_iter().flatten().filter_map(Value::as_str)
         {
             self.env.remove(credential_env);
         }
@@ -112,7 +126,7 @@ impl<'a> Kit<'a> {
         let Some(api_name) = outer["api"].as_str() else {
             return Err(RestError::plugin(format!("operation `{name}` needs a hook")));
         };
-        let args = validate_arguments(&outer["schema"], raw_arguments)?;
+        let args = self.validate(name, raw_arguments)?;
         let client = self.client(api_name, raw_arguments)?;
         if name == "api_request" {
             return self.run_api_request(&client, &args);
@@ -122,9 +136,7 @@ impl<'a> Kit<'a> {
 
     /// Validates raw arguments against outer operation `name`'s schema (`validateArguments`).
     pub fn validate(&self, name: &str, raw_arguments: &Value) -> Result<Map<String, Value>, RestError> {
-        let outer =
-            self.spec["operations"].as_array().into_iter().flatten().find(|operation| operation["name"] == name);
-        validate_arguments(outer.map_or(&Value::Null, |operation| &operation["schema"]), raw_arguments)
+        validate_arguments(self.spec.schema(name).unwrap_or(&Value::Null), raw_arguments)
     }
 
     /// Validates arguments against API operation `api.operation`'s own schema.
@@ -134,7 +146,7 @@ impl<'a> Kit<'a> {
         operation: &str,
         raw_arguments: &Value,
     ) -> Result<Map<String, Value>, RestError> {
-        validate_arguments(&self.api(api)?["operations"][operation]["schema"], raw_arguments)
+        validate_arguments(&self.operation(api, operation)?["schema"], raw_arguments)
     }
 
     /// The client of API `api_name` for this call: credential (`pickAccessToken`) first, then the base URL.
@@ -145,7 +157,7 @@ impl<'a> Kit<'a> {
             Some(base_url) => base_url.to_owned(),
             None => self.resolve_hook_base_url(api_name, api)?,
         };
-        Ok(Client { api, base_url, credential })
+        Ok(Client { api, api_name: api_name.to_owned(), base_url, credential })
     }
 
     fn resolve_hook_base_url(&self, api_name: &str, api: &Value) -> Result<String, RestError> {
@@ -158,7 +170,7 @@ impl<'a> Kit<'a> {
 
     // `pickAccessToken` + `createCredentialResolver`: a node's (or the end user's) token wins over the env.
     fn pick_credential(&self, api: &Value, raw_arguments: &Value) -> Result<Option<String>, RestError> {
-        if self.spec["noCredentials"] == true || api["auth"]["type"] == "none" {
+        if self.plugin()["noCredentials"] == true || api["auth"]["type"] == "none" {
             return Ok(None);
         }
         let node_token = match (&self.context_token, self.source) {
@@ -173,7 +185,7 @@ impl<'a> Kit<'a> {
         };
         if let Some(token) = node_token {
             if self.context_token.is_none() && token.chars().all(|character| character == '*') {
-                let plugin = self.spec["name"].as_str().unwrap_or_default();
+                let plugin = self.plugin()["name"].as_str().unwrap_or_default();
                 return Err(RestError::new("auth_error", format!("The node's access_token arrived masked; trust the plugin so secrets are passed through: --trust-plugin {plugin}")));
             }
             return Ok(Some(token));
@@ -190,8 +202,8 @@ impl<'a> Kit<'a> {
     }
 
     fn context_token_source_env(&self) -> Option<String> {
-        let source_env = self.spec["toolTokenSourceEnv"].as_str()?;
-        if self.source != Source::Tool || self.spec["noCredentials"] == true {
+        let source_env = self.plugin()["toolTokenSourceEnv"].as_str()?;
+        if self.source != Source::Tool || self.plugin()["noCredentials"] == true {
             return None;
         }
         let mode = js::trim(self.env(source_env).unwrap_or_default()).to_ascii_lowercase();
@@ -204,7 +216,7 @@ impl<'a> Kit<'a> {
         if mode != "context" {
             return Err(RestError::invalid_input(format!("{source_env} must be `env` (default) or `context`")));
         }
-        let plugin = self.spec["name"].as_str().unwrap_or_default();
+        let plugin = self.plugin()["name"].as_str().unwrap_or_default();
         let token = self.secrets.get(CONTEXT_TOKEN_SECRET).and_then(Value::as_str).map(js::trim).unwrap_or_default();
         let mode_note = format!("{source_env}=context");
         if token.is_empty() {
@@ -235,9 +247,7 @@ impl<'a> Kit<'a> {
         name: &str,
         args: Map<String, Value>,
     ) -> Result<OperationResult, RestError> {
-        let operation = client.api["operations"]
-            .get(name)
-            .ok_or_else(|| RestError::invalid_input(format!("Unknown operation `{name}`")))?;
+        let operation = self.operation(&client.api_name, name)?;
         self.assert_tool_policy(operation)?;
         let operation_client = match operation["baseUrl"].as_str() {
             Some(base_url) => Client {

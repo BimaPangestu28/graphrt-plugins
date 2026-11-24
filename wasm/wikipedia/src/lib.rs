@@ -87,6 +87,6 @@ fn truncate_extract(page: Value, max_chars: usize, requested_title: &Value) -> R
 }
 
 pub const MANIFEST: &str = include_str!("../manifest.json");
-pub const SPEC: &str = include_str!("../spec.json");
+pub const SPEC: &str = include_str!("../spec.jsonl");
 
 rest_kit::export_rest_plugin!(MANIFEST, SPEC, Wikipedia);

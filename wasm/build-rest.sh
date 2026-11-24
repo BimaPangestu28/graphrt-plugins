@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the rest-kit plugins (Rust -> wasm32-unknown-unknown, opt-level z, LTO, stripped) and prints each module's
-# size and SHA-256. Exports manifest.json/spec.json/graphrt-plugin.json from the Node.js definitions first.
+# size and SHA-256. Exports manifest.json/spec.jsonl/graphrt-plugin.json from the Node.js definitions first.
 # `--check` fails when a committed module or exported file differs from a fresh build.
 #
 #   wasm/build-rest.sh [--check] [plugin ...]

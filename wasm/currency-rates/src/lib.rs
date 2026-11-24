@@ -82,7 +82,7 @@ fn to_fixed(value: f64, digits: u32) -> String {
 }
 
 pub const MANIFEST: &str = include_str!("../manifest.json");
-pub const SPEC: &str = include_str!("../spec.json");
+pub const SPEC: &str = include_str!("../spec.jsonl");
 
 rest_kit::export_rest_plugin!(MANIFEST, SPEC, CurrencyRates);
 
