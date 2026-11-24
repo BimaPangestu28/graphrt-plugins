@@ -10,8 +10,8 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Guest SDK with tools and `graphrt::http` (graphrt PR "WebAssembly tools and outbound HTTP"); re-pin to main once merged.
-graphrt-wasm-guest = { git = "https://github.com/BimaPangestu28/graphrt", rev = "79cabb2e06c327057b7b46766bd1453c7dff95b7" }
+# Guest SDK with tools and `graphrt::http` (graphrt main, #54).
+graphrt-wasm-guest = { git = "https://github.com/BimaPangestu28/graphrt", rev = "f15b13185b43276e7a66a283d9287d4fc810e3c4" }
 # Keys in the order the API sent them, like JSON.parse/JSON.stringify (and smaller than without).
 serde_json = { version = "1", default-features = false, features = ["std", "preserve_order"] }
 

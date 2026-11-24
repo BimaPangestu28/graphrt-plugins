@@ -126,7 +126,7 @@ column defaults for keys a row leaves out (`missing=default`).
 
 ## Multi-user chatbots (`user_rpc`)
 A sandboxed WebAssembly build of this mode, without Node.js, is in [`wasm/supabase-rpc`](../wasm/supabase-rpc/)
-(same env, tool and errors; graphrt 0.6+).
+(same env, tool and errors; graphrt 0.7+).
 
 For an agent that chats with many signed-in users through `graphrt serve` (e.g. a Flutter app with Supabase Auth),
 run the plugin with:

@@ -13,7 +13,7 @@ Same manifest name (`supabase`), tool name, env variables, error kinds and messa
 `tools: [supabase/call_function]` and `tool_context: {supabase: {user_jwt: ...}}`.
 
 ## Prerequisites
-- graphrt 0.6+ built with `wasm` and `http` (the default build has both): WebAssembly tools and `graphrt::http`
+- graphrt 0.7+ (graphrt main until it is released) built with `wasm` and `http` (the default build has both): WebAssembly tools and `graphrt::http`
 - No Node.js
 
 ## Installation
