@@ -164,11 +164,13 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 
 ### WebAssembly builds
 [`wasm/`](wasm/) holds sandboxed WebAssembly builds of plugins for agents where starting Node.js is too slow or too
-large (experimental, installed from a path; the Node.js plugin stays the default): [`wasm/supabase`](wasm/supabase/)
-is every agent tool of the supabase plugin's default tool mode except `download_object`, and
-[`wasm/supabase-rpc`](wasm/supabase-rpc/) its per-user `call_function` tool (`SUPABASE_TOOL_MODE=user_rpc`). Their
-tests run the same cases against both builds, and the catalog lists them as the plugin's `runtimes`
-([Picking a runtime](wasm/README.md#picking-a-runtime)).
+large (experimental, installed from a path; the Node.js plugin stays the default): [open-meteo](wasm/open-meteo/),
+[currency-rates](wasm/currency-rates/), [wikipedia](wasm/wikipedia/) and [web-search](wasm/web-search/) on
+[rest-kit](wasm/crates/rest-kit/), a declarative REST runtime that runs the Node.js plugin's own definition as data;
+[`wasm/supabase`](wasm/supabase/), every agent tool of the supabase plugin's default tool mode except
+`download_object`; and [`wasm/supabase-rpc`](wasm/supabase-rpc/), its per-user `call_function` tool
+(`SUPABASE_TOOL_MODE=user_rpc`). Their tests run the same cases against both builds, and the catalog lists them as
+the plugin's `runtimes` ([Picking a runtime](wasm/README.md#picking-a-runtime)).
 
 ## Plugin status
 Every plugin has a maturity label and a Terms-of-Service risk rating in [`plugin-status.json`](plugin-status.json),

@@ -473,12 +473,12 @@ retry is deduplicated), or the call is free (an upload to the provider's own sto
 
 ## WebAssembly builds
 A declarative plugin can also ship as a sandboxed WebAssembly module, for agents where a Node.js process is too slow
-to start: [`wasm/rest-kit`](../wasm/rest-kit/) runs the same definition, exported as data by
-`wasm/scripts/export-rest-spec.mjs`, with the same requests, results and errors (open-meteo, currency-rates,
+to start: [`wasm/crates/rest-kit`](../wasm/crates/rest-kit/) runs the same definition, exported as data by
+`wasm/crates/rest-kit/export-spec.mjs`, with the same requests, results and errors (open-meteo, currency-rates,
 wikipedia and web-search are ported; see [wasm/README.md](../wasm/README.md)). It covers auth `none`, `bearer`,
 `header` and `query` (env, a node's `access_token` or `toolUserToken`), JSON, raw, form and text bodies, every
 pagination style, the `errors` spec, `toolOutput`, `toolPolicy`, `nodeOnly` and `api_request`; the export refuses
 OAuth2, custom or basic auth, jobs, downloads, binary responses, file and multipart bodies and
 `idempotencyKeyHeader`. Hand-written operations and `baseUrl` functions become Rust hooks in the port. After
-changing a ported plugin's `definition.mjs`, run `wasm/build-rest.sh <plugin>` (needs Rust), or the parity tests in
-`wasm/test` fail.
+changing a ported plugin's `definition.mjs`, run `wasm/crates/rest-kit/build.sh <plugin>` (needs Rust), or `npm run check` and
+the parity tests in `wasm/test` fail.

@@ -1,20 +1,22 @@
 /**
  * Exports a declarative REST plugin (shared/lib/rest-plugin.mjs) as data for its WebAssembly build
- * (wasm/rest-kit): the Node.js plugin stays the single source of the contract, and the WebAssembly build
+ * (wasm/crates/rest-kit): the Node.js plugin stays the single source of the contract, and the WebAssembly build
  * embeds what this script writes.
  *
- * For each port directory `wasm/<plugin>/` with a `rest-port.json`:
- *   - `manifest.json`: what `graphrt_describe` returns, the Node.js plugin's nodes and tools byte for byte;
- *   - `spec.jsonl`: the runtime spec rest-kit reads (APIs, operations, params, auth, errors, pagination), one
- *     JSON document per line so a call parses only what it uses (rest-kit/src/spec.rs);
- *   - `graphrt-plugin.json`: the install manifest (`runtime: wasm`) with the Node.js plugin's permissions and limits.
+ * For each port crate `wasm/crates/<plugin>/` with a `rest-port.json`:
+ *   - `manifest.json` (in the crate): what `graphrt_describe` returns, the Node.js plugin's nodes and tools byte for
+ *     byte;
+ *   - `spec.jsonl` (in the crate): the runtime spec rest-kit reads (APIs, operations, params, auth, errors,
+ *     pagination), one JSON document per line so a call parses only what it uses (rest-kit/src/spec.rs);
+ *   - `wasm/<plugin>/graphrt-plugin.json` (the install directory): the `runtime: wasm` manifest with the Node.js
+ *     plugin's permissions and limits.
  *
  * `rest-port.json`: `{"definition": "pluginDefinition", "apis": {"main": "restDefinition"}, "module": "x.wasm"}`;
  * the first API is the plugin's own (operations of the same name and `api_request` run on it), the others are
  * only reachable from the port's Rust hooks. Spec features rest-kit does not implement are refused here, so a
  * port can never silently drop behaviour.
  *
- *   node wasm/scripts/export-rest-spec.mjs [--check] [port ...]
+ *   node wasm/crates/rest-kit/export-spec.mjs [--check] [port ...]
  *
  * `--check` fails when a committed file differs from a fresh export.
  */
@@ -22,7 +24,8 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const WASM_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
+const CRATES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
+const WASM_DIR = join(CRATES_DIR, "..");
 const REPO_ROOT = join(WASM_DIR, "..");
 const PORT_FILE = "rest-port.json";
 const SUPPORTED_AUTH = new Set(["none", "bearer", "header", "query"]);
@@ -38,11 +41,11 @@ const RUNTIME_PARAM_FIELDS = ["in", "wireName", "style"];
  * Exports one port.
  *
  * @param portName - Directory under wasm/, the plugin's name (string)
- * @returns `{fileName: text}` of the three generated files (Promise<object>)
+ * @returns `{path relative to wasm/: text}` of the three generated files (Promise<object>)
  * @throws Error - When the definition uses a feature rest-kit does not implement
  */
 export async function exportPort(portName) {
-  const portDirectory = join(WASM_DIR, portName);
+  const portDirectory = join(CRATES_DIR, portName);
   const portConfig = JSON.parse(readFileSync(join(portDirectory, PORT_FILE), "utf8"));
   const definitionModule = await import(pathToFileURL(join(REPO_ROOT, portName, "definition.mjs")));
   const { buildDescriptors, buildManifest } = await import(pathToFileURL(join(REPO_ROOT, portName, "lib/shared/operations.mjs")));
@@ -76,9 +79,9 @@ export async function exportPort(portName) {
     tools: nodeManifest.tools,
   };
   return {
-    "manifest.json": `${JSON.stringify(manifest)}\n`,
-    "spec.jsonl": renderSpecLines(spec),
-    "graphrt-plugin.json": `${JSON.stringify(installManifest, null, 2)}\n`,
+    [`crates/${portName}/manifest.json`]: `${JSON.stringify(manifest)}\n`,
+    [`crates/${portName}/spec.jsonl`]: renderSpecLines(spec),
+    [`${portName}/graphrt-plugin.json`]: `${JSON.stringify(installManifest, null, 2)}\n`,
   };
 }
 
@@ -173,8 +176,8 @@ function stripDescriptions(schema) {
 }
 
 function listPorts() {
-  return readdirSync(WASM_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && existsSync(join(WASM_DIR, entry.name, PORT_FILE)))
+  return readdirSync(CRATES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(CRATES_DIR, entry.name, PORT_FILE)))
     .map((entry) => entry.name)
     .sort();
 }
@@ -186,15 +189,15 @@ async function main(commandArguments) {
   for (const portName of requestedPorts.length ? requestedPorts : listPorts()) {
     const generatedFiles = await exportPort(portName);
     for (const [fileName, text] of Object.entries(generatedFiles)) {
-      const filePath = join(WASM_DIR, portName, fileName);
+      const filePath = join(WASM_DIR, fileName);
       const current = existsSync(filePath) ? readFileSync(filePath, "utf8") : null;
       if (current === text) continue;
       if (check) {
-        console.error(`wasm/${portName}/${fileName} is out of date: run node wasm/scripts/export-rest-spec.mjs`);
+        console.error(`wasm/${fileName} is out of date: run node wasm/crates/rest-kit/export-spec.mjs`);
         staleFiles += 1;
       } else {
         writeFileSync(filePath, text);
-        console.error(`wrote wasm/${portName}/${fileName}`);
+        console.error(`wrote wasm/${fileName}`);
       }
     }
   }

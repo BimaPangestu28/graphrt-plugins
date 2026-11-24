@@ -1,6 +1,18 @@
 {
+  "currency-rates": [
+    {"subdir": "wasm/currency-rates", "tool_mode": "default", "note": "Every workflow node and agent tool (rest-kit build of the declarative definition); convert as a hook"}
+  ],
+  "open-meteo": [
+    {"subdir": "wasm/open-meteo", "tool_mode": "default", "note": "Every workflow node and agent tool (rest-kit build of the declarative definition)"}
+  ],
   "supabase": [
-    { "subdir": "wasm/supabase", "tool_mode": "default", "note": "Every agent tool of the default tool mode except download_object; no workflow nodes" },
-    { "subdir": "wasm/supabase-rpc", "tool_mode": "user_rpc", "note": "SUPABASE_TOOL_MODE=user_rpc: the per-user call_function tool (user JWT from tool_context)" }
+    {"subdir": "wasm/supabase", "tool_mode": "default", "note": "Every agent tool of the default tool mode except download_object; no workflow nodes"},
+    {"subdir": "wasm/supabase-rpc", "tool_mode": "user_rpc", "note": "SUPABASE_TOOL_MODE=user_rpc: the per-user call_function tool (user JWT from tool_context)"}
+  ],
+  "web-search": [
+    {"subdir": "wasm/web-search", "tool_mode": "default", "note": "Every workflow node and agent tool (rest-kit build; Tavily, Brave Search and SerpAPI as declarative APIs)"}
+  ],
+  "wikipedia": [
+    {"subdir": "wasm/wikipedia", "tool_mode": "default", "note": "Every workflow node and agent tool (rest-kit build of the declarative definition); language and max_chars as hooks"}
   ]
 }

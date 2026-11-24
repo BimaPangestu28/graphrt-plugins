@@ -2,7 +2,7 @@
 //!
 //! A plugin is data: `manifest.json` (its nodes and tools) and `spec.jsonl` (APIs, operations, params, auth,
 //! errors, pagination, limits), both exported from the Node.js plugin's `defineRestPlugin` definition by
-//! `wasm/scripts/export-rest-spec.mjs` and embedded in the plugin's module at build time. Plugin-specific code is a
+//! `wasm/crates/rest-kit/export-spec.mjs` and embedded in the plugin's module at build time. Plugin-specific code is a
 //! small [`Hooks`] implementation. The behaviour is a port of `shared/lib` (rest-plugin, rest-request,
 //! rest-response, rest-errors, rest-auth, api-client, params, operations), with the same requests, results, error
 //! kinds and messages; `wasm/test` checks that against the Node.js plugins.

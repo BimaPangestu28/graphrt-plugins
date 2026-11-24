@@ -4,13 +4,13 @@
 
 ## Overview
 The [wikipedia](../../wikipedia/) plugin compiled from Rust to a sandboxed `wasm32-unknown-unknown` module
-(`wikipedia.wasm`) on [rest-kit](../rest-kit/): Wikipedia in any language (no API key): search, summaries, plain-text content, media lists, nearby pages, language links and `api_request`. It runs inside graphrt's wasmi interpreter, with no
+(`wikipedia.wasm`) on [rest-kit](../crates/rest-kit/): Wikipedia in any language (no API key): search, summaries, plain-text content, media lists, nearby pages, language links and `api_request`. It runs inside graphrt's wasmi interpreter, with no
 Node.js process; outbound HTTP goes through graphrt's SSRF-safe egress.
 
 Same plugin name, node kinds, tool names, parameters, env variables, results, error kinds and messages as the
-Node.js plugin, so workflows and agents keep `wikipedia.<operation>` and `wikipedia/<operation>`. `manifest.json` and
+Node.js plugin, so workflows and agents keep `wikipedia.<operation>` and `wikipedia/<operation>`. `crates/wikipedia/manifest.json` and
 `spec.jsonl` are exported from [`wikipedia/definition.mjs`](../../wikipedia/definition.mjs); plugin-specific code
-([`src/lib.rs`](src/lib.rs)): `language` on every operation but `api_request` (another wiki, still on wikipedia.org) and `get_page_content`'s `max_chars` cap with not_found for missing pages.
+([`crates/wikipedia/src/lib.rs`](../crates/wikipedia/src/lib.rs)): `language` on every operation but `api_request` (another wiki, still on wikipedia.org) and `get_page_content`'s `max_chars` cap with not_found for missing pages.
 
 ## Prerequisites
 - graphrt 0.6.1+ built with `wasm` and `http` (the default CLI build has both)
@@ -20,9 +20,9 @@ Node.js plugin, so workflows and agents keep `wikipedia.<operation>` and `wikipe
 ```sh
 graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/wikipedia
 ```
-or point `--plugins` at this directory. The release catalog lists the build under the plugin's
-`wasm` field (install command and module hash). Install either this build or the Node.js
-plugin (they share the name); see [choosing a runtime](../README.md#choosing-a-runtime).
+or point `--plugins` at this directory. The release catalog lists the build in the plugin's
+`runtimes` (install command and module hash). Install either this build or the Node.js
+plugin (they share the name); see [picking a runtime](../README.md#picking-a-runtime).
 
 ## Configuration
 | Variable | Required | Meaning |
@@ -37,8 +37,8 @@ text, retries without waiting, ASCII case folding).
 ## Building
 ```sh
 rustup target add wasm32-unknown-unknown
-wasm/build-rest.sh wikipedia           # export the spec, rebuild wikipedia.wasm (opt-level z, LTO, stripped)
-wasm/build-rest.sh --check wikipedia   # fails if the committed files are stale
+wasm/crates/rest-kit/build.sh wikipedia           # export the spec, rebuild wikipedia.wasm (opt-level z, LTO, stripped)
+wasm/crates/rest-kit/build.sh --check wikipedia   # fails if the committed files are stale
 ```
 
 ## License

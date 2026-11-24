@@ -41,8 +41,8 @@ of the two (same plugin name):
 ```bash
 graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/open-meteo
 ```
-The release catalog lists the build in the plugin's `wasm` field. Differences and measurements:
-[wasm/README.md](../wasm/README.md#choosing-a-runtime).
+The release catalog lists the build in the plugin's `runtimes`. Differences and measurements:
+[wasm/README.md](../wasm/README.md#picking-a-runtime).
 
 ## Configuration
 None. The plugin reads no environment variables and asks for no secrets.

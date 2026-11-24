@@ -54,7 +54,16 @@ jobs:
       # The bytes differ between host platforms (LLVM on Linux and macOS inlines differently), so this rebuilds
       # the modules and runs the Node.js parity tests against them instead of comparing bytes.
       - name: Build the modules
-        run: wasm/crates/supabase/build.sh
+        run: |
+          wasm/crates/supabase/build.sh
+          wasm/crates/rest-kit/build.sh
+
+      - name: rest-kit unit and ABI tests
+        working-directory: wasm/crates
+        run: |
+          cargo test --locked
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo fmt --check
 
       - name: Parity tests against the fresh build
         run: node --test wasm/test/*.test.mjs
