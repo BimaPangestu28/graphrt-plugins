@@ -1,0 +1,13 @@
+[package]
+name = "wikipedia"
+description = "WebAssembly build of the wikipedia plugin on rest-kit."
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rest-kit = { path = "../rest-kit" }

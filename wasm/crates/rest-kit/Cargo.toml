@@ -1,0 +1,14 @@
+[package]
+name = "rest-kit"
+description = "Declarative REST runtime for graphrt WebAssembly plugins: a plugin is a manifest and a spec, plus optional hooks."
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# The only dependencies: JSON with keys in the order the API sent them (like JSON.parse/JSON.stringify) and exact
+# float parsing (float_roundtrip, like JSON.parse), and ryu for JavaScript's shortest number text (serde_json uses
+# it too). The graphrt ABI (four exports, one `graphrt::http` import) is implemented in abi.rs and client.rs.
+[dependencies]
+serde_json = { version = "1", default-features = false, features = ["alloc", "preserve_order", "float_roundtrip"] }
+ryu = { version = "1", features = ["small"] }

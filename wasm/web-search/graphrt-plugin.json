@@ -1,0 +1,248 @@
+{
+  "name": "web-search",
+  "version": "0.1.0",
+  "description": "Web and news search through Tavily, Brave Search or SerpAPI (provider and key from env; paid per query) (WebAssembly build)",
+  "license": "Apache-2.0",
+  "runtime": "wasm",
+  "module": "web_search.wasm",
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "WEB_SEARCH_API_KEY",
+      "WEB_SEARCH_PROVIDER"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "web-search.search",
+      "title": "Web search",
+      "description": "Search the web; returns {provider, query, answer, results: [{title, url, snippet, published_at, source}]} (paid per query)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What to search for"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 10,
+            "description": "Maximum results (SerpAPI: at most 10)"
+          },
+          "country": {
+            "type": "string",
+            "description": "2-letter country code to localize results, e.g. ID, US (Brave, SerpAPI)"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en, id (Brave, SerpAPI)"
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "description": "Only results from the last day, week, month or year"
+          },
+          "include_answer": {
+            "type": "boolean",
+            "default": true,
+            "description": "Tavily only: add a short generated answer"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "web-search.search_news",
+      "title": "News search",
+      "description": "Search recent news articles; same result shape as search (paid per query)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What to search for"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 10,
+            "description": "Maximum results (SerpAPI: at most 10)"
+          },
+          "country": {
+            "type": "string",
+            "description": "2-letter country code to localize results, e.g. ID, US (Brave, SerpAPI)"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en, id (Brave, SerpAPI)"
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "description": "Only results from the last day, week, month or year"
+          },
+          "include_answer": {
+            "type": "boolean",
+            "default": true,
+            "description": "Tavily only: add a short generated answer"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search the web; returns {provider, query, answer, results: [{title, url, snippet, published_at, source}]} (paid per query)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What to search for"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 10,
+            "description": "Maximum results (SerpAPI: at most 10)"
+          },
+          "country": {
+            "type": "string",
+            "description": "2-letter country code to localize results, e.g. ID, US (Brave, SerpAPI)"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en, id (Brave, SerpAPI)"
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "description": "Only results from the last day, week, month or year"
+          },
+          "include_answer": {
+            "type": "boolean",
+            "default": true,
+            "description": "Tavily only: add a short generated answer"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "search_news",
+      "description": "Search recent news articles; same result shape as search (paid per query)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What to search for"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 10,
+            "description": "Maximum results (SerpAPI: at most 10)"
+          },
+          "country": {
+            "type": "string",
+            "description": "2-letter country code to localize results, e.g. ID, US (Brave, SerpAPI)"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, e.g. en, id (Brave, SerpAPI)"
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "description": "Only results from the last day, week, month or year"
+          },
+          "include_answer": {
+            "type": "boolean",
+            "default": true,
+            "description": "Tavily only: add a short generated answer"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  ]
+}

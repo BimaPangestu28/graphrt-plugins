@@ -1,0 +1,13 @@
+# Workspace of the rest-kit runtime and the plugins built on it (crates/supabase is a standalone crate).
+[workspace]
+resolver = "2"
+members = ["rest-kit", "open-meteo", "currency-rates", "wikipedia", "web-search"]
+exclude = ["supabase"]
+
+# Smallest modules: opt-level z, LTO, one codegen unit, no unwinding, stripped.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

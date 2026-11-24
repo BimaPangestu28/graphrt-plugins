@@ -37,6 +37,18 @@ graphrt plugin install ./web-search
 ```
 No `npm install` needed: the plugin has no dependencies.
 
+## Runtime: Node.js or WebAssembly
+This plugin runs on Node.js (the release tarball, above). A sandboxed WebAssembly build with the same nodes, tools,
+env variables, results and errors is in [`wasm/web-search`](../wasm/web-search/): no Node.js process, cold runs ~6× faster
+(≈18–24 ms instead of ≈110 ms) and ~12× less memory on a warm server, but 1–3 ms slower per warm call. Install one
+of the two (same plugin name):
+
+```bash
+graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/web-search
+```
+The release catalog lists the build in the plugin's `runtimes`. Differences and measurements:
+[wasm/README.md](../wasm/README.md#picking-a-runtime).
+
 ## Configuration
 | Env var | Required | Description |
 |---------|----------|-------------|
