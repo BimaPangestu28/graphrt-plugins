@@ -1,5 +1,6 @@
 # Runs on every pull request and on pushes to main: generated files must be in sync,
-# no plugin may use a graphrt-reserved parameter name, and every plugin's tests pass.
+# no plugin may use a graphrt-reserved parameter name, every plugin's tests pass, and the
+# WebAssembly modules built from their source pass the parity tests.
 name: CI
 
 on:
@@ -37,3 +38,23 @@ jobs:
       # Integration tests that need ffmpeg, tesseract, a browser, sshd or a database skip cleanly here.
       - name: Test
         run: npm test
+
+  wasm:
+    name: WebAssembly modules from source
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      # rust-toolchain.toml pins the toolchain and the wasm32 target; rustup installs them on first use.
+      # The bytes differ between host platforms (LLVM on Linux and macOS inlines differently), so this rebuilds
+      # the modules and runs the Node.js parity tests against them instead of comparing bytes.
+      - name: Build the modules
+        run: wasm/crates/supabase/build.sh
+
+      - name: Parity tests against the fresh build
+        run: node --test wasm/test/*.test.mjs

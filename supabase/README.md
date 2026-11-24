@@ -124,9 +124,26 @@ column defaults for keys a row leaves out (`missing=default`).
   `/storage/v1/object/...`). Auth admin (`/auth/v1/admin/users`), Edge Functions (`/functions/v1`, which run code
   with your key), GraphQL and other services are refused; extend with `SUPABASE_TOOL_API_EXTRA_PATHS`.
 
+## Runtimes
+This Node.js plugin is the default and offers every node and tool. For agents, sandboxed WebAssembly builds of the
+tools run without Node.js (cold `graphrt run` ~5x faster, ~10 MiB instead of ~130 MiB RSS; numbers in
+[`wasm/README.md`](../wasm/README.md#nodejs-vs-webassembly)), with the same manifest name, tool names, schemas, env
+and errors:
+
+| Runtime | Tool mode | Install |
+| --- | --- | --- |
+| Node.js (default) | both, plus every node | `graphrt plugin install supabase` |
+| WebAssembly [`wasm/supabase`](../wasm/supabase/) | default (no `download_object`, uploads from https URLs) | `graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase` |
+| WebAssembly [`wasm/supabase-rpc`](../wasm/supabase-rpc/) | `SUPABASE_TOOL_MODE=user_rpc` | `graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase-rpc` |
+
+Install one of them (all are named `supabase`) or point `--plugins` at its directory; workflows do not change. The
+catalog entry lists the same choices under `runtimes`. The WebAssembly builds need graphrt with `wasm` and `http`
+(0.6.1+; `upload_object` needs binary HTTP bodies: the graphrt release after 0.6.1, or graphrt main from 824ccf6 until it is out), offer no workflow nodes, and do not retry; see
+their READMEs for every difference.
+
 ## Multi-user chatbots (`user_rpc`)
-A sandboxed WebAssembly build of this mode, without Node.js, is in [`wasm/supabase-rpc`](../wasm/supabase-rpc/)
-(same env, tool and errors; graphrt 0.7+).
+A sandboxed WebAssembly build of this mode, without Node.js, is [`wasm/supabase-rpc`](../wasm/supabase-rpc/)
+(same env, tool and errors; [Runtimes](#runtimes)).
 
 For an agent that chats with many signed-in users through `graphrt serve` (e.g. a Flutter app with Supabase Auth),
 run the plugin with:

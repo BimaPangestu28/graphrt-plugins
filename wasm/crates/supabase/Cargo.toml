@@ -1,0 +1,33 @@
+[package]
+name = "supabase-wasm"
+description = "WebAssembly builds of the supabase plugin's agent tools: the default tool mode (supabase.wasm) and SUPABASE_TOOL_MODE=user_rpc (supabase_rpc.wasm, feature `user-rpc`)."
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "supabase"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Build the per-user RPC module (one `call_function` tool, user JWT from tool_context) instead of the default
+# mode's tool set. The two modes have different manifests, and a module describes itself before it sees env.
+user-rpc = []
+
+[dependencies]
+# Guest SDK with tools, `graphrt::http` and binary bodies (`body_base64`, graphrt main 824ccf6, #57; released after 0.6.1).
+graphrt-wasm-guest = { git = "https://github.com/BimaPangestu28/graphrt", rev = "824ccf6d09ebd9e9b16546abed31e4f896dab2b0" }
+# Keys in the order the API sent them, like JSON.parse/JSON.stringify (and smaller than without).
+serde_json = { version = "1", default-features = false, features = ["std", "preserve_order"] }
+
+# Smallest module: the guest only parses JSON and builds requests.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Standalone crate: not part of any workspace.
+[workspace]

@@ -1,0 +1,24 @@
+# Bench agent for supabase_tools.py: one `select_rows` tool call per run (the model is mocked).
+version: "1"
+name: supabase-tools-bench
+graph:
+  nodes:
+    - id: start
+      type: start
+      variables:
+        - { variable: message, type: paragraph, required: true }
+    - id: agent
+      type: agent
+      model:
+        provider: openai
+        name: gpt-4o-mini
+      instruction: Answer from the user's profile row.
+      query: "{{#start.message#}}"
+      tools: [supabase/select_rows]
+      max_iterations: 2
+    - id: answer
+      type: answer
+      answer: "{{#agent.text#}}"
+  edges:
+    - { source: start, target: agent }
+    - { source: agent, target: answer }
