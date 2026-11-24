@@ -1,0 +1,27 @@
+[package]
+name = "supabase-rpc"
+description = "WebAssembly build of the supabase plugin's per-user RPC tool (SUPABASE_TOOL_MODE=user_rpc)."
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Guest SDK with tools and `graphrt::http` (graphrt PR "WebAssembly tools and outbound HTTP"); re-pin to main once merged.
+graphrt-wasm-guest = { git = "https://github.com/BimaPangestu28/graphrt", rev = "5751b6b19872e609ed2f83c8eb0e34b97a4f25f8" }
+# Keys in the order the API sent them, like JSON.parse/JSON.stringify (and smaller than without).
+serde_json = { version = "1", default-features = false, features = ["std", "preserve_order"] }
+
+# Smallest module: the guest only parses JSON and builds one request.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Standalone crate: not part of any workspace.
+[workspace]

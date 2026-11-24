@@ -1,0 +1,42 @@
+{
+  "name": "supabase",
+  "version": "0.1.0",
+  "description": "Supabase per-user RPC tool (SUPABASE_TOOL_MODE=user_rpc) as a sandboxed WebAssembly module: call_function as the signed-in end user",
+  "license": "Apache-2.0",
+  "runtime": "wasm",
+  "module": "supabase_rpc.wasm",
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "SUPABASE_KEY",
+      "SUPABASE_URL",
+      "SUPABASE_TOOL_MODE",
+      "SUPABASE_TOOL_RPC_ALLOWLIST",
+      "SUPABASE_TOOL_TIMEOUT_MS",
+      "SUPABASE_TOOL_MAX_ROWS"
+    ]
+  },
+  "tools": [
+    {
+      "name": "call_function",
+      "description": "Call an allowed Postgres function (RPC) as the signed-in end user; row level security applies, so results only include what this user may see",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "function_name": {
+            "type": "string",
+            "description": "Function name"
+          },
+          "arguments": {
+            "type": "object",
+            "description": "Named arguments, e.g. {\"order_id\": 7}"
+          }
+        },
+        "required": [
+          "function_name"
+        ]
+      }
+    }
+  ]
+}
