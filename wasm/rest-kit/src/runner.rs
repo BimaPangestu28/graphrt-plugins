@@ -260,7 +260,7 @@ impl<'a> Kit<'a> {
         let request = build_rest_request(operation, &args, &operation_client.base_url)?;
         let response =
             operation_client.send(request, self.transport).map_err(|error| describe_write_outcome(operation, error))?;
-        let result = shape_rest_response(operation, &response, &args);
+        let result = shape_rest_response(operation, response, &args);
         if self.source != Source::Tool {
             return Ok(result);
         }

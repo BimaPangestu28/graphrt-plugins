@@ -76,6 +76,40 @@ fn write_json_string(text: &mut String, string: &str) {
     text.push('"');
 }
 
+/// `JSON.stringify(value).length` (UTF-16 code units) without building the text.
+pub fn stringified_len(value: &Value) -> usize {
+    match value {
+        Value::Null => 4,
+        Value::Bool(flag) => {
+            if *flag {
+                4
+            } else {
+                5
+            }
+        }
+        Value::Number(number) => number_text(number).len(),
+        Value::String(string) => string_literal_len(string),
+        Value::Array(items) => 2 + items.len().saturating_sub(1) + items.iter().map(stringified_len).sum::<usize>(),
+        Value::Object(map) => {
+            let members: usize =
+                map.iter().map(|(key, item)| string_literal_len(key) + 1 + stringified_len(item)).sum();
+            2 + map.len().saturating_sub(1) + members
+        }
+    }
+}
+
+fn string_literal_len(string: &str) -> usize {
+    let escaped: usize = string
+        .chars()
+        .map(|character| match character {
+            '"' | '\\' | '\u{8}' | '\u{c}' | '\n' | '\r' | '\t' => 2,
+            control if (control as u32) < 0x20 => 6,
+            other => other.len_utf16(),
+        })
+        .sum();
+    escaped + 2
+}
+
 /// The number as JavaScript prints it; integers beyond 2^53 are rounded like `JSON.parse` does.
 pub fn number_text(number: &serde_json::Number) -> String {
     if let Some(integer) = number.as_i64() {
@@ -322,6 +356,8 @@ mod tests {
             r#"{"a":38,"b":[1,-2.5],"c":"x\u0001\"y"}"#
         );
         assert_eq!(stringify(&json!(12345678901234567890u64)), "12345678901234567000");
+        let sample = json!({"a": [1.5, null, true, "é\u{1}\"🙂"], "b": {}, "c": []});
+        assert_eq!(stringified_len(&sample), utf16_len(&stringify(&sample)));
     }
 
     #[test]

@@ -26,18 +26,40 @@ impl OperationResult {
 }
 
 /// `shapeRestResponse(operation, response, args)`.
-pub fn shape_rest_response(operation: &Value, response: &Response, args: &Map<String, Value>) -> OperationResult {
+/// The data is moved out of the response body (no copy); the cursor is read first.
+pub fn shape_rest_response(operation: &Value, mut response: Response, args: &Map<String, Value>) -> OperationResult {
     let data_path = operation.pointer("/response/dataPath").and_then(Value::as_str);
-    let data = read_path(&response.body, data_path).cloned();
-    let Some(style) = operation.pointer("/pagination/style").and_then(Value::as_str) else {
-        return OperationResult::data(data.unwrap_or(Value::Null));
+    let next_cursor = match operation.pointer("/pagination/style").and_then(Value::as_str) {
+        Some(style) => {
+            let data = read_path(&response.body, data_path);
+            match find_next_cursor(style, &operation["response"], &response, data, args) {
+                None | Some(Value::Null) => Value::Null,
+                Some(cursor) => Value::String(crate::client::redact_text(&js::to_text(&cursor), &response.secrets)),
+            }
+        }
+        None => Value::Null,
     };
-    let next_cursor = find_next_cursor(style, &operation["response"], response, data.as_ref(), args);
-    let next_cursor = match next_cursor {
-        None | Some(Value::Null) => Value::Null,
-        Some(cursor) => Value::String(crate::client::redact_text(&js::to_text(&cursor), &response.secrets)),
+    let data = take_path(&mut response.body, data_path).unwrap_or(Value::Null);
+    OperationResult { data, next_cursor }
+}
+
+// `readPath` that moves the value out.
+fn take_path(value: &mut Value, path: Option<&str>) -> Option<Value> {
+    let Some(path) = path.filter(|path| !path.is_empty()) else {
+        return Some(value.take());
     };
-    OperationResult { data: data.unwrap_or(Value::Null), next_cursor }
+    let mut current = value;
+    for segment in crate::path::parse_path(path) {
+        current = match current {
+            Value::Object(map) => map.get_mut(&segment)?,
+            Value::Array(items) => {
+                let index = segment.parse::<usize>().ok().filter(|index| index.to_string() == segment)?;
+                items.get_mut(index)?
+            }
+            _ => return None,
+        };
+    }
+    Some(current.take())
 }
 
 fn find_next_cursor(
@@ -163,11 +185,11 @@ pub fn truncate_for_tool(data: Value, tool_output: &Value) -> Value {
     let Some(max_chars) = tool_output.get("maxChars").and_then(Value::as_u64).map(|max| max as usize) else {
         return shortened;
     };
-    let text = js::stringify(&shortened);
-    let length = js::utf16_len(&text);
+    let length = js::stringified_len(&shortened);
     if length <= max_chars {
         return shortened;
     }
+    let text = js::stringify(&shortened);
     json!({"truncated": true, "preview": js::utf16_prefix(&text, max_chars), "total_chars": length})
 }
 

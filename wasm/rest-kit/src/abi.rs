@@ -90,8 +90,9 @@ pub fn respond_tool_call(
     });
     match outcome {
         Ok(result) => {
-            let output = result.to_json();
-            js::stringify(&json!({"text": js::stringify(&output), "data": output}))
+            // `data` is the output itself, so its text is written once and reused.
+            let text = js::stringify(&result.to_json());
+            format!("{{\"text\":{},\"data\":{text}}}", js::json_string(&text))
         }
         Err(error) => js::stringify(&error.to_json()),
     }
