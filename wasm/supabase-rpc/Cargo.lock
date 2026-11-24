@@ -17,7 +17,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 [[package]]
 name = "graphrt-wasm-guest"
 version = "0.1.0"
-source = "git+https://github.com/BimaPangestu28/graphrt?rev=5751b6b19872e609ed2f83c8eb0e34b97a4f25f8#5751b6b19872e609ed2f83c8eb0e34b97a4f25f8"
+source = "git+https://github.com/BimaPangestu28/graphrt?rev=79cabb2e06c327057b7b46766bd1453c7dff95b7#79cabb2e06c327057b7b46766bd1453c7dff95b7"
 dependencies = [
  "serde",
  "serde_json",
