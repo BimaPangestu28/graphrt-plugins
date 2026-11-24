@@ -1,0 +1,1 @@
+{"definition": "pluginDefinition", "apis": {"tavily": "tavilyDefinition", "brave": "braveDefinition", "serpapi": "serpapiDefinition"}, "module": "web_search.wasm"}

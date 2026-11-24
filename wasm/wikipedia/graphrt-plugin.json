@@ -1,0 +1,535 @@
+{
+  "name": "wikipedia",
+  "version": "0.1.0",
+  "description": "Wikipedia (any language, no API key): search, page summaries, plain-text content, media lists, nearby pages and language links (WebAssembly build)",
+  "license": "Apache-2.0",
+  "runtime": "wasm",
+  "module": "wikipedia.wasm",
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": [
+      "WIKIPEDIA_LANGUAGE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "wikipedia.search_pages",
+      "title": "Search Wikipedia",
+      "description": "Full-text search: title, pageid, snippet (HTML with <span class=searchmatch>), wordcount and timestamp of matching articles",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text; supports intitle:, incategory:, quotes",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `srlimit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 10
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wikipedia.get_page_summary",
+      "title": "Page summary",
+      "description": "Short summary of a page: title, description, extract (plain text lead), thumbnail, coordinates and URLs",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wikipedia.get_page_content",
+      "title": "Page content (plain text)",
+      "description": "The article as plain text (section headings as lines), capped at max_chars: {pageid, title, extract, truncated, total_chars}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "intro_only": {
+            "type": "boolean",
+            "description": "Only the lead section before the first heading"
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500000,
+            "default": 20000,
+            "description": "Return at most this many characters of text (default 20000)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wikipedia.get_page_media",
+      "title": "Page media list",
+      "description": "Images, audio and video used on a page: title (File:...), type, caption and srcset thumbnail URLs",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wikipedia.search_nearby_pages",
+      "title": "Pages near a place",
+      "description": "Articles with coordinates near a point, nearest first: title, pageid, lat, lon, dist (meters)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "coordinates": {
+            "type": "string",
+            "description": "Latitude and longitude separated by \"|\", e.g. \"-7.6079|110.2038\""
+          },
+          "radius_meters": {
+            "type": "integer",
+            "description": "Search radius in meters (10-10000)",
+            "minimum": 10,
+            "maximum": 10000,
+            "default": 1000
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum pages",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 10
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "coordinates"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wikipedia.get_page_languages",
+      "title": "Page in other languages",
+      "description": "The same article in other Wikipedias: langlinks [{lang, title, url}]; next_cursor when there are more than limit",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `lllimit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 500
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "wikipedia.api_request",
+      "title": "Wikipedia (MediaWiki Action and REST v1 APIs) request",
+      "description": "Call any Wikipedia (MediaWiki Action and REST v1 APIs) endpoint that has no dedicated operation, e.g. path \"/w/api.php?action=query&list=random&rnnamespace=0&format=json\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/w/api.php?action=query&list=random&rnnamespace=0&format=json\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_pages",
+      "description": "Full-text search: title, pageid, snippet (HTML with <span class=searchmatch>), wordcount and timestamp of matching articles",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text; supports intitle:, incategory:, quotes",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `srlimit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 10
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "get_page_summary",
+      "description": "Short summary of a page: title, description, extract (plain text lead), thumbnail, coordinates and URLs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      }
+    },
+    {
+      "name": "get_page_content",
+      "description": "The article as plain text (section headings as lines), capped at max_chars: {pageid, title, extract, truncated, total_chars}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "intro_only": {
+            "type": "boolean",
+            "description": "Only the lead section before the first heading"
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          },
+          "max_chars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500000,
+            "default": 20000,
+            "description": "Return at most this many characters of text (default 20000)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      }
+    },
+    {
+      "name": "get_page_media",
+      "description": "Images, audio and video used on a page: title (File:...), type, caption and srcset thumbnail URLs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      }
+    },
+    {
+      "name": "search_nearby_pages",
+      "description": "Articles with coordinates near a point, nearest first: title, pageid, lat, lon, dist (meters)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "coordinates": {
+            "type": "string",
+            "description": "Latitude and longitude separated by \"|\", e.g. \"-7.6079|110.2038\""
+          },
+          "radius_meters": {
+            "type": "integer",
+            "description": "Search radius in meters (10-10000)",
+            "minimum": 10,
+            "maximum": 10000,
+            "default": 1000
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum pages",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 10
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "coordinates"
+        ]
+      }
+    },
+    {
+      "name": "get_page_languages",
+      "description": "The same article in other Wikipedias: langlinks [{lang, title, url}]; next_cursor when there are more than limit",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Borobudur\" (spaces are fine; redirects are followed)",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string",
+            "description": "next_cursor from the previous call, to get the next page"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum items per page (sent as `lllimit`)",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 500
+          },
+          "language": {
+            "type": "string",
+            "description": "Wikipedia language code, e.g. en, id, de, ja, simple (default: WIKIPEDIA_LANGUAGE or en)"
+          }
+        },
+        "required": [
+          "page_title"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Wikipedia (MediaWiki Action and REST v1 APIs) endpoint that has no dedicated operation, e.g. path \"/w/api.php?action=query&list=random&rnnamespace=0&format=json\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/w/api.php?action=query&list=random&rnnamespace=0&format=json\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

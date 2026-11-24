@@ -1,0 +1,657 @@
+{
+  "name": "currency-rates",
+  "version": "0.1.0",
+  "description": "Exchange rates from Frankfurter (ECB and other central banks, no API key): latest, historical, time series, pair rates and conversion (WebAssembly build)",
+  "license": "Apache-2.0",
+  "runtime": "wasm",
+  "module": "currency_rates.wasm",
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": []
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "currency-rates.get_latest_rates",
+      "title": "Latest exchange rates",
+      "description": "Latest reference rates for a base currency: rows of {date, base, quote, rate}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD (default EUR)",
+            "minLength": 3
+          },
+          "quotes": {
+            "type": "array",
+            "description": "Target currencies, e.g. [IDR, EUR] (default: all)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "description": "Only rates of these providers, e.g. [ECB] (see list_providers; default: Frankfurter's blend)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.get_historical_rates",
+      "title": "Historical exchange rates",
+      "description": "Reference rates on a past date (the last published day on or before it): rows of {date, base, quote, rate}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date, YYYY-MM-DD (data back to 1999 for ECB)"
+          },
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD (default EUR)",
+            "minLength": 3
+          },
+          "quotes": {
+            "type": "array",
+            "description": "Target currencies, e.g. [IDR, EUR] (default: all)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "description": "Only rates of these providers, e.g. [ECB] (see list_providers; default: Frankfurter's blend)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "date"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.get_rate_time_series",
+      "title": "Exchange rate time series",
+      "description": "Rates for every published day in a date range, optionally one row per week or month: rows of {date, base, quote, rate}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD"
+          },
+          "to": {
+            "type": "string",
+            "description": "End date, YYYY-MM-DD (default today)"
+          },
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD (default EUR)",
+            "minLength": 3
+          },
+          "quotes": {
+            "type": "array",
+            "description": "Target currencies, e.g. [IDR, EUR] (default: all)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "group": {
+            "type": "string",
+            "description": "One row per week or month instead of per day",
+            "enum": [
+              "week",
+              "month"
+            ]
+          },
+          "providers": {
+            "type": "array",
+            "description": "Only rates of these providers, e.g. [ECB] (see list_providers; default: Frankfurter's blend)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "from"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.get_pair_rate",
+      "title": "Exchange rate for a pair",
+      "description": "One rate {date, base, quote, rate}: 1 base = rate quote, latest or on a date",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD",
+            "minLength": 3
+          },
+          "quote": {
+            "type": "string",
+            "description": "Quote currency, e.g. IDR",
+            "minLength": 3
+          },
+          "date": {
+            "type": "string",
+            "description": "Date, YYYY-MM-DD (default: latest)"
+          }
+        },
+        "required": [
+          "base",
+          "quote"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.list_currencies",
+      "title": "List currencies",
+      "description": "Currencies with rates: iso_code, name, symbol, type (currency or crypto), start_date and end_date",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "all: also list legacy currencies that are no longer published",
+            "enum": [
+              "all"
+            ]
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.get_currency",
+      "title": "Get currency",
+      "description": "One currency: name, symbol, ISO numeric code, date range and the providers that publish it",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Currency code, e.g. IDR",
+            "minLength": 3
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.list_providers",
+      "title": "List rate providers",
+      "description": "Central banks and other sources Frankfurter publishes: key, name, country, rate type, pivot currency, date range",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.api_request",
+      "title": "Frankfurter API request",
+      "description": "Call any Frankfurter API endpoint that has no dedicated operation, e.g. path \"/v2/rates\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/rates\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "currency-rates.convert",
+      "title": "Convert an amount",
+      "description": "Convert an amount between currencies with the latest (or a dated) reference rate: {amount, from, to, date, rate, result}",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Amount in the `from` currency"
+          },
+          "from": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Currency of the amount, e.g. USD"
+          },
+          "to": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Currency to convert into, e.g. IDR"
+          },
+          "date": {
+            "type": "string",
+            "description": "Use the rate of this date, YYYY-MM-DD (default: latest)"
+          }
+        },
+        "required": [
+          "amount",
+          "from",
+          "to"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_latest_rates",
+      "description": "Latest reference rates for a base currency: rows of {date, base, quote, rate}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD (default EUR)",
+            "minLength": 3
+          },
+          "quotes": {
+            "type": "array",
+            "description": "Target currencies, e.g. [IDR, EUR] (default: all)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "description": "Only rates of these providers, e.g. [ECB] (see list_providers; default: Frankfurter's blend)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_historical_rates",
+      "description": "Reference rates on a past date (the last published day on or before it): rows of {date, base, quote, rate}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date, YYYY-MM-DD (data back to 1999 for ECB)"
+          },
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD (default EUR)",
+            "minLength": 3
+          },
+          "quotes": {
+            "type": "array",
+            "description": "Target currencies, e.g. [IDR, EUR] (default: all)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "description": "Only rates of these providers, e.g. [ECB] (see list_providers; default: Frankfurter's blend)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "date"
+        ]
+      }
+    },
+    {
+      "name": "get_rate_time_series",
+      "description": "Rates for every published day in a date range, optionally one row per week or month: rows of {date, base, quote, rate}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Start date, YYYY-MM-DD"
+          },
+          "to": {
+            "type": "string",
+            "description": "End date, YYYY-MM-DD (default today)"
+          },
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD (default EUR)",
+            "minLength": 3
+          },
+          "quotes": {
+            "type": "array",
+            "description": "Target currencies, e.g. [IDR, EUR] (default: all)",
+            "maxItems": 200,
+            "items": {
+              "type": "string"
+            }
+          },
+          "group": {
+            "type": "string",
+            "description": "One row per week or month instead of per day",
+            "enum": [
+              "week",
+              "month"
+            ]
+          },
+          "providers": {
+            "type": "array",
+            "description": "Only rates of these providers, e.g. [ECB] (see list_providers; default: Frankfurter's blend)",
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "from"
+        ]
+      }
+    },
+    {
+      "name": "get_pair_rate",
+      "description": "One rate {date, base, quote, rate}: 1 base = rate quote, latest or on a date",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base currency, e.g. USD",
+            "minLength": 3
+          },
+          "quote": {
+            "type": "string",
+            "description": "Quote currency, e.g. IDR",
+            "minLength": 3
+          },
+          "date": {
+            "type": "string",
+            "description": "Date, YYYY-MM-DD (default: latest)"
+          }
+        },
+        "required": [
+          "base",
+          "quote"
+        ]
+      }
+    },
+    {
+      "name": "list_currencies",
+      "description": "Currencies with rates: iso_code, name, symbol, type (currency or crypto), start_date and end_date",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "all: also list legacy currencies that are no longer published",
+            "enum": [
+              "all"
+            ]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "get_currency",
+      "description": "One currency: name, symbol, ISO numeric code, date range and the providers that publish it",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Currency code, e.g. IDR",
+            "minLength": 3
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    },
+    {
+      "name": "list_providers",
+      "description": "Central banks and other sources Frankfurter publishes: key, name, country, rate type, pivot currency, date range",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Frankfurter API endpoint that has no dedicated operation, e.g. path \"/v2/rates\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v2/rates\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "convert",
+      "description": "Convert an amount between currencies with the latest (or a dated) reference rate: {amount, from, to, date, rate, result}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Amount in the `from` currency"
+          },
+          "from": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Currency of the amount, e.g. USD"
+          },
+          "to": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Currency to convert into, e.g. IDR"
+          },
+          "date": {
+            "type": "string",
+            "description": "Use the rate of this date, YYYY-MM-DD (default: latest)"
+          }
+        },
+        "required": [
+          "amount",
+          "from",
+          "to"
+        ]
+      }
+    }
+  ]
+}

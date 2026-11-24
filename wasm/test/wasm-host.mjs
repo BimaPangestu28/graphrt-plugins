@@ -26,6 +26,14 @@ export function loadWasmPlugin(modulePath) {
      * @returns The guest's tool response (object)
      */
     callTool: (request, respond) => JSON.parse(withInstance(compiled, respond, (guest) => guest.call("graphrt_tool_call", JSON.stringify(request)))),
+    /**
+     * Runs `graphrt_run` (one node) in a fresh instance.
+     *
+     * @param request - `{kind, node_id, config, attempt, env}` (object)
+     * @param respond - As for callTool (function)
+     * @returns The guest's run response: `{outputs}` or `{error}` (object)
+     */
+    run: (request, respond) => JSON.parse(withInstance(compiled, respond, (guest) => guest.call("graphrt_run", JSON.stringify(request)))),
   };
 }
 

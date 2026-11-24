@@ -1,0 +1,415 @@
+{
+  "name": "open-meteo",
+  "version": "0.1.0",
+  "description": "Open-Meteo weather (no API key): forecasts with current, hourly and daily values, and place search for coordinates (WebAssembly build)",
+  "license": "Apache-2.0",
+  "runtime": "wasm",
+  "module": "open_meteo.wasm",
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": []
+  },
+  "limits": {
+    "timeout_ms": 120000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "open-meteo.get_forecast",
+      "title": "Weather forecast",
+      "description": "Weather forecast for a coordinate: current conditions, hourly and daily values for up to 16 days (WMO weather codes; units in *_units)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "description": "Latitude in degrees (WGS84)",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude in degrees (WGS84)",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "current": {
+            "type": "array",
+            "description": "Current-condition variables, e.g. temperature_2m, weather_code, wind_speed_10m",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "temperature_2m",
+              "relative_humidity_2m",
+              "apparent_temperature",
+              "precipitation",
+              "weather_code",
+              "wind_speed_10m"
+            ]
+          },
+          "hourly": {
+            "type": "array",
+            "description": "Hourly variables, e.g. temperature_2m, precipitation_probability, cloud_cover (none by default)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "daily": {
+            "type": "array",
+            "description": "Daily variables, e.g. temperature_2m_max, precipitation_sum, sunrise, uv_index_max",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "weather_code",
+              "temperature_2m_max",
+              "temperature_2m_min",
+              "precipitation_sum",
+              "precipitation_probability_max"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone for times and daily boundaries, or \"auto\" for the location's own",
+            "default": "auto"
+          },
+          "forecast_days": {
+            "type": "integer",
+            "description": "Days to forecast, including today",
+            "minimum": 1,
+            "maximum": 16,
+            "default": 7
+          },
+          "past_days": {
+            "type": "integer",
+            "description": "Also return this many past days",
+            "minimum": 0,
+            "maximum": 92
+          },
+          "temperature_unit": {
+            "type": "string",
+            "description": "Default celsius",
+            "enum": [
+              "celsius",
+              "fahrenheit"
+            ]
+          },
+          "wind_speed_unit": {
+            "type": "string",
+            "description": "Default kmh",
+            "enum": [
+              "kmh",
+              "ms",
+              "mph",
+              "kn"
+            ]
+          },
+          "precipitation_unit": {
+            "type": "string",
+            "description": "Default mm",
+            "enum": [
+              "mm",
+              "inch"
+            ]
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "open-meteo.search_locations",
+      "title": "Search places",
+      "description": "Find places by name (city, town or postal code) to get their coordinates, time zone, country and population; null when nothing matches",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Place name or postal code, e.g. Bandung",
+            "minLength": 2
+          },
+          "count": {
+            "type": "integer",
+            "description": "Maximum results",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the names, e.g. en, id, de",
+            "default": "en"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "Only places in this ISO 3166-1 alpha-2 country, e.g. ID"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "open-meteo.api_request",
+      "title": "Open-Meteo forecast API request",
+      "description": "Call any Open-Meteo forecast API endpoint that has no dedicated operation, e.g. path \"/v1/forecast\". Only the API's own host is allowed.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/forecast\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_forecast",
+      "description": "Weather forecast for a coordinate: current conditions, hourly and daily values for up to 16 days (WMO weather codes; units in *_units)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "description": "Latitude in degrees (WGS84)",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude in degrees (WGS84)",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "current": {
+            "type": "array",
+            "description": "Current-condition variables, e.g. temperature_2m, weather_code, wind_speed_10m",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "temperature_2m",
+              "relative_humidity_2m",
+              "apparent_temperature",
+              "precipitation",
+              "weather_code",
+              "wind_speed_10m"
+            ]
+          },
+          "hourly": {
+            "type": "array",
+            "description": "Hourly variables, e.g. temperature_2m, precipitation_probability, cloud_cover (none by default)",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            }
+          },
+          "daily": {
+            "type": "array",
+            "description": "Daily variables, e.g. temperature_2m_max, precipitation_sum, sunrise, uv_index_max",
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "weather_code",
+              "temperature_2m_max",
+              "temperature_2m_min",
+              "precipitation_sum",
+              "precipitation_probability_max"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA time zone for times and daily boundaries, or \"auto\" for the location's own",
+            "default": "auto"
+          },
+          "forecast_days": {
+            "type": "integer",
+            "description": "Days to forecast, including today",
+            "minimum": 1,
+            "maximum": 16,
+            "default": 7
+          },
+          "past_days": {
+            "type": "integer",
+            "description": "Also return this many past days",
+            "minimum": 0,
+            "maximum": 92
+          },
+          "temperature_unit": {
+            "type": "string",
+            "description": "Default celsius",
+            "enum": [
+              "celsius",
+              "fahrenheit"
+            ]
+          },
+          "wind_speed_unit": {
+            "type": "string",
+            "description": "Default kmh",
+            "enum": [
+              "kmh",
+              "ms",
+              "mph",
+              "kn"
+            ]
+          },
+          "precipitation_unit": {
+            "type": "string",
+            "description": "Default mm",
+            "enum": [
+              "mm",
+              "inch"
+            ]
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      }
+    },
+    {
+      "name": "search_locations",
+      "description": "Find places by name (city, town or postal code) to get their coordinates, time zone, country and population; null when nothing matches",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Place name or postal code, e.g. Bandung",
+            "minLength": 2
+          },
+          "count": {
+            "type": "integer",
+            "description": "Maximum results",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the names, e.g. en, id, de",
+            "default": "en"
+          },
+          "country_code": {
+            "type": "string",
+            "description": "Only places in this ISO 3166-1 alpha-2 country, e.g. ID"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "api_request",
+      "description": "Call any Open-Meteo forecast API endpoint that has no dedicated operation, e.g. path \"/v1/forecast\". Only the API's own host is allowed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "default": "GET"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the API base, starting with \"/\", e.g. \"/v1/forecast\""
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters"
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON body for POST/PUT/PATCH"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}
