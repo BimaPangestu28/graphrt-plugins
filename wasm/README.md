@@ -18,7 +18,7 @@ Both supabase modules are built from one crate, [`crates/supabase`](crates/supab
 | --- | --- | --- |
 | Install | `graphrt plugin install supabase` (catalog tarball) | `graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase` (or `wasm/supabase-rpc` for `user_rpc`) |
 | Offers | Every node and tool | The agent tools of one tool mode |
-| Needs | Node.js 20+ | graphrt with `wasm` and `http` (0.6.1+; `upload_object` needs binary HTTP bodies, graphrt 0.7+) |
+| Needs | Node.js 20+ | graphrt with `wasm` and `http` (0.6.1+; `upload_object` needs binary HTTP bodies: the graphrt release after 0.6.1, or graphrt main from 824ccf6 until it is out) |
 
 Both have the manifest name `supabase`, so a workflow does not change; install one of them (or point `--plugins` at
 its directory). [`builds.json`](builds.json) lists the builds per plugin; the release catalog (`index.json` and
@@ -38,7 +38,7 @@ Linux and runs the tests against that build).
 
 ## Node.js vs WebAssembly
 Measured on Linux aarch64 (4-vCPU VM, Node.js 22), graphrt `serve,llm,plugins,trust-gateway,wasm,http` min-size musl
-build with binary HTTP bodies (graphrt PR #57), mock model and Supabase, one tool call per run, 50 cold and 300 warm
+build with binary HTTP bodies (graphrt PR #57, now main 824ccf6), mock model and Supabase, one tool call per run, 50 cold and 300 warm
 runs, 2026-11-24.
 
 Default tool mode, `select_rows` with a filter ([`bench/supabase_tools.py`](bench/supabase_tools.py), which also

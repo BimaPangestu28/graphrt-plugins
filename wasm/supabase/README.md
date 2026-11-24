@@ -22,7 +22,7 @@ tools before it sees env, and the two modes offer different tools.
 
 ## Prerequisites
 - graphrt built with `wasm` and `http` (the default build has both); 0.6.1 for every tool except `upload_object`,
-  which needs binary HTTP bodies (graphrt PR #57, graphrt 0.7+)
+  which needs binary HTTP bodies: the graphrt release after 0.6.1 (graphrt main from 824ccf6, PR #57, until it is released)
 - No Node.js
 
 ## Installation

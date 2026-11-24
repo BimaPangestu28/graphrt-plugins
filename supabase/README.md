@@ -138,7 +138,7 @@ and errors:
 
 Install one of them (all are named `supabase`) or point `--plugins` at its directory; workflows do not change. The
 catalog entry lists the same choices under `runtimes`. The WebAssembly builds need graphrt with `wasm` and `http`
-(0.6.1+; `upload_object` needs binary HTTP bodies, graphrt 0.7+), offer no workflow nodes, and do not retry; see
+(0.6.1+; `upload_object` needs binary HTTP bodies: the graphrt release after 0.6.1, or graphrt main from 824ccf6 until it is out), offer no workflow nodes, and do not retry; see
 their READMEs for every difference.
 
 ## Multi-user chatbots (`user_rpc`)

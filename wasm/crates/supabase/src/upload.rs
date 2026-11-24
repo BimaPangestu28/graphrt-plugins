@@ -96,7 +96,7 @@ fn fetch(url: &str, original: &str, hop: &str) -> Result<HttpResponse, PluginErr
         )),
         // A host without binary bodies (graphrt 0.6) refuses `response_encoding`.
         "invalid_request" if error.message.contains("response_encoding") => invalid(format!(
-            "upload_object needs a graphrt host with binary HTTP bodies (graphrt 0.7+): {}",
+            "upload_object needs a graphrt host with binary HTTP bodies (the graphrt release after 0.6.1): {}",
             error.message
         )),
         _ => network_error(&error.message),

@@ -315,5 +315,5 @@ test("wasm explains an old host without binary bodies", () => {
     error: { kind: "invalid_request", message: "request JSON: unknown field `response_encoding`, expected one of `method`, `url`, `headers`, `body`, `timeout_ms`" },
   }));
   assert.equal(response.error.kind, "invalid_input");
-  assert.match(response.error.message, /graphrt 0\.7\+/);
+  assert.match(response.error.message, /graphrt release after 0\.6\.1/);
 });
