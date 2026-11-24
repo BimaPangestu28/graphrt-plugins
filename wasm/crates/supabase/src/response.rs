@@ -1,45 +1,29 @@
-//! PostgREST responses and credential redaction (port of the shared API client's
+//! Supabase responses and credential redaction (port of the shared API client's
 //! `readBody`, `buildHttpError` and `redact`, with the plugin's `errors` spec).
 
 use graphrt_wasm_guest::{serde_json, HttpResponse, PluginError, Value};
 
 const REDACTED: &str = "[redacted]";
-const UNKNOWN_OUTCOME_NOTE: &str =
+/// Added to failures of a request that is not safe to repeat, whose outcome is unknown.
+pub const UNKNOWN_OUTCOME_NOTE: &str =
     " (outcome unknown: the write may have been applied; check before retrying)";
 
 /// Credentials of one call, redacted from every result and error.
 pub struct Secrets {
-    user_jwt: String,
-    publishable_key: String,
-    /// Longest first, so `Bearer <jwt>` goes before `<jwt>`.
+    /// In the shared client's order (`Bearer <token>` before `<token>`), de-duplicated.
     values: Vec<String>,
 }
 
 impl Secrets {
-    pub fn new(user_jwt: String, publishable_key: String) -> Self {
+    /// Secrets in redaction order; values shorter than 4 characters are skipped, like the shared client.
+    pub fn from_values(candidates: impl IntoIterator<Item = String>) -> Self {
         let mut values = Vec::new();
-        for value in [
-            format!("Bearer {user_jwt}"),
-            user_jwt.clone(),
-            publishable_key.clone(),
-        ] {
-            if value.chars().count() >= 4 && !values.contains(&value) {
+        for value in candidates {
+            if value.encode_utf16().count() >= 4 && !values.contains(&value) {
                 values.push(value);
             }
         }
-        Self {
-            user_jwt,
-            publishable_key,
-            values,
-        }
-    }
-
-    pub fn user_jwt(&self) -> &str {
-        &self.user_jwt
-    }
-
-    pub fn publishable_key(&self) -> &str {
-        &self.publishable_key
+        Self { values }
     }
 
     pub fn redact(&self, text: &str) -> String {
@@ -49,7 +33,7 @@ impl Secrets {
     }
 
     /// Redact every string in `value` (object keys stay).
-    fn redact_deep(&self, value: Value) -> Value {
+    pub fn redact_deep(&self, value: Value) -> Value {
         match value {
             Value::String(text) => Value::String(self.redact(&text)),
             Value::Array(items) => Value::Array(
@@ -68,24 +52,29 @@ impl Secrets {
     }
 }
 
-/// The function's result, or the API error the response describes.
-pub fn decode(response: HttpResponse, secrets: &Secrets) -> Result<Value, PluginError> {
+/// The redacted body, or the API error the response describes. `idempotent` requests are safe to
+/// repeat: their 5xx errors are retryable; other requests' 5xx errors say the outcome is unknown.
+pub fn decode(
+    response: HttpResponse,
+    secrets: &Secrets,
+    idempotent: bool,
+) -> Result<Value, PluginError> {
     let body = parse_body(&response.body);
     if (200..300).contains(&response.status) {
         return Ok(secrets.redact_deep(body));
     }
-    Err(api_error(response.status, &body, secrets))
+    Err(api_error(response.status, &body, secrets, idempotent))
 }
 
 /// An empty body is `{}`, text that is not JSON is `{text}`.
-fn parse_body(text: &str) -> Value {
+pub fn parse_body(text: &str) -> Value {
     if text.is_empty() {
         return Value::Object(Default::default());
     }
     serde_json::from_str(text).unwrap_or_else(|_| graphrt_wasm_guest::json!({ "text": text }))
 }
 
-fn api_error(status: u16, body: &Value, secrets: &Secrets) -> PluginError {
+fn api_error(status: u16, body: &Value, secrets: &Secrets, idempotent: bool) -> PluginError {
     let code = body.get("code").filter(|code| !code.is_null());
     let message = ["message", "msg", "error_description"]
         .iter()
@@ -103,7 +92,7 @@ fn api_error(status: u16, body: &Value, secrets: &Secrets) -> PluginError {
         (None, _) => generic_message(body).unwrap_or_else(|| reason_phrase(status).to_owned()),
     };
     let server_failure = kind == "api_error" && status >= 500;
-    let note = if server_failure {
+    let note = if server_failure && !idempotent {
         UNKNOWN_OUTCOME_NOTE
     } else {
         ""
@@ -112,7 +101,7 @@ fn api_error(status: u16, body: &Value, secrets: &Secrets) -> PluginError {
         kind,
         secrets.redact(&format!("API error {status}: {api_message}{note}")),
     );
-    error.retryable = kind == "rate_limited";
+    error.retryable = kind == "rate_limited" || (server_failure && idempotent);
     error
 }
 

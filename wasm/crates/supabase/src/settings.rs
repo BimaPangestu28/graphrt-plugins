@@ -1,9 +1,13 @@
 //! `SUPABASE_TOOL_*` settings (port of `readRpcToolSettings` and `assertFunctionAllowed`).
 
-use graphrt_wasm_guest::{PluginError, ToolCall};
+use graphrt_wasm_guest::PluginError;
+#[cfg(feature = "user-rpc")]
+use graphrt_wasm_guest::ToolCall;
 
+#[cfg(feature = "user-rpc")]
 use crate::env_of;
 
+pub const KEY_ENV: &str = "SUPABASE_KEY";
 pub const MODE_ENV: &str = "SUPABASE_TOOL_MODE";
 pub const ALLOWLIST_ENV: &str = "SUPABASE_TOOL_RPC_ALLOWLIST";
 pub const TIMEOUT_ENV: &str = "SUPABASE_TOOL_TIMEOUT_MS";
@@ -25,16 +29,22 @@ pub struct RpcToolSettings {
 
 impl RpcToolSettings {
     /// Read and check the settings; a malformed one is named in the error.
+    #[cfg(feature = "user-rpc")]
     pub fn read(call: &ToolCall) -> Result<Self, PluginError> {
-        let allowlist = parse_allowlist(env_of(call, ALLOWLIST_ENV))?;
+        Self::read_from(|name| env_of(call, name))
+    }
+
+    /// [`RpcToolSettings::read`] from any env lookup.
+    pub fn read_from<'a>(env: impl Fn(&str) -> &'a str) -> Result<Self, PluginError> {
+        let allowlist = parse_allowlist(env(ALLOWLIST_ENV))?;
         let timeout_ms = read_integer(
-            env_of(call, TIMEOUT_ENV),
+            env(TIMEOUT_ENV),
             TIMEOUT_ENV,
             DEFAULT_TIMEOUT_MS,
             TIMEOUT_RANGE_MS,
         )?;
         let max_rows = read_integer(
-            env_of(call, MAX_ROWS_ENV),
+            env(MAX_ROWS_ENV),
             MAX_ROWS_ENV,
             DEFAULT_MAX_ROWS,
             MAX_ROWS_RANGE,
@@ -47,20 +57,50 @@ impl RpcToolSettings {
     }
 }
 
-/// This build serves `SUPABASE_TOOL_MODE=user_rpc` only.
-pub fn require_user_rpc_mode(raw: &str) -> Result<(), PluginError> {
+/// `SUPABASE_TOOL_MODE`: `false` for the default mode, `true` for user_rpc (`isUserRpcMode`).
+fn is_user_rpc_mode(raw: &str) -> Result<bool, PluginError> {
     let mode = raw.trim().to_ascii_lowercase();
-    if mode == USER_RPC_MODE {
+    match mode.as_str() {
+        "" | "default" => Ok(false),
+        USER_RPC_MODE => Ok(true),
+        _ => Err(PluginError::invalid_input(format!(
+            "{MODE_ENV} must be \"default\" or \"{USER_RPC_MODE}\", not \"{mode}\""
+        ))),
+    }
+}
+
+/// The user_rpc module serves `SUPABASE_TOOL_MODE=user_rpc` only.
+#[cfg(feature = "user-rpc")]
+pub fn require_user_rpc_mode(raw: &str) -> Result<(), PluginError> {
+    if is_user_rpc_mode(raw)? {
         return Ok(());
     }
-    if mode.is_empty() || mode == "default" {
-        return Err(PluginError::invalid_input(format!(
-            "This WebAssembly build serves {MODE_ENV}={USER_RPC_MODE} only; use the Node.js supabase plugin for the default mode"
-        )));
+    Err(PluginError::invalid_input(format!(
+        "This WebAssembly build serves {MODE_ENV}={USER_RPC_MODE} only; use wasm/supabase (or the Node.js supabase plugin) for the default mode"
+    )))
+}
+
+/// The default module serves the default tool mode only.
+#[cfg(not(feature = "user-rpc"))]
+pub fn require_default_mode(raw: &str) -> Result<(), PluginError> {
+    if !is_user_rpc_mode(raw)? {
+        return Ok(());
     }
     Err(PluginError::invalid_input(format!(
-        "{MODE_ENV} must be \"default\" or \"{USER_RPC_MODE}\", not \"{mode}\""
+        "This WebAssembly build serves the default tool mode; use wasm/supabase-rpc (or the Node.js supabase plugin) for {MODE_ENV}={USER_RPC_MODE}"
     )))
+}
+
+/// `SUPABASE_KEY`, trimmed; the `auth_error` names the variable when it is unset.
+pub fn require_credential(key: &str) -> Result<String, PluginError> {
+    let key = key.trim();
+    if key.is_empty() {
+        return Err(PluginError::new(
+            "auth_error",
+            format!("No credential: set the {KEY_ENV} environment variable (and allow it in permissions.env)"),
+        ));
+    }
+    Ok(key.to_owned())
 }
 
 /// Comma list of plain function names, de-duplicated in order.
@@ -128,12 +168,17 @@ fn config_error(message: String) -> PluginError {
     PluginError::invalid_input(format!("Plugin configuration: {message}"))
 }
 
-/// Refuse a function the allowlist does not name (model-written names are untrusted).
+/// Refuse a function the allowlist does not name (model-written names are untrusted). Without an
+/// allowlist every function is refused when `list_required` (user_rpc), and allowed otherwise.
 pub fn assert_function_allowed(
     name: &str,
     allowlist: Option<&[String]>,
+    list_required: bool,
 ) -> Result<(), PluginError> {
     let Some(allowlist) = allowlist else {
+        if !list_required {
+            return Ok(());
+        }
         return Err(PluginError::new(
             "permission_denied",
             format!("No database function may be called: set {ALLOWLIST_ENV} to the functions this agent may use"),
@@ -142,7 +187,7 @@ pub fn assert_function_allowed(
     if allowlist.iter().any(|allowed| allowed == name) {
         return Ok(());
     }
-    let shown: String = name.chars().take(80).collect();
+    let shown = crate::limits::utf16_prefix(name, 80);
     Err(PluginError::new(
         "permission_denied",
         format!(

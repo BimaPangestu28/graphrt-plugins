@@ -1,79 +1,24 @@
-//! WebAssembly build of the supabase plugin's per-user RPC tool.
-//!
-//! Port of `supabase/lib/rpc-tool.mjs` (`SUPABASE_TOOL_MODE=user_rpc`): one tool,
-//! `call_function`, that calls an allowed Postgres function
+//! Per-user RPC tool (port of `supabase/lib/rpc-tool.mjs`, `SUPABASE_TOOL_MODE=user_rpc`):
+//! one tool, `call_function`, that calls an allowed Postgres function
 //! (`POST {SUPABASE_URL}/rest/v1/rpc/{name}`) as the signed-in end user:
 //! `apikey` is `SUPABASE_KEY` (publishable / anon only) and
 //! `Authorization: Bearer <user_jwt>` comes from the agent's per-call
 //! `tool_context`, never from env or the model.
-//!
-//! Same env contract as the Node.js plugin: `SUPABASE_URL`, `SUPABASE_KEY`,
-//! `SUPABASE_TOOL_MODE`, `SUPABASE_TOOL_RPC_ALLOWLIST`,
-//! `SUPABASE_TOOL_TIMEOUT_MS`, `SUPABASE_TOOL_MAX_ROWS`. Error kinds and
-//! messages follow the Node.js plugin; `wasm/test` runs the same cases against
-//! both builds.
 
-use graphrt_wasm_guest::{
-    export_plugin, http, json, HttpRequest, Manifest, Output, Plugin, PluginError, Request,
-    ToolCall, ToolResult, Value,
-};
+use graphrt_wasm_guest::{http, json, HttpRequest, PluginError, ToolCall, Value};
 
-mod jwt;
-mod limits;
-mod project_url;
-mod response;
-mod settings;
+use crate::settings::{self, require_credential, RpcToolSettings, KEY_ENV, TIMEOUT_ENV};
+use crate::{env_of, jwt, limits, project_url, response};
 
-use settings::{RpcToolSettings, TIMEOUT_ENV};
-
-const TOOL_NAME: &str = "call_function";
+pub const TOOL_NAME: &str = "call_function";
 const USER_JWT_SECRET: &str = "user_jwt";
-const KEY_ENV: &str = "SUPABASE_KEY";
 const SECRET_KEY_PREFIX: &str = "sb_secret_";
-/// Added to transport failures of a POST, whose outcome is unknown.
-const UNKNOWN_OUTCOME_NOTE: &str =
-    " (outcome unknown: the write may have been applied; check before retrying)";
 
-struct SupabaseRpc;
-
-impl Plugin for SupabaseRpc {
-    fn manifest() -> Manifest {
-        Manifest::new("supabase", env!("CARGO_PKG_VERSION"))
-            .describe("Supabase per-user RPC tool (SUPABASE_TOOL_MODE=user_rpc), WebAssembly build")
-            .tool(TOOL_NAME, TOOL_DESCRIPTION, tool_parameters())
-    }
-
-    fn run(request: Request) -> Result<Output, PluginError> {
-        Err(PluginError::new(
-            "invalid_input",
-            format!(
-                "node kind `{}`: this WebAssembly build only serves the `call_function` tool",
-                request.kind
-            ),
-        ))
-    }
-
-    fn call_tool(call: ToolCall) -> Result<ToolResult, PluginError> {
-        if call.name != TOOL_NAME {
-            return Err(PluginError::new(
-                "invalid_input",
-                format!("Unknown operation `{}`", call.name),
-            ));
-        }
-        let data = call_function_as_user(&call)?;
-        Ok(ToolResult::json(
-            json!({ "data": data, "next_cursor": null }),
-        ))
-    }
-}
-
-export_plugin!(SupabaseRpc, tools);
-
-const TOOL_DESCRIPTION: &str =
+pub const TOOL_DESCRIPTION: &str =
     "Call an allowed Postgres function (RPC) as the signed-in end user; row level security \
 applies, so results only include what this user may see";
 
-fn tool_parameters() -> Value {
+pub fn tool_parameters() -> Value {
     json!({
         "type": "object",
         "properties": {
@@ -84,6 +29,12 @@ fn tool_parameters() -> Value {
     })
 }
 
+/// The end user's token and the publishable key sent with it.
+struct UserCredentials {
+    user_jwt: String,
+    publishable_key: String,
+}
+
 /// Validated tool arguments.
 struct RpcArguments {
     function_name: String,
@@ -92,7 +43,7 @@ struct RpcArguments {
 
 /// The whole tool call, in the order of the Node.js plugin's checks: mode, arguments,
 /// credential, project URL, settings, allowlist, user JWT, key, request.
-fn call_function_as_user(call: &ToolCall) -> Result<Value, PluginError> {
+pub fn call_function_as_user(call: &ToolCall) -> Result<Value, PluginError> {
     let env = |name: &str| env_of(call, name);
     settings::require_user_rpc_mode(env(settings::MODE_ENV))?;
     let allowlist_enum = settings::parse_allowlist(env(settings::ALLOWLIST_ENV))
@@ -102,18 +53,26 @@ fn call_function_as_user(call: &ToolCall) -> Result<Value, PluginError> {
     let configured_key = require_credential(env(KEY_ENV))?;
     let base_url = project_url::resolve(env(project_url::URL_ENV))?;
     let settings = RpcToolSettings::read(call)?;
-    settings::assert_function_allowed(&args.function_name, settings.allowlist.as_deref())?;
+    settings::assert_function_allowed(&args.function_name, settings.allowlist.as_deref(), true)?;
     let user_jwt = jwt::read_user_jwt(call.secret(USER_JWT_SECRET))?;
     let publishable_key = read_publishable_key(&configured_key)?;
-    let secrets = response::Secrets::new(user_jwt, publishable_key);
+    let secrets = response::Secrets::from_values([
+        format!("Bearer {user_jwt}"),
+        user_jwt.clone(),
+        publishable_key.clone(),
+    ]);
+    let credentials = UserCredentials {
+        user_jwt,
+        publishable_key,
+    };
     let url = format!("{base_url}/rest/v1/rpc/{}", args.function_name);
-    let body = send_rpc(&url, &args.arguments, &secrets, settings.timeout_ms)?;
+    let body = send_rpc(
+        &url,
+        &args.arguments,
+        (&credentials, &secrets),
+        settings.timeout_ms,
+    )?;
     Ok(limits::cap_tool_rows(body, settings.max_rows))
-}
-
-/// A host variable granted by `permissions.env`, `""` when unset.
-pub(crate) fn env_of<'a>(call: &'a ToolCall, name: &str) -> &'a str {
-    call.env(name).unwrap_or_default()
 }
 
 /// `validateArguments` of the shared runner for the tool's schema.
@@ -199,17 +158,6 @@ fn invalid_argument(name: &str, problem: &str) -> PluginError {
     PluginError::invalid_input(format!("`{name}` {problem}"))
 }
 
-fn require_credential(key: &str) -> Result<String, PluginError> {
-    let key = key.trim();
-    if key.is_empty() {
-        return Err(PluginError::new(
-            "auth_error",
-            format!("No credential: set the {KEY_ENV} environment variable (and allow it in permissions.env)"),
-        ));
-    }
-    Ok(key.to_owned())
-}
-
 /// user_rpc never sends a key that bypasses row level security, not even as `apikey`.
 fn read_publishable_key(key: &str) -> Result<String, PluginError> {
     let service_role = jwt::payload_of(key)
@@ -227,7 +175,7 @@ fn read_publishable_key(key: &str) -> Result<String, PluginError> {
 fn send_rpc(
     url: &str,
     arguments: &Value,
-    secrets: &response::Secrets,
+    (credentials, secrets): (&UserCredentials, &response::Secrets),
     timeout_ms: u64,
 ) -> Result<Value, PluginError> {
     let mut request = HttpRequest {
@@ -245,14 +193,14 @@ fn send_rpc(
         .insert("content-type".into(), "application/json".into());
     request
         .headers
-        .insert("apikey".into(), secrets.publishable_key().into());
+        .insert("apikey".into(), credentials.publishable_key.clone());
     request.headers.insert(
         "authorization".into(),
-        format!("Bearer {}", secrets.user_jwt()),
+        format!("Bearer {}", credentials.user_jwt),
     );
     let reply = http(&request)
         .map_err(|error| transport_error(&error.kind, &error.message, secrets, timeout_ms))?;
-    response::decode(reply, secrets)
+    response::decode(reply, secrets, false)
 }
 
 fn transport_error(
@@ -271,6 +219,9 @@ fn transport_error(
     }
     PluginError::new(
         "network_error",
-        secrets.redact(&format!("Network error: {message}{UNKNOWN_OUTCOME_NOTE}")),
+        secrets.redact(&format!(
+            "Network error: {message}{}",
+            response::UNKNOWN_OUTCOME_NOTE
+        )),
     )
 }

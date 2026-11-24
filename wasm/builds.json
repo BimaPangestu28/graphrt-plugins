@@ -1,0 +1,6 @@
+{
+  "supabase": [
+    { "subdir": "wasm/supabase", "tool_mode": "default", "note": "Every agent tool of the default tool mode except download_object; no workflow nodes" },
+    { "subdir": "wasm/supabase-rpc", "tool_mode": "user_rpc", "note": "SUPABASE_TOOL_MODE=user_rpc: the per-user call_function tool (user JWT from tool_context)" }
+  ]
+}

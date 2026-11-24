@@ -17,7 +17,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 [[package]]
 name = "graphrt-wasm-guest"
 version = "0.1.0"
-source = "git+https://github.com/BimaPangestu28/graphrt?rev=f15b13185b43276e7a66a283d9287d4fc810e3c4#f15b13185b43276e7a66a283d9287d4fc810e3c4"
+source = "git+https://github.com/BimaPangestu28/graphrt?rev=9a61941ff7a9936a69a81e5d966f2a8479941e3f#9a61941ff7a9936a69a81e5d966f2a8479941e3f"
 dependencies = [
  "serde",
  "serde_json",
@@ -115,7 +115,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "supabase-rpc"
+name = "supabase-wasm"
 version = "0.1.0"
 dependencies = [
  "graphrt-wasm-guest",

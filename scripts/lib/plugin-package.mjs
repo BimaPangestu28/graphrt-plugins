@@ -18,6 +18,7 @@ import { REPO_ROOT } from "../plugins.mjs";
 import { ICON_FILE_NAME, readPluginIcon } from "./plugin-icons.mjs";
 import { displayNameFor } from "./plugin-names.mjs";
 import { readPluginStatuses, statusForPlugin } from "./plugin-status.mjs";
+import { describeRuntimes, readRepositoryWasmRuntimes } from "./plugin-runtimes.mjs";
 import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
 export const MANIFEST_FILE_NAME = "graphrt-plugin.json";
@@ -385,10 +386,12 @@ export function sha256Hex(bytes) {
  *   from the repo at catalog time, not from the tarball, so relabelling a plugin needs no new release
  * @param readIcon - Returns `{assetName}` for a plugin name (function, default: readPluginIcon). Like the status, the
  *   icon comes from the repo at catalog time; `icon_url` points at its content-addressed `catalog` release asset
+ * @param wasmRuntimes - WebAssembly builds by plugin name (Map, default: the repo's wasm/builds.json); like the
+ *   status, they come from the repo at catalog time and add `runtimes` to the entries of plugins that have one
  * @returns A catalog `plugins[]` entry (object)
  * @throws Error - When the plugin has no entry in plugin-status.json, or no valid icon.svg
  */
-export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = readPluginStatuses(), readIcon = readPluginIcon) {
+export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = readPluginStatuses(), readIcon = readPluginIcon, wasmRuntimes = readRepositoryWasmRuntimes(RELEASE_REPOSITORY)) {
   const { name, version } = releasedManifest;
   const statusEntry = statusForPlugin(pluginStatuses, name);
   const { assetName: iconAssetName } = readIcon(name);
@@ -403,6 +406,7 @@ export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = re
     publisher: OFFICIAL_PUBLISHER,
     repositoryUrl: officialPluginTreeUrl(name, tag),
     readmeUrl: `https://github.com/${RELEASE_REPOSITORY}/blob/${tag}/${name}/README.md`,
+    runtimes: describeRuntimes(name, wasmRuntimes),
   });
 }
 
@@ -422,6 +426,7 @@ export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = re
  * @param listing.publisher - Who maintains the plugin (string)
  * @param listing.repositoryUrl - https URL of the plugin's source (string)
  * @param listing.readmeUrl - https URL of the plugin README (string)
+ * @param listing.runtimes - Runtimes a user can pick (object[], optional; omitted from the entry when absent)
  * @returns A catalog `plugins[]` entry (object)
  */
 export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, listing) {
@@ -449,6 +454,7 @@ export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, read
     operations_count: manifestNodes.length,
     nodes: manifestNodes.map((manifestNode) => buildCatalogNode(manifestNode)),
     tools: (releasedManifest.tools ?? []).map((tool) => tool.name),
+    ...(listing.runtimes ? { runtimes: listing.runtimes } : {}),
     readme_url: listing.readmeUrl,
   };
 }

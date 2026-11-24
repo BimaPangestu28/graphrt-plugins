@@ -10,10 +10,11 @@ is the user's JWT from the agent's `tool_context`. Row level security decides wh
 
 Same manifest name (`supabase`), tool name, env variables, error kinds and messages as the Node.js plugin in
 `SUPABASE_TOOL_MODE=user_rpc`, so it is a drop-in replacement for that mode: workflows keep
-`tools: [supabase/call_function]` and `tool_context: {supabase: {user_jwt: ...}}`.
+`tools: [supabase/call_function]` and `tool_context: {supabase: {user_jwt: ...}}`. The default tool mode (every
+other tool) is the separate module [`wasm/supabase`](../supabase/).
 
 ## Prerequisites
-- graphrt 0.7+ (graphrt main until it is released) built with `wasm` and `http` (the default build has both): WebAssembly tools and `graphrt::http`
+- graphrt 0.6.1+ built with `wasm` and `http` (the default build has both): WebAssembly tools and `graphrt::http`
 - No Node.js
 
 ## Installation
@@ -27,7 +28,7 @@ or point `--plugins` at this directory. Trust it so it receives the user's JWT: 
 | --- | --- | --- |
 | `SUPABASE_URL` | yes | Project origin, `https://<ref>.supabase.co` (http only on localhost) |
 | `SUPABASE_KEY` | yes | Publishable (`sb_publishable_...`) or anon key; secret and service_role keys are refused |
-| `SUPABASE_TOOL_MODE` | yes | Must be `user_rpc` (the default mode needs the Node.js plugin) |
+| `SUPABASE_TOOL_MODE` | yes | Must be `user_rpc` (the default mode is [`wasm/supabase`](../supabase/)) |
 | `SUPABASE_TOOL_RPC_ALLOWLIST` | yes | Functions the tool may call, comma-separated; others are refused |
 | `SUPABASE_TOOL_TIMEOUT_MS` | no | Deadline of one call, 1000–120000 (default 30000); graphrt caps it at 30 s by default |
 | `SUPABASE_TOOL_MAX_ROWS` | no | Array results are cut to this many rows, 1–1000 (default 100) |
@@ -43,10 +44,12 @@ Requests go through graphrt's egress policy: public addresses only, so a local S
 - Numbers in results are re-serialized by serde_json (`10.0` stays `10.0`; JavaScript prints `10`).
 
 ## Building
+The source is the crate [`wasm/crates/supabase`](../crates/supabase/) with the feature `user-rpc`; one script builds
+this module and [`wasm/supabase`](../supabase/):
 ```sh
 rustup target add wasm32-unknown-unknown
-wasm/supabase-rpc/build.sh           # rebuilds supabase_rpc.wasm (opt-level z, LTO, stripped)
-wasm/supabase-rpc/build.sh --check   # fails if the committed module is stale
+wasm/crates/supabase/build.sh           # rebuilds both modules (opt-level z, LTO, stripped)
+wasm/crates/supabase/build.sh --check   # fails if a committed module is stale
 ```
 
 ## License

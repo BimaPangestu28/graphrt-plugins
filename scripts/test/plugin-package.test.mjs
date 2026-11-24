@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,6 +12,7 @@ import {
 import { extractReadmeWarnings } from "../lib/release-notes.mjs";
 import { readPluginStatuses } from "../lib/plugin-status.mjs";
 import { createTarGz } from "../lib/tar-archive.mjs";
+import { readRepositoryWasmRuntimes, readWasmRuntimes } from "../lib/plugin-runtimes.mjs";
 import { REPO_ROOT } from "../plugins.mjs";
 
 const sampleManifest = {
@@ -240,4 +242,29 @@ test("writes the catalog as compact JSON and refuses one the desktop app could n
   assert.equal(MAX_CATALOG_BYTES, 2 * 1024 * 1024);
   const oversized = { schema: 1, plugins: [{ name: "a", description: "x".repeat(MAX_CATALOG_BYTES) }] };
   assert.throws(() => renderCatalogText(oversized), /index\.json is \d+ bytes; the desktop app accepts at most 2097152/);
+});
+
+test("lists the WebAssembly builds of wasm/builds.json as runtimes, the Node.js plugin first", () => {
+  const wasmRuntimes = readRepositoryWasmRuntimes("BimaPangestu28/graphrt-plugins");
+  const supabase = JSON.parse(readFileSync(join(REPO_ROOT, "supabase", "graphrt-plugin.json"), "utf8"));
+  const entry = buildCatalogEntry(supabase, { sha256: "0", sizeBytes: 1 }, undefined, undefined, wasmRuntimes);
+  assert.deepEqual(entry.runtimes.map((runtime) => [runtime.runtime, runtime.tool_mode]), [["process", undefined], ["wasm", "default"], ["wasm", "user_rpc"]]);
+  assert.equal(entry.runtimes[0].default, true);
+  const [, wasmDefault, wasmRpc] = entry.runtimes;
+  assert.equal(wasmDefault.install, "graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase");
+  assert.ok(!wasmDefault.tools.includes("download_object") && wasmDefault.tools.includes("upload_object"));
+  assert.deepEqual(wasmRpc.tools, ["call_function"]);
+  const moduleBytes = readFileSync(join(REPO_ROOT, "wasm", "supabase", "supabase.wasm"));
+  assert.equal(wasmDefault.module_size_bytes, moduleBytes.length);
+  assert.equal(wasmDefault.module_sha256, createHash("sha256").update(moduleBytes).digest("hex"));
+  const plain = buildCatalogEntry(sampleManifest, { sha256: "0", sizeBytes: 1 }, undefined, undefined, wasmRuntimes);
+  assert.equal("runtimes" in plain, false, "plugins without a build keep their entry as before");
+});
+
+test("refuses a wasm/builds.json entry whose manifest is not a wasm build of that plugin", () => {
+  const repoRoot = mkdtempSync(join(tmpdir(), "wasm-builds-"));
+  mkdirSync(join(repoRoot, "wasm", "x"), { recursive: true });
+  writeFileSync(join(repoRoot, "wasm", "builds.json"), JSON.stringify({ supabase: [{ subdir: "wasm/x", tool_mode: "default" }] }));
+  writeFileSync(join(repoRoot, "wasm", "x", "graphrt-plugin.json"), JSON.stringify({ name: "other", runtime: "wasm", module: "x.wasm" }));
+  assert.throws(() => readWasmRuntimes(repoRoot, "o/r"), /must be a wasm manifest named supabase/);
 });
