@@ -162,6 +162,11 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 - **Operation lists:** each plugin's full list is in its `OPERATIONS.md`, and its setup (tokens, permissions,
   platform limits) is in its `README.md`.
 
+### WebAssembly builds
+[`wasm/`](wasm/) holds sandboxed WebAssembly builds of plugins for agents where starting Node.js is too slow or too
+large (pilot, installed from a path): [`wasm/supabase-rpc`](wasm/supabase-rpc/) is the supabase plugin's per-user
+`call_function` tool (`SUPABASE_TOOL_MODE=user_rpc`). Its tests run the same cases against both builds.
+
 ## Plugin status
 Every plugin has a maturity label and a Terms-of-Service risk rating in [`plugin-status.json`](plugin-status.json),
 with the reason for each. The table above, the status line in each plugin README and the release catalog
