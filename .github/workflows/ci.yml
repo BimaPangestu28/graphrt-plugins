@@ -1,6 +1,9 @@
 # Runs on every pull request and on pushes to main: generated files must be in sync,
 # no plugin may use a graphrt-reserved parameter name, every plugin's tests pass, and the
 # WebAssembly modules built from their source pass the parity tests.
+#
+# Pull requests skip work their changes cannot affect (see the `changes` job); pushes to main and
+# manual runs always run everything.
 name: CI
 
 on:
@@ -12,23 +15,79 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels that pull request's older run. Every other run (main, manual) gets a
+# group of its own, so none is cancelled or dropped from the queue.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Pull requests only: what the change touches. On any other event this job is skipped and the jobs below run in full.
+  changes:
+    name: Changed paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.code.outputs.code }}
+      wasm: ${{ steps.wasm.outputs.wasm }}
+    steps:
+      # Both read the changed files from the GitHub API; no checkout needed.
+      # Anything besides Markdown, docs/, license texts and raster images. icon.svg files are not excluded: the
+      # catalog tooling validates them.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: code
+        with:
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+              - '!LICENSE'
+              - '!LICENSES/**'
+              - '!**/*.{png,jpg,jpeg,gif,webp}'
+      # What the wasm job builds or tests: the crates and parity tests, the plugins they compare against (the keys
+      # of wasm/builds.json; scripts/test/ci-workflow.test.mjs keeps this list in step), shared code and this file.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: wasm
+        with:
+          filters: |
+            wasm:
+              - 'wasm/**'
+              - 'currency-rates/**'
+              - 'open-meteo/**'
+              - 'supabase/**'
+              - 'web-search/**'
+              - 'wikipedia/**'
+              - 'shared/**'
+              - '.github/workflows/ci.yml'
+
   test:
     name: npm test
+    needs: changes
+    # Runs even when `changes` is skipped (push, manual run); not when it failed or the run was cancelled.
+    if: ${{ !cancelled() && needs.changes.result != 'failure' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    env:
+      # Docs-only pull request: the README and generated-file checks still run, the plugin test suites do not.
+      DOCS_ONLY: ${{ github.event_name == 'pull_request' && needs.changes.outputs.code != 'true' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
+          # Docs-only runs install nothing, so they neither restore nor save the npm cache.
+          cache: ${{ env.DOCS_ONLY != 'true' && 'npm' || '' }}
+          cache-dependency-path: "*/package-lock.json"
 
       - name: Install plugin dependencies
+        if: env.DOCS_ONLY != 'true'
         run: scripts/install-plugin-dependencies.sh
 
       - name: Check generated files
@@ -37,12 +96,21 @@ jobs:
       # Shared tests, every plugin's tests, the sync check and the reserved-parameter check.
       # Integration tests that need ffmpeg, tesseract, a browser, sshd or a database skip cleanly here.
       - name: Test
+        if: env.DOCS_ONLY != 'true'
         run: npm test
+
+      # The tests that read READMEs (status lines, catalog warnings) live in scripts/test and need no plugin dependencies.
+      - name: Test the repository tooling (docs-only change)
+        if: env.DOCS_ONLY == 'true'
+        run: node --test --test-reporter=dot scripts/test/*.test.mjs
 
   wasm:
     name: WebAssembly modules from source
+    needs: changes
+    # Pull requests: only when the change touches what this job builds or tests (it then shows as skipped).
+    if: ${{ !cancelled() && needs.changes.result != 'failure' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.changes.outputs.wasm == 'true')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
