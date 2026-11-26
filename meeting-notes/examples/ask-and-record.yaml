@@ -1,0 +1,28 @@
+# Agent 1, on the meeting_detected trigger (graphrt Desktop: Schedule > When > "When a meeting is detected").
+# Asks before recording; recording then runs on its own until Stop or until the meeting app leaves the microphone.
+version: "1"
+name: meeting-ask-and-record
+description: Ask whether to take notes of a meeting, then record it.
+graph:
+  nodes:
+    - id: start
+      type: start
+      variables:
+        - { variable: meeting_app, type: text-input, required: false, label: Meeting app }
+        - { variable: message, type: text-input, required: false, label: What was detected }
+        - { variable: consent_reminder, type: text-input, required: false, label: Consent reminder }
+    - id: ask
+      type: human-input
+      title: Take notes?
+      prompt: "Meeting detected: {{#start.message#}}. Take notes?\n\n{{#start.consent_reminder#}}"
+      actions: [{ id: record, title: Take notes }, { id: skip, title: Not now }]
+      timeout_ms: 300000
+      on_timeout: { action: skip }
+    - { id: record, type: meeting-notes.start_recording, title: Start recording, meeting_app: "{{#start.meeting_app#}}" }
+    - { id: recording, type: answer, answer: "Recording {{#record.data.meeting_title#}}. It stops when you leave the meeting." }
+    - { id: skipped, type: answer, answer: "Not recording this meeting." }
+  edges:
+    - { source: start, target: ask }
+    - { source: ask, target: record, handle: record }
+    - { source: ask, target: skipped, handle: skip }
+    - { source: record, target: recording }

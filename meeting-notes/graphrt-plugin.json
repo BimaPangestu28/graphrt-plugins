@@ -1,0 +1,361 @@
+{
+  "name": "meeting-notes",
+  "version": "0.1.0",
+  "description": "Meeting notes on this computer (Linux, PipeWire): notice a meeting app on the microphone, record your microphone and the computer's sound as two tracks after you agree, and transcribe them locally with whisper.cpp (downloaded on first use); triggers for detected and recorded meetings",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": false,
+    "env": [
+      "MEETING_NOTES_DIR",
+      "MEETING_NOTES_WHISPER_DIR",
+      "MEETING_NOTES_AUTO_STOP_SECONDS",
+      "MEETING_NOTES_LANGUAGE"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 1800000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "meeting-notes.detect",
+      "title": "Who uses the microphone",
+      "description": "Lists the programs using the microphone that could be a meeting (Zoom, Teams, a browser…), and the recording in progress",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meeting-notes.wait_for_meeting",
+      "title": "Wait for a meeting",
+      "description": "Watches the microphone until a meeting app has used it for confirm_seconds, then returns one event (the meeting_detected trigger); each meeting is reported once, never while recording; returns no event after timeout_seconds (at most 280)",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Cursor from the previous call; without it the watch starts now"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 280,
+            "default": 240,
+            "description": "Longest wait in seconds (at most 280)"
+          },
+          "confirm_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 5,
+            "description": "How long a meeting app must use the microphone"
+          },
+          "release_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 600,
+            "default": 15,
+            "description": "How long the microphone must be free before the next meeting is reported"
+          },
+          "poll_interval_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000,
+            "default": 3000,
+            "description": "Time between microphone checks"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meeting-notes.start_recording",
+      "title": "Start recording a meeting",
+      "description": "Records the microphone (You) and the computer's sound (Others) as two tracks until stop_recording, or until no meeting app has used the microphone for MEETING_NOTES_AUTO_STOP_SECONDS; runs on its own, so the step returns at once",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_app": {
+            "type": "string",
+            "description": "The program of the meeting, e.g. from the meeting_detected trigger"
+          },
+          "meeting_title": {
+            "type": "string",
+            "description": "Title; default \"<app> meeting, <date time>\""
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meeting-notes.recording_status",
+      "title": "Recording status",
+      "description": "The meeting being recorded, if any",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meeting-notes.stop_recording",
+      "title": "Stop recording",
+      "description": "Stops the recording (the one in progress, or meeting_id) and waits until its files are complete",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id from start_recording or the meeting_recorded trigger"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meeting-notes.wait_for_recording_end",
+      "title": "Wait for a recorded meeting",
+      "description": "Returns the meetings whose recording ended since the cursor (the meeting_recorded trigger), waiting up to timeout_seconds (at most 280) for one",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Cursor from the previous call; without it, only meetings ending from now on count"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 280,
+            "default": 240,
+            "description": "Longest wait in seconds (at most 280)"
+          },
+          "poll_interval_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000,
+            "default": 3000,
+            "description": "Time between microphone checks"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "meeting-notes.transcribe",
+      "title": "Transcribe a meeting",
+      "description": "Transcribes a recorded meeting on this computer with whisper.cpp (downloaded the first time, about 150 MB): the microphone as \"You\", the computer's sound as \"Others\", silence skipped; deletes the audio afterwards unless keep_audio. A meeting already transcribed returns its transcript",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "Meeting id from start_recording or the meeting_recorded trigger"
+          },
+          "language": {
+            "type": "string",
+            "description": "auto, or a language code such as en or id (default MEETING_NOTES_LANGUAGE, else auto)"
+          },
+          "keep_audio": {
+            "type": "boolean",
+            "default": false,
+            "description": "Keep the recorded audio after the transcript is made"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "detect",
+      "description": "Lists the programs using the microphone that could be a meeting (Zoom, Teams, a browser…), and the recording in progress",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "recording_status",
+      "description": "The meeting being recorded, if any",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "id": "meeting_detected",
+      "title": "When a meeting is detected",
+      "description": "A meeting app (Zoom, Teams, Meet in a browser…) uses the microphone. Ask before recording: a human-input step, then start_recording.",
+      "watch": "meeting-notes.wait_for_meeting",
+      "config": {
+        "timeout_seconds": 240
+      },
+      "outputs": [
+        {
+          "name": "meeting_app",
+          "type": "string",
+          "description": "The program, e.g. Zoom or Google Chrome"
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "description": "\"Zoom is using the microphone\""
+        },
+        {
+          "name": "consent_reminder",
+          "type": "string",
+          "description": "One line to show when asking"
+        },
+        {
+          "name": "detected_at",
+          "type": "string",
+          "description": "RFC 3339"
+        }
+      ]
+    },
+    {
+      "id": "meeting_recorded",
+      "title": "When a meeting is recorded",
+      "description": "A recording stopped (by stop_recording or because the meeting ended). Transcribe it, then summarize and send.",
+      "watch": "meeting-notes.wait_for_recording_end",
+      "config": {
+        "timeout_seconds": 240
+      },
+      "outputs": [
+        {
+          "name": "meeting_id",
+          "type": "string",
+          "description": "Meeting id, for transcribe"
+        },
+        {
+          "name": "meeting_title",
+          "type": "string",
+          "description": "\"Zoom meeting, 26 Nov 14:05\""
+        },
+        {
+          "name": "meeting_app",
+          "type": "string",
+          "description": "The program of the meeting"
+        },
+        {
+          "name": "started_at",
+          "type": "string",
+          "description": "RFC 3339"
+        },
+        {
+          "name": "ended_at",
+          "type": "string",
+          "description": "RFC 3339"
+        },
+        {
+          "name": "duration_minutes",
+          "type": "integer",
+          "description": "Length in minutes"
+        },
+        {
+          "name": "stop_reason",
+          "type": "string",
+          "description": "stopped, meeting_ended, error or interrupted"
+        }
+      ]
+    }
+  ]
+}

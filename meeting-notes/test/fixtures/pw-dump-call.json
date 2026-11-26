@@ -1,0 +1,127 @@
+[
+  {
+    "id": 0,
+    "type": "PipeWire:Interface:Core",
+    "version": 4,
+    "permissions": ["r", "x", "m"],
+    "info": { "name": "pipewire-0", "props": { "core.name": "pipewire-0" } }
+  },
+  {
+    "id": 46,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "running",
+      "props": {
+        "media.class": "Audio/Source",
+        "node.name": "alsa_input.usb-046d_HD_Pro_Webcam_C920-02.analog-stereo",
+        "node.description": "C920 PRO HD Webcam Analog Stereo"
+      }
+    }
+  },
+  {
+    "id": 57,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "running",
+      "props": {
+        "media.class": "Audio/Sink",
+        "node.name": "alsa_output.pci-0000_01_00.1.hdmi-stereo-extra1"
+      }
+    }
+  },
+  {
+    "id": 68,
+    "type": "PipeWire:Interface:Client",
+    "version": 3,
+    "info": {
+      "props": {
+        "application.name": "Google Chrome input",
+        "application.process.binary": "chrome",
+        "application.process.id": 28727,
+        "pipewire.sec.pid": 28727
+      }
+    }
+  },
+  {
+    "id": 77,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "running",
+      "props": {
+        "client.id": 68,
+        "media.class": "Stream/Input/Audio",
+        "media.name": "RecordStream",
+        "node.name": "Google Chrome input"
+      }
+    }
+  },
+  {
+    "id": 89,
+    "type": "PipeWire:Interface:Client",
+    "version": 3,
+    "info": {
+      "props": { "application.name": "pipewire-pulse", "pipewire.sec.pid": 5150 }
+    }
+  },
+  {
+    "id": 90,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "running",
+      "props": {
+        "client.id": 89,
+        "media.class": "Stream/Input/Audio",
+        "application.name": "ZOOM VoiceEngine",
+        "application.process.binary": "zoom",
+        "application.process.id": "5150",
+        "node.name": "ZOOM VoiceEngine"
+      }
+    }
+  },
+  {
+    "id": 101,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "running",
+      "props": { "client.id": 100, "media.class": "Stream/Input/Audio", "node.name": "graphrt-meeting-mic", "application.name": "pw-record" }
+    }
+  },
+  {
+    "id": 102,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "running",
+      "props": { "client.id": 100, "media.class": "Stream/Input/Audio", "node.name": "graphrt-meeting-system", "stream.capture.sink": true }
+    }
+  },
+  {
+    "id": 110,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "running",
+      "props": { "media.class": "Stream/Input/Audio", "application.name": "OBS Studio", "node.name": "obs-desktop-audio" }
+    }
+  },
+  {
+    "id": 120,
+    "type": "PipeWire:Interface:Node",
+    "version": 3,
+    "info": {
+      "state": "suspended",
+      "props": { "media.class": "Stream/Input/Audio", "application.name": "Firefox", "node.name": "Firefox" }
+    }
+  },
+  { "id": 200, "type": "PipeWire:Interface:Link", "version": 3, "info": { "output-node-id": 46, "input-node-id": 77, "state": "active" } },
+  { "id": 201, "type": "PipeWire:Interface:Link", "version": 3, "info": { "output-node-id": 46, "input-node-id": 77, "state": "active" } },
+  { "id": 202, "type": "PipeWire:Interface:Link", "version": 3, "info": { "output-node-id": 46, "input-node-id": 90, "state": "active" } },
+  { "id": 203, "type": "PipeWire:Interface:Link", "version": 3, "info": { "output-node-id": 46, "input-node-id": 101, "state": "active" } },
+  { "id": 204, "type": "PipeWire:Interface:Link", "version": 3, "info": { "output-node-id": 57, "input-node-id": 102, "state": "active" } },
+  { "id": 205, "type": "PipeWire:Interface:Link", "version": 3, "info": { "output-node-id": 57, "input-node-id": 110, "state": "active" } }
+]
