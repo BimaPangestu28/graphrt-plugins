@@ -9,12 +9,13 @@
   },
   "scripts": {
     "sync": "node scripts/sync-shared.mjs && node scripts/sync-plugin-status.mjs",
-    "check": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-community-plugins.mjs",
-    "check:release": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-community-plugins.mjs --lenient",
+    "check": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-skills.mjs && node scripts/check-community-plugins.mjs",
+    "check:release": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-skills.mjs --lenient && node scripts/check-community-plugins.mjs --lenient",
     "test": "node scripts/run-tests.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "icons:check": "node scripts/generate-icons.mjs --check",
     "pack:plugins": "node scripts/pack-plugins.mjs",
+    "pack:skills": "node scripts/pack-skills.mjs",
     "verify:plugins": "node scripts/verify-plugins.mjs",
     "publish:plugins": "node scripts/publish-plugins.mjs",
     "ci:local": "scripts/ci-local.sh"

@@ -390,8 +390,8 @@ function buildArchiveEntries(stagedDirectory, pluginName) {
   return archiveEntries;
 }
 
-/** Commit time of the plugin's last change: a stable mtime so repacking is reproducible. */
-function lastCommitTime(sourceDirectory, commandEnvironment) {
+/** Commit time of the last change under a directory (a plugin, a skill): a stable mtime so repacking is reproducible. */
+export function lastCommitTime(sourceDirectory, commandEnvironment) {
   const gitResult = spawnSync("git", ["log", "-1", "--format=%ct", "--", "."], { cwd: sourceDirectory, encoding: "utf8", env: commandEnvironment });
   const commitSeconds = Number.parseInt(gitResult.stdout.trim(), 10);
   return Number.isFinite(commitSeconds) ? commitSeconds : 0;

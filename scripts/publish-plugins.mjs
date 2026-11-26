@@ -1,7 +1,7 @@
 /**
  * Publishes plugin releases and refreshes the `catalog` release.
  *
- * Usage: node scripts/publish-plugins.mjs [plugin-name...] [--target <git ref>] [--out <dir>] [--dry-run] [--catalog-only]
+ * Usage: node scripts/publish-plugins.mjs [plugin-name...] [--target <git ref>] [--out <dir>] [--dry-run] [--catalog-only | --skills-only]
  *   plugin-name  plugins to consider (default: all)
  *   --target     commit new release tags point at (default: HEAD); plugin files must
  *                be identical between this commit and the working tree
@@ -13,6 +13,9 @@
  *                detail files. Refuses when a plugin in the live catalog would be dropped or change
  *                version, sha256, size or URL. Use it after changing the catalog format, a status or
  *                an icon; combine with --dry-run to only write the files.
+ *   --skills-only  treat plugins as --catalog-only does (no plugin is tested, packed or released, and the same
+ *                refusal applies), but release the agent skills that have no release yet. The release workflow
+ *                uses it for a pushed `skill-<name>-v<version>` tag.
  *
  * Steps: check generated files are in sync, run each plugin's tests (failing plugins
  * are skipped), pack and verify tarballs, create every missing `<name>-v<version>`
@@ -30,6 +33,13 @@
  * reviewed sha256, re-packed canonically by our own tar writer, given the same checks as official tarballs, and
  * that repack is mirrored there (the catalog `sha256` is the repack's). An entry that fails is skipped (listed
  * under `skipped` with its reason); it never fails the official publish.
+ *
+ * Agent skills (`skills/<name>/SKILL.md`, see docs/skills.md) are released on every run that is not
+ * --catalog-only: each skill version without a release gets `skill-<name>-v<version>` with the archive
+ * `skill-<name>-<version>.tar.gz` (text only; packing runs nothing), and `index-v2.json` lists the published
+ * skills as `skills`, described from the published archives (`index.json`, for older apps, is unchanged). A skill that fails its checks is skipped (listed under
+ * `skipped` with `kind: "skill"`); it never fails the plugin publish. --catalog-only lists the skills already
+ * published and refuses when one in the live catalog would be dropped or changed.
  *
  * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each official
  * tarball with `graphrt plugin install` into a temporary directory; community tarballs get that check only
@@ -53,19 +63,24 @@ import { findUploadedDigestMismatches, planCatalogUploadBatches, planReleaseActi
 import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
 import { downloadHttpsBytes, ingestCommunityPlugins, selectCommunityGraphrtBinary } from "./lib/community-ingest.mjs";
 import { runTestSuite } from "./lib/plugin-test-runner.mjs";
+import { findSkillCatalogRegressions } from "./lib/skill-package.mjs";
+import { releaseSkills } from "./lib/skill-release.mjs";
 
 function parsePublishArguments(argumentList) {
-  const options = { pluginNames: [], target: "HEAD", outputDirectory: resolve(REPO_ROOT, "dist"), dryRun: false, catalogOnly: false };
+  const options = { pluginNames: [], target: "HEAD", outputDirectory: resolve(REPO_ROOT, "dist"), dryRun: false, catalogOnly: false, skillsOnly: false };
   const knownPlugins = listPluginNames();
   for (let index = 0; index < argumentList.length; index += 1) {
     const argument = argumentList[index];
     if (argument === "--dry-run") options.dryRun = true;
     else if (argument === "--catalog-only") options.catalogOnly = true;
+    else if (argument === "--skills-only") options.skillsOnly = true;
     else if (argument === "--target") options.target = argumentList[++index];
     else if (argument === "--out") options.outputDirectory = resolve(argumentList[++index] ?? "");
     else if (knownPlugins.includes(argument)) options.pluginNames.push(argument);
     else throw new Error(`unknown argument \`${argument}\``);
   }
+  if (options.catalogOnly && options.skillsOnly) throw new Error("--catalog-only and --skills-only cannot be combined");
+  if (options.skillsOnly && options.pluginNames.length > 0) throw new Error("--skills-only releases no plugins; do not also name plugins");
   if (options.pluginNames.length === 0) options.pluginNames = knownPlugins;
   return options;
 }
@@ -113,6 +128,7 @@ function selectPassingPlugins(pluginNames) {
   return { passing, skipped };
 }
 
+/** Refuses when a repository path (a plugin directory, `skills/<name>`) has uncommitted changes or differs from the target commit. */
 function assertPluginMatchesTarget(pluginName, targetCommit) {
   const diff = runCommand("git", ["status", "--porcelain", "--", pluginName]).stdout.trim();
   if (diff) throw new Error(`${pluginName}: uncommitted changes:\n${diff}`);
@@ -294,18 +310,19 @@ function renderCatalogReleaseNotes() {
     "- `index-v2.json.minisig`, `index.json.minisig`: minisign signatures of both indexes (public key: `catalog-signing.pub` in the repository)",
     `- \`SHA256SUMS\`: ${releaseAssetUrl(CATALOG_TAG, "SHA256SUMS")}`,
     "- `icon-<plugin>-<sha256 prefix>.svg`: plugin icons, named by content (each catalog entry's `icon_url`)",
+    "- Agent skills are the `skills` list of `index-v2.json`; their archives are assets of the `skill-<name>-v<version>` releases",
     "",
     "See the repository README (Install) for the format.",
   ].join("\n");
 }
 
-/** Downloads the live catalog `index.json`, or returns null when there is no catalog release yet. */
-function downloadLiveCatalog(outputDirectory) {
+/** Downloads a live catalog index (`index.json` by default), or returns null when there is no catalog release yet. */
+function downloadLiveCatalog(outputDirectory, indexName = "index.json") {
   if (!viewRelease(CATALOG_TAG)) return null;
   const downloadDirectory = join(outputDirectory, "published", CATALOG_TAG);
   mkdirSync(downloadDirectory, { recursive: true });
-  runGhIdempotent(["release", "download", CATALOG_TAG, "-R", RELEASE_REPOSITORY, "-p", "index.json", "-D", downloadDirectory, "--clobber"]);
-  return JSON.parse(readFileSync(join(downloadDirectory, "index.json"), "utf8"));
+  runGhIdempotent(["release", "download", CATALOG_TAG, "-R", RELEASE_REPOSITORY, "-p", indexName, "-D", downloadDirectory, "--clobber"]);
+  return JSON.parse(readFileSync(join(downloadDirectory, indexName), "utf8"));
 }
 
 /** Rebuilds the catalog from published tarballs only; plugin releases are not touched. */
@@ -316,6 +333,47 @@ function rebuildCatalogOnly(options) {
   const regressions = liveCatalog ? findCatalogRegressions(liveCatalog, released.map(({ catalogEntry }) => catalogEntry)) : [];
   if (regressions.length > 0) throw new Error(`rebuilt catalog would change published plugins:\n${regressions.join("\n")}`);
   return released;
+}
+
+/** The GitHub side of skill releases (skill-release.mjs): read with gh, created once, never modified. */
+function createGithubSkillReleases({ outputDirectory }, targetCommit) {
+  return {
+    planAction: (releaseTag, tarballName) => planReleaseAction(viewRelease(releaseTag), tarballName),
+    downloadAsset: (releaseTag, tarballName) => downloadReleaseAsset(releaseTag, tarballName, outputDirectory),
+    uploadAsset: (releaseTag, tarballPath) => uploadMissingAsset(releaseTag, tarballPath),
+    createRelease(packed, notes) {
+      const notesPath = join(outputDirectory, `${packed.tag}.notes.md`);
+      writeFileSync(notesPath, notes);
+      const releaseArguments = ["release", "create", packed.tag, packed.tarballPath, "-R", RELEASE_REPOSITORY, "--target", targetCommit,
+        "--title", `Skill ${packed.name} ${packed.version}`, "--notes-file", notesPath, "--latest=false"];
+      if (packed.version.startsWith("0.") || packed.version.includes("-")) releaseArguments.push("--prerelease");
+      runCommand("gh", releaseArguments);
+    },
+  };
+}
+
+/**
+ * Releases the skills that have no release yet (not with --catalog-only) and returns the published ones. With
+ * --catalog-only it refuses when a skill of the live `index-v2.json` would be dropped or changed.
+ *
+ * @returns `{released, skipped}` from releaseSkills (object)
+ * @throws Error - For the --catalog-only refusal or a failing gh command; a skill that fails its checks is skipped
+ */
+function collectSkills(options, targetCommit) {
+  mkdirSync(options.outputDirectory, { recursive: true });
+  const skills = releaseSkills({
+    outputDirectory: options.outputDirectory,
+    dryRun: options.dryRun,
+    catalogOnly: options.catalogOnly,
+    releases: createGithubSkillReleases(options, targetCommit),
+    assertCommitted: (repositoryPath) => assertPluginMatchesTarget(repositoryPath, targetCommit),
+  });
+  const liveCatalog = options.catalogOnly ? downloadLiveCatalog(options.outputDirectory, CATALOG_V2_INDEX_NAME) : null;
+  if (liveCatalog) {
+    const regressions = findSkillCatalogRegressions(liveCatalog, skills.released.map(({ catalogEntry }) => catalogEntry));
+    if (regressions.length > 0) throw new Error(`rebuilt catalog would change published skills:\n${regressions.join("\n")}`);
+  }
+  return skills;
 }
 
 /**
@@ -380,7 +438,7 @@ async function collectCommunityPlugins(options, targetCommit) {
   return ingestCommunityPlugins(registry, {
     officialNames: listRepoDirectoryNames(),
     workDirectory: join(options.outputDirectory, "community"),
-    catalogOnly: options.catalogOnly,
+    catalogOnly: options.catalogOnly || options.skillsOnly,
     dryRun: options.dryRun,
     graphrtBinary: selectCommunityGraphrtBinary(process.env, console.error),
     mirror: createGithubMirror(options, targetCommit),
@@ -401,39 +459,45 @@ function publishPlugins(options, targetCommit) {
   return { released, skipped };
 }
 
-function logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun }) {
+function logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun, skillCount }) {
   const v1Note = catalogFiles.v1WithoutSchemas ? " (without node schemas)" : "";
-  console.error(`catalog: index.json ${statSync(catalogFiles.indexPath).size} bytes${v1Note}; ${CATALOG_V2_INDEX_NAME} ${statSync(catalogFiles.indexV2Path).size} bytes`);
+  console.error(`catalog: index.json ${statSync(catalogFiles.indexPath).size} bytes${v1Note}; ${CATALOG_V2_INDEX_NAME} ${statSync(catalogFiles.indexV2Path).size} bytes; ${skillCount} agent skill(s) listed`);
   console.error(`catalog: ${catalogFiles.detailFiles.length} detail files staged in ${join(catalogDirectory, DETAIL_STAGING_DIRECTORY_NAME)}, ${uploadPlan.newDetailPaths.length} not yet on the ${CATALOG_TAG} release`);
   console.error(`catalog: ${catalogFiles.iconPaths.length} icons staged in ${join(catalogDirectory, ICON_STAGING_DIRECTORY_NAME)}, ${uploadPlan.newIconPaths.length} not yet on the ${CATALOG_TAG} release${dryRun ? " (dry run: nothing uploaded)" : ""}`);
 }
 
-/** One GitHub error annotation per skipped community entry: visible on the run, without failing it. */
-function annotateSkippedCommunityPlugins(skippedEntries) {
-  for (const { name, reason } of skippedEntries) console.log(`::error title=community plugin ${name}::${`skipped: ${reason}`.replace(/[\r\n%]/g, " ")}`);
+/** One GitHub error annotation per skipped community entry or skill: visible on the run, without failing it. */
+function annotateSkipped(label, skippedEntries) {
+  for (const { name, reason } of skippedEntries) console.log(`::error title=${label} ${name}::${`skipped: ${reason}`.replace(/[\r\n%]/g, " ")}`);
 }
 
 async function main() {
   const options = parsePublishArguments(process.argv.slice(2));
   const targetCommit = runCommand("git", ["rev-parse", "--verify", `${options.target}^{commit}`]).stdout.trim();
-  const { released, skipped } = options.catalogOnly ? { released: rebuildCatalogOnly(options), skipped: [] } : publishPlugins(options, targetCommit);
+  const { released, skipped } = options.catalogOnly || options.skillsOnly ? { released: rebuildCatalogOnly(options), skipped: [] } : publishPlugins(options, targetCommit);
   const community = await collectCommunityPlugins(options, targetCommit);
   released.push(...community.released);
   skipped.push(...community.skipped);
-  if (process.env.GITHUB_ACTIONS === "true") annotateSkippedCommunityPlugins(community.skipped);
+  const skills = collectSkills(options, targetCommit);
+  skipped.push(...skills.skipped);
+  if (process.env.GITHUB_ACTIONS === "true") {
+    annotateSkipped("community plugin", community.skipped);
+    annotateSkipped("skill", skills.skipped);
+  }
   const catalogDirectory = join(options.outputDirectory, "catalog");
   mkdirSync(catalogDirectory, { recursive: true });
   const signIndexes = (indexes) => signCatalogIndexes(indexes, { dryRun: options.dryRun });
-  const catalogFiles = writeCatalogFiles(catalogDirectory, released, { signIndexes });
+  const catalogFiles = writeCatalogFiles(catalogDirectory, released, { signIndexes, releasedSkills: skills.released });
   skipped.push(...catalogFiles.skipped);
   const droppedNames = new Set(catalogFiles.skipped.map(({ name }) => name));
   const listed = released.filter(({ catalogEntry }) => !droppedNames.has(catalogEntry.name));
   const uploadPlan = planCatalogUpload(catalogFiles, options.outputDirectory);
-  logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun: options.dryRun });
+  logCatalogSummary(catalogFiles, uploadPlan, { catalogDirectory, dryRun: options.dryRun, skillCount: skills.released.length });
   if (!options.dryRun) uploadCatalog(catalogFiles, uploadPlan, targetCommit);
   const icons = { staged: catalogFiles.iconPaths.length, toUpload: uploadPlan.newIconPaths.map((iconPath) => basename(iconPath)) };
   const details = { staged: catalogFiles.detailFiles.length, toUpload: uploadPlan.newDetailPaths.map((detailPath) => basename(detailPath)) };
-  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, target: targetCommit, released: listed.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256, source: catalogEntry.source })), icons, details, skipped }, null, 2));
+  const releasedSkills = skills.released.map(({ name, version, sha256 }) => ({ name, version, sha256 }));
+  console.log(JSON.stringify({ dryRun: options.dryRun, catalogOnly: options.catalogOnly, skillsOnly: options.skillsOnly, target: targetCommit, released: listed.map(({ catalogEntry }) => ({ name: catalogEntry.name, version: catalogEntry.version, sha256: catalogEntry.sha256, source: catalogEntry.source })), skills: releasedSkills, icons, details, skipped }, null, 2));
 }
 
 main().catch((error) => {

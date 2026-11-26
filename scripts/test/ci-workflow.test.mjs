@@ -37,3 +37,16 @@ test("the ci.yml wasm path filter covers every plugin with a WebAssembly build",
     assert.ok(patterns.includes(required), `ci.yml wasm filter is missing '${required}'`);
   }
 });
+
+test("the release workflow tells skill tags from plugin tags and never treats a skill as a plugin", () => {
+  const workflowText = readFileSync(join(REPO_ROOT, ".github", "workflows", "release.yml"), "utf8");
+  const skillBranchStart = workflowText.indexOf('if [ "$EVENT_NAME" = "push" ] && [[ "$REF_NAME" == skill-* ]]; then');
+  const pluginBranchStart = workflowText.indexOf('elif [ "$EVENT_NAME" = "push" ]; then');
+  assert.ok(skillBranchStart !== -1 && pluginBranchStart > skillBranchStart, "a skill-<name>-v<version> tag is handled before the plugin branch");
+  const skillBranch = workflowText.slice(skillBranchStart, pluginBranchStart);
+  assert.match(skillBranch, /node scripts\/read-skill-version\.mjs "\$skill_name"/);
+  assert.match(skillBranch, /publish_args\+=\(--skills-only\)/);
+  assert.doesNotMatch(skillBranch, /read-manifest-version/);
+  // The tag text only ever reaches scripts as a quoted argument, never as code.
+  assert.doesNotMatch(workflowText, /node -e/);
+});

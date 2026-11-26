@@ -50,7 +50,14 @@ export function verifyTarball(tarballPath, { graphrtBinary = null, maxUnpackedBy
   }
 }
 
-function assertSingleTopLevelDirectory(archiveEntries) {
+/**
+ * Checks that every archive entry sits under one top-level directory.
+ *
+ * @param archiveEntries - Entries from readTarGz (object[])
+ * @returns The name of that directory (string)
+ * @throws Error - When there are several top-level names, or the one there is not a directory entry
+ */
+export function assertSingleTopLevelDirectory(archiveEntries) {
   const topLevelNames = new Set(archiveEntries.map((entry) => entry.path.split("/")[0]));
   if (topLevelNames.size !== 1) throw new Error(`expected one top-level directory, found ${[...topLevelNames].join(", ")}`);
   const [pluginName] = topLevelNames;

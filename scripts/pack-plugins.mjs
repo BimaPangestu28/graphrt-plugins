@@ -106,16 +106,17 @@ export function packPlugins(pluginNames, outputDirectory) {
  *
  * @param releasedPlugins - As for writeCatalogFiles (object[])
  * @param generatedAt - Generation time (Date)
+ * @param skillEntries - The `skills[]` entries index-v2.json will carry (object[], optional)
  * @returns `{v1FullBytes, v1StrippedBytes, v2Bytes}` (object)
  */
-export function measureCatalogSizes(releasedPlugins, generatedAt) {
+export function measureCatalogSizes(releasedPlugins, generatedAt, skillEntries = undefined) {
   const catalogEntries = releasedPlugins.map(({ catalogEntry }) => catalogEntry);
   const v2Entries = releasedPlugins.map(({ manifest, catalogEntry }) => buildCatalogV2Entry(catalogEntry, renderPluginDetail(buildPluginDetail(manifest))));
   const renderedBytes = (document) => Buffer.byteLength(`${JSON.stringify(document)}\n`);
   return {
     v1FullBytes: renderedBytes(buildCatalog(catalogEntries, generatedAt)),
     v1StrippedBytes: renderedBytes(buildCatalog(catalogEntries.map((entry) => stripCatalogEntrySchemas(entry)), generatedAt)),
-    v2Bytes: renderedBytes(buildCatalogV2(v2Entries, generatedAt)),
+    v2Bytes: renderedBytes(buildCatalogV2(v2Entries, generatedAt, skillEntries)),
   };
 }
 
@@ -129,18 +130,19 @@ export function measureCatalogSizes(releasedPlugins, generatedAt) {
  * @param options.generatedAt - Generation time (Date)
  * @param options.maxV1Bytes - index.json limit (number, default MAX_CATALOG_BYTES)
  * @param options.maxV2Bytes - index-v2.json limit (number, default MAX_CATALOG_V2_BYTES)
+ * @param options.skillEntries - The `skills[]` entries index-v2.json will carry; their bytes count toward its limit (object[], optional)
  * @returns `{kept, dropped}`; dropped holds `{name, source: "community", reason}` (object)
  */
-export function fitCommunityPluginsIntoCatalog(releasedPlugins, { generatedAt, maxV1Bytes = MAX_CATALOG_BYTES, maxV2Bytes = MAX_CATALOG_V2_BYTES }) {
+export function fitCommunityPluginsIntoCatalog(releasedPlugins, { generatedAt, maxV1Bytes = MAX_CATALOG_BYTES, maxV2Bytes = MAX_CATALOG_V2_BYTES, skillEntries = undefined }) {
   const isCommunity = ({ catalogEntry }) => catalogEntry.source === COMMUNITY_SOURCE;
   if (!releasedPlugins.some(isCommunity)) return { kept: releasedPlugins, dropped: [] };
   const officialPlugins = releasedPlugins.filter((released) => !isCommunity(released));
-  const officialNeedsStripping = measureCatalogSizes(officialPlugins, generatedAt).v1FullBytes > maxV1Bytes;
+  const officialNeedsStripping = measureCatalogSizes(officialPlugins, generatedAt, skillEntries).v1FullBytes > maxV1Bytes;
   const entryBytes = ({ catalogEntry }) => Buffer.byteLength(JSON.stringify(officialNeedsStripping ? stripCatalogEntrySchemas(catalogEntry) : catalogEntry));
   let communityPlugins = releasedPlugins.filter(isCommunity).sort((left, right) => entryBytes(right) - entryBytes(left));
   const dropped = [];
   while (communityPlugins.length > 0) {
-    const overflow = findCatalogOverflow(measureCatalogSizes([...officialPlugins, ...communityPlugins], generatedAt), { officialNeedsStripping, maxV1Bytes, maxV2Bytes });
+    const overflow = findCatalogOverflow(measureCatalogSizes([...officialPlugins, ...communityPlugins], generatedAt, skillEntries), { officialNeedsStripping, maxV1Bytes, maxV2Bytes });
     if (!overflow) break;
     const [largest, ...rest] = communityPlugins;
     dropped.push({ name: largest.catalogEntry.name, source: COMMUNITY_SOURCE, reason: `left out of this catalog: ${overflow} (largest community entries are dropped first)` });
@@ -160,7 +162,7 @@ function findCatalogOverflow(sizes, { officialNeedsStripping, maxV1Bytes, maxV2B
 /**
  * Writes the catalog files into a directory: `index.json` (v1), `index-v2.json`, the detail files it links
  * (in `details/`), the icons both indexes name (in `icons/`, under their release asset names) and
- * `SHA256SUMS` (tarballs, icons, detail files and both indexes). v1 is written without node schemas when
+ * `SHA256SUMS` (tarballs, skill archives, icons, detail files and both indexes). v1 is written without node schemas when
  * the full one would exceed MAX_CATALOG_BYTES; that and an index-v2.json above its warning size are logged.
  *
  * @param outputDirectory - Target directory (string)
@@ -170,6 +172,9 @@ function findCatalogOverflow(sizes, { officialNeedsStripping, maxV1Bytes, maxV2B
  * @param options - Options
  * @param options.maxV1Bytes - index.json limit for fitCommunityPluginsIntoCatalog (number, default: the desktop app's)
  * @param options.maxV2Bytes - index-v2.json limit (number, default: the desktop app's)
+ * @param options.releasedSkills - `{tarballName, sha256, catalogEntry}` per published agent skill (object[], optional;
+ *   publish-plugins.mjs passes them). When given, even empty, index-v2.json carries the entries as `skills` and
+ *   SHA256SUMS lists the archives; when omitted it has no `skills` field. index.json (v1) never lists skills
  * @param options.signIndexes - Signs the written indexes before SHA256SUMS is written: `([{path, name, catalog}]) ->
  *   signature paths` (function, default: no signatures; publish-plugins.mjs passes catalog-signing.mjs)
  * @returns `{indexPath, indexV2Path, sumsPath, signaturePaths, iconPaths, detailFiles, v1WithoutSchemas, skipped}`;
@@ -178,15 +183,16 @@ function findCatalogOverflow(sizes, { officialNeedsStripping, maxV1Bytes, maxV2B
  * @throws Error - When a plugin has no valid icon.svg or manifest, the official plugins alone are too large, or
  *   signing fails
  */
-export function writeCatalogFiles(outputDirectory, allReleasedPlugins, { signIndexes = () => [], ...limits } = {}) {
+export function writeCatalogFiles(outputDirectory, allReleasedPlugins, { signIndexes = () => [], releasedSkills = undefined, ...limits } = {}) {
   const generatedAt = new Date();
-  const { kept: releasedPlugins, dropped } = fitCommunityPluginsIntoCatalog(allReleasedPlugins, { generatedAt, ...limits });
+  const skillEntries = releasedSkills?.map((releasedSkill) => releasedSkill.catalogEntry);
+  const { kept: releasedPlugins, dropped } = fitCommunityPluginsIntoCatalog(allReleasedPlugins, { generatedAt, skillEntries, ...limits });
   dropped.forEach(({ name, reason }) => console.error(`community ${name}: ${reason}`));
   const v1Catalog = renderCatalogTextWithinLimit(buildCatalog(releasedPlugins.map((released) => released.catalogEntry), generatedAt), limits.maxV1Bytes);
   if (v1Catalog.withoutSchemas) console.error(`warning: index.json would be ${v1Catalog.fullSizeBytes} bytes (limit ${MAX_CATALOG_BYTES}); written without node config_schema/outputs (they are in the v2 detail files)`);
   const detailFiles = stageDetailFiles(resolve(outputDirectory, DETAIL_STAGING_DIRECTORY_NAME), releasedPlugins);
   const v2Entries = releasedPlugins.map(({ catalogEntry }, index) => buildCatalogV2Entry(catalogEntry, detailFiles[index]));
-  const v2Catalog = renderCatalogV2Text(buildCatalogV2(v2Entries, generatedAt));
+  const v2Catalog = renderCatalogV2Text(buildCatalogV2(v2Entries, generatedAt, skillEntries));
   if (v2Catalog.warning) console.error(`warning: ${v2Catalog.warning}`);
   const icons = stageCatalogIcons(resolve(outputDirectory, ICON_STAGING_DIRECTORY_NAME), releasedPlugins);
   const indexPath = resolve(outputDirectory, "index.json");
@@ -198,7 +204,7 @@ export function writeCatalogFiles(outputDirectory, allReleasedPlugins, { signInd
     { path: indexV2Path, name: CATALOG_V2_INDEX_NAME, catalog: JSON.parse(v2Catalog.catalogText) },
     { path: indexPath, name: "index.json", catalog: JSON.parse(v1Catalog.catalogText) },
   ]);
-  const fileHashes = releasedPlugins.map(({ tarballName, sha256 }) => ({ fileName: tarballName, sha256 }));
+  const fileHashes = [...releasedPlugins, ...(releasedSkills ?? [])].map(({ tarballName, sha256 }) => ({ fileName: tarballName, sha256 }));
   fileHashes.push(...[...icons, ...detailFiles].map(({ assetName, sha256 }) => ({ fileName: assetName, sha256 })));
   fileHashes.push({ fileName: "index.json", sha256: sha256Hex(Buffer.from(v1Catalog.catalogText)) });
   fileHashes.push({ fileName: CATALOG_V2_INDEX_NAME, sha256: sha256Hex(Buffer.from(v2Catalog.catalogText)) });
