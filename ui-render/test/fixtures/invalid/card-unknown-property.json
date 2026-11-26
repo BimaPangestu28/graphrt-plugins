@@ -1,0 +1,18 @@
+{
+  "error": "unknown field `html`",
+  "block": {
+    "$ui": "adaptive_card",
+    "version": 1,
+    "card": {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "body": [
+        {
+          "type": "TextBlock",
+          "text": "x",
+          "html": "<script>"
+        }
+      ]
+    }
+  }
+}

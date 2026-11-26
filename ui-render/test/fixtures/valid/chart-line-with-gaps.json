@@ -1,0 +1,27 @@
+{
+  "$ui": "chart",
+  "version": 1,
+  "type": "line",
+  "title": "Orders per day",
+  "x": {
+    "values": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri"
+    ]
+  },
+  "series": [
+    {
+      "name": "Orders",
+      "values": [
+        12,
+        18,
+        null,
+        22,
+        30
+      ]
+    }
+  ]
+}

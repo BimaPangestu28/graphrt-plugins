@@ -1,0 +1,8 @@
+{
+  "error": "at least 1",
+  "block": {
+    "$ui": "stats",
+    "version": 1,
+    "items": []
+  }
+}

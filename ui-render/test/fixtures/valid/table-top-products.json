@@ -1,0 +1,47 @@
+{
+  "$ui": "table",
+  "version": 1,
+  "title": "Produk terlaris",
+  "columns": [
+    {
+      "key": "name",
+      "label": "Produk"
+    },
+    {
+      "key": "units",
+      "label": "Terjual",
+      "format": "number"
+    },
+    {
+      "key": "revenue",
+      "label": "Pendapatan",
+      "format": "currency",
+      "currency": "IDR"
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "format": "status"
+    }
+  ],
+  "rows": [
+    {
+      "name": "Kopi Susu Gula Aren",
+      "units": 1250,
+      "revenue": 31250000,
+      "status": "In stock"
+    },
+    {
+      "name": "Croissant",
+      "units": 640,
+      "revenue": 16000000,
+      "status": "Low stock"
+    },
+    {
+      "name": "Teh Tarik",
+      "units": 410,
+      "revenue": 8200000,
+      "status": "Out of stock"
+    }
+  ]
+}
