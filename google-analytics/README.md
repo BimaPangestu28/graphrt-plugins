@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Google Analytics 4: reports through the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for Google Analytics 4: reports through the
 [Data API v1beta](https://developers.google.com/analytics/devguides/reporting/data/v1/rest) and account, property
 and data stream discovery through the [Admin API v1beta](https://developers.google.com/analytics/devguides/config/admin/v1/rest).
 It is read-only. Universal Analytics properties are not supported (Google shut them down).

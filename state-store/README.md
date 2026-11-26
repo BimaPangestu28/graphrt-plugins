@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; the polling example ran live (new ids, then none) in PR #13 and again on 2026-11-19. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that gives workflows a small local memory. Its main job
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that gives workflows a small local memory. Its main job
 is polling: a workflow that checks new comments, DMs or orders every few minutes calls `filter_unseen` and handles
 only the ids it has not seen before. It also stores small JSON values and atomic counters.
 

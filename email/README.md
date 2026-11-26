@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Live verify_connection against smtp.gmail.com with a wrong password gave auth_error (PR #18); no mail sent, IMAP tested with fakes only. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that sends email over **SMTP** (nodemailer) and reads,
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that sends email over **SMTP** (nodemailer) and reads,
 flags and moves messages over **IMAP** (imapflow). It works with any provider that offers SMTP/IMAP login with a
 password, typically an *app password*.
 

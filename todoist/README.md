@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the unified [Todoist API v1](https://developer.todoist.com/api/v1/)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the unified [Todoist API v1](https://developer.todoist.com/api/v1/)
 (`https://api.todoist.com/api/v1`), which replaced the REST API v2 and Sync API v9 (both shut down in 2026; old
 `/rest/v2` URLs answer 410). Projects, sections, tasks (list, filter, completed, get, create, Quick Add, update,
 move, complete, reopen), labels and comments. Deleting tasks is node only.

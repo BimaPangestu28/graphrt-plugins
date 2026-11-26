@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Typeform APIs](https://www.typeform.com/developers/):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Typeform APIs](https://www.typeform.com/developers/):
 list and read forms, read responses with filters and paging, form insights and workspaces, create forms, and delete
 forms or responses from workflows. Works with US and EU data centers.
 

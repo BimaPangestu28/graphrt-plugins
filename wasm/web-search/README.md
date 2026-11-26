@@ -18,7 +18,7 @@ Node.js plugin, so workflows and agents keep `web-search.<operation>` and `web-s
 
 ## Installation
 ```sh
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/web-search
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/web-search
 ```
 or point `--plugins` at this directory. Trust it (`--trust-plugin web-search`) only when nodes pass `access_token` from a secret. The release catalog lists the build in the plugin's
 `runtimes` (install command and module hash). Install either this build or the Node.js

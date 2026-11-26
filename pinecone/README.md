@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Pinecone](https://docs.pinecone.io/reference/api)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Pinecone](https://docs.pinecone.io/reference/api)
 vector database, API version `2026-07` (sent as `X-Pinecone-Api-Version`). It lists and describes indexes on the
 control plane (`api.pinecone.io`), and queries, fetches, lists, upserts and updates vectors and documents on each
 index's own data-plane host. It is built with the declarative REST layer ([`definition.mjs`](definition.mjs)).

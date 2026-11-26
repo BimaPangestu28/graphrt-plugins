@@ -33,7 +33,7 @@ Rust port of that code (like supabase) rather than a spec for rest-kit.
 ## Picking a runtime
 | | Node.js plugin (default) | WebAssembly build |
 | --- | --- | --- |
-| Install | `graphrt plugin install <name>` (catalog tarball) | `graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/<build>` |
+| Install | `graphrt plugin install <name>` (catalog tarball) | `graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/<build>` |
 | Offers | Every node and tool | rest-kit builds: every node and tool; supabase: the agent tools of one tool mode |
 | Needs | Node.js 20+ | graphrt with `wasm` and `http` (0.6.1+; supabase's `upload_object` needs binary HTTP bodies: the graphrt release after 0.6.1, or graphrt main from 824ccf6 until it is out) |
 | Best for | Warm servers calling a plugin many times a second (1–3 ms faster per call) | Cold starts (~6× faster) and memory (~12× less) |

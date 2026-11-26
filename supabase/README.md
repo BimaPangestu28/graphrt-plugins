@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for one [Supabase](https://supabase.com) project:
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for one [Supabase](https://supabase.com) project:
 table rows through the Data API ([PostgREST](https://docs.postgrest.org/en/stable/)) and files through
 [Supabase Storage](https://supabase.github.io/storage/). Filters are structured and safely encoded, so values can
 never inject PostgREST operators or extra conditions. It is built with the declarative REST layer
@@ -133,8 +133,8 @@ and errors:
 | Runtime | Tool mode | Install |
 | --- | --- | --- |
 | Node.js (default) | both, plus every node | `graphrt plugin install supabase` |
-| WebAssembly [`wasm/supabase`](../wasm/supabase/) | default (no `download_object`, uploads from https URLs) | `graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase` |
-| WebAssembly [`wasm/supabase-rpc`](../wasm/supabase-rpc/) | `SUPABASE_TOOL_MODE=user_rpc` | `graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase-rpc` |
+| WebAssembly [`wasm/supabase`](../wasm/supabase/) | default (no `download_object`, uploads from https URLs) | `graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/supabase` |
+| WebAssembly [`wasm/supabase-rpc`](../wasm/supabase-rpc/) | `SUPABASE_TOOL_MODE=user_rpc` | `graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/supabase-rpc` |
 
 Install one of them (all are named `supabase`) or point `--plugins` at its directory; workflows do not change. The
 catalog entry lists the same choices under `runtimes`. The WebAssembly builds need graphrt with `wasm` and `http`

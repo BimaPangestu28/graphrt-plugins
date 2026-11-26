@@ -157,14 +157,14 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
       assert.equal(entry.repository_url, "https://github.com/acme/graphrt-acme-crm");
       assert.equal(entry.display_name, "Acme CRM");
       assert.equal(entry.version, "1.2.0");
-      assert.equal(entry.tarball_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/community-acme-crm-v1.2.0/acme-crm-1.2.0.tar.gz");
+      assert.equal(entry.tarball_url, "https://github.com/Graphrt/graphrt-plugins/releases/download/community-acme-crm-v1.2.0/acme-crm-1.2.0.tar.gz");
       assert.equal(entry.sha256, sha256Hex(repackBytes), "the catalog pins the repack");
       assert.equal(entry.size_bytes, repackBytes.length);
       assert.equal(entry.status, "beta");
       assert.equal(entry.tos_risk, "low");
       assert.equal(entry.warning, "Writes go to your live CRM.");
       assert.equal(entry.readme_url, "https://github.com/acme/graphrt-acme-crm/blob/v1.2.0/README.md");
-      assert.equal(entry.icon_url, `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/${iconAssetNameFor(PLUGIN_NAME, Buffer.from(VALID_ICON))}`);
+      assert.equal(entry.icon_url, `https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/${iconAssetNameFor(PLUGIN_NAME, Buffer.from(VALID_ICON))}`);
     }
     assert.deepEqual(v1Entry.nodes[0].config_schema, { type: "object", properties: { limit: { type: "integer" } } });
     assert.deepEqual(v2Entry.node_kinds, [{ kind: "acme-crm.list_contacts", title: "List contacts" }]);
@@ -174,7 +174,7 @@ test("ingests a community tarball end to end: download, verify, mirror, v1 + v2 
 
     const detailFile = catalogFiles.detailFiles.find((detail) => detail.assetName === "plugin-acme-crm-1.2.0.json");
     const detailBytes = readFileSync(detailFile.stagedPath);
-    assert.equal(v2Entry.detail_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/plugin-acme-crm-1.2.0.json");
+    assert.equal(v2Entry.detail_url, "https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/plugin-acme-crm-1.2.0.json");
     assert.equal(v2Entry.detail_sha256, sha256Hex(detailBytes));
     assert.equal(v2Entry.detail_size_bytes, detailBytes.length);
     const detail = JSON.parse(detailBytes);

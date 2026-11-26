@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [ElevenLabs API](https://elevenlabs.io/docs/api-reference).
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [ElevenLabs API](https://elevenlabs.io/docs/api-reference).
 It turns text into speech and sound effects, saved as audio files. It also transcribes audio and video, and lists
 voices, models, generation history and subscription usage. The plugin is declarative: see
 [`definition.mjs`](definition.mjs) and [docs/declarative-plugins.md](../docs/declarative-plugins.md).

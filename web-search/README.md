@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for provider-agnostic web and news search. One
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for provider-agnostic web and news search. One
 environment variable picks the provider ([Tavily](https://docs.tavily.com),
 [Brave Search API](https://api-dashboard.search.brave.com/app/documentation) or [SerpAPI](https://serpapi.com/search-api)
 for Google results) and another holds its key. Workflows and agents call the same two operations and get the same
@@ -44,7 +44,7 @@ env variables, results and errors is in [`wasm/web-search`](../wasm/web-search/)
 of the two (same plugin name):
 
 ```bash
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/web-search
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/web-search
 ```
 The release catalog lists the build in the plugin's `runtimes`. Differences and measurements:
 [wasm/README.md](../wasm/README.md#picking-a-runtime).

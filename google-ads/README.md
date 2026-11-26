@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [Google Ads API](https://developers.google.com/google-ads/api/docs/start) over REST (`v26`,
 `https://googleads.googleapis.com/v26`). It lists the accounts you can access, runs Google Ads Query Language
 (GAQL) searches, builds campaign, keyword and search-term reports, pauses and enables campaigns and ad groups,

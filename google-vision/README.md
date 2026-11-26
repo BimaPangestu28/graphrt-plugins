@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for
 [Google Cloud Vision](https://cloud.google.com/vision/docs/reference/rest) with an API key. It reads text from images
 (OCR), labels what an image shows, finds faces and their expressions, rates images for unsafe content, and runs any
 other Vision feature (logos, landmarks, objects, colors, web matches). Every operation is a workflow node and an

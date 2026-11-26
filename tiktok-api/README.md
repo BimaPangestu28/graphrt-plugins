@@ -8,7 +8,7 @@
 > node only. Inbox drafts and workflow nodes are unchanged. See [Agent policy](#agent-policy).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **TikTok APIs**. It uses two of them:
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official **TikTok APIs**. It uses two of them:
 
 - **Open API** (`open.tiktokapis.com`): profile, video list, Content Posting (video and photo posts) and token refresh.
 - **Business API** (`business-api.tiktok.com/open_api/v1.3`): comments and direct messages of a TikTok business account.

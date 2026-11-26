@@ -3,7 +3,7 @@
 **Status:** experimental · **ToS risk:** low. Request signing is unit-tested but never accepted by TikTok Shop: the live check used an invalid app key. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for a seller's shop on **TikTok Shop**, through the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for a seller's shop on **TikTok Shop**, through the
 TikTok Shop Partner API (`open-api.tiktokglobalshop.com`, versioned endpoints from 202309 on). It covers products,
 inventory and prices, orders, shipping, returns and buyer messages. Every request is signed with your app secret,
 as TikTok Shop requires.

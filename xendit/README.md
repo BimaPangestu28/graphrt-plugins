@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; checked live only with an invalid key, and get_payout's api-version header is unverified. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Xendit API](https://docs.xendit.co)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Xendit API](https://docs.xendit.co)
 (Indonesia, Philippines and South-East Asia): invoices (hosted payment pages), payment requests (Payments API v3),
 balance, transactions, refunds and payouts (v3). It is built with the declarative REST layer
 ([`definition.mjs`](definition.mjs)) plus small agent-safety wrappers in [`lib/`](lib/).

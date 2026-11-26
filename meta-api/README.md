@@ -9,7 +9,7 @@
 > [Agent policy](#agent-policy).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **Meta Graph API**. It manages a
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official **Meta Graph API**. It manages a
 Facebook Page (posts, comments), an Instagram professional account (publishing, comment moderation), and
 Messenger / Instagram Direct conversations. Every operation is a workflow node. Agent tools are limited by the
 [agent policy](#agent-policy).

@@ -8,7 +8,7 @@
 > cannot make a powerful program safe. Allowlist only the programs you need.
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that runs **allowlisted local executables** with an
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that runs **allowlisted local executables** with an
 argument array, for workflow steps that have no dedicated plugin (a build script, a converter, a report generator).
 It is designed for **workflow nodes**. Agent tool calls are refused unless a rule in `SHELL_EXEC_TOOL_RULES` allows
 that exact executable and argument list.

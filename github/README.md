@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [GitHub REST API](https://docs.github.com/en/rest)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [GitHub REST API](https://docs.github.com/en/rest)
 (API version `2026-03-10`). It reads repositories, issues, pull requests, file contents, search results, releases,
 Actions runs and notifications, and writes issues, comments and pull requests. It is built with the declarative
 REST layer: the whole plugin is the data in [`definition.mjs`](definition.mjs).

@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Public no-auth API; the example read real data live (rechecked 2026-11-19). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Wikipedia in any language, through the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for Wikipedia in any language, through the
 [MediaWiki Action API](https://www.mediawiki.org/wiki/API:Main_page) and the
 [REST v1 API](https://en.wikipedia.org/api/rest_v1/). It searches articles, returns summaries, plain-text content,
 media lists, articles near a coordinate and the same article in other languages. No account or API key is needed.
@@ -41,7 +41,7 @@ env variables, results and errors is in [`wasm/wikipedia`](../wasm/wikipedia/): 
 of the two (same plugin name):
 
 ```bash
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/wikipedia
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/wikipedia
 ```
 The release catalog lists the build in the plugin's `runtimes`. Differences and measurements:
 [wasm/README.md](../wasm/README.md#picking-a-runtime).
@@ -52,7 +52,7 @@ The release catalog lists the build in the plugin's `runtimes`. Differences and 
 | `WIKIPEDIA_LANGUAGE` | no | Default wiki for calls without `language`, e.g. `id` (default `en`) |
 
 No secrets. Every request sends the User-Agent
-`graphrt-wikipedia-plugin/0.1.0 (https://github.com/BimaPangestu28/graphrt-plugins; graphrt workflow plugin)`, as
+`graphrt-wikipedia-plugin/0.1.0 (https://github.com/Graphrt/graphrt-plugins; graphrt workflow plugin)`, as
 the [Wikimedia User-Agent policy](https://meta.wikimedia.org/wiki/User-Agent_policy) asks.
 
 **Terms:** Wikimedia has no fixed quota for reads but asks for serial requests and reasonable volume

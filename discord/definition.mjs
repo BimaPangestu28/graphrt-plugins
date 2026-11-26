@@ -173,7 +173,7 @@ const restDefinition = defineRestPlugin({
   baseUrl: "https://discord.com/api/v10",
   auth: { type: "header", header: "Authorization", prefix: "Bot ", env: "DISCORD_BOT_TOKEN" },
   // Discord asks bots to identify themselves this way (https://discord.com/developers/docs/reference#user-agent).
-  defaultHeaders: { "user-agent": "DiscordBot (https://github.com/BimaPangestu28/graphrt-plugins, 0.1.0)" },
+  defaultHeaders: { "user-agent": "DiscordBot (https://github.com/Graphrt/graphrt-plugins, 0.1.0)" },
   // Errors are {"code": 50001, "message": "Missing Access", "errors": {...}}; 429s add retry_after (seconds).
   errors: {
     messagePath: "message",

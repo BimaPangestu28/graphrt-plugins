@@ -3,7 +3,7 @@
 **Status:** experimental · **ToS risk:** medium. Desktop UI automation: only read-only operations ran live; clicks, typing and the WhatsApp Desktop recipe are unverified. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that controls **macOS desktop apps**. It reads an app's
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that controls **macOS desktop apps**. It reads an app's
 UI from the macOS Accessibility tree, which is text, so agents can "see" it. It can then click elements, type, press
 key combos, use the clipboard and save screenshots. Every operation is a workflow node and, except `quit_app` and
 `whatsapp_desktop_send`, an agent tool.

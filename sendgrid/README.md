@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Twilio SendGrid v3 Web API](https://www.twilio.com/docs/sendgrid/api-reference).
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Twilio SendGrid v3 Web API](https://www.twilio.com/docs/sendgrid/api-reference).
 It sends email from simple fields or a dynamic template and reads templates, delivery stats, suppression lists and
 unsubscribe groups. Built with the [declarative REST layer](../docs/declarative-plugins.md).
 

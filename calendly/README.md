@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Calendly API v2](https://developer.calendly.com/api-docs).
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Calendly API v2](https://developer.calendly.com/api-docs).
 It covers the following:
 - the current user, organization members, event types and their open times;
 - scheduled events and their invitees;

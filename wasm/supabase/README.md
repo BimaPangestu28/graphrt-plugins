@@ -27,7 +27,7 @@ tools before it sees env, and the two modes offer different tools.
 
 ## Installation
 ```sh
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/supabase
 ```
 or point `--plugins` at this directory. It needs no `--trust-plugin`: it receives no tool context secrets.
 

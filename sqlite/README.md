@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; the tests use the real node:sqlite engine and the example read a real file (2026-11-19). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that runs parameterised SQL on local **SQLite** files
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that runs parameterised SQL on local **SQLite** files
 with Node's built-in `node:sqlite` module, so there are no npm dependencies. Files may only come from directories
 you allow. Agents get read-only access by default: `query` opens the file read-only, so SQLite itself refuses
 writes.

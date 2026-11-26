@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; checked live only with an invalid key, and one request field placement is unverified. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Shipper.id](https://shipper.id) logistics API v3
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Shipper.id](https://shipper.id) logistics API v3
 ([reference](https://logistics-docs.shipper.id)). It searches locations, compares domestic courier rates, creates
 orders, requests pickups, prints labels and tracks orders. Reads, rates and labels are agent tools; creating and
 cancelling orders and requesting pickups are workflow nodes only.

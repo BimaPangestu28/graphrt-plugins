@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **Amazon DynamoDB**. It calls the DynamoDB JSON API
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **Amazon DynamoDB**. It calls the DynamoDB JSON API
 directly, signed with AWS Signature Version 4 ([`lib/aws-sigv4.mjs`](lib/aws-sigv4.mjs), a byte-identical copy of
 the [s3](../s3/) plugin's signer, verified against the official AWS SigV4 test suite). No AWS SDK, no npm
 dependencies.

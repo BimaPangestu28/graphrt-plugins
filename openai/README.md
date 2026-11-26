@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [OpenAI API](https://platform.openai.com/docs/api-reference).
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [OpenAI API](https://platform.openai.com/docs/api-reference).
 It is meant for workflows that need a *second* model next to the agent's own: summarize, classify, extract JSON,
 embed or moderate text, and run large jobs cheaply through the Batch API. Every request is non-streaming.
 Every operation is a workflow node; deletes and batch cancellation are node only.

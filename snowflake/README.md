@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official SQL API; reviewed and unit-tested with fakes, checked live only with a made-up account (not_found). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **Snowflake** over the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **Snowflake** over the
 [SQL API v2](https://docs.snowflake.com/en/developer-guide/sql-api/index), authenticated with a key-pair JWT
 (RS256 signed with `node:crypto`, see [`lib/key-pair-jwt.mjs`](lib/key-pair-jwt.mjs)). No Snowflake driver, no npm
 dependencies.

@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official Query API; reviewed and unit-tested with fakes, checked live against the public demo with a bad password (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that runs Cypher on Neo4j through the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that runs Cypher on Neo4j through the
 [HTTP Query API v2](https://neo4j.com/docs/query-api/current/) (`POST /db/<database>/query/v2`). It works with
 self-managed Neo4j (5.x and 2025+ calendar versions with the Query API enabled) and Neo4j Aura. It is built with the
 declarative REST layer ([`definition.mjs`](definition.mjs)); no driver, no Bolt.

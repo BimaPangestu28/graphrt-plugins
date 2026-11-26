@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [LINE Messaging API](https://developers.line.biz/en/reference/messaging-api/): a LINE Official Account bot that
 pushes and replies to messages, multicasts and broadcasts (node only), reads user profiles, followers and group
 info, and checks the monthly message quota.

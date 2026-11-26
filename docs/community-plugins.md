@@ -123,7 +123,7 @@ plugin directory, which must be a git repository. Only files git tracks are pack
 left out:
 
 ```bash
-git clone https://github.com/BimaPangestu28/graphrt-plugins && cd graphrt-plugins
+git clone https://github.com/Graphrt/graphrt-plugins && cd graphrt-plugins
 node scripts/pack-plugins.mjs --plugin-dir ../acme-crm --out ../acme-crm/dist
 # -> <sha256>  acme-crm-1.2.0.tar.gz  (... bytes, N pinned files)
 node scripts/verify-plugins.mjs ../acme-crm/dist/acme-crm-1.2.0.tar.gz --graphrt "$(which graphrt)"

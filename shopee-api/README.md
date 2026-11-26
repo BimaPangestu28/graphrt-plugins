@@ -3,7 +3,7 @@
 **Status:** experimental · **ToS risk:** low. Request signing is unit-tested but never accepted by Shopee: the live check with fake credentials got error_sign. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for a seller's shop on the **Shopee Open Platform v2**
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for a seller's shop on the **Shopee Open Platform v2**
 (`partner.shopeemobile.com/api/v2`). It covers the shop, products, stock and prices, orders, shipping and seller chat.
 Every request is signed with your app's partner key, as Shopee requires.
 

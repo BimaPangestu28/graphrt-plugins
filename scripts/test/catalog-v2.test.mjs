@@ -69,7 +69,7 @@ test("builds a slim v2 index entry that links its detail file", () => {
   assert.deepEqual(entry.node_kinds, [{ kind: "meta-api.get_page", title: "Get page" }, { kind: "meta-api.no_title", title: "meta-api.no_title" }]);
   assert.deepEqual(entry.tools, ["get_page", "bare_tool"]);
   assert.equal(entry.operations_count, 2);
-  assert.equal(entry.detail_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/plugin-meta-api-0.1.0.json");
+  assert.equal(entry.detail_url, "https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/plugin-meta-api-0.1.0.json");
   assert.equal(entry.detail_sha256, rendered.sha256);
   assert.equal(entry.detail_size_bytes, rendered.sizeBytes);
   assert.equal(JSON.stringify(entry).includes("config_schema"), false);

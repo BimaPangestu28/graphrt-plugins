@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the signed-in user's OneDrive (personal or
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the signed-in user's OneDrive (personal or
 OneDrive for Business) through [Microsoft Graph v1.0](https://learn.microsoft.com/en-us/graph/api/resources/onedrive):
 browse folders, get items by id or path, search, download into a directory, upload up to 250 MB, create folders,
 rename, move and copy, read sharing, and (workflow nodes only) create sharing links, invite people and delete.

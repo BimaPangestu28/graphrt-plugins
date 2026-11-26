@@ -3,7 +3,7 @@
 **Status:** experimental · **ToS risk:** high. WhatsApp gateway driving a QR-linked device (unofficial); checked live only with an invalid token. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Wablas](https://wablas.com), an Indonesian
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for [Wablas](https://wablas.com), an Indonesian
 WhatsApp gateway that sends from your WhatsApp number linked to a Wablas device
 ([API docs](https://pati.wablas.com/documentation/api); every server hosts the same docs): send text, images,
 documents and videos, read message reports, cancel pending messages and read the device status and quota.

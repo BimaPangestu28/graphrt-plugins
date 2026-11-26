@@ -18,7 +18,7 @@ Node.js plugin, so workflows and agents keep `wikipedia.<operation>` and `wikipe
 
 ## Installation
 ```sh
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/wikipedia
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/wikipedia
 ```
 or point `--plugins` at this directory. The release catalog lists the build in the plugin's
 `runtimes` (install command and module hash). Install either this build or the Node.js

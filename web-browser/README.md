@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** low. Real-Chromium end-to-end suite and live reads of public pages, with SSRF refusals checked live (PR #24, #34). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **read-only browsing of public web pages** in a
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **read-only browsing of public web pages** in a
 headless Chromium (Playwright). Workflows and agents can read a page as clean text or markdown, list its links,
 pull values out with CSS selectors, and take screenshots. The plugin can't click, type or log in, and it won't let a
 page reach your local network or a cloud metadata service.
@@ -124,7 +124,7 @@ too.
 - **Network failure:** the call fails with a retryable `network_error`.
 - **Cache:** results are kept per origin for an hour, up to 100 origins.
 
-**User agent:** a normal Chrome user agent with `graphrt-web-browser/0.2.1 (+https://github.com/BimaPangestu28/graphrt-plugins)`
+**User agent:** a normal Chrome user agent with `graphrt-web-browser/0.2.1 (+https://github.com/Graphrt/graphrt-plugins)`
 appended, so sites can identify the plugin. You can replace it with `WEB_BROWSER_USER_AGENT`.
 
 ## Prerequisites

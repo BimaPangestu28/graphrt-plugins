@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Cloudflare API v4](https://developers.cloudflare.com/api/).
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Cloudflare API v4](https://developers.cloudflare.com/api/).
 It reads accounts and zones, lists and changes DNS records, purges the cache from workflow nodes, and lists Workers
 with their settings and deployments. It is built with the declarative REST layer ([`definition.mjs`](definition.mjs)).
 

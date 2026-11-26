@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Stripe API](https://docs.stripe.com/api):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Stripe API](https://docs.stripe.com/api):
 customers, PaymentIntents, payment links, invoices, products and prices, charges, balance, refunds and
 subscriptions. Every request is pinned to `Stripe-Version: 2026-10-28.endive`, and every create sends a fresh
 `Idempotency-Key`. It is built with the declarative REST layer ([`definition.mjs`](definition.mjs)) plus three

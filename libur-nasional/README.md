@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Public no-auth API; the example read real data live (rechecked 2026-11-19). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Indonesian public holidays: national holidays
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for Indonesian public holidays: national holidays
 (*libur nasional*) and collective leave (*cuti bersama*) from 2011 to next year. It lists holidays, checks a date,
 finds the next holidays and counts working days between two dates. No account or API key is needed, and each year
 is fetched once and cached in memory. Every operation is a workflow node and an agent tool.

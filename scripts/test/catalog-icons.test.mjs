@@ -22,7 +22,7 @@ test("gives every catalog entry an icon_url on the catalog release, named by con
   assert.equal(entry.icon_url, releaseAssetUrl(CATALOG_TAG, readPluginIcon("meta-api").assetName));
   assert.match(entry.icon_url, ICON_ASSET_URL_PATTERN);
   const fakeEntry = buildCatalogEntry(manifest, { sha256: "0", sizeBytes: 1 }, undefined, () => ({ assetName: "icon-meta-api-0123456789ab.svg" }));
-  assert.equal(fakeEntry.icon_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/icon-meta-api-0123456789ab.svg");
+  assert.equal(fakeEntry.icon_url, "https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/icon-meta-api-0123456789ab.svg");
   assert.throws(() => buildCatalogEntry(manifest, { sha256: "0", sizeBytes: 1 }, undefined, () => {
     throw new Error("meta-api: no icon.svg");
   }), /no icon\.svg/);

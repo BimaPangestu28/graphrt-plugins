@@ -3,7 +3,7 @@
 **Status:** experimental · **ToS risk:** low. Request signing is unit-tested but never accepted by Lazada: the live check used an invalid app key. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [Lazada Open Platform](https://open.lazada.com) seller APIs: seller, products, orders and order items, plus price,
 stock and fulfilment (pack, ready to ship) as workflow nodes. Every request is signed with your app secret
 (HMAC-SHA256, [`lib/signing.mjs`](lib/signing.mjs)) and sent to the seller's regional gateway.
