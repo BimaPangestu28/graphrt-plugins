@@ -132,7 +132,10 @@ Maintainers release; contributors never tag or publish.
 - Every run of [`release.yml`](../.github/workflows/release.yml) that publishes (a plugin tag, a manual run)
   also releases each skill whose version has no release yet. To release skills without touching any plugin, push
   the tag `skill-<name>-v<version>`: the workflow checks it against `metadata.version` and runs
-  `node scripts/publish-plugins.mjs --skills-only`, which tests, packs and releases no plugin.
+  `node scripts/publish-plugins.mjs --skills-only`, which tests, packs and releases no plugin. Like
+  `--catalog-only`, it rebuilds the plugin entries from what is published and refuses when that would drop or
+  change a listed plugin (for example while a plugin's version bump is merged but not released yet: release the
+  plugin first).
 - A skill version is the GitHub Release `skill-<name>-v<version>` with the asset
   `skill-<name>-<version>.tar.gz`. The archive holds one directory `<name>/` with the skill's files. No plugin
   (official or community) may have a name starting with `skill-`.

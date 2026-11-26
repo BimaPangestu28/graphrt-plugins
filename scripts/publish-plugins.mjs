@@ -37,9 +37,10 @@
  * Agent skills (`skills/<name>/SKILL.md`, see docs/skills.md) are released on every run that is not
  * --catalog-only: each skill version without a release gets `skill-<name>-v<version>` with the archive
  * `skill-<name>-<version>.tar.gz` (text only; packing runs nothing), and `index-v2.json` lists the published
- * skills as `skills`, described from the published archives (`index.json`, for older apps, is unchanged). A skill that fails its checks is skipped (listed under
- * `skipped` with `kind: "skill"`); it never fails the plugin publish. --catalog-only lists the skills already
- * published and refuses when one in the live catalog would be dropped or changed.
+ * skills as `skills`, described from the published archives (`index.json`, for older apps, is unchanged). A
+ * skill that fails its checks is skipped (listed under `skipped` with `kind: "skill"`); it never fails the plugin
+ * publish. --catalog-only lists the skills already published and refuses when one in the live catalog would be
+ * dropped or changed.
  *
  * Needs an authenticated `gh` (GH_TOKEN in CI). Set GRAPHRT_BIN to also check each official
  * tarball with `graphrt plugin install` into a temporary directory; community tarballs get that check only
