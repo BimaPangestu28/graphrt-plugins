@@ -25,9 +25,14 @@ on:
 
 permissions:
   contents: write
+  actions: read # the wait-for-earlier-runs step lists this workflow's runs
 
+# Runs must not overlap: each one rebuilds and re-uploads the `catalog` release from what is published.
+# A single shared group would serialize them, but GitHub keeps only the newest *pending* run of a group and
+# cancels the others, so of several tags pushed together the middle ones would never publish. Each tag (and
+# each manual run) therefore gets a group of its own, and the first step waits for every earlier run instead.
 concurrency:
-  group: release-plugins
+  group: release-plugins-${{ github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -35,8 +40,26 @@ jobs:
     # `community-<name>-v<version>` tags are mirror releases created by publish-plugins.mjs, not plugins of this repo.
     if: github.event_name != 'push' || !startsWith(github.ref_name, 'community-')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Up to 60 minutes waiting for earlier runs, then the publish itself.
+    timeout-minutes: 90
     steps:
+      # Queue behind every earlier run of this workflow that has not finished (run ids grow with creation time).
+      - name: Wait for earlier release runs
+        timeout-minutes: 60
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          while true; do
+            earlier_runs="$(gh api "repos/$REPOSITORY/actions/workflows/release.yml/runs?per_page=100" \
+              --jq "[.workflow_runs[] | select(.id < $RUN_ID and .status != \"completed\") | .id] | join(\" \")")"
+            if [ -z "$earlier_runs" ]; then break; fi
+            echo "waiting for earlier run(s): $earlier_runs"
+            sleep 15
+          done
+
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
