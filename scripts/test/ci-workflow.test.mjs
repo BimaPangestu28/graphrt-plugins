@@ -38,6 +38,29 @@ test("the ci.yml wasm path filter covers every plugin with a WebAssembly build",
   }
 });
 
+test("the ci.yml gate job `ci-ok` waits for every other job and always reports", () => {
+  const workflowText = readFileSync(join(REPO_ROOT, ".github", "workflows", "ci.yml"), "utf8");
+  const jobsStart = workflowText.indexOf("\njobs:\n");
+  assert.notEqual(jobsStart, -1, "ci.yml has no `jobs:` section");
+  const jobsText = workflowText.slice(jobsStart);
+  const jobIds = [...jobsText.matchAll(/^ {2}([A-Za-z0-9_-]+):\s*$/gm)].map((jobMatch) => jobMatch[1]);
+  assert.ok(jobIds.includes("ci-ok"), "ci.yml has no `ci-ok` job");
+
+  const gateText = jobsText.slice(jobsText.indexOf("\n  ci-ok:\n"));
+  // The ruleset requires the check by this name, so it must not change.
+  assert.match(gateText, /^ {4}name: ci-ok$/m);
+  assert.match(gateText, /^ {4}if: \$\{\{ always\(\) \}\}$/m);
+  const needsMatch = /^ {4}needs: \[([^\]]*)\]$/m.exec(gateText);
+  assert.ok(needsMatch, "`ci-ok` has no inline `needs` list");
+  const neededJobIds = needsMatch[1].split(",").map((jobId) => jobId.trim());
+  assert.deepEqual(
+    [...neededJobIds].sort(),
+    jobIds.filter((jobId) => jobId !== "ci-ok").sort(),
+    "`ci-ok` must need every other job in ci.yml",
+  );
+  assert.match(workflowText, /^ {2}merge_group:\s*$/m, "ci.yml must run for merge queue entries");
+});
+
 test("the release workflow tells skill tags from plugin tags and never treats a skill as a plugin", () => {
   const workflowText = readFileSync(join(REPO_ROOT, ".github", "workflows", "release.yml"), "utf8");
   const skillBranchStart = workflowText.indexOf('if [ "$EVENT_NAME" = "push" ] && [[ "$REF_NAME" == skill-* ]]; then');
