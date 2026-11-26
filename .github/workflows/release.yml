@@ -83,27 +83,22 @@ jobs:
       - name: Test release tooling
         run: node --test scripts/test/*.test.mjs
 
-      # The catalog signing key comes from the GRAPHRT_CATALOG_SIGNING_KEY secret (the unencrypted minisign
-      # secret key file). It is written to a mode-600 file under RUNNER_TEMP and never echoed. Without the secret
-      # the variable stays unset, so a real publish refuses to upload an unsigned catalog (a dry run warns).
-      - name: Write the catalog signing key
+      # The catalog signing key is the GRAPHRT_CATALOG_SIGNING_KEY secret itself (the unencrypted minisign secret
+      # key file's text, or its base64), passed to the publish step as a variable: the script writes it to a
+      # private temp file only while minisign runs. Without the secret a real publish refuses to upload an
+      # unsigned catalog (a dry run warns).
+      - name: Check the catalog signing key
         env:
           CATALOG_SIGNING_KEY: ${{ secrets.GRAPHRT_CATALOG_SIGNING_KEY }}
         run: |
-          set -euo pipefail
           if [ -z "$CATALOG_SIGNING_KEY" ]; then
             echo "::warning::secret GRAPHRT_CATALOG_SIGNING_KEY is not set; the catalog cannot be signed"
-            exit 0
           fi
-          umask 077
-          key_file="$RUNNER_TEMP/catalog-minisign.key"
-          printf '%s\n' "$CATALOG_SIGNING_KEY" > "$key_file"
-          chmod 600 "$key_file"
-          echo "GRAPHRT_CATALOG_SIGNING_KEY=$key_file" >> "$GITHUB_ENV"
 
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          GRAPHRT_CATALOG_SIGNING_KEY: ${{ secrets.GRAPHRT_CATALOG_SIGNING_KEY }}
           GRAPHRT_PLUGINS_REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           REF_NAME: ${{ github.ref_name }}
@@ -139,7 +134,3 @@ jobs:
             dist/*.tar.gz
             dist/catalog/
           if-no-files-found: ignore
-
-      - name: Remove the catalog signing key
-        if: always()
-        run: rm -f "$RUNNER_TEMP/catalog-minisign.key"
