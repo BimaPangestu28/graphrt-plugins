@@ -1,0 +1,51 @@
+# Weekly version updates, minor and patch bumps grouped into one pull request per ecosystem, few open at a time
+# (each pull request runs CI). Majors still come one by one. Security updates are not limited by this file.
+#
+# npm: the repository root and every plugin with a package-lock.json (scripts/install-plugin-dependencies.sh
+# installs those in CI); add a new plugin's directory here when it gains dependencies.
+# cargo: a bump changes what the committed .wasm modules are built from; rebuild them on macOS arm64 (wasm/crates/*/build.sh) before merging.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      github-actions-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /email
+      - /excel-csv
+      - /google-maps-scraper
+      - /image-tools
+      - /mongodb
+      - /mysql
+      - /pdf-tools
+      - /postgres
+      - /qr-code
+      - /redis
+      - /sftp
+      - /sqlite
+      - /web-browser
+      - /whatsapp-web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directories:
+      - /wasm/crates
+      - /wasm/crates/supabase
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
