@@ -27,6 +27,7 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
 | apollo, hunter | medium | Personal-data enrichment: GDPR and UU PDP 27/2022 | — |
 | threads-api, meta-api, youtube-api, youtube-transcript, web-browser, web-search | low | Spam, consent and scraping rules | — |
 | shopee-api, tiktok-shop-api, lazada | low | Partner programme requirements | — |
+| upwork | low | Agents act on a real Upwork account; Upwork meters searches and writes | — (it is Upwork's own MCP server) |
 | whatsapp-api, qontak, twilio, vonage, email senders, chat bots | low | Opt-in and anti-spam rules | — |
 
 ## google-maps-scraper
@@ -189,6 +190,18 @@ Where a source could not be fetched directly (JavaScript-only portals, geo-block
   - `api_request` is GET-only for tools.
 - **Missing:** none for ToS. All three are experimental because their request signing has never been accepted by a
   live account.
+
+## upwork
+- **Risk: low.** The plugin points the desktop app at Upwork's own MCP server (`https://mcp.upwork.com/mcp`),
+  the access Upwork offers for agents, signed in with the user's account over OAuth.
+- **Clauses:** Upwork publishes its MCP terms and current rate limits at <https://www.upwork.com/ai/mcp>. That page
+  refuses automated fetchers (HTTP 403), so it was **not read** for this audit: read it before automating. What the
+  server itself enforces, from Upwork's agent plugin skills: write tools return a preview to confirm, money and
+  legally binding steps (offers, milestones) are never completed by the server (it returns a `finalize_url`), and
+  searches, profile reads and writes are metered (`retry_after_seconds`).
+- **Mitigation in the plugin:** only `find_*`, `get_*`, `list_*` and `search_*` tools run without asking (and never
+  one whose name says it sends); the builder guide asks for an approval before `confirm_preview`, one focused
+  search per run, no write loops, and never inventing facts or amounts.
 
 ## Prospecting and enrichment: apollo, hunter (and zerobounce)
 - **Risk: medium** (apollo, hunter); **low** (zerobounce).

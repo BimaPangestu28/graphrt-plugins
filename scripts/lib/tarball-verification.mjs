@@ -1,7 +1,7 @@
 /**
  * Verifies one plugin release tarball the way a host will use it (used by scripts/verify-plugins.mjs, the publish
  * and the community ingest): the strict reader (tar-archive.mjs) accepts it, every entry is a file or directory
- * with a safe path under one top-level `<name>/` directory, no forbidden files ship, `plugin.mjs` is present and
+ * with a safe path under one top-level `<name>/` directory, no forbidden files ship, `plugin.mjs` (or, for an MCP preset, its guide) is present and
  * pinned, every `checksums` entry matches, npm dependencies are installed and, with a graphrt binary,
  * `graphrt plugin install` and `graphrt plugin list` accept it.
  *
@@ -17,7 +17,7 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { buildIsolatedEnvironment } from "./isolated-environment.mjs";
-import { assertAllowedPath, MANIFEST_FILE_NAME, sha256Hex } from "./plugin-package.mjs";
+import { assertAllowedPath, assertEntrypointPinned, isMcpPreset, MANIFEST_FILE_NAME, sha256Hex } from "./plugin-package.mjs";
 import { readTarGz } from "./tar-archive.mjs";
 
 /**
@@ -111,7 +111,11 @@ function assertManifestMatchesTarball(manifest, pluginName, tarballFileName) {
   if (tarballFileName !== `${manifest.name}-${manifest.version}.tar.gz`) {
     throw new Error(`tarball name \`${tarballFileName}\` does not match ${manifest.name} ${manifest.version}`);
   }
-  if (!manifest.checksums?.["plugin.mjs"]) throw new Error("the entrypoint plugin.mjs is not pinned in checksums");
+  if (isMcpPreset(manifest)) {
+    assertEntrypointPinned(manifest, manifest.checksums ?? {});
+  } else if (!manifest.checksums?.["plugin.mjs"]) {
+    throw new Error("the entrypoint plugin.mjs is not pinned in checksums");
+  }
 }
 
 function assertChecksumsMatch(pluginDirectory, checksums) {
@@ -150,7 +154,7 @@ function assertGraphrtAccepts(graphrtBinary, pluginDirectory, pluginName) {
     const listedPlugin = JSON.parse(listResult.stdout).find((summary) => summary.name === pluginName);
     if (!listedPlugin) throw new Error(`graphrt plugin list does not show ${pluginName}`);
     if (listedPlugin.error) throw new Error(`graphrt reports a load error: ${listedPlugin.error}`);
-    const expectedNodeCount = JSON.parse(readFileSync(join(pluginDirectory, MANIFEST_FILE_NAME), "utf8")).nodes.length;
+    const expectedNodeCount = JSON.parse(readFileSync(join(pluginDirectory, MANIFEST_FILE_NAME), "utf8")).nodes?.length ?? 0;
     if (listedPlugin.nodes.length !== expectedNodeCount) {
       throw new Error(`graphrt lists ${listedPlugin.nodes.length} nodes, the manifest declares ${expectedNodeCount}`);
     }
