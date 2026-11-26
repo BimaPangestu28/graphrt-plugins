@@ -349,7 +349,7 @@ one is refused. Workflow nodes keep using the env. Supabase has its own `SUPABAS
 Want to add a plugin? Read [CONTRIBUTING.md](CONTRIBUTING.md). Design notes and API research are in `docs/superpowers/`.
 
 ## License
-Apache-2.0
+Apache-2.0, see [LICENSE](LICENSE).
 
 Plugin icons are brand marks from [Simple Icons](https://simpleicons.org) (CC0) and glyphs from
 [Lucide](https://lucide.dev) (ISC, see [LICENSES/lucide.txt](LICENSES/lucide.txt)). Brand names and marks belong to
