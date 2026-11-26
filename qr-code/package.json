@@ -8,6 +8,6 @@
   "scripts": { "test": "node --test test/*.test.mjs" },
   "dependencies": {
     "qrcode": "1.5.4",
-    "zxing-wasm": "3.1.6"
+    "zxing-wasm": "3.1.7"
   }
 }

@@ -20,7 +20,7 @@
     "ci:local": "scripts/ci-local.sh"
   },
   "devDependencies": {
-    "lucide-static": "1.66.0",
-    "simple-icons": "16.36.0"
+    "lucide-static": "1.78.0",
+    "simple-icons": "16.38.1"
   }
 }

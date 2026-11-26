@@ -9,7 +9,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@ioredis/commands": "2.0.0",
+    "@ioredis/commands": "2.4.0",
     "ioredis": "6.0.0"
   }
 }
