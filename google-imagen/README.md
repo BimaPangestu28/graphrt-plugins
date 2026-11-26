@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Google image generation through the Gemini API.
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for Google image generation through the Gemini API.
 
 **Imagen is shut down in the Gemini API** ([notice](https://aistudio.google.com/docs/imagen)): the `:predict`
 endpoint with `imagen-*` models no longer works. Google's replacement is native image output of the Gemini image

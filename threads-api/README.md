@@ -8,7 +8,7 @@
 > [Agent policy](#agent-policy).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **Threads API**
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official **Threads API**
 (`graph.threads.net`). It reads the account's profile and posts, publishes text, image, video and carousel threads,
 moderates replies, and reads mentions and keyword search. Every operation is a workflow node. Agent tools are limited by the
 [agent policy](#agent-policy).

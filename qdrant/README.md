@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Qdrant](https://api.qdrant.tech/api-reference)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Qdrant](https://api.qdrant.tech/api-reference)
 vector database REST API, on Qdrant Cloud or a self-hosted server. It reads collections, runs the universal Query API
 (vector search, hybrid search with prefetch and fusion, recommendations, grouping), scrolls, retrieves and counts
 points, and upserts points and payload. It is built with the declarative REST layer ([`definition.mjs`](definition.mjs)).

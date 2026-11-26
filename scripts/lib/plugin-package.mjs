@@ -23,7 +23,7 @@ import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
 export const MANIFEST_FILE_NAME = "graphrt-plugin.json";
 export const README_FILE_NAME = "README.md";
-export const RELEASE_REPOSITORY = process.env.GRAPHRT_PLUGINS_REPOSITORY || "BimaPangestu28/graphrt-plugins";
+export const RELEASE_REPOSITORY = process.env.GRAPHRT_PLUGINS_REPOSITORY || "Graphrt/graphrt-plugins";
 export const CATALOG_TAG = "catalog";
 export const CATALOG_SCHEMA_VERSION = 1;
 export const NODE_REQUIREMENT = ">=20";

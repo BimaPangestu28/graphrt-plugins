@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, but the live check was blocked by Groq's network filter (403) before the key was checked. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the OpenAI-compatible
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the OpenAI-compatible
 [Groq API](https://console.groq.com/docs/api-reference). Groq serves open models (Llama, GPT-OSS, Qwen, Whisper and
 more) at very high speed, which suits workflows that need a fast *second* model: classify, extract, summarize,
 transcribe calls, speak text, or run large jobs through the Batch API. Requests are non-streaming. Every operation is

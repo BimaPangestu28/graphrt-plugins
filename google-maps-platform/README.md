@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official Maps Platform APIs (billed per call); checked live only with an invalid key (API_KEY_INVALID). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for three Google Maps Platform APIs with one API key:
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for three Google Maps Platform APIs with one API key:
 [Places API (New)](https://developers.google.com/maps/documentation/places/web-service/op-overview),
 [Geocoding API v4](https://developers.google.com/maps/documentation/geocoding/geocoding-v4-overview) and
 [Routes API](https://developers.google.com/maps/documentation/routes). Every operation is a workflow node and an

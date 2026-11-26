@@ -12,7 +12,7 @@ import { defineRestPlugin } from "./lib/shared/rest-plugin.mjs";
 import { capPageContent, LANGUAGE_ENV, resolveWikipediaUrl, withLanguage } from "./lib/wikipedia-wrappers.mjs";
 
 const VERSION = "0.1.0";
-export const USER_AGENT = `graphrt-wikipedia-plugin/${VERSION} (https://github.com/BimaPangestu28/graphrt-plugins; graphrt workflow plugin)`;
+export const USER_AGENT = `graphrt-wikipedia-plugin/${VERSION} (https://github.com/Graphrt/graphrt-plugins; graphrt workflow plugin)`;
 const ACTION_API = "/w/api.php";
 const ACTION_QUERY = { action: "query", format: "json", formatversion: "2" };
 const pageTitleParam = (location, wireName) => ({

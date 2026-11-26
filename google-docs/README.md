@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Google Docs API v1](https://developers.google.com/workspace/docs/api/reference/rest):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Google Docs API v1](https://developers.google.com/workspace/docs/api/reference/rest):
 read documents (including tabs), create documents, insert text, replace text everywhere (fill templates) and
 send raw batch updates. To find documents by name, copy, share or export them use [`google-drive`](../google-drive/).
 

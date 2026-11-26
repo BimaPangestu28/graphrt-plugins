@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Dropbox API v2](https://www.dropbox.com/developers/documentation/http/documentation),
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Dropbox API v2](https://www.dropbox.com/developers/documentation/http/documentation),
 acting as the signed-in user: account and space usage, list and search files, metadata, download into a
 directory, upload up to 150 MB, create folders, move and copy, and (workflow nodes only) delete, shared links and
 temporary links.

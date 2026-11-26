@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; its example workflow ran on real files during the build (PR #40). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **local media files** with the system
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **local media files** with the system
 `ffmpeg`/`ffprobe`. Workflows and agents can inspect, convert, cut, join and render video and audio files that live in
 directories you allow, and every result is a new file in one output directory. Tools choose from a fixed menu of
 formats, codecs and quality levels; they never pass raw ffmpeg options.

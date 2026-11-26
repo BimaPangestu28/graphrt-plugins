@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Twilio REST API](https://www.twilio.com/docs/usage/api):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Twilio REST API](https://www.twilio.com/docs/usage/api):
 send SMS, MMS and WhatsApp messages, read message and call logs, place outbound calls (node only), validate numbers
 with Lookup v2 and check the account balance.
 

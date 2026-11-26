@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Zoom REST API v2](https://developers.zoom.us/docs/api/):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Zoom REST API v2](https://developers.zoom.us/docs/api/):
 users, meetings (list, get, create, update; delete is node only), ended meetings with their instances and
 participants, and cloud recordings. It authenticates as a Zoom **Server-to-Server OAuth** app.
 

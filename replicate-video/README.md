@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for running video models on
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for running video models on
 [Replicate](https://replicate.com/docs/reference/http) (Veo, Kling, Hailuo, Wan, Seedance, LTX and many more).
 It creates predictions, waits for them with long-job time limits, and saves the output files to disk. It can also
 read a prediction's status (to poll across workflow runs) and find models and their input schemas.

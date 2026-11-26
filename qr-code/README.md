@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; the example wrote a PNG that decoded back to its URL (PR #40). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **QR codes**. Workflows and agents can generate a QR
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **QR codes**. Workflows and agents can generate a QR
 code as a new PNG or SVG file, and decode the QR codes in a local image. Generation uses
 [qrcode](https://github.com/soldair/node-qrcode); decoding uses [zxing-wasm](https://github.com/Sec-ant/zxing-wasm)
 (the ZXing C++ reader compiled to WebAssembly), both pure JavaScript/WebAssembly with no native build.

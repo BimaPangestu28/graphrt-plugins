@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [Meta Marketing API](https://developers.facebook.com/docs/marketing-api) (Facebook and Instagram ads on the Graph
 API, default version `v27.0`). It reads ad accounts, campaigns, ad sets, ads, creatives and insights (with
 synchronous and asynchronous reports), lists Lead Ads forms and their leads, and changes status and budgets. It is

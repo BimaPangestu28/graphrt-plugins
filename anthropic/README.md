@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Claude API](https://platform.claude.com/docs/en/api).
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Claude API](https://platform.claude.com/docs/en/api).
 It is meant for workflows that need a *second* model next to the agent's own: ask Claude to summarize, classify,
 extract or review, count tokens before a big request, and run large jobs at half price through Message Batches.
 Requests are non-streaming. Every operation is a workflow node; cancels and deletes are node only.

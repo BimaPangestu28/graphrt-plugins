@@ -57,8 +57,8 @@ test("adds checksums before nodes and requires the entrypoint", () => {
 
 test("builds a catalog entry with download and readme URLs", () => {
   const entry = buildCatalogEntry(sampleManifest, { sha256: "f".repeat(64), sizeBytes: 123 });
-  assert.equal(entry.tarball_url, "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz");
-  assert.equal(entry.readme_url, "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md");
+  assert.equal(entry.tarball_url, "https://github.com/Graphrt/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz");
+  assert.equal(entry.readme_url, "https://github.com/Graphrt/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md");
   assert.deepEqual(entry.permissions, { network: true, secrets: true, env: ["META_ACCESS_TOKEN"] });
   assert.deepEqual(entry.nodes, [{ kind: "meta-api.get_page", title: "Get page", description: "Reads a page", config_schema: {} }]);
   assert.equal(entry.operations_count, 1);
@@ -73,7 +73,7 @@ test("marks official entries with source official, publisher graphrt and this re
   const entry = buildCatalogEntry(sampleManifest, { sha256: "f".repeat(64), sizeBytes: 123 });
   assert.equal(entry.source, "official");
   assert.equal(entry.publisher, "graphrt");
-  assert.equal(entry.repository_url, "https://github.com/BimaPangestu28/graphrt-plugins/tree/meta-api-v0.1.0/meta-api");
+  assert.equal(entry.repository_url, "https://github.com/Graphrt/graphrt-plugins/tree/meta-api-v0.1.0/meta-api");
 });
 
 test("carries the maturity status and ToS risk from plugin-status.json", () => {
@@ -245,13 +245,13 @@ test("writes the catalog as compact JSON and refuses one the desktop app could n
 });
 
 test("lists the WebAssembly builds of wasm/builds.json as runtimes, the Node.js plugin first", () => {
-  const wasmRuntimes = readRepositoryWasmRuntimes("BimaPangestu28/graphrt-plugins");
+  const wasmRuntimes = readRepositoryWasmRuntimes("Graphrt/graphrt-plugins");
   const supabase = JSON.parse(readFileSync(join(REPO_ROOT, "supabase", "graphrt-plugin.json"), "utf8"));
   const entry = buildCatalogEntry(supabase, { sha256: "0", sizeBytes: 1 }, undefined, undefined, wasmRuntimes);
   assert.deepEqual(entry.runtimes.map((runtime) => [runtime.runtime, runtime.tool_mode]), [["process", undefined], ["wasm", "default"], ["wasm", "user_rpc"]]);
   assert.equal(entry.runtimes[0].default, true);
   const [, wasmDefault, wasmRpc] = entry.runtimes;
-  assert.equal(wasmDefault.install, "graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase");
+  assert.equal(wasmDefault.install, "graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/supabase");
   assert.ok(!wasmDefault.tools.includes("download_object") && wasmDefault.tools.includes("upload_object"));
   assert.deepEqual(wasmRpc.tools, ["call_function"]);
   const moduleBytes = readFileSync(join(REPO_ROOT, "wasm", "supabase", "supabase.wasm"));

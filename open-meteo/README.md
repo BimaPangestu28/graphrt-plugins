@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Public no-auth API; the example read a real Jakarta forecast live (PR #27, rechecked 2026-11-19). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the free [Open-Meteo](https://open-meteo.com) weather
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the free [Open-Meteo](https://open-meteo.com) weather
 API. It finds places by name and returns weather forecasts (current conditions, hourly and daily values for up to
 16 days). No account or API key is needed. Every operation is a workflow node and an agent tool.
 
@@ -39,7 +39,7 @@ env variables, results and errors is in [`wasm/open-meteo`](../wasm/open-meteo/)
 of the two (same plugin name):
 
 ```bash
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/open-meteo
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/open-meteo
 ```
 The release catalog lists the build in the plugin's `runtimes`. Differences and measurements:
 [wasm/README.md](../wasm/README.md#picking-a-runtime).

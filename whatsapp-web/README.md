@@ -3,7 +3,7 @@
 **Status:** experimental · **ToS risk:** high. Unofficial WhatsApp Web automation of a personal account; only get_status ran live, no real send. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that drives **your personal WhatsApp** through
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that drives **your personal WhatsApp** through
 WhatsApp Web in a headless Chromium (Playwright). You scan a QR code once; after that, workflows and agents
 can read chats and messages and send text and files in the background.
 

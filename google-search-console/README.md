@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [Google Search Console API v1](https://developers.google.com/webmaster-tools/v1/api_reference_index): Search
 Analytics (clicks, impressions, CTR and position from Google Search), URL Inspection, sites and sitemaps. Every
 method is called on `https://searchconsole.googleapis.com` (sites, sitemaps and Search Analytics on the

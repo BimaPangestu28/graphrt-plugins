@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Gemini API](https://ai.google.dev/api)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Gemini API](https://ai.google.dev/api)
 (Google AI Studio keys). It is meant for workflows that need a *second* model next to the agent's own: generate or
 extract text and JSON, read PDFs, images, audio and video through the Files API, count tokens and embed text.
 Requests are non-streaming. Every operation is a workflow node; `delete_file` is node only.

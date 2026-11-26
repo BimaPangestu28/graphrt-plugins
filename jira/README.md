@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [Jira Cloud platform REST API v3](https://developer.atlassian.com/cloud/jira/platform/rest/v3/). It searches issues
 with JQL (the current enhanced search endpoint, `/rest/api/3/search/jql`), reads and writes issues, moves them through
 their workflow, comments, and lists projects, issue types and assignable users. It is built with the declarative

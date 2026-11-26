@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Live integration tests against a temporary MySQL 9.2 database (PR #28); MariaDB, TLS and Unix sockets not tested. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that runs parameterised SQL on **MySQL** and
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that runs parameterised SQL on **MySQL** and
 **MariaDB** with the [`mysql2`](https://sidorares.github.io/node-mysql2/docs) driver. Agents get read-only access by
 default: `query` runs with the session and the transaction set to `READ ONLY`, so the server itself refuses writes
 and DDL.

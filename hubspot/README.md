@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [HubSpot CRM API](https://developers.hubspot.com/docs/api-reference/latest/overview.md).
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [HubSpot CRM API](https://developers.hubspot.com/docs/api-reference/latest/overview.md).
 It works with contacts, companies, deals and tickets, and with other standard objects (notes, tasks, calls,
 meetings, emails, products, line items, quotes, leads). You can list, get, search, create and update records,
 associate them, and add notes to their timelines. It also reads properties, pipelines and owners.

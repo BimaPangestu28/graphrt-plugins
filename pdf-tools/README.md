@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; its example workflow ran on real files during the build (PR #40). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **local PDF files**. Workflows and agents can read a
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **local PDF files**. Workflows and agents can read a
 PDF's page count, metadata and text, and build new PDFs by merging, extracting, splitting, rotating, watermarking, or
 from images. It uses [pdf-lib](https://pdf-lib.js.org/) for structure and Mozilla's
 [pdfjs-dist](https://github.com/mozilla/pdf.js) (legacy build) for text. Every result is a new file in one output

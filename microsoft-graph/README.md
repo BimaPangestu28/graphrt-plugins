@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Microsoft Graph v1.0](https://learn.microsoft.com/en-us/graph/api/overview):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for [Microsoft Graph v1.0](https://learn.microsoft.com/en-us/graph/api/overview):
 Outlook mail (list, read, search, send, drafts, replies, flags, moves), calendar events and directory users, as
 the signed-in user. OneDrive files are the separate `onedrive` plugin and Teams is
 [`microsoft-teams`](../microsoft-teams/).

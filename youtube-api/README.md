@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **YouTube Data API v3**. It reads
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official **YouTube Data API v3**. It reads
 the authenticated channel and its uploads, edits video metadata, moderates and answers comments, and reads and
 writes live chat. Every operation is a workflow node and an agent tool.
 

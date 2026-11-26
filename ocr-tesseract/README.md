@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; its example workflow ran on real files during the build (PR #40). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **OCR with the system
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **OCR with the system
 [Tesseract](https://github.com/tesseract-ocr/tesseract)**. Workflows and agents can read text from scanned images,
 photos of documents and PDF pages that live in directories you allow, as plain text, hOCR or TSV.
 

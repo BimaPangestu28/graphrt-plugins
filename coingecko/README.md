@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Keyless public API read live (2026-11-19); the Demo and Pro key paths are checked only with fakes. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [CoinGecko API v3](https://docs.coingecko.com):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [CoinGecko API v3](https://docs.coingecko.com):
 crypto prices, ranked market data, coin details, historical charts and OHLC candles, search, trending coins,
 categories and global market stats. It works without a key (the public API), with a free Demo key or with a paid
 Pro key. Every operation is a read, a workflow node and an agent tool.

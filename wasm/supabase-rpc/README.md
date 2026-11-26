@@ -19,7 +19,7 @@ other tool) is the separate module [`wasm/supabase`](../supabase/).
 
 ## Installation
 ```sh
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/supabase-rpc
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/supabase-rpc
 ```
 or point `--plugins` at this directory. Trust it so it receives the user's JWT: `--trust-plugin supabase`.
 

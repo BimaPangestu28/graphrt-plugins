@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Google Forms API v1](https://developers.google.com/workspace/forms/api/reference/rest):
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Google Forms API v1](https://developers.google.com/workspace/forms/api/reference/rest):
 read forms and their responses, create forms, edit questions with batch updates, publish or close forms, and manage
 Pub/Sub watches for new responses. To find forms by name use [`google-drive`](../google-drive/) (mimeType
 `application/vnd.google-apps.form`); to copy responses into a sheet use [`google-sheets`](../google-sheets/).

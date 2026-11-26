@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Live integration tests against a temporary mongod 8.0 (PR #26); auth, Atlas and SRV not tested. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **MongoDB**, built on the official `mongodb`
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **MongoDB**, built on the official `mongodb`
 driver. It queries and aggregates collections, lists databases and collections, and inserts, updates, replaces
 and deletes documents. Values cross the plugin boundary as Extended JSON (relaxed), so ObjectIds, dates and
 decimals survive the trip both ways.

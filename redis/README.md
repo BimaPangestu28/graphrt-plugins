@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Live integration tests against a temporary redis-server 7.2 (PR #26); TLS, Cluster and Sentinel not tested. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **Redis** (and Redis-compatible servers such as
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **Redis** (and Redis-compatible servers such as
 Valkey), built on `ioredis`. It covers strings, hashes, lists, sets, sorted sets, streams, SCAN and publish.
 Values are binary-safe, an optional key prefix isolates the plugin's keys, and agent tool calls are read-only
 unless you opt in.

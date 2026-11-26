@@ -1,7 +1,7 @@
 # graphrt-plugins
 
 ## Overview
-A collection of plugins for [graphrt](https://github.com/BimaPangestu28/graphrt). Each directory is one plugin with
+A collection of plugins for [graphrt](https://github.com/Graphrt/graphrt). Each directory is one plugin with
 its own `graphrt-plugin.json`, and it can be installed on its own.
 
 ## Plugins
@@ -230,22 +230,22 @@ lists them all.
     cannot replace several assets at once, so for a few seconds a reader may see an old index next to its new
     signature (verification fails), one index updated and the other not, or new indexes next to the previous
     `SHA256SUMS`; on a signature or checksum mismatch, fetch again after a short delay.
-  - **v2 (current):** `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/index-v2.json`, a
+  - **v2 (current):** `https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/index-v2.json`, a
     slim index for plugin lists (about 340 KB for 146 plugins; publishing warns above 1 MiB and refuses above 4 MiB):
     ```json
     {"schema": 2, "generated_at": "2026-11-21T10:00:00Z", "plugins": [{
       "name": "meta-api", "display_name": "Facebook & Instagram", "version": "0.1.0", "description": "...",
-      "icon_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/icon-meta-api-<12 hex>.svg",
-      "tarball_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz",
+      "icon_url": "https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/icon-meta-api-<12 hex>.svg",
+      "tarball_url": "https://github.com/Graphrt/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz",
       "sha256": "<hex of the tarball>", "size_bytes": 29257,
       "permissions": {"network": true, "secrets": true, "env": ["META_ACCESS_TOKEN"]},
       "needs_browser": false, "node": ">=20", "warning": null,
       "status": "beta", "status_reason": "...", "tos_risk": "low",
       "source": "official", "publisher": "graphrt",
-      "repository_url": "https://github.com/BimaPangestu28/graphrt-plugins/tree/meta-api-v0.1.0/meta-api",
+      "repository_url": "https://github.com/Graphrt/graphrt-plugins/tree/meta-api-v0.1.0/meta-api",
       "operations_count": 25, "tools": ["get_page"], "node_kinds": [{"kind": "meta-api.get_page", "title": "Get page"}],
-      "readme_url": "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md",
-      "detail_url": "https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/plugin-meta-api-0.1.0.json",
+      "readme_url": "https://github.com/Graphrt/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md",
+      "detail_url": "https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/plugin-meta-api-0.1.0.json",
       "detail_sha256": "<hex of the detail file>", "detail_size_bytes": 23849}]}
     ```
     Each entry links the **detail file** of its version, `plugin-<name>-<version>.json` (at most 1 MiB):
@@ -259,7 +259,7 @@ lists them all.
     A detail file derives only from the released manifest of that version, so it is **immutable**: it is uploaded
     once, before either index, and a publish that would give an existing detail file other bytes fails. Readers
     verify `detail_sha256` and can cache it forever under `<name>-<version>`.
-  - **v1 (older apps):** `https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/index.json`,
+  - **v1 (older apps):** `https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/index.json`,
     `schema: 1`, the same entries with `nodes` instead of `node_kinds`/`detail_*`:
     ```json
     {"schema": 1, "generated_at": "2026-11-18T10:00:00Z", "plugins": [{
@@ -268,7 +268,7 @@ lists them all.
         "config_schema": {"type": "object", "properties": {"page_id": {"type": "string"}}},
         "outputs": [{"name": "data", "type": "any", "description": "API result"}]}],
       "tools": ["get_page"],
-      "readme_url": "https://github.com/BimaPangestu28/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md"}]}
+      "readme_url": "https://github.com/Graphrt/graphrt-plugins/blob/meta-api-v0.1.0/meta-api/README.md"}]}
     ```
     v1 must fit the desktop app's 2 MiB limit (`MAX_CATALOG_BYTES`). While it fits it is published in full; when
     it would not, it is published without the nodes' `config_schema` and `outputs` (v1 readers treat both as
@@ -301,8 +301,8 @@ lists them all.
   `permissions.secrets` need to be trusted (`--trust-plugin <name>`) to receive plaintext secrets.
 - **By hand:**
   ```bash
-  curl -LO https://github.com/BimaPangestu28/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz
-  curl -L https://github.com/BimaPangestu28/graphrt-plugins/releases/download/catalog/SHA256SUMS | shasum -a 256 -c --ignore-missing
+  curl -LO https://github.com/Graphrt/graphrt-plugins/releases/download/meta-api-v0.1.0/meta-api-0.1.0.tar.gz
+  curl -L https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/SHA256SUMS | shasum -a 256 -c --ignore-missing
   tar -xzf meta-api-0.1.0.tar.gz
   graphrt plugin install ./meta-api
   ```

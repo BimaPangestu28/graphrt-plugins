@@ -8,7 +8,7 @@
 > Workflow nodes are unchanged. See [Agent policy](#agent-policy).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **WhatsApp Business Cloud API**. It
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official **WhatsApp Business Cloud API**. It
 sends messages from a business phone number and manages media, message templates and the business profile.
 Every operation is a workflow node. Agent tools are limited by the [agent policy](#agent-policy).
 

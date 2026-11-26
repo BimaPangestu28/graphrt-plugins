@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [AssemblyAI API](https://www.assemblyai.com/docs/api-reference). It does three things:
 - uploads audio and transcribes it, waiting for the job, with speaker labels, PII redaction and audio
   intelligence;

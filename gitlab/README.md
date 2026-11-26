@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [GitLab REST API v4](https://docs.gitlab.com/api/rest/)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [GitLab REST API v4](https://docs.gitlab.com/api/rest/)
 on gitlab.com or a self-hosted GitLab. It reads projects, issues, merge requests, pipelines and repository files, and
 writes issues, comments and merge requests. It is built with the declarative REST layer
 ([`definition.mjs`](definition.mjs)) plus agent-tool policies: an `api_request` path allowlist ([`lib/tool-path-policy.mjs`](lib/tool-path-policy.mjs)) and a

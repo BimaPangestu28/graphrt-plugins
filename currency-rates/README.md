@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Public no-auth API (Frankfurter); the example converted with a real rate live (2026-11-19). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Frankfurter](https://frankfurter.dev) v2, a free
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for [Frankfurter](https://frankfurter.dev) v2, a free
 and open-source API for reference exchange rates published by the European Central Bank and other central banks
 (Bank Indonesia, the US Treasury and more than 40 others). No account or API key is needed. Every operation is a
 workflow node and an agent tool.
@@ -38,7 +38,7 @@ env variables, results and errors is in [`wasm/currency-rates`](../wasm/currency
 of the two (same plugin name):
 
 ```bash
-graphrt plugin install https://github.com/BimaPangestu28/graphrt-plugins --rev main --subdir wasm/currency-rates
+graphrt plugin install https://github.com/Graphrt/graphrt-plugins --rev main --subdir wasm/currency-rates
 ```
 The release catalog lists the build in the plugin's `runtimes`. Differences and measurements:
 [wasm/README.md](../wasm/README.md#picking-a-runtime).

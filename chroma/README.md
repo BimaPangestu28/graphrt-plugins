@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; checked live against Chroma Cloud with a bad key (auth_error); get/delete addressing is unverified live. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [Chroma](https://docs.trychroma.com) over its HTTP
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for [Chroma](https://docs.trychroma.com) over its HTTP
 API v2 (OpenAPI: [api.trychroma.com/openapi.json](https://api.trychroma.com/openapi.json)), for a local or self-hosted
 server or Chroma Cloud. It lists and creates collections, gets, queries and searches records, and adds, upserts and
 updates them. It is built with the declarative REST layer ([`definition.mjs`](definition.mjs)).

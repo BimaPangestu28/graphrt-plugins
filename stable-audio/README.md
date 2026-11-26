@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; checked live only with a fake key; Stable Audio 3 audio-to-audio and inpainting are not implemented. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Stability AI's
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for Stability AI's
 [Stable Audio API](https://platform.stability.ai/docs/api-reference). It generates music and sound effects from
 text, transforms existing audio and regenerates a time range of a track. Audio is saved to files. It also shows
 the account's credit balance. The plugin is declarative: see [`definition.mjs`](definition.mjs) and

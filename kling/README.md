@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official [Kling AI API](https://kling.ai/document-api)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official [Kling AI API](https://kling.ai/document-api)
 (global host `https://api-singapore.klingai.com`). It generates videos with Kling 4.0, 4.0 Flash, 3.0, 3.0 Turbo,
 O1 and 2.x models from text, images or references, waits for each task, and saves the result to disk. It can also
 query tasks (to poll across workflow runs) and read your resource packages.

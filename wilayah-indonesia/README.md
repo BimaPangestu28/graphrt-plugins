@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Public no-auth API; the example read real data live (rechecked 2026-11-19). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for Indonesian administrative regions with their
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for Indonesian administrative regions with their
 Kemendagri codes: 38 provinces → 514 regencies/cities → 7,285 districts (kecamatan) → 83,762 villages (desa and
 kelurahan). It lists the hierarchy, looks up a code with its parents and full address, and searches by name. No
 API key.

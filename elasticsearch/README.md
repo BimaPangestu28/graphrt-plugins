@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only against an unreachable host (network_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [Elasticsearch REST API](https://www.elastic.co/docs/api/doc/elasticsearch/): Query DSL search, counts, ES|QL, getting
 and writing documents, and index metadata. It works with self-managed clusters (8.x and 9.x), Elastic Cloud
 deployments and Elastic Cloud Serverless. It is built with the declarative REST layer ([`definition.mjs`](definition.mjs)).

@@ -7,7 +7,7 @@
 > `delete_post` / `delete_comment` are node only. Workflow nodes are unchanged. See [Agent policy](#agent-policy).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **LinkedIn REST API**
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official **LinkedIn REST API**
 (`https://api.linkedin.com/rest`). It publishes and manages posts as a member or an organization, uploads images,
 and reads and writes comments and reactions. Every operation is a workflow node. Agent tools are limited by the
 [agent policy](#agent-policy).

@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; its example workflow ran on real files during the build (PR #40). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for **local images** with
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for **local images** with
 [sharp](https://sharp.pixelplumbing.com/) (libvips). Workflows and agents can read image metadata and resize, crop,
 rotate, convert, compress, watermark and thumbnail images that live in directories you allow. Every result is a new
 file in one output directory.

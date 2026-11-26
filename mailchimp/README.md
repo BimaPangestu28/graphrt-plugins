@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [Mailchimp Marketing API 3.0](https://mailchimp.com/developer/marketing/api/): audiences (lists), members and tags,
 member search, campaigns and campaign reports. Member operations take an email address and compute Mailchimp's
 subscriber hash (MD5 of the lower-cased address) for you.

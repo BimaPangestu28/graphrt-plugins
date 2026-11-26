@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Local only; posted a real notification live (PR #48). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that shows **local notifications on this Mac**, so a
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that shows **local notifications on this Mac**, so a
 workflow or agent can tell you when something finished or needs attention. It runs the system
 `/usr/bin/osascript`; there is no network and nothing to install.
 

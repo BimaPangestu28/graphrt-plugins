@@ -8,7 +8,7 @@
 > unchanged. See [Agent policy](#agent-policy).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the official **X API v2**. It publishes and
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the official **X API v2**. It publishes and
 manages posts, reads mentions and replies, likes and reposts, moderates replies, sends direct messages and uploads
 images, all as the user who owns the OAuth 2.0 access token. Every operation is a workflow node. Agent tools are
 limited by the [agent policy](#agent-policy).

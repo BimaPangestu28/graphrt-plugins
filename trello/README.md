@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the [Trello REST API](https://developer.atlassian.com/cloud/trello/rest/)
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the [Trello REST API](https://developer.atlassian.com/cloud/trello/rest/)
 (v1). It reads boards, lists, cards, comments, checklists, labels and members, and creates and updates lists,
 cards, comments and checklists. Every operation is a workflow node; reads and (board-limited) writes are also agent
 tools. Built with the declarative REST layer ([docs/declarative-plugins.md](../docs/declarative-plugins.md)).

@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official HTTP interface; reviewed and unit-tested with fakes, checked live against the public playground with a bad user (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [ClickHouse](https://clickhouse.com) over its
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for [ClickHouse](https://clickhouse.com) over its
 [HTTP interface](https://clickhouse.com/docs/interfaces/http): self-hosted servers and ClickHouse Cloud. Agent
 queries run with `readonly=1`, a time limit and result caps; values go in typed query parameters, never into the SQL
 text. Metadata reads are declarative ([`definition.mjs`](definition.mjs)); `query`, `insert_rows` and `execute` are

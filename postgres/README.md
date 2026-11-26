@@ -3,7 +3,7 @@
 **Status:** stable · **ToS risk:** none. Live integration tests against a temporary PostgreSQL 16 cluster (PR #28); TLS modes and Unix sockets not tested. See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin that runs parameterised SQL on **PostgreSQL** with the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin that runs parameterised SQL on **PostgreSQL** with the
 [`pg`](https://node-postgres.com) driver. Agents get read-only access by default: `query` runs inside a `READ ONLY`
 transaction that is always rolled back, so the database itself refuses writes.
 

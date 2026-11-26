@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** low. Official API; reviewed and unit-tested with fakes, but the live check never reached ZeroBounce (Cloudflare blocked the test network). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for the
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for the
 [ZeroBounce email validation API v2](https://www.zerobounce.net/docs/email-validation-api-quickstart/): validate
 one address or a batch in real time, check credits and usage, and run bulk file validations.
 

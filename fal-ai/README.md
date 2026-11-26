@@ -3,7 +3,7 @@
 **Status:** beta · **ToS risk:** none. Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error). See [plugin status](../README.md#plugin-status).
 
 ## Overview
-A [graphrt](https://github.com/BimaPangestu28/graphrt) plugin for [fal.ai](https://fal.ai): run any fal model
+A [graphrt](https://github.com/Graphrt/graphrt) plugin for [fal.ai](https://fal.ai): run any fal model
 (FLUX, Recraft, Kling, Veo, Whisper, ...) through the [Queue API](https://fal.ai/docs/model-apis/model-endpoints/queue),
 wait for the result and save the media files, check, fetch or cancel queued requests, and search models and their
 prices with the [Platform API](https://fal.ai/docs/platform-apis/v1/models). Built with the
