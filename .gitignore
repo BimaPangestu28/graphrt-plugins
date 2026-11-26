@@ -2,3 +2,7 @@
 node_modules/
 .claude/
 dist/
+# Local secrets such as GRAPHRT_CATALOG_SIGNING_KEY (see CONTRIBUTING › Releases).
+.env
+.env.*
+*.key

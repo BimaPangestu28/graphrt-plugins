@@ -234,7 +234,8 @@ lists them all.
     already seen.
   - **Key rotation:** readers keep a *list* of accepted public keys and accept a signature made by any of them.
     To rotate, publish the new public key in a release of the reader first (old and new key both accepted),
-    then switch `catalog-signing.pub` and the `GRAPHRT_CATALOG_SIGNING_KEY` secret to the new key, and drop the
+    then switch `catalog-signing.pub` and the `GRAPHRT_CATALOG_SIGNING_KEY` secret (the key itself, see
+    [CONTRIBUTING › Releases](CONTRIBUTING.md#releases)) to the new key, and drop the
     old key from readers once every supported reader version has the new one. A compromised key is removed
     from readers at once.
   - **Upload order:** a publish uploads new icons and detail files first, then both signatures, then

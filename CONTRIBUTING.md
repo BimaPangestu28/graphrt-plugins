@@ -319,9 +319,12 @@ Maintainers do the releasing; contributors never tag or publish.
   and refreshes the `catalog` release (`index.json`, `index-v2.json`, their minisign signatures, `SHA256SUMS`, new
   plugin icons and the new version's immutable detail file `plugin-<name>-<version>.json`; see
   [Install](README.md#install) for the format).
-- **The catalog is signed.** The publish signs both indexes with the minisign secret key at
-  `GRAPHRT_CATALOG_SIGNING_KEY` (default `~/.graphrt/keys/catalog-minisign.key`; in CI the workflow writes the
-  `GRAPHRT_CATALOG_SIGNING_KEY` secret to a mode-600 temp file), verifies the signatures with the committed
+- **The catalog is signed.** The publish signs both indexes with the minisign secret key, taken from (in this
+  order) the `GRAPHRT_CATALOG_SIGNING_KEY` variable, which holds the key itself (the key file's text or its
+  base64; it is written to a private temp file only while minisign runs), the `GRAPHRT_CATALOG_SIGNING_KEY_PATH`
+  variable (a path to the key file), or `~/.graphrt/keys/catalog-minisign.key`. In CI the
+  `GRAPHRT_CATALOG_SIGNING_KEY` repository secret is passed straight in. Locally you can keep it in a
+  git-ignored `.env` and run `node --env-file=.env scripts/publish-plugins.mjs`. The publish verifies the signatures with the committed
   [`catalog-signing.pub`](catalog-signing.pub) and only then uploads. Without the key a real publish refuses to
   upload an unsigned catalog; `--dry-run` signs when the key is there and otherwise warns. The secret key never
   goes into the repo, logs or test fixtures (tests generate a throwaway key). Rotation is described in

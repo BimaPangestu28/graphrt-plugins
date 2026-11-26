@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import {
-  CATALOG_PUBLIC_KEY_PATH, DEFAULT_SIGNING_KEY_PATH, buildTrustedComment, resolveSigningKeyPath, signCatalogIndexes, verifyFileSignature,
+  CATALOG_PUBLIC_KEY_PATH, DEFAULT_SIGNING_KEY_PATH, buildTrustedComment, signCatalogIndexes, verifyFileSignature, withSigningKeyFile,
 } from "../lib/catalog-signing.mjs";
 import { buildCatalogEntry, sha256Hex } from "../lib/plugin-package.mjs";
 import { planCatalogUploadBatches } from "../lib/release-plan.mjs";
@@ -43,10 +43,38 @@ test("the committed public key is the catalog key", () => {
   assert.match(readFileSync(CATALOG_PUBLIC_KEY_PATH, "utf8"), /^untrusted comment: minisign public key CB1AEE339F05C2BD\nRWS9wgWfM\+4ayykVUw9LH3DOjwa\+g\/JFaREz3FWd\/U8GJaa6q4WrNd9c\n$/);
 });
 
-test("the key path comes from GRAPHRT_CATALOG_SIGNING_KEY, defaulting to ~/.graphrt/keys", () => {
-  assert.equal(resolveSigningKeyPath({}), DEFAULT_SIGNING_KEY_PATH);
+test("without variables the key is the file under ~/.graphrt/keys; GRAPHRT_CATALOG_SIGNING_KEY_PATH points elsewhere", () => {
   assert.match(DEFAULT_SIGNING_KEY_PATH, /\.graphrt\/keys\/catalog-minisign\.key$/);
-  assert.equal(resolveSigningKeyPath({ GRAPHRT_CATALOG_SIGNING_KEY: "/run/key" }), "/run/key");
+  assert.deepEqual(withSigningKeyFile({}, (keyPath) => keyPath), DEFAULT_SIGNING_KEY_PATH);
+  assert.equal(withSigningKeyFile({ GRAPHRT_CATALOG_SIGNING_KEY_PATH: "/run/key" }, (keyPath) => keyPath), "/run/key");
+});
+
+test("GRAPHRT_CATALOG_SIGNING_KEY holds the key itself (raw or base64) and wins over the path; the temp copy is removed", { skip: skipWithoutMinisign }, () => {
+  withScratchDirectory((scratchDirectory) => {
+    const { keyPath, publicKeyPath } = createThrowawayKeyPair(scratchDirectory);
+    const keyText = readFileSync(keyPath, "utf8");
+    for (const variableValue of [keyText, keyText.trimEnd(), Buffer.from(keyText).toString("base64")]) {
+      const environment = { GRAPHRT_CATALOG_SIGNING_KEY: variableValue, GRAPHRT_CATALOG_SIGNING_KEY_PATH: "/does/not/exist" };
+      let temporaryKeyPath = null;
+      const signaturePaths = withSigningKeyFile(environment, (resolvedKeyPath) => {
+        temporaryKeyPath = resolvedKeyPath;
+        assert.notEqual(resolvedKeyPath, keyPath);
+        assert.equal(statSync(resolvedKeyPath).mode & 0o777, 0o600);
+        const indexPath = join(scratchDirectory, "index.json");
+        writeFileSync(indexPath, JSON.stringify({ plugins: [], generated_at: "x" }));
+        return signCatalogIndexes([{ path: indexPath, name: "index.json", catalog: { plugins: [], generated_at: "x" } }], { keyPath: resolvedKeyPath, publicKeyPath, log: () => {} });
+      });
+      assert.equal(signaturePaths.length, 1);
+      assert.equal(existsSync(temporaryKeyPath), false, "the temporary key file is removed");
+    }
+  });
+});
+
+test("a GRAPHRT_CATALOG_SIGNING_KEY that is not a minisign secret key is refused without echoing it", () => {
+  assert.throws(
+    () => withSigningKeyFile({ GRAPHRT_CATALOG_SIGNING_KEY: "not-a-key-value-123" }, () => {}),
+    (error) => /GRAPHRT_CATALOG_SIGNING_KEY is not a minisign secret key/.test(error.message) && !error.message.includes("not-a-key-value-123"),
+  );
 });
 
 test("signs both indexes, verifies them, and lists the signatures in SHA256SUMS", { skip: skipWithoutMinisign }, () => {
@@ -83,7 +111,7 @@ test("a real publish refuses an unsigned catalog without a key; a dry run warns"
   withScratchDirectory((scratchDirectory) => {
     const missingKeyPath = join(scratchDirectory, "missing.key");
     const indexes = [{ path: join(scratchDirectory, "index.json"), name: "index.json", catalog: { plugins: [], generated_at: "x" } }];
-    assert.throws(() => signCatalogIndexes(indexes, { keyPath: missingKeyPath, log: () => {} }), /no catalog signing key at .*missing.key \(set GRAPHRT_CATALOG_SIGNING_KEY\); refusing to publish an unsigned catalog/);
+    assert.throws(() => signCatalogIndexes(indexes, { keyPath: missingKeyPath, log: () => {} }), /no catalog signing key at .*missing.key \(set GRAPHRT_CATALOG_SIGNING_KEY or GRAPHRT_CATALOG_SIGNING_KEY_PATH\); refusing to publish an unsigned catalog/);
     const logLines = [];
     assert.deepEqual(signCatalogIndexes(indexes, { keyPath: missingKeyPath, dryRun: true, log: (line) => logLines.push(line) }), []);
     assert.match(logLines.join("\n"), /warning: no catalog signing key .* unsigned catalog/);

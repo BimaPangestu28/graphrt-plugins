@@ -7,31 +7,60 @@
  * anything is uploaded the signatures are verified with the public key committed at `catalog-signing.pub`, so
  * a publish with the wrong key fails here rather than in every reader.
  *
- * The secret key never enters the repo: its path comes from GRAPHRT_CATALOG_SIGNING_KEY (default
- * `~/.graphrt/keys/catalog-minisign.key`); in CI the release workflow writes it from a secret to a mode-600 temp
- * file. A real publish refuses to upload an unsigned catalog; a dry run signs when the key is there and
- * otherwise only warns. Key rotation: see docs (README "Catalog signature").
+ * The secret key never enters the repo. It comes from, in this order:
+ * 1. GRAPHRT_CATALOG_SIGNING_KEY: the key itself (the unencrypted minisign secret key file's text, or that text
+ *    base64-encoded on one line), e.g. a CI secret or a `.env` entry. It is written to a mode-600 file in a fresh
+ *    private temp directory only while minisign runs, then removed.
+ * 2. GRAPHRT_CATALOG_SIGNING_KEY_PATH: a path to the key file.
+ * 3. `~/.graphrt/keys/catalog-minisign.key`.
+ * A real publish refuses to upload an unsigned catalog; a dry run signs when a key is there and otherwise only
+ * warns. Key rotation: see docs (README "Catalog signature").
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { REPO_ROOT } from "../plugins.mjs";
 
 export const SIGNING_KEY_VARIABLE = "GRAPHRT_CATALOG_SIGNING_KEY";
+export const SIGNING_KEY_PATH_VARIABLE = "GRAPHRT_CATALOG_SIGNING_KEY_PATH";
+const SECRET_KEY_HEADER = "untrusted comment:";
 export const DEFAULT_SIGNING_KEY_PATH = join(homedir(), ".graphrt", "keys", "catalog-minisign.key");
 export const CATALOG_PUBLIC_KEY_PATH = join(REPO_ROOT, "catalog-signing.pub");
 export const SIGNATURE_SUFFIX = ".minisig";
 const MINISIGN_TIMEOUT_MS = 30_000;
 
 /**
- * The signing key path: GRAPHRT_CATALOG_SIGNING_KEY, else the default under ~/.graphrt/keys.
+ * Runs `action` with the path of the signing key file (see the module docs for where the key comes from).
+ * A key given in GRAPHRT_CATALOG_SIGNING_KEY lives in a private temp file only while `action` runs.
  *
  * @param environment - Variables (object, default process.env)
- * @returns The path (string)
+ * @param action - Receives the key path; its result is returned (function)
+ * @returns What `action` returns
+ * @throws Error - When GRAPHRT_CATALOG_SIGNING_KEY is set but is not a minisign secret key (the value is never
+ *   put in the message)
  */
-export function resolveSigningKeyPath(environment = process.env) {
-  return environment[SIGNING_KEY_VARIABLE] || DEFAULT_SIGNING_KEY_PATH;
+export function withSigningKeyFile(environment, action) {
+  const keyText = decodeSigningKeyVariable(environment?.[SIGNING_KEY_VARIABLE]);
+  if (keyText === null) return action(environment?.[SIGNING_KEY_PATH_VARIABLE] || DEFAULT_SIGNING_KEY_PATH);
+  const keyDirectory = mkdtempSync(join(tmpdir(), "graphrt-catalog-key-"));
+  try {
+    const keyPath = join(keyDirectory, "catalog-minisign.key");
+    writeFileSync(keyPath, keyText, { mode: 0o600 });
+    return action(keyPath);
+  } finally {
+    rmSync(keyDirectory, { recursive: true, force: true });
+  }
+}
+
+// The variable's key text (raw, or base64 of it), or null when the variable is unset or blank.
+function decodeSigningKeyVariable(variableValue) {
+  const trimmedValue = typeof variableValue === "string" ? variableValue.trim() : "";
+  if (!trimmedValue) return null;
+  if (trimmedValue.startsWith(SECRET_KEY_HEADER)) return `${trimmedValue}\n`;
+  const decodedValue = /^[A-Za-z0-9+/=\s]+$/.test(trimmedValue) ? Buffer.from(trimmedValue, "base64").toString("utf8").trim() : "";
+  if (decodedValue.startsWith(SECRET_KEY_HEADER)) return `${decodedValue}\n`;
+  throw new Error(`${SIGNING_KEY_VARIABLE} is not a minisign secret key (expected the key file's text or its base64); unset it to use ${SIGNING_KEY_PATH_VARIABLE} or ${DEFAULT_SIGNING_KEY_PATH}`);
 }
 
 /**
@@ -83,16 +112,20 @@ export function verifyFileSignature(filePath, { publicKeyPath = CATALOG_PUBLIC_K
  * @param indexes - `{path, name, catalog}` per index (object[])
  * @param options - Signing options
  * @param options.dryRun - Warn instead of refusing when there is no key (boolean, default false)
- * @param options.keyPath - Secret key (string, default resolveSigningKeyPath())
+ * @param options.keyPath - Secret key file (string, default: from the environment, see withSigningKeyFile)
+ * @param options.environment - Variables the key comes from when `keyPath` is not given (object, default process.env)
  * @param options.publicKeyPath - Public key to verify with (string, default CATALOG_PUBLIC_KEY_PATH)
  * @param options.minisignBinary - minisign executable (string, default "minisign")
  * @param options.log - Logs a line (function, default console.error)
  * @returns The signature paths, in the order of `indexes`; empty for a dry run without a key (string[])
  * @throws Error - Without a key on a real publish, or when signing or verification fails
  */
-export function signCatalogIndexes(indexes, { dryRun = false, keyPath = resolveSigningKeyPath(), publicKeyPath = CATALOG_PUBLIC_KEY_PATH, minisignBinary = "minisign", log = console.error } = {}) {
+export function signCatalogIndexes(indexes, { dryRun = false, keyPath, publicKeyPath = CATALOG_PUBLIC_KEY_PATH, minisignBinary = "minisign", log = console.error, environment = process.env } = {}) {
+  if (keyPath === undefined) {
+    return withSigningKeyFile(environment, (resolvedKeyPath) => signCatalogIndexes(indexes, { dryRun, keyPath: resolvedKeyPath, publicKeyPath, minisignBinary, log }));
+  }
   if (!existsSync(keyPath)) {
-    const message = `no catalog signing key at ${keyPath} (set ${SIGNING_KEY_VARIABLE})`;
+    const message = `no catalog signing key at ${keyPath} (set ${SIGNING_KEY_VARIABLE} or ${SIGNING_KEY_PATH_VARIABLE})`;
     if (!dryRun) throw new Error(`${message}; refusing to publish an unsigned catalog`);
     log(`warning: ${message}; this dry run writes an unsigned catalog`);
     return [];
