@@ -35,6 +35,19 @@ export const COMMUNITY_SOURCE = "community";
 export const OFFICIAL_PUBLISHER = "graphrt";
 
 const PINNED_EXTENSIONS = [".mjs", ".js", ".cjs", ".json"];
+/** `runtime` of an MCP server preset: no code, a remote MCP server the host connects. */
+export const MCP_RUNTIME = "mcp";
+
+/**
+ * Says whether a manifest is an MCP server preset (`runtime: mcp`): it ships no plugin.mjs, its tools come from
+ * the server, and every shipped file (the guide above all) is pinned instead of the entrypoint.
+ *
+ * @param manifest - A plugin manifest (object)
+ * @returns True for `runtime: mcp` (boolean)
+ */
+export function isMcpPreset(manifest) {
+  return manifest?.runtime === MCP_RUNTIME;
+}
 const EXCLUDED_SOURCE_DIRECTORIES = new Set(["test", "node_modules"]);
 // Catalog-only files: the icon is published with the catalog, so changing it needs no plugin release.
 const EXCLUDED_SOURCE_FILES = new Set([ICON_FILE_NAME]);
@@ -166,10 +179,11 @@ export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join
   const stagedDirectory = join(stagingRoot, pluginName);
   rmSync(stagedDirectory, { recursive: true, force: true });
   try {
-    copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon, commandEnvironment });
+    const mcpPreset = isMcpPreset(sourceManifest);
+    copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon, commandEnvironment, requireEntrypoint: !mcpPreset });
     installProductionDependencies(stagedDirectory, commandEnvironment);
     const stagedFiles = listStagedFiles(stagedDirectory);
-    const releasedManifest = withChecksums(sourceManifest, computeChecksums(stagedDirectory, stagedFiles));
+    const releasedManifest = withChecksums(sourceManifest, computeChecksums(stagedDirectory, stagedFiles, { pinEveryFile: mcpPreset }));
     writeFileSync(join(stagedDirectory, MANIFEST_FILE_NAME), `${JSON.stringify(releasedManifest, null, 2)}\n`);
     const tarballBytes = createTarGz(buildArchiveEntries(stagedDirectory, pluginName), { mtimeSeconds: lastCommitTime(sourceDirectory, commandEnvironment) });
     const tarballName = tarballNameFor(pluginName, sourceManifest.version);
@@ -195,13 +209,13 @@ export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join
  * Lists the plugin files git tracks, minus tests and dotfiles, so untracked local
  * state (profiles, .env files, caches) can never reach a release.
  */
-function copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon, commandEnvironment }) {
+function copyTrackedSourceFiles(sourceDirectory, stagedDirectory, { includeIcon, commandEnvironment, requireEntrypoint = true }) {
   // Run inside the plugin directory: `git ls-files -- .` prints paths relative to it.
   const gitResult = spawnSync("git", ["ls-files", "-z", "--", "."], { cwd: sourceDirectory, encoding: "utf8", env: commandEnvironment });
   if (gitResult.status !== 0) throw new Error(`${sourceDirectory}: git ls-files failed (the plugin must be in a git repository): ${gitResult.stderr}`);
   const trackedPaths = gitResult.stdout.split("\0").filter(Boolean);
   const shippedPaths = trackedPaths.filter((pluginPath) => isShippedSourcePath(pluginPath, { includeIcon }));
-  if (!shippedPaths.includes("plugin.mjs")) throw new Error(`${sourceDirectory}: plugin.mjs is not tracked by git`);
+  if (requireEntrypoint && !shippedPaths.includes("plugin.mjs")) throw new Error(`${sourceDirectory}: plugin.mjs is not tracked by git`);
   for (const pluginPath of shippedPaths) {
     const sourcePath = join(sourceDirectory, pluginPath);
     if (!lstatSync(sourcePath).isFile()) throw new Error(`${sourceDirectory}: \`${pluginPath}\` is not a regular file`);
@@ -316,9 +330,10 @@ export function isPinnedPath(relativePath) {
   return PINNED_EXTENSIONS.some((extension) => relativePath.endsWith(extension));
 }
 
-function computeChecksums(stagedDirectory, stagedFiles) {
+function computeChecksums(stagedDirectory, stagedFiles, { pinEveryFile = false } = {}) {
+  const isPinned = (relativePath) => (pinEveryFile ? relativePath !== MANIFEST_FILE_NAME : isPinnedPath(relativePath));
   return Object.fromEntries(
-    stagedFiles.filter((relativePath) => isPinnedPath(relativePath)).map((relativePath) => [relativePath, sha256Hex(readFileSync(join(stagedDirectory, relativePath)))]),
+    stagedFiles.filter((relativePath) => isPinned(relativePath)).map((relativePath) => [relativePath, sha256Hex(readFileSync(join(stagedDirectory, relativePath)))]),
   );
 }
 
@@ -331,7 +346,7 @@ function computeChecksums(stagedDirectory, stagedFiles) {
  * @throws Error - When the entrypoint plugin.mjs is not pinned
  */
 export function withChecksums(manifest, checksums) {
-  if (!checksums["plugin.mjs"]) throw new Error(`${manifest.name}: the entrypoint plugin.mjs must be pinned`);
+  assertEntrypointPinned(manifest, checksums);
   const releasedManifest = {};
   for (const [key, value] of Object.entries(manifest)) {
     if (key === "nodes") releasedManifest.checksums = checksums;
@@ -339,6 +354,23 @@ export function withChecksums(manifest, checksums) {
   }
   releasedManifest.checksums ??= checksums;
   return releasedManifest;
+}
+
+/**
+ * Checks that what a host runs (plugin.mjs) or, for an MCP preset, what it reads (the guide) is pinned.
+ *
+ * @param manifest - The manifest (object)
+ * @param checksums - Its relative path to sha256 map (object)
+ * @throws Error - Naming the unpinned file, or a preset with no pinned file at all
+ */
+export function assertEntrypointPinned(manifest, checksums) {
+  if (!isMcpPreset(manifest)) {
+    if (!checksums["plugin.mjs"]) throw new Error(`${manifest.name}: the entrypoint plugin.mjs must be pinned`);
+    return;
+  }
+  const guide = manifest.mcp?.guide?.replace(/^\.\//, "");
+  if (guide && !checksums[guide]) throw new Error(`${manifest.name}: the MCP preset guide ${guide} must be pinned`);
+  if (Object.keys(checksums).length === 0) throw new Error(`${manifest.name}: an MCP preset must pin its files (the desktop app refuses an empty checksums map)`);
 }
 
 function buildArchiveEntries(stagedDirectory, pluginName) {
@@ -443,7 +475,8 @@ export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, read
     size_bytes: sizeBytes,
     permissions: { network: Boolean(permissions.network), secrets: Boolean(permissions.secrets), env: permissions.env ?? [] },
     needs_browser: listing.needsBrowser,
-    node: NODE_REQUIREMENT,
+    // An MCP preset runs no code, so it needs no Node.js.
+    node: isMcpPreset(releasedManifest) ? null : NODE_REQUIREMENT,
     warning: readmeText ? extractCatalogWarning(readmeText) : null,
     status: listing.statusEntry.status,
     status_reason: listing.statusEntry.reason,
@@ -455,6 +488,7 @@ export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, read
     nodes: manifestNodes.map((manifestNode) => buildCatalogNode(manifestNode)),
     tools: (releasedManifest.tools ?? []).map((tool) => tool.name),
     ...(listing.runtimes ? { runtimes: listing.runtimes } : {}),
+    ...(isMcpPreset(releasedManifest) ? { mcp_server: { url: releasedManifest.mcp.url, auth: releasedManifest.mcp.auth ?? "none" } } : {}),
     readme_url: listing.readmeUrl,
   };
 }

@@ -767,6 +767,12 @@
     "version": "16.36.0",
     "color": "#262627"
   },
+  "upwork": {
+    "source": "simple-icons",
+    "slug": "upwork",
+    "version": "16.36.0",
+    "color": "#6FDA44"
+  },
   "vercel": {
     "source": "simple-icons",
     "slug": "vercel",

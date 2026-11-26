@@ -1,0 +1,12 @@
+Upwork MCP preset for graphrt
+
+guide.md and the templates in graphrt-plugin.json are adapted from the Upwork
+Agent Plugin (https://github.com/upwork/upwork-agent-plugin, commit 7908a7e),
+Copyright Upwork Inc., licensed under the Apache License, Version 2.0 (see
+LICENSE). Changes: the four skills (upwork-workflows, write-proposal,
+hire-on-upwork, write-job-post) were condensed into rules for graphrt's agent
+builder and agent steps, and starter prompts were written for graphrt.
+Unmodified copies are in upstream/.
+
+"Upwork" is a trademark of Upwork Inc. This plugin is not made, endorsed or
+supported by Upwork; it only points graphrt at Upwork's public MCP server.

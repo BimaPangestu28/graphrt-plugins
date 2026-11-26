@@ -153,6 +153,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [google-ads](google-ads/) | beta | low | Google Ads API v26 (REST, OAuth or service account): accessible customers, GAQL search and searchStream (SELECT only), campaign/keyword/search-term reports; agent pause/enable and capped budget changes after opt-in, other mutates node only | 16 |
 | [telegram-bot](telegram-bot/) | beta | low | Telegram Bot API: read updates by long polling, send messages, photos and documents, edit and delete messages, answer button presses, manage the webhook | 16 |
 | [open-meteo](open-meteo/) | stable | none | Open-Meteo weather (no API key): place search for coordinates and forecasts with current, hourly and daily values; the reference [declarative plugin](docs/declarative-plugins.md) | 3 |
+| [upwork](upwork/) | beta | low | MCP server preset (no code): Upwork's official MCP server with OAuth sign-in in the desktop app, for freelancers (jobs, proposals) and clients (job posts, applicants); only find/get/list/search tools run without asking, plus a builder guide and templates | MCP |
 
 - **Node and tool:** every API operation is a workflow node (`<plugin>.<operation>`) and an agent tool (`<operation>`).
   The exceptions are node only, so an LLM can never call them: token refresh (tokens never reach an LLM) and
@@ -171,6 +172,16 @@ large (experimental, installed from a path; the Node.js plugin stays the default
 `download_object`; and [`wasm/supabase-rpc`](wasm/supabase-rpc/), its per-user `call_function` tool
 (`SUPABASE_TOOL_MODE=user_rpc`). Their tests run the same cases against both builds, and the catalog lists them as
 the plugin's `runtimes` ([Picking a runtime](wasm/README.md#picking-a-runtime)).
+
+### MCP server presets
+A plugin with `runtime: mcp` ships no code: its manifest declares a remote MCP server (`mcp.url`, `auth: none |
+bearer | oauth`, per-tool `approval` patterns and a `guide.md` for agent builders, see the
+[manifest spec](https://github.com/Graphrt/graphrt/blob/main/docs/plugin-manifest.md#runtime-mcp)). The graphrt desktop
+app adds that server to Connections > MCP servers when the plugin is installed, signs the user in, and removes the
+server (revoking the sign-in) when the plugin is removed. The tools come from the server, so these plugins have no
+nodes, no `plugin.mjs` and no `OPERATIONS.md`; the guide is pinned in `checksums` and `templates` list starter prompts.
+[upwork](upwork/) is the first one; adding Notion, Linear or Stripe's official MCP servers is a new folder with the
+same shape.
 
 ## Plugin status
 Every plugin has a maturity label and a Terms-of-Service risk rating in [`plugin-status.json`](plugin-status.json),

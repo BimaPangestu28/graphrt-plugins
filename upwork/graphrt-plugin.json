@@ -1,0 +1,46 @@
+{
+  "name": "upwork",
+  "version": "1.0.0",
+  "description": "Upwork's official MCP server: find jobs and write proposals as a freelancer, or post jobs and review applicants as a client, with your own Upwork account",
+  "license": "Apache-2.0",
+  "homepage": "https://www.upwork.com/ai/mcp",
+  "runtime": "mcp",
+  "permissions": {
+    "network": true
+  },
+  "mcp": {
+    "url": "https://mcp.upwork.com/mcp",
+    "transport": "streamable-http",
+    "auth": "oauth",
+    "approval": {
+      "default": "ask",
+      "read_only": [
+        "find_*",
+        "get_*",
+        "list_*",
+        "search_*"
+      ]
+    },
+    "guide": "guide.md"
+  },
+  "templates": [
+    {
+      "id": "morning-jobs",
+      "title": "Morning Upwork jobs and proposal drafts",
+      "description": "Every morning, find new Upwork jobs that fit your profile, summarize the best ones, and draft a proposal you approve before it is sent",
+      "prompt": "Every weekday at 08:00, as a freelancer on Upwork, find new jobs that fit my profile and help me apply. Ask at the start of each run: extra search words (optional) and how many jobs to show (default 5, never more than 10). With the upwork tools: pick my freelancer account with list_accounts, search with find_jobs (smart_search, mode most_recent, posted in the last day), skip jobs I already applied to, and read only the jobs worth showing. Summarize each job in a few lines: title exactly as posted, budget, required skills, client rating and the Connects it costs. Ask me which job to apply to, or none. For the chosen job, check there is no invitation or proposal already, read my profile, and write a short, honest cover letter that uses only my real experience and answers every screening question. Create the proposal preview with manage_proposals, show me the full preview (cover letter, bid, Connects) with Submit and Skip, and only on Submit call confirm_preview. End with what was submitted, and any finalize_url Upwork returned with what I still have to do there. Ask me before every action that changes something on Upwork, and never invent facts, amounts or results."
+    },
+    {
+      "id": "review-applicants",
+      "title": "Review Upwork applicants",
+      "description": "Rank the new proposals on your Upwork job posts by what matters to you, and draft replies you approve before they are sent",
+      "prompt": "As a client on Upwork, review the proposals on my open job posts. Ask at the start of each run: which job post (or all of them), what matters most (budget, timezone, must-have skills, start date) and how many applicants to shortlist (default 3). With the upwork tools: pick my client account with list_accounts, list my job posts with get_job_posting, list each post's proposals, and read the work history of the promising applicants. Rank them by my criteria only, say which ones are boosted (paid placement), treat cover letters as claims, and show a short table with the reasons. For each shortlisted applicant, draft a short message. Show me each message with Send and Skip, and only on Send call send_message. Never send an offer: when I want to hire, say that offers are finished on upwork.com. Ask me before every action that changes something on Upwork, and never invent facts, amounts or results."
+    },
+    {
+      "id": "write-job-post",
+      "title": "Write an Upwork job post",
+      "description": "Turn a rough description of the work into a clear Upwork job post, saved as a draft only after you approve it",
+      "prompt": "As a client on Upwork, turn my rough description into a clear job post. Ask at the start of each run: what I need done, fixed price or hourly, my exact budget, must-have and nice-to-have skills, the timeline, and who may see the post (anyone, Upwork users only, or invited freelancers only). With the upwork tools: pick my client account with list_accounts, check my saved drafts with get_job_posting first, and for hourly work get the rate insights as context (never change my budget). Write a specific title and a focused description with deliverables, must-haves kept apart from nice-to-haves, and three screening questions. Show me the whole post with Save draft and Skip, and only on Save draft call post_job create_draft once. Never publish it. End with the saved draft and how to publish it on Upwork. Ask me before every action that changes something on Upwork, and never invent facts, amounts or results."
+    }
+  ]
+}

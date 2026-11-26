@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import {
   MAX_CATALOG_BYTES, pruneDependencyExtras, renderCatalogText,
   assertAllowedPath, buildCatalog, buildCatalogEntry, describeTarballBytes, extractCatalogWarning, findCatalogRegressions, formatSha256Sums,
-  isPinnedPath, releaseTagFor, sha256Hex, tarballNameFor, withChecksums,
+  isMcpPreset, isPinnedPath, releaseTagFor, sha256Hex, tarballNameFor, withChecksums,
 } from "../lib/plugin-package.mjs";
 import { extractReadmeWarnings } from "../lib/release-notes.mjs";
 import { readPluginStatuses } from "../lib/plugin-status.mjs";
@@ -267,4 +267,50 @@ test("refuses a wasm/builds.json entry whose manifest is not a wasm build of tha
   writeFileSync(join(repoRoot, "wasm", "builds.json"), JSON.stringify({ supabase: [{ subdir: "wasm/x", tool_mode: "default" }] }));
   writeFileSync(join(repoRoot, "wasm", "x", "graphrt-plugin.json"), JSON.stringify({ name: "other", runtime: "wasm", module: "x.wasm" }));
   assert.throws(() => readWasmRuntimes(repoRoot, "o/r"), /must be a wasm manifest named supabase/);
+});
+
+const mcpPresetManifest = {
+  name: "upwork",
+  version: "1.0.0",
+  description: "Upwork MCP server",
+  runtime: "mcp",
+  permissions: { network: true },
+  mcp: { url: "https://mcp.upwork.com/mcp", auth: "oauth", approval: { default: "ask", read_only: ["find_*"] }, guide: "guide.md" },
+};
+
+test("an MCP preset pins its guide instead of plugin.mjs", () => {
+  assert.equal(isMcpPreset(mcpPresetManifest), true);
+  assert.equal(isMcpPreset(sampleManifest), false);
+  assert.deepEqual(withChecksums(mcpPresetManifest, { "guide.md": "ab" }).checksums, { "guide.md": "ab" });
+  assert.throws(() => withChecksums(mcpPresetManifest, { "README.md": "ab" }), /guide guide.md must be pinned/);
+  assert.throws(() => withChecksums({ ...mcpPresetManifest, mcp: { url: "https://x" } }, {}), /must pin its files/);
+});
+
+test("an MCP preset's catalog entry names its server and needs no Node.js", () => {
+  const entry = buildCatalogEntry(mcpPresetManifest, { sha256: "f".repeat(64), sizeBytes: 1 });
+  assert.deepEqual(entry.mcp_server, { url: "https://mcp.upwork.com/mcp", auth: "oauth" });
+  assert.equal(entry.node, null);
+  assert.equal(entry.operations_count, 0);
+  assert.deepEqual(entry.tools, []);
+  assert.equal(buildCatalogEntry(sampleManifest, { sha256: "0", sizeBytes: 1 }).mcp_server, undefined, "other plugins carry no mcp_server");
+});
+
+test("the upwork preset in this repo is a valid MCP preset", () => {
+  const manifest = JSON.parse(readFileSync(join(REPO_ROOT, "upwork", "graphrt-plugin.json"), "utf8"));
+  assert.equal(manifest.runtime, "mcp");
+  assert.equal(manifest.mcp.url, "https://mcp.upwork.com/mcp");
+  assert.equal(manifest.mcp.auth, "oauth");
+  assert.deepEqual(manifest.mcp.approval, { default: "ask", read_only: ["find_*", "get_*", "list_*", "search_*"] });
+  assert.equal(existsSync(join(REPO_ROOT, "upwork", manifest.mcp.guide)), true);
+  for (const file of ["LICENSE", "NOTICE", "README.md", "upstream/LICENSE"]) assert.equal(existsSync(join(REPO_ROOT, "upwork", file)), true, file);
+  assert.equal(manifest.nodes, undefined);
+  assert.equal(manifest.templates.length, 3);
+  for (const template of manifest.templates) {
+    assert.match(template.id, /^[a-z0-9-]{1,64}$/);
+    assert.ok(template.prompt.length <= 4000 && template.description.length <= 400 && template.title.length <= 120, template.id);
+  }
+  const guide = readFileSync(join(REPO_ROOT, "upwork", manifest.mcp.guide), "utf8");
+  assert.ok(Buffer.byteLength(guide) <= 32 * 1024, "hosts read at most 32 KiB");
+  assert.match(guide, /\{server\}\/confirm_preview/);
+  assert.doesNotMatch(guide, /\{server\}\/\*/, "the guide lists tools one by one, never {server}/*");
 });

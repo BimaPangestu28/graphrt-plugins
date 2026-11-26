@@ -132,3 +132,22 @@ test("runs graphrt with an isolated environment: no tokens, a temporary HOME, PA
     assert.match(homeDirectory, /graphrt-plugin-install-/);
   });
 });
+
+test("accepts an MCP preset without plugin.mjs when its guide is pinned", () => {
+  withScratchDirectory((scratchDirectory) => {
+    const guide = Buffer.from("- use {server}/find_jobs\n");
+    const presetTarball = (checksums) => {
+      const manifest = { name: "demo", version: "1.0.0", runtime: "mcp", mcp: { url: "https://mcp.example.com/mcp", guide: "guide.md" }, checksums };
+      const tarballPath = join(scratchDirectory, "demo-1.0.0.tar.gz");
+      writeFileSync(tarballPath, createTarGz([
+        { path: "demo", type: "directory" },
+        { path: "demo/guide.md", type: "file", content: guide },
+        { path: "demo/graphrt-plugin.json", type: "file", content: Buffer.from(JSON.stringify(manifest)) },
+      ], { mtimeSeconds: 0 }));
+      return tarballPath;
+    };
+    assert.equal(verifyTarball(presetTarball({ "guide.md": sha256Hex(guide) })).pinnedFiles, 1);
+    assert.throws(() => verifyTarball(presetTarball({})), /must pin its files|guide guide.md must be pinned/);
+    assert.throws(() => verifyTarball(presetTarball({ "guide.md": "0".repeat(64) })), /checksum mismatch/);
+  });
+});
