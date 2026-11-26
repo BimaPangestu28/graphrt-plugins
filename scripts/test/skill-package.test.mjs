@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -288,8 +288,8 @@ test("packing refuses an invalid, untracked or unsafe skill and runs nothing fro
     assert.throws(pack("asks-missing-tool"), /there is no plugin `billing` in this catalog/);
     assert.throws(pack(SKILL_NAME), /`alias\.md` is a link or a special file/);
     assert.throws(pack("not-there"), /holds no file tracked by git/);
-    assert.equal(spawnSync("ls", [markerPath]).status !== 0, true, "no file of a skill was run");
-    assert.deepEqual(spawnSync("ls", [outputDirectory], { encoding: "utf8" }).stdout, "", "no archive was written for a refused skill");
+    assert.equal(existsSync(markerPath), false, "no file of a skill was run");
+    assert.equal(existsSync(outputDirectory), false, "no archive was written for a refused skill");
   });
 });
 
