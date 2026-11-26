@@ -13,6 +13,7 @@ import { join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { findSharedPlugins, SHARED_LIB_DIR } from "./plugins.mjs";
 import { buildManifest, offersNodeToken } from "../shared/lib/operations.mjs";
+import { buildManifestTriggers, renderTriggerSection } from "./lib/plugin-triggers.mjs";
 
 const isCheckMode = process.argv.includes("--check");
 const staleFiles = [];
@@ -51,7 +52,10 @@ async function syncManifest(pluginDirectory) {
   if (pluginDefinition.name !== basename(pluginDirectory)) {
     throw new Error(`${pluginDirectory}: definition name \`${pluginDefinition.name}\` must match the directory name`);
   }
-  writeIfChanged(join(pluginDirectory, "graphrt-plugin.json"), `${JSON.stringify(buildManifest(pluginDefinition), null, 2)}\n`);
+  const manifest = buildManifest(pluginDefinition);
+  const triggers = buildManifestTriggers(pluginDefinition);
+  if (triggers.length > 0) manifest.triggers = triggers;
+  writeIfChanged(join(pluginDirectory, "graphrt-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   writeIfChanged(join(pluginDirectory, "OPERATIONS.md"), renderOperationsReference(pluginDefinition));
 }
 
@@ -77,6 +81,7 @@ function renderOperationsReference(pluginDefinition) {
     "|-----------|-------------|------------|",
     ...operationRows,
     "",
+    ...renderTriggerSection(pluginDefinition),
   ].join("\n");
 }
 

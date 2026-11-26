@@ -376,6 +376,27 @@ every plugin that opts in.
 | Job with `wait: false` | `{job_id, response}` | null |
 | With `download` | adds `saved_files: [{url | source, path, bytes, content_type}` or `{url | source, error}]`; for a non-job operation the data moves to `result` | as above |
 
+### Triggers (events that start workflows)
+Any definition, declarative or hand-written, may declare `triggers`: events a host such as graphrt Desktop starts
+workflows on. Each names one of the plugin's operations as `watch`:
+
+```js
+triggers: [{
+  id: "file_added",                       // [a-z0-9_-]{1,64}, unique
+  title: "When a file is added",
+  description: "A new file in the watched folder",
+  watch: "wait_for_change",               // an operation of this plugin
+  config: { timeout_seconds: 240 },       // passed to every watch call
+  outputs: [{ name: "path", type: "string", description: "The new file" }],
+}]
+```
+
+The host calls the watch node outside any run, again and again, with `config` plus `cursor` (the previous call's
+`data.cursor`; absent the first time). The operation long-polls and returns `{ data: { events, cursor } }`: each
+object in `events` starts one run, as its inputs. Keep each call well inside `limits.timeout_ms`. `npm run sync`
+writes the manifest's `triggers` (graphrt's field, see `docs/plugin-manifest.md` in Graphrt/graphrt) and a Triggers
+table in `OPERATIONS.md`; hosts older than the field refuse such a manifest with an `unknown field` error.
+
 ## Load-time validation
 `defineRestPlugin` checks the spec when `definition.mjs` is imported (so `npm run sync` fails at once).
 - **Typos and names:** unknown keys (`requried`), unknown param locations, types and styles, invalid or duplicate
