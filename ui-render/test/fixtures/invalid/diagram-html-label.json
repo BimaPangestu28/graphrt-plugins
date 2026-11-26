@@ -1,0 +1,9 @@
+{
+  "error": "HTML (`<img src=x onerror=alert(1)>`) is not allowed",
+  "block": {
+    "$ui": "diagram",
+    "version": 1,
+    "syntax": "mermaid",
+    "source": "flowchart TD\n  A[\"<img src=x onerror=alert(1)>\"] --> B"
+  }
+}

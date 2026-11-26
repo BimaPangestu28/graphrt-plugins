@@ -26,7 +26,7 @@ test("tool.call returns a summary for the model and the block as data", async ()
   const plugin = startPlugin();
   try {
     const init = await plugin.call("initialize", { protocol_version: 1 });
-    assert.equal(init.result.tools.length, 4);
+    assert.equal(init.result.tools.length, 5);
     const reply = await plugin.call("tool.call", {
       name: "show_stats",
       arguments: { heading: "This week", items: [{ label: "Orders", value: 12 }] },

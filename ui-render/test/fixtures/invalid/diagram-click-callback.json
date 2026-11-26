@@ -1,0 +1,9 @@
+{
+  "error": "`click` statements (links and callbacks) are not supported",
+  "block": {
+    "$ui": "diagram",
+    "version": 1,
+    "syntax": "mermaid",
+    "source": "flowchart TD\n  A --> B\n  click A call alert()"
+  }
+}

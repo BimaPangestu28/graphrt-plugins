@@ -1,0 +1,7 @@
+{
+  "$ui": "diagram",
+  "version": 1,
+  "title": "Refund request",
+  "syntax": "mermaid",
+  "source": "sequenceDiagram\n  participant C as Customer\n  participant B as Bot\n  participant O as Owner\n  C->>B: I want a refund\n  B->>O: Refund of Rp 250.000?\n  O-->>B: Approved\n  B-->>C: Your refund is on its way"
+}

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { UiBlockError, checkImageUrl, checkLinkUrl, validateUiBlock } from "../lib/ui-blocks.mjs";
+import { UiBlockError, checkImageUrl, checkLinkUrl, diagramType, validateUiBlock } from "../lib/ui-blocks.mjs";
 
 const FIXTURES = join(import.meta.dirname, "fixtures");
 
@@ -73,4 +73,48 @@ test("URL policy matches graphrt-ui", () => {
   }
   for (const url of ["mailto:sales@example.com", "HTTPS://example.com"]) assert.doesNotThrow(() => checkLinkUrl(url, ""));
   for (const url of ["https://", "file:///etc/passwd", "https://example.com/a b"]) assert.throws(() => checkLinkUrl(url, ""), UiBlockError, url);
+});
+
+const diagram = (source, extra = {}) => ({ $ui: "diagram", version: 1, syntax: "mermaid", source, ...extra });
+
+test("diagrams: the common types pass, arrows and stereotypes are not HTML", () => {
+  for (const source of [
+    "flowchart TD\n  A[Ask] --> B{In stock?}\n  B -- Yes --> C[Order]\n  A <--> C",
+    '%% a comment first\n\ngraph LR;\n  A["One<br>two<br/>three<BR />four"] --> B',
+    "sequenceDiagram\n  Customer->>Bot: Hi\n  Bot-->>Customer: Hello\n  Bot-)Customer: async",
+    "classDiagram\n  class Animal {\n    <<interface>>\n    +eat() void\n  }\n  Animal <|-- Duck",
+    "stateDiagram-v2\n  [*] --> Draft\n  Draft --> [*]: done",
+    "erDiagram\n  CUSTOMER ||--o{ ORDER : places\n  ORDER }|..|{ ITEM : has",
+    'pie title Channels\n  "WhatsApp" : 60\n  "Email" : 40',
+    "mindmap\n  root((Sales))\n    link building\n    click rate\n    style guide",
+    "flowchart LR\n  A[price < 5 and stock > 2] --> B[a<b]",
+  ]) {
+    assert.equal(messageOf(diagram(source)), null, source);
+  }
+  assert.equal(diagramType("stateDiagram-v2\n [*] --> A"), "stateDiagram-v2");
+  assert.equal(diagramType("A --> B"), null);
+});
+
+test("diagrams: HTML, links, callbacks, config and colours are rejected with the line", () => {
+  assert.match(messageOf(diagram('flowchart TD\n  A["<img src=x onerror=alert(1)>"] --> B')), /line 2: HTML \(`<img src=x onerror=alert\(1\)>`\)/);
+  assert.match(messageOf(diagram("flowchart TD\n  A --> B[<b>bold</b>]")), /HTML \(`<b>`\)/);
+  assert.match(messageOf(diagram('flowchart TD\n  A --> B\n  click A href "https://example.com"')), /line 3: `click` statements/);
+  assert.match(messageOf(diagram("sequenceDiagram\n  A->>B: hi\n  link A: Docs @ https://example.com")), /`link` statements/);
+  assert.match(messageOf(diagram('classDiagram\n  class A\n  callback A "run"')), /`callback` statements/);
+  assert.match(messageOf(diagram("---\nconfig:\n  securityLevel: loose\n---\nflowchart TD\n A-->B")), /front matter/);
+  assert.match(messageOf(diagram("flowchart TD\n  A --> B %%{init: {}}%%")), /directives/);
+  assert.match(messageOf(diagram('flowchart TD\n  A["JAVASCRIPT:alert(1)"] --> B')), /`javascript:` URLs/);
+  assert.match(messageOf(diagram('flowchart TD\n  A@{ img: "https://example.com/a.png" } --> B')), /images in nodes/);
+  assert.match(messageOf(diagram("flowchart TD\n  classDef red fill:#f00\n  A:::red --> B")), /`classDef` is not supported/);
+  assert.match(messageOf(diagram("graph LR\n  A --> B\n  linkStyle 0 stroke:#f00")), /`linkStyle` is not supported/);
+});
+
+test("diagrams: size, syntax and unknown fields", () => {
+  assert.match(messageOf(diagram(`flowchart TD\n  A[${"x".repeat(20000)}] --> B`)), /characters long/);
+  assert.match(messageOf(diagram(`flowchart TD\n${"  A --> B\n".repeat(500)}`)), /has 501 lines; at most 500/);
+  assert.match(messageOf(diagram("flowchart TD\n  A --> B\u0007")), /control characters/);
+  assert.match(messageOf(diagram("   \n")), /must not be empty/);
+  assert.match(messageOf({ $ui: "diagram", version: 1, source: "pie\n a: 1" }), /`syntax` is required/);
+  assert.match(messageOf(diagram("x", { syntax: "plantuml" })), /is not one of: mermaid/);
+  assert.match(messageOf(diagram('pie\n "a": 1', { theme: "dark" })), /unknown field `theme`/);
 });

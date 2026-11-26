@@ -60,12 +60,25 @@ test("show_stats and show_adaptive_card validate their payloads", async () => {
   assert.equal(block.card.body[0].text, "Hi", "a JSON string from a workflow template is parsed");
 });
 
+test("show_diagram builds a Mermaid diagram block and explains what to remove", async () => {
+  const source = "flowchart TD\n  A[Customer asks] --> B{In stock?}\n  B -- Yes --> C[Take order]";
+  const { data } = await runOperation("show_diagram", { source, heading: "Order flow", fallback_text: "The bot checks stock, then takes the order." }, asNode);
+  assert.deepEqual(data, { $ui: "diagram", version: 1, title: "Order flow", fallback_text: "The bot checks stock, then takes the order.", syntax: "mermaid", source });
+  const fenced = await runOperation("show_diagram", { source: "```mermaid\n" + source + "\n```" }, asNode);
+  assert.equal(fenced.data.source, source, "a ```mermaid fence around the source is dropped");
+  await assert.rejects(runOperation("show_diagram", { source: source + "\n  click A call alert()" }, asNode), { kind: "invalid_input", message: /line 4: `click` statements/ });
+  await assert.rejects(runOperation("show_diagram", { source: source + "\n  style A fill:#f00" }, asNode), { message: /the host colours the diagram/ });
+  await assert.rejects(runOperation("show_diagram", { source: "A --> B" }, asNode), { message: /must start with a diagram type/ });
+  await assert.rejects(runOperation("show_diagram", {}, asNode), { kind: "invalid_input" });
+});
+
 test("the model gets a summary, not the data", () => {
   const chart = { $ui: "chart", type: "bar", title: "Sales", x: { values: ["a", "b"] }, series: [{ name: "s", values: [1, 2] }] };
   assert.equal(summarizeForModel(chart), 'Shown to the user: bar chart "Sales" with 1 series over 2 categories. They can see it, so do not repeat its contents; add only your conclusions.');
   assert.match(summarizeForModel({ $ui: "table", rows: [{}], columns: [{}, {}] }), /table with 1 row and 2 columns/);
   assert.match(summarizeForModel({ $ui: "stats", items: [{}] }), /1 KPI tile\./);
   assert.match(summarizeForModel({ $ui: "adaptive_card", title: "Refund" }), /Adaptive Card "Refund"/);
+  assert.match(summarizeForModel({ $ui: "diagram", title: "Order flow", source: "flowchart TD\n A --> B" }), /flowchart diagram "Order flow"/);
 });
 
 test("helpers", () => {
@@ -75,9 +88,9 @@ test("helpers", () => {
   assert.throws(() => seriesFromRows([{ a: 1 }], "a", ["b"]), /no row has the field `b`/);
 });
 
-test("manifest: local only, four nodes and tools", () => {
+test("manifest: local only, five nodes and tools", () => {
   const manifest = buildManifest(pluginDefinition);
   assert.deepEqual(manifest.permissions, { network: false, secrets: false, env: [] });
-  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["show_adaptive_card", "show_chart", "show_table", "show_stats"]);
-  assert.deepEqual(manifest.nodes.map((node) => node.kind), ["ui-render.show_adaptive_card", "ui-render.show_chart", "ui-render.show_table", "ui-render.show_stats"]);
+  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["show_adaptive_card", "show_chart", "show_table", "show_stats", "show_diagram"]);
+  assert.deepEqual(manifest.nodes.map((node) => node.kind), ["ui-render.show_adaptive_card", "ui-render.show_chart", "ui-render.show_table", "ui-render.show_stats", "ui-render.show_diagram"]);
 });

@@ -4,7 +4,7 @@
 
 ## Overview
 A [graphrt](https://github.com/Graphrt/graphrt) plugin for **rich visual output**. Workflows and agents can show
-people an Adaptive Card, a chart, a table or KPI tiles instead of a wall of text. Each operation builds one
+people an Adaptive Card, a chart, a table, KPI tiles or a diagram instead of a wall of text. Each operation builds one
 [graphrt UI block](https://github.com/Graphrt/graphrt/blob/main/docs/workflow-format.md#ui-blocks) (an object with
 `"$ui": "<kind>"`) and checks it with the same rules as graphrt's `graphrt-ui` crate. Hosts such as graphrt
 Desktop validate it again and render it in their own theme.
@@ -27,8 +27,15 @@ Desktop validate it again and render it in their own theme.
 - **`show_table`:** `rows` and optional `columns` (key, label, align, format: text, number, compact, percent,
   currency, date, status). Without columns, every field becomes one.
 - **`show_stats`:** up to 12 KPI tiles: label, value, format, and a `delta` with `trend` and `good`.
+- **`show_diagram`:** a diagram written as [Mermaid](https://mermaid.js.org) text (`source`): flowchart, sequence,
+  class, state or entity diagram, Gantt chart, pie, mind map, timeline, quadrant chart or git graph. Text only: see
+  Safety. A ```` ```mermaid ```` fence around the source is dropped. Needs a graphrt Desktop newer than 0.2.0 (older
+  versions say the block could not be shown).
 
 All take `heading`, `subtitle` (not cards) and `fallback_text`, plain text for channels that cannot show blocks.
+On WhatsApp and other text channels the host sends the block as text (graphrt-ui's `fallback`): a card becomes its
+text with numbered choices for its buttons, a table compact lines, a chart a short summary or an image, and a
+diagram its `fallback_text`. So give diagrams a `fallback_text` when the agent talks to customers on chat.
 (`heading` maps to the block's `title`: graphrt reserves `title` on every node.) Full operation reference:
 [OPERATIONS.md](OPERATIONS.md).
 
@@ -94,6 +101,11 @@ back as the step's outputs):
   `data:` PNG/JPEG/GIF/WebP (SVG is refused: it can carry scripts). Links must be `https` or `mailto`.
   Adaptive Card `${...}` templates are refused. Blocks are capped at 256 KiB, 10 000 categories, 20 series,
   1000 table rows, 12 tiles and 400 card elements nested at most 12 deep.
+- **Diagrams are text, not code:** a diagram source may hold no HTML (except `<br>`), no `click`, `link` or
+  `callback` statements, no `%%{init}%%` directives or front matter (they could loosen the renderer), no
+  `style` / `classDef` / `linkStyle` colours (the host themes the diagram), no images in nodes and no
+  `javascript:` / `data:` URLs. At most 20 000 characters and 500 lines. The host renders Mermaid with
+  `securityLevel: "strict"` and HTML labels off.
 - **Agents vs nodes:** every operation is a read-only tool. Showing a card never acts on anything; buttons only
   work in a workflow's `human-input` step, which the workflow author put there.
 - The host (graphrt Desktop) validates every block again with graphrt-ui before rendering and never fetches remote
