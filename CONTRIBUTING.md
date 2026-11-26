@@ -17,6 +17,7 @@ Everything here describes what the repo already does. When this guide and the co
 - [Review process](#review-process)
 - [Releases](#releases)
 - [Publishing a community plugin](#publishing-a-community-plugin)
+- [Adding an agent skill](#adding-an-agent-skill)
 
 ## Before you start
 
@@ -275,7 +276,8 @@ to update the READMEs and the table.
 [`ci.yml`](.github/workflows/ci.yml) runs on every pull request and on pushes to `main` (Ubuntu, Node 22):
 
 1. `scripts/install-plugin-dependencies.sh`: `npm ci` for plugins with dependencies (fails on a missing lockfile).
-2. `npm run check`: `shared/lib` copies, manifests, `OPERATIONS.md` and status labels are in sync.
+2. `npm run check`: `shared/lib` copies, manifests, `OPERATIONS.md` and status labels are in sync, and the
+   [agent skills](docs/skills.md) under `skills/` are valid.
 3. `npm test`: shared tests, every plugin's tests, the sync and status checks and the reserved-parameter check.
    Integration tests that need ffmpeg, tesseract, a browser, sshd or a database skip cleanly in CI.
 
@@ -331,6 +333,10 @@ Maintainers do the releasing; contributors never tag or publish.
   [Install](README.md#install).
 - Maintainers can also run the workflow by hand (optionally as a `dry_run`) to publish every plugin whose version
   has no release yet.
+- **Agent skills** are released by the same workflow: every run that publishes also releases the skill versions
+  that have no release yet (`skill-<name>-v<version>`) and lists them in `index-v2.json`. Pushing a
+  `skill-<name>-v<version>` tag releases skills only. To ship a change to a skill, bump `metadata.version` in its
+  `SKILL.md`. See [docs/skills.md](docs/skills.md#how-a-skill-is-released).
 - Locally, the same steps are `npm run pack:plugins [name...]`, `npm run verify:plugins dist/*.tar.gz` and
   `npm run publish:plugins`. See [Development](README.md#development).
 
@@ -349,6 +355,21 @@ In short:
 - the same agent-safety checklist and status rules apply as for official plugins;
 - every new version needs a new PR and review;
 - `node scripts/verify-plugins.mjs --community <name>` runs the publish checks on your entry.
+
+## Adding an agent skill
+An agent skill is a directory `skills/<name>/` with a `SKILL.md` (instructions an agent loads on demand) and
+optional reference text files. It has no code, no manifest and no icon.
+
+[docs/skills.md](docs/skills.md) has the format, the rules and the release flow. In short:
+
+- Write the skill yourself, in the language its users work in. The `description` says what it does and when to
+  use it.
+- Text only: `.md`, `.txt`, `.csv` and `.json` files, no `scripts/`, nothing executable.
+- Ask for no tools, or only for tools of plugins in this repository (`allowed-tools: gmail-api/get_message`).
+- Set `metadata.version` (start at `"1.0.0"`, bump it for every change) and `metadata.display_name`.
+- Add a row to the Skills table of the root README.
+- Run `npm run check` and `npm run pack:skills <name>`, and say in the pull request what the skill tells an agent
+  to do and which decisions it leaves to a person.
 
 ## License
 By contributing you agree that your work is licensed under the Apache-2.0 license of this repository.

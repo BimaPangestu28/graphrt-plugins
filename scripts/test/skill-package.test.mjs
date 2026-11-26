@@ -11,6 +11,7 @@ import {
 } from "../lib/skill-package.mjs";
 import { createTarGz, readTarGz } from "../lib/tar-archive.mjs";
 import { sha256Hex } from "../lib/plugin-package.mjs";
+import { REPO_ROOT } from "../plugins.mjs";
 
 const SKILL_NAME = "refund-policy";
 const DESCRIPTION = "Decides whether an order can be refunded and how. Use when a customer asks for money back.";
@@ -198,6 +199,11 @@ test("the skills of this repository are valid, need no missing tool and ship no 
     assert.match(skill.description, /Gunakan saat /, `${skill.name}: the description says when to use the skill`);
     for (const toolRequest of skill.allowedTools) assert.ok(catalogTools.has(toolRequest.split("/")[0]), `${skill.name}: ${toolRequest}`);
   }
+});
+
+test("every skill of this repository has a row in the root README", () => {
+  const readmeText = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
+  for (const skillName of listSkillNames()) assert.ok(readmeText.includes(`| [${skillName}](skills/${skillName}/SKILL.md) |`), `README.md Skills table has no row for ${skillName}`);
 });
 
 test("the skills directory holds only skill directories, and no plugin may take the skill- prefix", () => {

@@ -185,6 +185,22 @@ nodes, no `plugin.mjs` and no `OPERATIONS.md`; the guide is pinned in `checksums
 [upwork](upwork/) is the first one; adding Notion, Linear or Stripe's official MCP servers is a new folder with the
 same shape.
 
+## Skills
+Besides plugins, the catalog offers **agent skills**: instructions (a `SKILL.md`, in the
+[Agent Skills](https://agentskills.io/specification) format) that an agent loads only when a task needs them. They
+are text only, run no code and ask for no tools unless listed. Sources are in [`skills/`](skills/);
+[docs/skills.md](docs/skills.md) says how to add one and how they are released.
+
+| Skill | What it helps an agent do | Tools |
+|-------|---------------------------|-------|
+| [balas-komplain-pelanggan](skills/balas-komplain-pelanggan/SKILL.md) | Reply to a customer complaint calmly, with a concrete next step and a note of what needs approval | none |
+| [kebijakan-refund](skills/kebijakan-refund/SKILL.md) | Judge a refund, return or exchange request against the shop's policy and draft the decision | none |
+| [ringkasan-rapat](skills/ringkasan-rapat/SKILL.md) | Turn meeting notes or a transcript into decisions and follow-ups with an owner and a due date | none |
+| [surat-penawaran](skills/surat-penawaran/SKILL.md) | Write a quotation with scope, price table, payment terms and validity | none |
+| [tagih-pembayaran](skills/tagih-pembayaran/SKILL.md) | Remind a customer of an unpaid invoice, politely and with rising firmness | none |
+
+The starter skills are written in Indonesian, for business teams and small businesses in Indonesia.
+
 ## Plugin status
 Every plugin has a maturity label and a Terms-of-Service risk rating in [`plugin-status.json`](plugin-status.json),
 with the reason for each. The table above, the status line in each plugin README and the release catalog
@@ -287,6 +303,17 @@ lists them all.
     v1 must fit the desktop app's 2 MiB limit (`MAX_CATALOG_BYTES`). While it fits it is published in full; when
     it would not, it is published without the nodes' `config_schema` and `outputs` (v1 readers treat both as
     optional) and the publish logs a warning.
+  - **Skills (v2 only):** `index-v2.json` also carries `skills`, the published [agent skills](docs/skills.md),
+    covered by the same signature:
+    ```json
+    {"schema": 2, "generated_at": "...", "plugins": ["..."], "skills": [{
+      "name": "kebijakan-refund", "display_name": "Kebijakan Refund dan Retur", "version": "1.0.0", "description": "...",
+      "tarball_url": "https://github.com/Graphrt/graphrt-plugins/releases/download/skill-kebijakan-refund-v1.0.0/skill-kebijakan-refund-1.0.0.tar.gz",
+      "sha256": "<hex of the archive>", "size_bytes": 3535, "publisher": "graphrt"}]}
+    ```
+    Each skill version is its own release `skill-<name>-v<version>`; the archive holds one directory `<name>/`
+    with `SKILL.md` and its reference files (text only). A reader that does not know `skills` ignores the field;
+    `index.json` (v1) does not have it.
 
   In both, a node's `config_schema` is the manifest's JSON Schema, verbatim, and `outputs` appears when the manifest
   declares them, so a builder can write correct steps for a plugin that is not installed yet. `warning` is the
@@ -348,6 +375,8 @@ graphrt plugin install ./meta-api
   icon change); it refuses to drop a plugin or change any version, `sha256` or `size_bytes`, and to replace a
   published detail file with other bytes.
   `.github/workflows/release.yml` runs the same script on a `<name>-v<version>` tag push or by hand.
+  `npm run pack:skills [name...]` packs [agent skills](docs/skills.md) into `dist/skills/` and prints their catalog
+  entries; every publish that is not `--catalog-only` releases the skill versions that have no release yet.
   Every publish (including `--catalog-only`, which uses only already-mirrored tarballs) also lists the
   [community plugins](docs/community-plugins.md); one that fails a check is skipped with its reason, never failing
   the publish. `node scripts/verify-plugins.mjs --community <name>` runs those checks for one registry entry.
