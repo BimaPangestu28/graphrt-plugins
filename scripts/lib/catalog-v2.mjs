@@ -95,13 +95,18 @@ export function buildCatalogV2Entry(catalogEntry, renderedDetail) {
  *
  * @param catalogV2Entries - Entries from buildCatalogV2Entry (object[])
  * @param generatedAt - Generation time (Date)
- * @returns The v2 catalog, plugins sorted by name (object)
+ * @param skillEntries - Agent skill entries from buildSkillCatalogEntry (object[], optional). When given, even
+ *   empty, the index carries them as `skills`, sorted by name: an additive field that readers which do not know
+ *   it ignore. When omitted the index has no `skills` field. Only v2 lists skills: v1 `index.json` is for older
+ *   apps, none of which reads skills, and it has little room left under its size limit
+ * @returns The v2 catalog, plugins (and skills) sorted by name (object)
  */
-export function buildCatalogV2(catalogV2Entries, generatedAt) {
+export function buildCatalogV2(catalogV2Entries, generatedAt, skillEntries = undefined) {
   return {
     schema: CATALOG_V2_SCHEMA_VERSION,
     generated_at: generatedAt.toISOString().replace(/\.\d{3}Z$/, "Z"),
     plugins: [...catalogV2Entries].sort((left, right) => left.name.localeCompare(right.name)),
+    ...(skillEntries === undefined ? {} : { skills: [...skillEntries].sort((left, right) => left.name.localeCompare(right.name)) }),
   };
 }
 

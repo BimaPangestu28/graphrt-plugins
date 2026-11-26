@@ -63,5 +63,18 @@
 - [ ] Publisher and display name are honest (no impersonation)
 - [ ] Replaced `pending` with `reviewed_by` (your login) and `reviewed_at` (today) before merging
 
+## Agent skill (only for a change under `skills/`)
+<!-- See docs/skills.md. Delete this section otherwise; for a skill-only change, delete "Agent safety",
+     "Plugin contents", "Test plan" and "Community plugin" above. -->
+
+- Skill and version:
+- [ ] I wrote the skill myself (no copied skill or document)
+- [ ] `description` says what the skill does and when to use it
+- [ ] Text only; it asks for no tools, or only for tools of plugins in this repository
+- [ ] The instructions say what to do when information is missing and which decisions stay with a person
+- [ ] `metadata.version` set, or bumped for a change to a published skill
+- [ ] Row in the Skills table of the root README
+- [ ] `npm run check` passes and `npm run pack:skills <name>` prints the entry I expect
+
 ## Notes for reviewers
 <!-- Judgement calls, API facts you could not verify, known gaps. -->
