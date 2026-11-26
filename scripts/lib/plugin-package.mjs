@@ -18,6 +18,7 @@ import { REPO_ROOT } from "../plugins.mjs";
 import { ICON_FILE_NAME, readPluginIcon } from "./plugin-icons.mjs";
 import { displayNameFor } from "./plugin-names.mjs";
 import { readPluginStatuses, statusForPlugin } from "./plugin-status.mjs";
+import { appRequirementFields, readDeclaredRequirements } from "./app-requirements.mjs";
 import { describeRuntimes, readRepositoryWasmRuntimes } from "./plugin-runtimes.mjs";
 import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
@@ -439,6 +440,7 @@ export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = re
     repositoryUrl: officialPluginTreeUrl(name, tag),
     readmeUrl: `https://github.com/${RELEASE_REPOSITORY}/blob/${tag}/${name}/README.md`,
     runtimes: describeRuntimes(name, wasmRuntimes),
+    declaredRequirements: readDeclaredRequirements(),
   });
 }
 
@@ -459,6 +461,9 @@ export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = re
  * @param listing.repositoryUrl - https URL of the plugin's source (string)
  * @param listing.readmeUrl - https URL of the plugin README (string)
  * @param listing.runtimes - Runtimes a user can pick (object[], optional; omitted from the entry when absent)
+ * @param listing.declaredRequirements - Floors from plugin-requirements.json by plugin name (object, optional). With
+ *   what the manifest uses they give `min_app_version`, the oldest graphrt Desktop that can use the plugin (see
+ *   app-requirements.mjs); the field is left out for a plugin that runs on every release
  * @returns A catalog `plugins[]` entry (object)
  */
 export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, listing) {
@@ -489,6 +494,7 @@ export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, read
     tools: (releasedManifest.tools ?? []).map((tool) => tool.name),
     ...(listing.runtimes ? { runtimes: listing.runtimes } : {}),
     ...(isMcpPreset(releasedManifest) ? { mcp_server: { url: releasedManifest.mcp.url, auth: releasedManifest.mcp.auth ?? "none" } } : {}),
+    ...appRequirementFields(releasedManifest, listing.declaredRequirements ?? {}),
     readme_url: listing.readmeUrl,
   };
 }

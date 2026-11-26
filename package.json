@@ -9,8 +9,8 @@
   },
   "scripts": {
     "sync": "node scripts/sync-shared.mjs && node scripts/sync-plugin-status.mjs",
-    "check": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-skills.mjs && node scripts/check-community-plugins.mjs",
-    "check:release": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-skills.mjs --lenient && node scripts/check-community-plugins.mjs --lenient",
+    "check": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-app-requirements.mjs && node scripts/check-skills.mjs && node scripts/check-community-plugins.mjs",
+    "check:release": "node scripts/sync-shared.mjs --check && node scripts/sync-plugin-status.mjs --check && node wasm/crates/rest-kit/export-spec.mjs --check && node scripts/check-app-requirements.mjs && node scripts/check-skills.mjs --lenient && node scripts/check-community-plugins.mjs --lenient",
     "test": "node scripts/run-tests.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "icons:check": "node scripts/generate-icons.mjs --check",

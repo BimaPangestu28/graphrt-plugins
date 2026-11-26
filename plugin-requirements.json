@@ -1,0 +1,6 @@
+{
+  "ui-render": {
+    "min_app_version": "0.2.0",
+    "reason": "the app has to draw the cards, charts, tables and KPI tiles it returns; an older app shows them as raw text"
+  }
+}
