@@ -273,7 +273,8 @@ to update the READMEs and the table.
 - Do not include credentials, real account ids, personal data or recorded real responses.
 
 ### What CI runs
-[`ci.yml`](.github/workflows/ci.yml) runs on every pull request and on pushes to `main` (Ubuntu, Node 22):
+[`ci.yml`](.github/workflows/ci.yml) runs on every pull request, on every merge queue entry and on pushes to
+`main` (Ubuntu, Node 22):
 
 1. `scripts/install-plugin-dependencies.sh`: `npm ci` for plugins with dependencies (fails on a missing lockfile).
 2. `npm run check`: `shared/lib` copies, manifests, `OPERATIONS.md` and status labels are in sync, and the
@@ -282,6 +283,9 @@ to update the READMEs and the table.
    Integration tests that need ffmpeg, tesseract, a browser, sshd or a database skip cleanly in CI.
 
 Run `npm run check && npm test` locally first. A red CI run blocks review.
+
+The `ci-ok` check sums up the run: it passes when every job passed or was skipped, and it is the check a merge
+needs. The merge queue runs everything again on top of `main` and the pull requests queued ahead.
 
 ## Review process
 Reviewers check, in this order:

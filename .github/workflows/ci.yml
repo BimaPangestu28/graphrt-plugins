@@ -1,13 +1,18 @@
-# Runs on every pull request and on pushes to main: generated files must be in sync,
-# no plugin may use a graphrt-reserved parameter name, every plugin's tests pass, and the
+# Runs on every pull request, on every merge queue entry and on pushes to main: generated files must be in
+# sync, no plugin may use a graphrt-reserved parameter name, every plugin's tests pass, and the
 # WebAssembly modules built from their source pass the parity tests.
 #
-# Pull requests skip work their changes cannot affect (see the `changes` job); pushes to main and
-# manual runs always run everything.
+# Pull requests skip work their changes cannot affect (see the `changes` job); merge queue entries, pushes to
+# main and manual runs always run everything.
+#
+# `ci-ok` is the one check to require in the branch ruleset: it passes when every other job passed or was skipped.
 name: CI
 
 on:
   pull_request:
+  # The merge queue tests each entry on top of main and the entries ahead of it, so two pull requests that pass
+  # alone cannot break main together.
+  merge_group:
   push:
     branches: [main]
   workflow_dispatch:
@@ -15,8 +20,8 @@ on:
 permissions:
   contents: read
 
-# A new push to a pull request cancels that pull request's older run. Every other run (main, manual) gets a
-# group of its own, so none is cancelled or dropped from the queue.
+# A new push to a pull request cancels that pull request's older run. Every other run (merge queue, main,
+# manual) gets a group of its own, so none is cancelled or dropped from the queue.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -69,7 +74,7 @@ jobs:
   test:
     name: npm test
     needs: changes
-    # Runs even when `changes` is skipped (push, manual run); not when it failed or the run was cancelled.
+    # Runs even when `changes` is skipped (merge queue, push, manual run); not when it failed or the run was cancelled.
     if: ${{ !cancelled() && needs.changes.result != 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -135,3 +140,24 @@ jobs:
 
       - name: Parity tests against the fresh build
         run: node --test wasm/test/*.test.mjs
+
+  # The required check. Jobs that a pull request skips never report on their own, so the ruleset requires this job
+  # instead of them. scripts/test/ci-workflow.test.mjs keeps `needs` in step with the jobs above.
+  ci-ok:
+    name: ci-ok
+    needs: [changes, test, wasm]
+    # Also when a needed job failed or was skipped, so the check always reports.
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every needed job passed or was skipped
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "$NEEDS"
+          if [ "$FAILED" != "false" ]; then
+            echo "::error::A needed job failed or was cancelled."
+            exit 1
+          fi
