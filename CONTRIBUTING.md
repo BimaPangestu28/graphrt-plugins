@@ -271,6 +271,10 @@ to update the READMEs and the table.
 - The PR template ([.github/pull_request_template.md](.github/pull_request_template.md)) loads automatically.
   Fill in the test plan honestly: say what you did and did not verify against the real API.
 - Do not include credentials, real account ids, personal data or recorded real responses.
+- Pull requests reach `main` through the merge queue as one squashed commit, so the pull request title becomes
+  the commit subject: write it as a conventional commit. A maintainer adds the pull request to the queue once
+  `ci-ok` is green. You do not need to update your branch when `main` moves: the queue tests your change on top
+  of the current `main`, and a pull request that fails there leaves the queue with the failed run linked.
 
 ### What CI runs
 [`ci.yml`](.github/workflows/ci.yml) runs on every pull request, on every merge queue entry and on pushes to
