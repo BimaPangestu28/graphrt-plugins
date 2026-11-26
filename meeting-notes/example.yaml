@@ -1,0 +1,13 @@
+# Who is using the microphone right now (read only, records nothing).
+#   graphrt run meeting-notes/example.yaml --plugins .
+# Needs Linux with PipeWire (pw-dump). Join a call or open any app that uses the microphone to see it listed.
+version: "1"
+name: meeting-notes-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: mic, type: meeting-notes.detect }
+    - { id: answer, type: answer, answer: "{{#mic.data.message#}} (in use: {{#mic.data.in_use#}})" }
+  edges:
+    - { source: start, target: mic }
+    - { source: mic, target: answer }

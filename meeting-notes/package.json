@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-meeting-notes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: notice, record and transcribe meetings on this computer (Linux, PipeWire)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

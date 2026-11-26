@@ -1,0 +1,35 @@
+# Agent 2, on the meeting_recorded trigger (graphrt Desktop: Schedule > When > "When a meeting is recorded").
+# Transcribes locally (whisper.cpp, downloaded on first use), summarizes with a model and shows it as the run's output.
+# Add a plugin step (notion-api, slack, email…) after `summary` to send it somewhere.
+version: "1"
+name: meeting-transcribe-and-summarize
+description: Transcribe a recorded meeting and summarize it.
+graph:
+  nodes:
+    - id: start
+      type: start
+      variables:
+        - { variable: meeting_id, type: text-input, required: true, label: Meeting }
+        - { variable: meeting_title, type: text-input, required: false, label: Title }
+    - id: transcribe
+      type: meeting-notes.transcribe
+      title: Transcribe the meeting
+      meeting_id: "{{#start.meeting_id#}}"
+      language: auto
+      timeout_ms: 1800000
+    - id: summary
+      type: llm
+      title: Summarize
+      model: { provider: anthropic, name: claude-sonnet-5-5 }
+      prompt_template:
+        - { role: system, text: "Summarize meeting transcripts: decisions, action items (who, what, when) and open questions. \"You\" is the user, \"Others\" the other participants. Be brief." }
+        - { role: user, text: "{{#transcribe.data.text#}}" }
+    - id: done
+      type: end
+      outputs:
+        - { variable: summary, value_selector: [summary, text] }
+        - { variable: transcript, value_selector: [transcribe, data, text] }
+  edges:
+    - { source: start, target: transcribe }
+    - { source: transcribe, target: summary }
+    - { source: summary, target: done }

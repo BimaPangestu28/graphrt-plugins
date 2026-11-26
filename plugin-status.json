@@ -354,6 +354,11 @@
     "tos_risk": "low",
     "tos_notes": "Anti-spam law (consent for marketing email) and Mailchimp's acceptable use policy."
   },
+  "meeting-notes": {
+    "status": "beta",
+    "reason": "Local only; detected a meeting app on the microphone, recorded both tracks, auto-stopped and transcribed live with the downloaded whisper.cpp (PipeWire 1.6, Ubuntu); not yet used on a real call.",
+    "tos_risk": "none"
+  },
   "meta-ads": {
     "status": "beta",
     "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",

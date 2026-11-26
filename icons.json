@@ -407,6 +407,12 @@
     "version": "16.36.0",
     "color": "#FFE01B"
   },
+  "meeting-notes": {
+    "source": "lucide",
+    "slug": "mic",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
   "meta-ads": {
     "source": "simple-icons",
     "slug": "meta",
