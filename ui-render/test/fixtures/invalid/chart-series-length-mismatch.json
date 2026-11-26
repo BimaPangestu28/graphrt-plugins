@@ -1,0 +1,22 @@
+{
+  "error": "per category",
+  "block": {
+    "$ui": "chart",
+    "version": 1,
+    "type": "bar",
+    "x": {
+      "values": [
+        "a",
+        "b"
+      ]
+    },
+    "series": [
+      {
+        "name": "s",
+        "values": [
+          1
+        ]
+      }
+    ]
+  }
+}

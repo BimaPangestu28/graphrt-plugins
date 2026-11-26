@@ -1,0 +1,121 @@
+{
+  "$ui": "adaptive_card",
+  "version": 1,
+  "card": {
+    "type": "AdaptiveCard",
+    "version": "1.5",
+    "body": [
+      {
+        "type": "RichTextBlock",
+        "inlines": [
+          {
+            "type": "TextRun",
+            "text": "Stock ",
+            "weight": "Bolder"
+          },
+          "report for ",
+          {
+            "type": "TextRun",
+            "text": "today",
+            "italic": true
+          }
+        ]
+      },
+      {
+        "type": "Table",
+        "firstRowAsHeader": true,
+        "columns": [
+          {
+            "width": 2
+          },
+          {
+            "width": 1
+          }
+        ],
+        "rows": [
+          {
+            "type": "TableRow",
+            "cells": [
+              {
+                "type": "TableCell",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Item"
+                  }
+                ]
+              },
+              {
+                "type": "TableCell",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Qty"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "TableRow",
+            "cells": [
+              {
+                "type": "TableCell",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Beans"
+                  }
+                ]
+              },
+              {
+                "type": "TableCell",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "12"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Media",
+        "sources": [
+          {
+            "url": "https://example.com/v.mp4"
+          }
+        ],
+        "fallback": "drop"
+      },
+      {
+        "type": "Image",
+        "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "altText": "pixel",
+        "size": "Small"
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.ShowCard",
+        "title": "Details",
+        "card": {
+          "type": "AdaptiveCard",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "Counted by Budi at 09:00"
+            }
+          ]
+        }
+      },
+      {
+        "type": "Action.Execute",
+        "verb": "recount",
+        "title": "Recount"
+      }
+    ]
+  }
+}

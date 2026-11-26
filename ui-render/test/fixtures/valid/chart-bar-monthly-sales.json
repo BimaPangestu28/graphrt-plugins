@@ -1,0 +1,47 @@
+{
+  "$ui": "chart",
+  "version": 1,
+  "type": "bar",
+  "title": "Penjualan per bulan",
+  "subtitle": "Jan–Jun 2026",
+  "x": {
+    "label": "Bulan",
+    "values": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun"
+    ]
+  },
+  "y": {
+    "label": "Rupiah",
+    "format": "currency",
+    "currency": "IDR"
+  },
+  "series": [
+    {
+      "name": "Toko Online",
+      "values": [
+        42000000,
+        51000000,
+        47500000,
+        62000000,
+        58000000,
+        71000000
+      ]
+    },
+    {
+      "name": "Toko Offline",
+      "values": [
+        30000000,
+        28000000,
+        33000000,
+        31000000,
+        36000000,
+        39000000
+      ]
+    }
+  ]
+}

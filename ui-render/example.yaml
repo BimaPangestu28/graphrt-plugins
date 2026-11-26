@@ -1,0 +1,33 @@
+# Show weekly KPI tiles and a sales chart as the run result (no setup, no network).
+#   graphrt run ui-render/example.yaml --plugins .
+version: "1"
+name: ui-render-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: kpis
+      type: ui-render.show_stats
+      heading: Minggu ini
+      items:
+        - { label: Pendapatan, value: 125000000, format: currency, currency: IDR, delta: 12.5, delta_format: percent }
+        - { label: Pesanan, value: 1840, format: compact, delta: -3.2, delta_format: percent }
+    - id: chart
+      type: ui-render.show_chart
+      chart_type: bar
+      heading: Penjualan per bulan
+      x_values: [Jan, Feb, Mar]
+      series:
+        - { name: Online, values: [42000000, 51000000, 47500000] }
+        - { name: Offline, values: [30000000, 28000000, 33000000] }
+      y_format: currency
+      currency: IDR
+    - id: end
+      type: end
+      outputs:
+        - { variable: summary, value_selector: [kpis, data, title] }
+        - { variable: kpis, value_selector: [kpis, data] }
+        - { variable: sales_chart, value_selector: [chart, data] }
+  edges:
+    - { source: start, target: kpis }
+    - { source: kpis, target: chart }
+    - { source: chart, target: end }

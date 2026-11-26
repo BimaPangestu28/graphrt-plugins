@@ -1,0 +1,17 @@
+{
+  "error": "images must be",
+  "block": {
+    "$ui": "adaptive_card",
+    "version": 1,
+    "card": {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "body": [
+        {
+          "type": "Image",
+          "url": "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+"
+        }
+      ]
+    }
+  }
+}

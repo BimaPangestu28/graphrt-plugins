@@ -674,6 +674,11 @@
     "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
     "tos_risk": "none"
   },
+  "ui-render": {
+    "status": "beta",
+    "reason": "Local only, no dependencies; unit-tested with graphrt-ui's shared fixtures and over the stdio protocol.",
+    "tos_risk": "none"
+  },
   "upwork": {
     "status": "beta",
     "reason": "Upwork's official MCP server with OAuth sign-in; discovery checked live, sign-in and tools not yet tested end to end with a real account.",

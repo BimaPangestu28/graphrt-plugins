@@ -1,0 +1,724 @@
+{
+  "name": "ui-render",
+  "version": "0.1.0",
+  "description": "Rich visual output for agents: Adaptive Cards (with inputs and buttons), bar/line/area/pie/donut charts, tables and KPI tiles, validated as graphrt UI blocks for the host to render",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "env": []
+  },
+  "limits": {
+    "timeout_ms": 30000,
+    "max_concurrency": 8
+  },
+  "nodes": [
+    {
+      "kind": "ui-render.show_adaptive_card",
+      "title": "Show an Adaptive Card",
+      "description": "Shows the user an Adaptive Card (graphrt UI block; card JSON with type \"AdaptiveCard\" and version \"1.5\"). Supported: TextBlock, RichTextBlock, Image, ImageSet, Container, ColumnSet/Column, FactSet, ActionSet, Table, Input.Text/Number/Date/Time/Toggle/ChoiceSet; Action.Submit, Action.Execute, Action.OpenUrl (https or mailto), Action.ShowCard, Action.ToggleVisibility. Images must be https or data: PNG/JPEG/GIF/WebP. No ${...} templates: write the values into the text. Use it for summaries, receipts and records; buttons only work in a workflow's ask-me-first step (human-input card).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "card": {
+            "type": "object",
+            "description": "The Adaptive Card JSON"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "card"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ui-render.show_chart",
+      "title": "Show a chart",
+      "description": "Shows the user a bar, line, area, pie or donut chart (graphrt UI block). Give the categories (x_values) and one or more series with one number (or null) per category, or give rows plus x_key and y_keys. Pie and donut take one series of non-negative values.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "chart_type": {
+            "type": "string",
+            "enum": [
+              "bar",
+              "line",
+              "area",
+              "pie",
+              "donut"
+            ],
+            "description": "bar, line, area, pie or donut"
+          },
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Smaller line under the title"
+          },
+          "x_label": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Label of the category axis"
+          },
+          "x_values": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            },
+            "maxItems": 10000,
+            "description": "Categories, e.g. [\"Jan\", \"Feb\", \"Mar\"]"
+          },
+          "series": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "values"
+              ]
+            },
+            "description": "Series, each with a name and one value per category, e.g. [{\"name\": \"2026\", \"values\": [120, 150, 90]}]"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10000,
+            "description": "Instead of x_values and series: records, one category per row"
+          },
+          "x_key": {
+            "type": "string",
+            "description": "With rows: the field holding each row's category"
+          },
+          "y_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "With rows: the numeric fields, one series each"
+          },
+          "y_label": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Label of the value axis"
+          },
+          "y_format": {
+            "type": "string",
+            "enum": [
+              "number",
+              "compact",
+              "percent",
+              "currency"
+            ],
+            "description": "How values are written: number, compact (1.2K), percent (12.5 means 12.5%) or currency"
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code for the currency format, e.g. IDR or USD"
+          },
+          "stacked": {
+            "type": "boolean",
+            "description": "Stack the series (bar and area)"
+          },
+          "horizontal": {
+            "type": "boolean",
+            "description": "Horizontal bars (bar)"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "chart_type"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ui-render.show_table",
+      "title": "Show a table",
+      "description": "Shows the user a table (graphrt UI block). Give rows (objects) and optionally columns (key, label, format); without columns every field becomes a column. Formats: text, number, compact, percent, currency, date, status (a coloured pill).",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Smaller line under the title"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 1000,
+            "description": "Records; values are text, numbers, true/false or null"
+          },
+          "columns": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "align": {
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ]
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "date",
+                    "status",
+                    "number",
+                    "compact",
+                    "percent",
+                    "currency"
+                  ]
+                },
+                "currency": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ]
+            },
+            "description": "Columns in order; each shows the row field with the same key"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "rows"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "ui-render.show_stats",
+      "title": "Show KPI tiles",
+      "description": "Shows the user KPI tiles (graphrt UI block): up to 12 items, each with a label, a value (number or short text), an optional format and currency, an optional delta (change, delta_format number or percent), trend (up, down, flat), good (which direction is good) and caption.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Smaller line under the title"
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "string"
+                  ]
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "number",
+                    "compact",
+                    "percent",
+                    "currency"
+                  ]
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "delta": {
+                  "type": "number"
+                },
+                "delta_format": {
+                  "type": "string",
+                  "enum": [
+                    "number",
+                    "percent"
+                  ]
+                },
+                "trend": {
+                  "type": "string",
+                  "enum": [
+                    "up",
+                    "down",
+                    "flat"
+                  ]
+                },
+                "good": {
+                  "type": "string",
+                  "enum": [
+                    "up",
+                    "down"
+                  ]
+                },
+                "caption": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "value"
+              ]
+            },
+            "description": "Tiles, e.g. [{\"label\": \"Revenue\", \"value\": 125000000, \"format\": \"currency\", \"currency\": \"IDR\", \"delta\": 12.5, \"delta_format\": \"percent\"}]"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "show_adaptive_card",
+      "description": "Shows the user an Adaptive Card (graphrt UI block; card JSON with type \"AdaptiveCard\" and version \"1.5\"). Supported: TextBlock, RichTextBlock, Image, ImageSet, Container, ColumnSet/Column, FactSet, ActionSet, Table, Input.Text/Number/Date/Time/Toggle/ChoiceSet; Action.Submit, Action.Execute, Action.OpenUrl (https or mailto), Action.ShowCard, Action.ToggleVisibility. Images must be https or data: PNG/JPEG/GIF/WebP. No ${...} templates: write the values into the text. Use it for summaries, receipts and records; buttons only work in a workflow's ask-me-first step (human-input card).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "card": {
+            "type": "object",
+            "description": "The Adaptive Card JSON"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "card"
+        ]
+      }
+    },
+    {
+      "name": "show_chart",
+      "description": "Shows the user a bar, line, area, pie or donut chart (graphrt UI block). Give the categories (x_values) and one or more series with one number (or null) per category, or give rows plus x_key and y_keys. Pie and donut take one series of non-negative values.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chart_type": {
+            "type": "string",
+            "enum": [
+              "bar",
+              "line",
+              "area",
+              "pie",
+              "donut"
+            ],
+            "description": "bar, line, area, pie or donut"
+          },
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Smaller line under the title"
+          },
+          "x_label": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Label of the category axis"
+          },
+          "x_values": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            },
+            "maxItems": 10000,
+            "description": "Categories, e.g. [\"Jan\", \"Feb\", \"Mar\"]"
+          },
+          "series": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "values"
+              ]
+            },
+            "description": "Series, each with a name and one value per category, e.g. [{\"name\": \"2026\", \"values\": [120, 150, 90]}]"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 10000,
+            "description": "Instead of x_values and series: records, one category per row"
+          },
+          "x_key": {
+            "type": "string",
+            "description": "With rows: the field holding each row's category"
+          },
+          "y_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "With rows: the numeric fields, one series each"
+          },
+          "y_label": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Label of the value axis"
+          },
+          "y_format": {
+            "type": "string",
+            "enum": [
+              "number",
+              "compact",
+              "percent",
+              "currency"
+            ],
+            "description": "How values are written: number, compact (1.2K), percent (12.5 means 12.5%) or currency"
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code for the currency format, e.g. IDR or USD"
+          },
+          "stacked": {
+            "type": "boolean",
+            "description": "Stack the series (bar and area)"
+          },
+          "horizontal": {
+            "type": "boolean",
+            "description": "Horizontal bars (bar)"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "chart_type"
+        ]
+      }
+    },
+    {
+      "name": "show_table",
+      "description": "Shows the user a table (graphrt UI block). Give rows (objects) and optionally columns (key, label, format); without columns every field becomes a column. Formats: text, number, compact, percent, currency, date, status (a coloured pill).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Smaller line under the title"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 1000,
+            "description": "Records; values are text, numbers, true/false or null"
+          },
+          "columns": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "align": {
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ]
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "date",
+                    "status",
+                    "number",
+                    "compact",
+                    "percent",
+                    "currency"
+                  ]
+                },
+                "currency": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ]
+            },
+            "description": "Columns in order; each shows the row field with the same key"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "rows"
+        ]
+      }
+    },
+    {
+      "name": "show_stats",
+      "description": "Shows the user KPI tiles (graphrt UI block): up to 12 items, each with a label, a value (number or short text), an optional format and currency, an optional delta (change, delta_format number or percent), trend (up, down, flat), good (which direction is good) and caption.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Title shown above the block (`title` is a graphrt node key, so it is called heading)"
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Smaller line under the title"
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "string"
+                  ]
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "number",
+                    "compact",
+                    "percent",
+                    "currency"
+                  ]
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "delta": {
+                  "type": "number"
+                },
+                "delta_format": {
+                  "type": "string",
+                  "enum": [
+                    "number",
+                    "percent"
+                  ]
+                },
+                "trend": {
+                  "type": "string",
+                  "enum": [
+                    "up",
+                    "down",
+                    "flat"
+                  ]
+                },
+                "good": {
+                  "type": "string",
+                  "enum": [
+                    "up",
+                    "down"
+                  ]
+                },
+                "caption": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "value"
+              ]
+            },
+            "description": "Tiles, e.g. [{\"label\": \"Revenue\", \"value\": 125000000, \"format\": \"currency\", \"currency\": \"IDR\", \"delta\": 12.5, \"delta_format\": \"percent\"}]"
+          },
+          "fallback_text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Plain text for channels that cannot show it (chat apps, email)"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      }
+    }
+  ]
+}

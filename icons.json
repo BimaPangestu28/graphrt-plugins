@@ -773,6 +773,12 @@
     "version": "16.36.0",
     "color": "#262627"
   },
+  "ui-render": {
+    "source": "lucide",
+    "slug": "chart-column",
+    "version": "1.66.0",
+    "color": "#64748B"
+  },
   "upwork": {
     "source": "simple-icons",
     "slug": "upwork",

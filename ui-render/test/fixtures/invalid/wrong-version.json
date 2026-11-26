@@ -1,0 +1,21 @@
+{
+  "error": "version",
+  "block": {
+    "$ui": "chart",
+    "version": 2,
+    "type": "bar",
+    "x": {
+      "values": [
+        "a"
+      ]
+    },
+    "series": [
+      {
+        "name": "s",
+        "values": [
+          1
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "error": "string, number, boolean or null",
+  "block": {
+    "$ui": "table",
+    "version": 1,
+    "columns": [
+      {
+        "key": "a",
+        "label": "A"
+      }
+    ],
+    "rows": [
+      {
+        "a": {
+          "html": "<b>x</b>"
+        }
+      }
+    ]
+  }
+}

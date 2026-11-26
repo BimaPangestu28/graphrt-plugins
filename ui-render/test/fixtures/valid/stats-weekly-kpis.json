@@ -1,0 +1,33 @@
+{
+  "$ui": "stats",
+  "version": 1,
+  "title": "Minggu ini",
+  "items": [
+    {
+      "label": "Pendapatan",
+      "value": 125000000,
+      "format": "currency",
+      "currency": "IDR",
+      "delta": 12.5,
+      "delta_format": "percent",
+      "caption": "vs minggu lalu"
+    },
+    {
+      "label": "Pesanan",
+      "value": 1840,
+      "format": "compact",
+      "delta": -3.2,
+      "delta_format": "percent"
+    },
+    {
+      "label": "Refund",
+      "value": 7,
+      "delta": -2,
+      "good": "down"
+    },
+    {
+      "label": "Status toko",
+      "value": "Sehat"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "error": "unknown field `color`",
+  "block": {
+    "$ui": "chart",
+    "version": 1,
+    "type": "bar",
+    "x": {
+      "values": [
+        "a"
+      ]
+    },
+    "series": [
+      {
+        "name": "s",
+        "values": [
+          1
+        ],
+        "color": "#f00"
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "error": "https or mailto",
+  "block": {
+    "$ui": "adaptive_card",
+    "version": 1,
+    "card": {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "actions": [
+        {
+          "type": "Action.OpenUrl",
+          "url": "http://example.com"
+        }
+      ]
+    }
+  }
+}

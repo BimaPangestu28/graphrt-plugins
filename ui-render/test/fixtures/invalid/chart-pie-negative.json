@@ -1,0 +1,23 @@
+{
+  "error": "0 or more",
+  "block": {
+    "$ui": "chart",
+    "version": 1,
+    "type": "pie",
+    "x": {
+      "values": [
+        "a",
+        "b"
+      ]
+    },
+    "series": [
+      {
+        "name": "s",
+        "values": [
+          1,
+          -1
+        ]
+      }
+    ]
+  }
+}

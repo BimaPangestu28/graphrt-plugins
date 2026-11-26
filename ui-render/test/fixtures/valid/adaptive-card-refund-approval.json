@@ -1,0 +1,129 @@
+{
+  "$ui": "adaptive_card",
+  "version": 1,
+  "title": "Refund request",
+  "card": {
+    "type": "AdaptiveCard",
+    "version": "1.5",
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "Refund request",
+        "size": "Large",
+        "weight": "Bolder",
+        "style": "heading"
+      },
+      {
+        "type": "TextBlock",
+        "text": "Sari Wulandari asks for a refund of **Rp 250.000** for order #1042 (2 items arrived damaged).",
+        "wrap": true
+      },
+      {
+        "type": "ColumnSet",
+        "columns": [
+          {
+            "type": "Column",
+            "width": "stretch",
+            "items": [
+              {
+                "type": "FactSet",
+                "facts": [
+                  {
+                    "title": "Order",
+                    "value": "#1042"
+                  },
+                  {
+                    "title": "Paid",
+                    "value": "Rp 480.000"
+                  },
+                  {
+                    "title": "Customer since",
+                    "value": "March 2024"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Column",
+            "width": "auto",
+            "items": [
+              {
+                "type": "TextBlock",
+                "text": "Priority",
+                "isSubtle": true
+              },
+              {
+                "type": "TextBlock",
+                "text": "High",
+                "color": "Attention",
+                "weight": "Bolder"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Input.ChoiceSet",
+        "id": "reason",
+        "label": "Reason",
+        "value": "damaged",
+        "choices": [
+          {
+            "title": "Damaged on arrival",
+            "value": "damaged"
+          },
+          {
+            "title": "Wrong item",
+            "value": "wrong_item"
+          },
+          {
+            "title": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "type": "Input.Number",
+        "id": "amount",
+        "label": "Refund amount (Rp)",
+        "value": 250000,
+        "min": 0,
+        "max": 480000
+      },
+      {
+        "type": "Input.Text",
+        "id": "note",
+        "label": "Note to customer",
+        "isMultiline": true,
+        "placeholder": "Optional"
+      },
+      {
+        "type": "Input.Toggle",
+        "id": "restock",
+        "title": "Put the items back in stock",
+        "value": "false"
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "id": "approve",
+        "title": "Approve refund",
+        "style": "positive"
+      },
+      {
+        "type": "Action.Submit",
+        "id": "reject",
+        "title": "Reject",
+        "style": "destructive"
+      },
+      {
+        "type": "Action.OpenUrl",
+        "title": "Open order",
+        "url": "https://shop.example.com/orders/1042"
+      }
+    ]
+  }
+}

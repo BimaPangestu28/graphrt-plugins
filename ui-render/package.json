@@ -1,0 +1,9 @@
+{
+  "name": "graphrt-plugin-ui-render",
+  "version": "0.1.0",
+  "private": true,
+  "description": "graphrt plugin: Adaptive Cards, charts, tables and KPI tiles as validated graphrt UI blocks",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
