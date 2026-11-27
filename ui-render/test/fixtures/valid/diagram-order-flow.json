@@ -1,0 +1,9 @@
+{
+  "$ui": "diagram",
+  "version": 1,
+  "title": "How an order is handled",
+  "subtitle": "From the first message to delivery",
+  "fallback_text": "The bot checks stock, takes the order, and hands it to the owner to confirm before delivery.",
+  "syntax": "mermaid",
+  "source": "flowchart TD\n  A[Customer asks] --> B{In stock?}\n  B -- Yes --> C[Take the order]\n  B -- No --> D[Offer another product]\n  D --> B\n  C --> E[Owner confirms]\n  E --> F([Delivery])"
+}

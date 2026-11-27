@@ -4,7 +4,7 @@
  * agent tools return the block for the person and only a short summary for the model (see plugin.mjs).
  */
 import { PluginError } from "../lib/shared/graphrt-plugin.mjs";
-import { CHART_TYPES, COLUMN_FORMATS, LIMITS, NUMBER_FORMATS, UiBlockError, VERSION, validateUiBlock } from "../lib/ui-blocks.mjs";
+import { CHART_TYPES, COLUMN_FORMATS, DIAGRAM_TYPES, LIMITS, NUMBER_FORMATS, UiBlockError, VERSION, diagramType, validateUiBlock } from "../lib/ui-blocks.mjs";
 
 const HEADING = { type: "string", maxLength: 300, description: "Title shown above the block (`title` is a graphrt node key, so it is called heading)" };
 const SUBTITLE = { type: "string", maxLength: 300, description: "Smaller line under the title" };
@@ -226,7 +226,38 @@ const adaptiveCardOperation = {
     finish(compact({ $ui: "adaptive_card", version: VERSION, title: args.heading, fallback_text: args.fallback_text, card: args.card })),
 };
 
-export const uiOperations = [adaptiveCardOperation, chartOperation, tableOperation, statsOperation];
+/** A Mermaid source as models often write it: inside a ```mermaid fence. The fence is dropped, the text is not changed. */
+export function stripCodeFence(source) {
+  const fenced = /^\s*```(?:mermaid)?[ \t]*\r?\n([\s\S]*?)\r?\n?```\s*$/.exec(String(source));
+  return fenced ? fenced[1] : String(source);
+}
+
+const diagramOperation = {
+  name: "show_diagram",
+  title: "Show a diagram",
+  description:
+    "Shows the user a diagram (graphrt UI block) written as Mermaid text: a flowchart, sequence diagram, state diagram, class or entity " +
+    "diagram, Gantt chart, mind map, timeline, pie, quadrant chart or git graph. Start the source with the diagram type " +
+    `(${DIAGRAM_TYPES.join(", ")}). Text only: no HTML (use <br> for a line break in a label), no click/link/callback statements, ` +
+    "no %%{init}%% directives or front matter, no style/classDef/linkStyle colours (the app themes the diagram). At most 20 000 characters and 500 lines.",
+  parameters: {
+    type: "object",
+    properties: {
+      source: { type: "string", maxLength: LIMITS.diagramChars + 16, description: "Mermaid text, e.g. \"flowchart TD\\n  A[Customer asks] --> B{In stock?}\\n  B -- Yes --> C[Take order]\"" },
+      heading: HEADING,
+      subtitle: SUBTITLE,
+      fallback_text: { ...FALLBACK_TEXT, description: "One or two sentences that say what the diagram shows, for channels that cannot draw it (chat apps, email)" },
+    },
+    required: ["source"],
+  },
+  run: async ({ args }) =>
+    finish(compact({
+      $ui: "diagram", version: VERSION, title: args.heading, subtitle: args.subtitle, fallback_text: args.fallback_text,
+      syntax: "mermaid", source: stripCodeFence(args.source ?? "").trim(),
+    })),
+};
+
+export const uiOperations = [adaptiveCardOperation, chartOperation, tableOperation, statsOperation, diagramOperation];
 
 function countWord(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
@@ -245,6 +276,7 @@ export function summarizeForModel(block) {
     table: () => `table${titled} with ${countWord(block.rows.length, "row")} and ${countWord(block.columns.length, "column")}`,
     stats: () => `${countWord(block.items.length, "KPI tile")}${titled}`,
     adaptive_card: () => `Adaptive Card${titled}`,
+    diagram: () => `${diagramType(block.source) ?? "diagram"} diagram${titled}`,
   }[block.$ui]();
   return `Shown to the user: ${shown}. They can see it, so do not repeat its contents; add only your conclusions.`;
 }

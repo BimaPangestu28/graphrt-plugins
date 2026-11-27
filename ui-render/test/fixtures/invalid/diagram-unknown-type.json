@@ -1,0 +1,9 @@
+{
+  "error": "must start with a diagram type",
+  "block": {
+    "$ui": "diagram",
+    "version": 1,
+    "syntax": "mermaid",
+    "source": "A --> B"
+  }
+}

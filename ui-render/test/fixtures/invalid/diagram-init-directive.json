@@ -1,0 +1,9 @@
+{
+  "error": "directives (`%%{...}%%`) are not supported",
+  "block": {
+    "$ui": "diagram",
+    "version": 1,
+    "syntax": "mermaid",
+    "source": "%%{init: {\"securityLevel\": \"loose\"}}%%\nflowchart TD\n  A --> B"
+  }
+}

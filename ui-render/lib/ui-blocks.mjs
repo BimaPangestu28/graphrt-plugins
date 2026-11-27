@@ -2,7 +2,7 @@
  * graphrt UI blocks: the same checks as graphrt's `graphrt-ui` crate (`graphrt_ui::validate`), so an agent hears
  * about a bad card or chart from the tool call instead of the host silently showing nothing.
  *
- * A block is an object whose `$ui` key names its kind (`adaptive_card`, `chart`, `table`, `stats`) with
+ * A block is an object whose `$ui` key names its kind (`adaptive_card`, `chart`, `table`, `stats`, `diagram`) with
  * `version: 1`. Hosts validate again before rendering; test/fixtures is a copy of the crate's shared fixtures and
  * keeps both implementations in step.
  */
@@ -10,14 +10,20 @@
 export const UI_KEY = "$ui";
 export const VERSION = 1;
 export const MAX_BLOCK_BYTES = 256 * 1024;
-export const KINDS = ["adaptive_card", "chart", "table", "stats"];
+export const KINDS = ["adaptive_card", "chart", "table", "stats", "diagram"];
 export const CHART_TYPES = ["bar", "line", "area", "pie", "donut"];
 export const NUMBER_FORMATS = ["number", "compact", "percent", "currency"];
 export const COLUMN_FORMATS = ["text", "date", "status", ...NUMBER_FORMATS];
 export const LIMITS = Object.freeze({
   categories: 10000, series: 20, slices: 50, values: 50000, columns: 20, rows: 1000, statItems: 12,
-  cardNodes: 400, cardDepth: 12,
+  cardNodes: 400, cardDepth: 12, diagramChars: 20000, diagramLines: 500,
 });
+export const DIAGRAM_SYNTAXES = ["mermaid"];
+/** Mermaid diagram types a diagram may start with: each draws without HTML labels. */
+export const DIAGRAM_TYPES = [
+  "flowchart", "graph", "sequenceDiagram", "classDiagram", "stateDiagram", "stateDiagram-v2", "erDiagram", "gantt", "pie", "mindmap", "timeline",
+  "quadrantChart", "gitGraph",
+];
 
 const MAX_SHORT_TEXT = 300;
 const MAX_LONG_TEXT = 10000;
@@ -508,7 +514,105 @@ function validateAction(value, path, depth, walk) {
 
 // --- envelope ----------------------------------------------------------------------------------------------------
 
-const VALIDATORS = { adaptive_card: validateAdaptiveCard, chart: validateChart, table: validateTable, stats: validateStats };
+// --- diagram -----------------------------------------------------------------------------------------------------
+
+/** Statements that attach a link or a script call to a node, and the diagram types where they are statements. */
+const INTERACTION_KEYWORDS = ["click", "callback", "link", "links"];
+const TYPES_WITH_INTERACTION = ["flowchart", "graph", "sequenceDiagram", "classDiagram", "stateDiagram", "stateDiagram-v2", "gantt"];
+/** Statements that set colours, and the diagram types where they are statements. */
+const STYLE_KEYWORDS = ["style", "classDef", "linkStyle"];
+const TYPES_WITH_STYLE = ["flowchart", "graph", "classDiagram", "stateDiagram", "stateDiagram-v2", "erDiagram", "quadrantChart"];
+const URL_SCHEMES = ["javascript:", "vbscript:", "data:"];
+const ASCII_LETTER = /^[A-Za-z]/;
+
+/**
+ * The diagram type a Mermaid source starts with (blank lines and `%%` comments before it are skipped).
+ *
+ * @param source - Mermaid text (string)
+ * @returns One of DIAGRAM_TYPES, or null (string | null)
+ */
+export function diagramType(source) {
+  const first = source.split("\n").map((line) => line.trim()).find((line) => line !== "" && !line.startsWith("%%"));
+  if (first === undefined) return null;
+  const word = first.split(/[\s;]/)[0];
+  return DIAGRAM_TYPES.includes(word) ? word : null;
+}
+
+/** The first HTML tag in a line other than `<br>`. Arrows (`-->`, `<|--`), stereotypes (`<<interface>>`) and a lone `<` are not tags. */
+function htmlTag(line) {
+  for (let start = 0; start < line.length; start += 1) {
+    if (line[start] !== "<" || line[start - 1] === "<") continue;
+    const rest = line.slice(start + 1);
+    const nameStart = rest.startsWith("/") ? rest.slice(1) : rest;
+    if (!ASCII_LETTER.test(nameStart)) continue;
+    const end = rest.search(/[<>]/);
+    if (end === -1 || rest[end] !== ">") continue;
+    const inner = rest.slice(0, end);
+    const name = /^[A-Za-z0-9]*/.exec(nameStart)[0];
+    const isLineBreak = name.toLowerCase() === "br" && inner.replace(/\/+$/, "").trim().length === name.length;
+    if (!isLineBreak) return line.slice(start, start + end + 2);
+  }
+  return null;
+}
+
+function checkDiagramLine(line, kind) {
+  const statement = line.trim();
+  if (statement.startsWith("%%")) return null;
+  const firstWord = statement.split(/\s/)[0];
+  const hasArgument = statement.length > firstWord.length;
+  if (hasArgument && TYPES_WITH_INTERACTION.includes(kind) && INTERACTION_KEYWORDS.includes(firstWord)) {
+    return `\`${firstWord}\` statements (links and callbacks) are not supported: a diagram is a picture, remove this line`;
+  }
+  if (hasArgument && TYPES_WITH_STYLE.includes(kind) && STYLE_KEYWORDS.includes(firstWord)) {
+    return `\`${firstWord}\` is not supported: the host colours the diagram in its own theme, remove this line`;
+  }
+  const tag = htmlTag(statement);
+  if (tag !== null) return `HTML (\`${tag}\`) is not allowed: write plain text, and \`<br>\` for a line break in a label`;
+  const shape = statement.indexOf("@{");
+  if (shape !== -1 && statement.slice(shape).replace(/\s/g, "").includes("img:")) return "images in nodes are not supported";
+  return null;
+}
+
+/** Rust's `str::lines`: split on `\n`, drop one trailing `\r` per line, no empty last line. */
+function linesOf(source) {
+  const lines = source.split("\n").map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
+  if (lines.at(-1) === "") lines.pop();
+  return lines;
+}
+
+function checkDiagramSource(source) {
+  if (source.trim() === "") return "must not be empty";
+  if (/[\p{Cc}]/u.test(source.replace(/[\n\r\t]/g, ""))) return "must not contain control characters";
+  const lines = linesOf(source);
+  if (lines.length > LIMITS.diagramLines) return `has ${lines.length} lines; at most ${LIMITS.diagramLines} are allowed`;
+  if (source.trimStart().startsWith("---")) {
+    return "front matter (`---`) is not supported: start with the diagram type and put the title in the block's `title`";
+  }
+  if (source.includes("%%{")) return "directives (`%%{...}%%`) are not supported: the host chooses theme and settings";
+  const kind = diagramType(source);
+  if (kind === null) return `must start with a diagram type, one of: ${DIAGRAM_TYPES.join(", ")}`;
+  const lower = source.toLowerCase();
+  const scheme = URL_SCHEMES.find((one) => lower.includes(one));
+  if (scheme !== undefined) return `\`${scheme}\` URLs are not allowed in a diagram`;
+  for (const [index, line] of lines.entries()) {
+    const message = checkDiagramLine(line, kind);
+    if (message !== null) return `line ${index + 1}: ${message}`;
+  }
+  return null;
+}
+
+function validateDiagram(fields) {
+  onlyKnown(fields, "", ["title", "subtitle", "fallback_text", "syntax", "source"]);
+  optionalText(fields, "title", "", MAX_SHORT_TEXT);
+  optionalText(fields, "subtitle", "", MAX_SHORT_TEXT);
+  optionalText(fields, "fallback_text", "", MAX_LONG_TEXT);
+  const syntax = requiredText(fields, "syntax", "", MAX_SHORT_TEXT);
+  if (!DIAGRAM_SYNTAXES.includes(syntax)) fail("/syntax", `\`${syntax}\` is not one of: ${DIAGRAM_SYNTAXES.join(", ")}`);
+  const message = checkDiagramSource(requiredText(fields, "source", "", LIMITS.diagramChars));
+  if (message !== null) fail("/source", message);
+}
+
+const VALIDATORS = { adaptive_card: validateAdaptiveCard, chart: validateChart, table: validateTable, stats: validateStats, diagram: validateDiagram };
 
 /**
  * Checks a UI block like graphrt's `graphrt_ui::validate`.

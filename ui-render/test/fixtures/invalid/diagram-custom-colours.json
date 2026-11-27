@@ -1,0 +1,9 @@
+{
+  "error": "`style` is not supported",
+  "block": {
+    "$ui": "diagram",
+    "version": 1,
+    "syntax": "mermaid",
+    "source": "flowchart TD\n  A --> B\n  style A fill:#f9f,stroke:#333"
+  }
+}
