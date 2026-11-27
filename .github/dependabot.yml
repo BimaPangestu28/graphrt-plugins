@@ -18,6 +18,7 @@ updates:
   - package-ecosystem: npm
     directories:
       - /
+      - /document-templates
       - /email
       - /excel-csv
       - /google-maps-scraper

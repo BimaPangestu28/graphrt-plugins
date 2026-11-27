@@ -20,6 +20,7 @@
   "deepgram": "Deepgram",
   "deepl": "DeepL",
   "discord": "Discord",
+  "document-templates": "Document Templates",
   "dropbox": "Dropbox",
   "dynamodb": "Amazon DynamoDB",
   "elasticsearch": "Elasticsearch",

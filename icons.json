@@ -125,6 +125,12 @@
     "version": "16.36.0",
     "color": "#5865F2"
   },
+  "document-templates": {
+    "source": "lucide",
+    "slug": "receipt-text",
+    "version": "1.78.0",
+    "color": "#64748B"
+  },
   "dropbox": {
     "source": "simple-icons",
     "slug": "dropbox",

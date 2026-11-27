@@ -1,0 +1,47 @@
+# Issue the next invoice number, then create the invoice PDF and file it by year and month.
+#   mkdir -p ~/invoices
+#   DOCUMENT_TEMPLATES_OUTPUT_DIR=~/invoices graphrt run document-templates/example.yaml --plugins .
+# The PDF is saved as ~/invoices/<year>/<month>/INV-<year>-0001.pdf; run it again for INV-<year>-0002.
+version: "1"
+name: document-templates-demo
+graph:
+  nodes:
+    - { id: start, type: start }
+    - { id: number, type: document-templates.next_number, pattern: "INV-{YYYY}-{SEQ:4}" }
+    - id: invoice
+      type: document-templates.render_pdf
+      template: invoice
+      values:
+        number: "{{#number.data.number#}}"
+        terms: Net 14
+        currency: IDR
+        language: id
+        seller:
+          name: CV Kenanga Digital
+          tagline: Studio perangkat lunak
+          address: ["Jalan Kenanga 12", "Bandung 40115", "Indonesia"]
+          details: ["NPWP 00.000.000.0-000.000", "halo@kenanga.example"]
+        client:
+          name: PT Maju Bersama
+          address: ["Jalan Merdeka 45", "Jakarta 10110"]
+          attention: Ibu Sari
+        items:
+          - { description: "Desain antarmuka aplikasi kasir", quantity: 3, unit: hari, unit_price: 1500000 }
+          - { description: "Pengembangan modul laporan penjualan", quantity: 5.5, unit: hari, unit_price: 2000000 }
+          - { description: "Lisensi server (1 tahun)", amount: 2400000 }
+        taxes:
+          - { name: PPN, rate: 11 }
+        payment:
+          details:
+            - { label: Bank, value: Bank Contoh }
+            - { label: No. rekening, value: "000 111 2222" }
+            - { label: Atas nama, value: CV Kenanga Digital }
+        notes:
+          - "Pembayaran paling lambat 14 hari setelah tanggal invoice."
+    - id: answer
+      type: answer
+      answer: "{{#invoice.data.number#}}: {{#invoice.data.totals.total_text#}}, {{#invoice.data.page_count#}} page(s) -> {{#invoice.data.path#}}"
+  edges:
+    - { source: start, target: number }
+    - { source: number, target: invoice }
+    - { source: invoice, target: answer }
