@@ -4,7 +4,7 @@
  * its inputs from the allowed directories, does the heavy work in the
  * worker process and files the result under DOCUMENT_TEMPLATES_OUTPUT_DIR.
  */
-import { DEFAULT_BRAND_NAME, applyBrandToValues, resolveBrand } from "../lib/brand-profile.mjs";
+import { DEFAULT_BRAND_NAME, applyBrandToFormValues, applyBrandToValues, resolveBrand } from "../lib/brand-profile.mjs";
 import { invalidInput } from "../lib/errors.mjs";
 import { Scope, interpolate } from "../lib/expressions.mjs";
 import { CALCULATE_PARAMETER, VALUES_PARAMETERS, prepareValues, readValues, summariseTotals } from "../lib/document-values.mjs";
@@ -43,13 +43,32 @@ async function readImages(client, imagePaths, logoPath) {
  */
 async function applyBrandAndLook(client, args, rawValues) {
   const callLook = readLook(args.look);
-  // Without a documents folder nothing can be saved anyway; that message comes from the filing step.
-  const outputRoot = await client.organiser.resolveOutputRoot().catch(() => null);
-  const brand = outputRoot ? await resolveBrand(outputRoot, args.brand, client.numberingDependencies) : null;
+  const brand = await loadCallBrand(client, args);
   const values = applyLookToValues(applyBrandToValues(rawValues, brand), callLook, { isDefault: false });
   const lookLogo = callLook.logo ?? brand?.look?.logo;
   return { values, look: mergeLooks(brand?.look, callLook), brandName: brand?.name ?? null, logoPath: lookLogo !== undefined && values.seller?.logo === lookLogo ? lookLogo : null };
 }
+
+// The brand a call asks for (`brand`), the default brand, or null for `brand: none` and when none was saved.
+async function loadCallBrand(client, args) {
+  // Without a documents folder nothing can be saved anyway; that message comes from the filing step.
+  const outputRoot = await client.organiser.resolveOutputRoot().catch(() => null);
+  return outputRoot ? resolveBrand(outputRoot, args.brand, client.numberingDependencies) : null;
+}
+
+// Word templates and PDF forms take the brand's details and language, never its look (see applyBrandToFormValues).
+// With a saved brand a Word template may need no `values` at all, e.g. a letterhead with only {{business.name}}.
+async function readFormValues(client, args) {
+  const brand = await loadCallBrand(client, args);
+  const values = await readValues(client, args, { isRequired: false });
+  return { rawValues: applyBrandToFormValues(values, brand), brandName: brand?.name ?? null };
+}
+
+const FORM_BRAND_PARAMETER = {
+  type: "string",
+  default: DEFAULT_BRAND_NAME,
+  description: "Your details saved with save_brand fill placeholders such as {{business.name}}, {{business.address | join}}, {{payment.bank}} and {{notes}} when `values` leaves them out; what `values` gives always wins. The saved language sets how dates and amounts are written. The saved logo and colour are not used: the file keeps its own layout. Give a brand's name when you keep more than one, or `none` to use only `values`",
+};
 
 // Resolved and checked before the document is drawn, so a bad folder, a taken file name or a missing output folder fails fast.
 async function planFiling(client, args, { values, templateName, extension }) {
@@ -127,7 +146,7 @@ function fillFieldValues(fieldEntries, prepared) {
 const fillPdfFormOperation = {
   name: "fill_pdf_form",
   title: "Fill in a PDF form",
-  description: "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. A protected form, as many official forms are, is filled in too, and the result is saved without the protection. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
+  description: "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. A protected form, as many official forms are, is filled in too, and the result is saved without the protection. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}, and your details saved with save_brand ({{business.name}}, {{payment.bank}}). A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
   parameters: {
     type: "object",
     properties: {
@@ -136,6 +155,7 @@ const fillPdfFormOperation = {
       fields_file: { type: "string", description: "Instead of `fields`: a .json file with the field names and values, in your templates folder (reusable for every document from this form)" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
+      brand: FORM_BRAND_PARAMETER,
       password: PDF_PASSWORD_PARAMETER,
       flatten: { type: "boolean", default: true, description: "Make the filled-in values a fixed part of the page, so that nobody can change them afterwards (default true)" },
       ...FILING_PARAMETERS,
@@ -146,25 +166,27 @@ const fillPdfFormOperation = {
     assertIfExistsAllowed(args.if_exists, source);
     const template = await resolveTemplate(client, args.template, ["pdf"]);
     const fieldEntries = await readFieldMap(client, args);
-    const prepared = prepareValues(await readValues(client, args, { isRequired: false }), { calculate: args.calculate, templateCalculates: null, now: client.now() });
+    const { rawValues, brandName } = await readFormValues(client, args);
+    const prepared = prepareValues(rawValues, { calculate: args.calculate, templateCalculates: null, now: client.now() });
     const fieldValues = fillFieldValues(fieldEntries, prepared);
     const filingPlan = await planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "pdf" });
     const { data, outputs } = await client.runTask("fill_pdf_form", { bytes: template.bytes, fieldValues, isFlattened: args.flatten, password: args.password, maxFields: client.settings.maxFormFields }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
-    return { data: { ...describeResult(savedFile, { template, ...prepared }), ...data } };
+    return { data: { ...describeResult(savedFile, { template, ...prepared }), ...data, ...(brandName ? { brand: brandName } : {}) } };
   },
 };
 
 const fillDocxOperation = {
   name: "fill_docx",
   title: "Fill in a Word template",
-  description: "Fills in a Word document that has {{placeholders}} (.docx, or a Word template .dotx) and saves the result as a new Word file in your documents folder. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
+  description: "Fills in a Word document that has {{placeholders}} (.docx, or a Word template .dotx) and saves the result as a new Word file in your documents folder. A table row between {{#items}} and {{/items}} repeats for every item, totals are calculated for you, and your details saved with save_brand fill {{business.name}}, {{business.address | join}}, {{payment.bank}} and the like. The result is a Word file, not a PDF",
   parameters: {
     type: "object",
     properties: {
       template: { type: "string", description: "The Word file, a .docx or .dotx in your templates folder" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
+      brand: FORM_BRAND_PARAMETER,
       ...FILING_PARAMETERS,
     },
     required: ["template"],
@@ -172,11 +194,12 @@ const fillDocxOperation = {
   run: async ({ client, args, signal, source }) => {
     assertIfExistsAllowed(args.if_exists, source);
     const template = await resolveTemplate(client, args.template, ["docx"]);
-    const prepared = prepareValues(await readValues(client, args), { calculate: args.calculate, templateCalculates: null, now: client.now() });
+    const { rawValues, brandName } = await readFormValues(client, args);
+    const prepared = prepareValues(rawValues, { calculate: args.calculate, templateCalculates: null, now: client.now() });
     const filingPlan = await planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "docx" });
     const { outputs } = await client.runTask("fill_docx", { bytes: template.bytes, values: { ...prepared.values, today: prepared.today }, settings: prepared.settings }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
-    return { data: describeResult(savedFile, { template, ...prepared }) };
+    return { data: { ...describeResult(savedFile, { template, ...prepared }), ...(brandName ? { brand: brandName } : {}) } };
   },
 };
 

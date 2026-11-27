@@ -2,7 +2,7 @@
  * The operations for a saved brand: save_brand keeps the look of your
  * documents and your own details, show_brand reads them back.
  */
-import { BRAND_DETAIL_PARAMETERS, DEFAULT_BRAND_NAME, loadBrand, mergeBrandDetails, readBrandDetails, readBrandName, saveBrand } from "../lib/brand-profile.mjs";
+import { BRAND_DETAIL_PARAMETERS, DEFAULT_BRAND_NAME, listFormPlaceholders, loadBrand, mergeBrandDetails, readBrandDetails, readBrandName, saveBrand } from "../lib/brand-profile.mjs";
 import { invalidInput } from "../lib/errors.mjs";
 import { readLogoFile } from "../lib/logo-file.mjs";
 import { COLOR_NAMES, LOOK_PARAMETER } from "../lib/look-options.mjs";
@@ -12,7 +12,7 @@ const BRAND_NAME_PARAMETER = { type: "string", default: DEFAULT_BRAND_NAME, desc
 const saveBrandOperation = {
   name: "save_brand",
   title: "Save the look of your documents",
-  description: "Saves how your documents look and your own details, once, so that every later invoice uses them: a logo, an accent colour, the document's title, the language, other label texts, which optional parts show, your business name and address, your payment details and standard notes. Give only what should change; everything saved before stays. Nothing has to be edited in a template",
+  description: "Saves how your documents look and your own details, once, so that every later document uses them: a logo, an accent colour, the document's title, the language, other label texts, which optional parts show, your business name and address, your payment details and standard notes. Give only what should change; everything saved before stays. Nothing has to be edited in a template",
   parameters: {
     type: "object",
     properties: {
@@ -36,11 +36,17 @@ const saveBrandOperation = {
       data: {
         ...saved,
         ...(logo ? { logo_checked: { format: logo.format, width: logo.width, height: logo.height, size_bytes: logo.size_bytes } } : {}),
-        used_for: name === DEFAULT_BRAND_NAME ? "Every PDF created from a template from now on (render_pdf), unless a document asks for another brand or for `brand: none`. Filled-in PDF forms and Word files are not changed" : `PDFs created from a template (render_pdf) that ask for \`brand: ${name}\``,
+        used_for: describeUse(name),
+        word_and_form_placeholders: listFormPlaceholders(saved),
       },
     };
   },
 };
+
+function describeUse(name) {
+  const scope = name === DEFAULT_BRAND_NAME ? "Every document from now on, unless it asks for another brand or for `brand: none`" : `Documents that ask for \`brand: ${name}\``;
+  return `${scope}. PDFs from a template (render_pdf) get the whole look and your details. Word templates (fill_docx) and PDF forms (fill_pdf_form) get your details and language through the placeholders in word_and_form_placeholders, where values leave them out; they keep their own layout, so the logo and colour are not added to them`;
+}
 
 const showBrandOperation = {
   name: "show_brand",
@@ -50,7 +56,7 @@ const showBrandOperation = {
   run: async ({ client, args }) => {
     const name = readBrandName(args.name);
     const brand = await loadBrand(await client.organiser.resolveOutputRoot(), name, client.numberingDependencies);
-    return { data: { ...(brand ?? { name }), saved: brand !== null, color_names: Object.keys(COLOR_NAMES) } };
+    return { data: { ...(brand ?? { name }), saved: brand !== null, ...(brand ? { word_and_form_placeholders: listFormPlaceholders(brand) } : {}), color_names: Object.keys(COLOR_NAMES) } };
   },
 };
 

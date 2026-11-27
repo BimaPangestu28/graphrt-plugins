@@ -7,14 +7,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { applyBrandToValues, mergeBrandDetails, readBrandDetails, readBrandName } from "../lib/brand-profile.mjs";
+import { applyBrandToFormValues, applyBrandToValues, listFormPlaceholders, mergeBrandDetails, readBrandDetails, readBrandName } from "../lib/brand-profile.mjs";
 import { readFormatSettings } from "../lib/formatting.mjs";
 import { calculateInvoice } from "../lib/invoice-totals.mjs";
 import { expandLayout, readNamedColors } from "../lib/layout-template.mjs";
 import { MAX_LOGO_BYTES, checkLogoBytes, readImageSize } from "../lib/logo-file.mjs";
 import { COLOR_NAMES, applyLookToValues, applyShowToValues, mergeLooks, readAccentColor, readLook } from "../lib/look-options.mjs";
 import { loadBuiltInTemplate } from "../lib/template-library.mjs";
-import { AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, buildPng, readPageTexts, withDocumentRunner } from "./helpers.mjs";
+import { AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, buildDocx, buildFormPdf, buildPng, pdfLib, readDocxEntry, readDocxParagraphs, readPageTexts, withDocumentRunner, wordParagraph } from "./helpers.mjs";
 
 const options = { skip: SKIP_WITHOUT_LIBRARIES };
 const settings = readFormatSettings({ language: "id" });
@@ -190,7 +190,9 @@ test("save_brand: saved once, used for every later document, changed part by par
     await writeFile(join(inputDirectory, "logo.png"), buildPng(320, 120));
     const saved = await runOperation("save_brand", { ...BRAND, look: { ...BRAND.look, logo: "logo.png" } }, AS_TOOL);
     assert.deepEqual([saved.data.name, saved.data.look.logo, saved.data.logo_checked.width, saved.data.look.accent_color], ["default", join(inputDirectory, "logo.png"), 320, "#1F3A5F"]);
-    assert.match(saved.data.used_for, /Every PDF created from a template/);
+    assert.match(saved.data.used_for, /^Every document from now on/);
+    assert.match(saved.data.used_for, /logo and colour are not added/);
+    assert.deepEqual(saved.data.word_and_form_placeholders, ["{{business.name}}", "{{business.address | join}}", "{{payment.bank}}", "{{payment.no_rekening}}", "{{notes}}"]);
     assert.deepEqual(await readdir(join(outputDirectory, ".document-templates", "brands")), ["default.json"]);
 
     const first = await runOperation("render_pdf", { values: CLIENT_ONLY }, AS_TOOL);
@@ -230,4 +232,60 @@ test("save_brand: saved once, used for every later document, changed part by par
       await assert.rejects(other.runOperation("save_brand", { seller: { name: "X" } }, AS_TOOL), { kind: "invalid_input", message: /not a plain folder/ });
       assert.deepEqual(await readdir(join(outsideDirectory, "brands")), []);
     });
+  }));
+
+test("brand in Word and forms: details fill what the values leave open, with business.* and payment.<label> shortcuts", () => {
+  const brand = readBrandDetails({ ...BRAND, payment_details: [...BRAND.payment_details, { label: "Atas nama (a/n)", value: "CV Kenanga" }, { label: "Details", value: "x" }, { label: "Bank", value: "Bank Kedua" }] });
+  const filled = applyBrandToFormValues({ client: { name: "PT Maju" } }, brand);
+  assert.deepEqual(filled.business, { name: "CV Kenanga Digital", address: ["Jalan Kenanga 12", "Bandung 40115"] });
+  assert.deepEqual(filled.seller, filled.business);
+  assert.deepEqual([filled.payment.bank, filled.payment.no_rekening, filled.payment.atas_nama_a_n, filled.payment.details.length], ["Bank Contoh", "000 111 2222", "CV Kenanga", 5], "the first of two equal labels wins; `details` stays the list");
+  assert.deepEqual([filled.notes, filled.language], [["Terima kasih."], "id"]);
+  // Only the details and the language: the look's logo, title and labels belong to render_pdf's layout.
+  assert.deepEqual([filled.labels, filled.seller.logo], [undefined, undefined]);
+  assert.equal(applyBrandToFormValues({}, readBrandDetails({ look: { logo: "x.png", accent_color: "navy" } })).seller, undefined);
+
+  // The values of the call always win, also over a shortcut.
+  const given = applyBrandToFormValues({ language: "en", seller: { name: "Nama Lain" }, business: { tagline: "Toko" }, payment: { bank: "Bank Saya", terms: "14 hari" }, notes: ["Sendiri"] }, brand);
+  assert.deepEqual([given.language, given.business.name, given.business.tagline, given.business.address.length, given.payment.bank, given.payment.terms, given.payment.no_rekening, given.notes], ["en", "Nama Lain", "Toko", 2, "Bank Saya", "14 hari", "000 111 2222", ["Sendiri"]]);
+  // Without a brand (`brand: none`, or none saved) only the call's own values are there, still with the shortcuts.
+  assert.deepEqual(applyBrandToFormValues({ seller: { name: "A" }, payment: { details: [{ label: "Bank", value: "B" }] } }, null), { seller: { name: "A" }, business: { name: "A" }, payment: { details: [{ label: "Bank", value: "B" }], bank: "B" } });
+  assert.deepEqual(applyBrandToFormValues({ number: "1" }, null), { number: "1" });
+  assert.deepEqual(listFormPlaceholders({ seller: { name: "A", details: ["NPWP 1"] }, payment_details: [{ label: "Kode Bank", value: "014" }, { label: "kode bank", value: "x" }] }), ["{{business.name}}", "{{business.details | join}}", "{{payment.kode_bank}}"]);
+});
+
+test("fill_docx and fill_pdf_form: the saved brand fills your details, never your logo, and `brand: none` leaves them out", options, () =>
+  withDocumentRunner({}, async ({ runOperation, inputDirectory }) => {
+    await writeFile(join(inputDirectory, "logo.png"), buildPng(320, 120));
+    await runOperation("save_brand", { ...BRAND, look: { ...BRAND.look, logo: "logo.png" } }, AS_TOOL);
+    await writeFile(join(inputDirectory, "surat.docx"), buildDocx({
+      bodyXml: wordParagraph(["{{business.name}} · {{business.address | join}}"]) + wordParagraph(["Kepada {{client.name}}"]) + wordParagraph(["Transfer ke {{payment.bank}} {{payment.no_rekening}}, {{totals.total | money}}"]) + wordParagraph(["{{notes}}"]),
+    }));
+    const values = { client: { name: "PT Maju Bersama" }, items: [{ description: "Desain", quantity: 2, unit_price: 1500000 }] };
+    const filled = await runOperation("fill_docx", { template: "surat.docx", values, file_name: "surat" }, AS_TOOL);
+    const bytes = await readFile(filled.data.path);
+    assert.equal(filled.data.brand, "default");
+    assert.deepEqual(readDocxParagraphs(bytes), ["CV Kenanga Digital · Jalan Kenanga 12, Bandung 40115", "Kepada PT Maju Bersama", "Transfer ke Bank Contoh 000 111 2222, Rp 3.000.000", "Terima kasih."]);
+    assert.ok(!Object.keys(new (await import("pizzip")).default(bytes).files).some((entryName) => entryName.startsWith("word/media/")), "no logo is put into a Word file");
+    assert.ok(!readDocxEntry(bytes, "word/document.xml").includes("1F3A5F"), "no accent colour is put into a Word file");
+
+    // The call's values win; `brand: none` uses only them; a letterhead needs no values at all.
+    const own = await runOperation("fill_docx", { template: "surat.docx", values: { ...values, seller: { name: "Toko Sendiri" }, payment: { bank: "Bank Lain" } }, file_name: "own" }, AS_TOOL);
+    assert.deepEqual(readDocxParagraphs(await readFile(own.data.path)).slice(0, 3), ["Toko Sendiri · Jalan Kenanga 12, Bandung 40115", "Kepada PT Maju Bersama", "Transfer ke Bank Lain 000 111 2222, Rp 3.000.000"]);
+    const none = await runOperation("fill_docx", { template: "surat.docx", values, brand: "none", file_name: "none" }, AS_TOOL);
+    assert.equal(none.data.brand, undefined);
+    assert.deepEqual(readDocxParagraphs(await readFile(none.data.path)), [" · ", "Kepada PT Maju Bersama", "Transfer ke  , USD 3,000,000.00", ""]);
+    const letterhead = await runOperation("fill_docx", { template: "surat.docx", file_name: "kop" }, AS_TOOL);
+    assert.equal(readDocxParagraphs(await readFile(letterhead.data.path))[0], "CV Kenanga Digital · Jalan Kenanga 12, Bandung 40115");
+    await assert.rejects(runOperation("fill_docx", { template: "surat.docx", brand: "studio" }, AS_TOOL), { kind: "not_found", message: /no saved brand named "studio"/ });
+
+    await writeFile(join(inputDirectory, "form.pdf"), await buildFormPdf());
+    const fields = { Client: "{{business.name}}", Notes: "{{payment.bank}} {{payment.no_rekening}}", Total: "{{amount | money}}" };
+    const form = await runOperation("fill_pdf_form", { template: "form.pdf", fields, values: { amount: 1250000 }, flatten: false, file_name: "form" }, AS_TOOL);
+    assert.equal(form.data.brand, "default");
+    const formFields = (await pdfLib.PDFDocument.load(await readFile(form.data.path))).getForm();
+    assert.deepEqual(["Client", "Notes", "Total"].map((name) => formFields.getTextField(name).getText()), ["CV Kenanga Digital", "Bank Contoh 000 111 2222", "Rp 1.250.000"]);
+    const plain = await runOperation("fill_pdf_form", { template: "form.pdf", fields, values: { amount: 1250000 }, brand: "none", flatten: false, file_name: "plain" }, AS_TOOL);
+    const plainFields = (await pdfLib.PDFDocument.load(await readFile(plain.data.path))).getForm();
+    assert.deepEqual(["Client", "Total"].map((name) => plainFields.getTextField(name).getText() ?? ""), ["", "USD 1,250,000.00"]);
   }));

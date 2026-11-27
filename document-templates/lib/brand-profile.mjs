@@ -27,6 +27,8 @@ const MAX_LINES = 12;
 const MAX_PAYMENT_DETAILS = 12;
 const SELLER_TEXT_FIELDS = ["name", "tagline"];
 const SELLER_LINE_FIELDS = ["address", "details"];
+// `payment.details` is the list itself; the others are names a placeholder may not use.
+const RESERVED_PAYMENT_KEYS = new Set(["details", "constructor", "prototype", "proto"]);
 
 /** Schemas of the parameters that describe a brand's own details. */
 export const BRAND_DETAIL_PARAMETERS = {
@@ -95,15 +97,83 @@ export function mergeBrandDetails(saved, details) {
  */
 export function applyBrandToValues(values, brand) {
   if (!brand) return values;
-  let result = { ...values };
+  const result = applyBrandDetails(values, brand);
+  return brand.look ? applyLookToValues(result, brand.look, { isDefault: true }) : result;
+}
+
+/**
+ * Fills the values of a Word template or a PDF form from a brand: the business's own details, the payment details,
+ * the notes and the saved language (which sets how {{date}} and {{amount | money}} are written). The values a call
+ * gives always win. The logo, accent colour, title, labels and hidden parts are not used: a Word file or a PDF form
+ * keeps the layout it was made with.
+ *
+ * Two shortcuts are added for placeholders, from the values after the brand filled them, also without a brand:
+ * `business` holds the same as `seller` ({{business.name}}, {{business.address | join}}), and every payment detail
+ * is also `payment.<its label>` in lowercase with `_` for spaces ({{payment.bank}}, {{payment.account_number}}).
+ * A shortcut never replaces a value the call gives under that name.
+ *
+ * @param values - Values as given (object)
+ * @param brand - From loadBrand, or null (object | null)
+ * @returns A copy of the values (object)
+ *
+ * @example
+ * applyBrandToFormValues({}, { seller: { name: "CV Kenanga" }, payment_details: [{ label: "Bank", value: "Example Bank" }] });
+ * // { seller: { name: "CV Kenanga" }, business: { name: "CV Kenanga" }, payment: { details: [...], bank: "Example Bank" } }
+ */
+export function applyBrandToFormValues(values, brand) {
+  let result = brand ? applyBrandDetails(values, brand) : { ...values };
+  if (brand?.look?.language && !isPresent(result.language)) result = { ...result, language: brand.look.language };
+  return addPlaceholderShortcuts(result);
+}
+
+/**
+ * The placeholders a brand's details fill in a Word template or a PDF form.
+ *
+ * @param brand - `{seller?, payment_details?, notes?}` (object)
+ * @returns e.g. ["{{business.name}}", "{{business.address | join}}", "{{payment.bank}}", "{{notes}}"] (string[])
+ */
+export function listFormPlaceholders(brand) {
+  const sellerFields = [...SELLER_TEXT_FIELDS, ...SELLER_LINE_FIELDS].filter((field) => isPresent(brand.seller?.[field]));
+  const placeholders = sellerFields.map((field) => (SELLER_LINE_FIELDS.includes(field) ? `{{business.${field} | join}}` : `{{business.${field}}}`));
+  for (const key of new Set((brand.payment_details ?? []).map((detail) => toPlaceholderKey(detail.label)).filter(Boolean))) placeholders.push(`{{payment.${key}}}`);
+  if (brand.notes) placeholders.push("{{notes}}");
+  return placeholders;
+}
+
+function applyBrandDetails(values, brand) {
+  const result = { ...values };
   if (brand.seller) {
     const givenSeller = isPlainObject(result.seller) ? result.seller : {};
-    result.seller = { ...brand.seller, ...Object.fromEntries(Object.entries(givenSeller).filter(([, value]) => isPresent(value))) };
+    result.seller = { ...brand.seller, ...presentEntries(givenSeller) };
   }
   if (brand.payment_details && !isPresent(result.payment?.details)) result.payment = { ...(isPlainObject(result.payment) ? result.payment : {}), details: brand.payment_details };
   if (brand.notes && !isPresent(result.notes)) result.notes = brand.notes;
-  if (brand.look) result = applyLookToValues(result, brand.look, { isDefault: true });
   return result;
+}
+
+function addPlaceholderShortcuts(values) {
+  const result = { ...values };
+  if (isPlainObject(values.seller)) result.business = { ...values.seller, ...presentEntries(isPlainObject(values.business) ? values.business : {}) };
+  if (isPlainObject(values.payment) && Array.isArray(values.payment.details)) {
+    const payment = { ...values.payment };
+    for (const detail of values.payment.details) {
+      const key = isPlainObject(detail) ? toPlaceholderKey(detail.label) : null;
+      if (key && !Object.hasOwn(payment, key)) payment[key] = detail.value;
+    }
+    result.payment = payment;
+  }
+  return result;
+}
+
+// "Account number" -> "account_number", "Nomor Rekening" -> "nomor_rekening", "Atas nama (a/n)" -> "atas_nama_a_n".
+function toPlaceholderKey(label) {
+  if (typeof label !== "string") return null;
+  const key = label.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return key && !RESERVED_PAYMENT_KEYS.has(key) ? key : null;
+}
+
+function presentEntries(object) {
+  return Object.fromEntries(Object.entries(object).filter(([, value]) => isPresent(value)));
 }
 
 /**
