@@ -20,19 +20,19 @@ formats, codecs and quality levels; they never pass raw ffmpeg options.
 - **`thumbnail`:** one frame at `time` as jpg, png or webp, optionally scaled to `target_width`.
 - **`resize`:** `target_width` and/or `target_height` (16–7680), aspect kept.
 - **`concatenate`:** 2–50 files in order, by stream copy (all parts must share codecs and sizes) or `reencode: true`.
-- **`burn_subtitles`:** draws the cues of an `.srt` file into the picture, with an optional `font_size`. Not on
-  Windows yet: the plugin hands ffmpeg its own copy of the subtitles in the temporary folder, and a Windows path
-  (`C:\...`) has characters the subtitles filter is not given, so the call is refused with `setup_required`.
+- **`burn_subtitles`:** draws the cues of an `.srt` file into the picture, with an optional `font_size`. Works on
+  Windows, macOS and Linux; needs an ffmpeg built with libass (see Prerequisites).
 - **`make_gif`:** up to 30 s at up to 30 fps and 1280 px wide, with a generated palette.
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md).
 
 ## Prerequisites
 - Node.js 20 or newer.
-- `ffmpeg` and `ffprobe` on `PATH` (`brew install ffmpeg`, `apt install ffmpeg`), or `FFMPEG_BINARY` /
-  `FFPROBE_BINARY`. The presets use libx264, libx265, libvpx-vp9, libsvtav1, libopus, libmp3lame and libvorbis; a
-  build without one of them fails only the operations that need it. Without ffmpeg every call returns
-  `setup_required`.
+- `ffmpeg` and `ffprobe` on `PATH` (`brew install ffmpeg`, `apt install ffmpeg`, on Windows
+  `winget install Gyan.FFmpeg` or `choco install ffmpeg`), or `FFMPEG_BINARY` / `FFPROBE_BINARY`. The presets use
+  libx264, libx265, libvpx-vp9, libsvtav1, libopus, libmp3lame and libvorbis; a build without one of them fails
+  only the operations that need it. `burn_subtitles` needs libass (the `subtitles` filter). Without ffmpeg every
+  call returns `setup_required`.
 
 ## Installation
 ```bash
@@ -93,7 +93,9 @@ Paths may be absolute, `~/...`, or relative to the first input directory. Result
 - **Concatenation** writes its own ffconcat list (quotes escaped, control characters refused) to a private temp
   directory, and every part is probed with the strict demuxer list first, so a part can't be another list.
 - **Subtitles:** the `.srt` file is parsed and a clean copy is written to a private temp directory; ffmpeg only
-  ever sees that copy, so a disguised playlist can't reach the `subtitles` filter.
+  ever sees that copy, so a disguised playlist can't reach the `subtitles` filter. The copy's path is escaped for
+  the filter (a Windows `C:\...` path, or a temp folder with spaces, quotes, commas or brackets in its name), so
+  it can only ever be read as that one file name.
 - **Agents vs nodes:** tools pick formats, codecs, qualities, times and sizes only, all validated. `extra_args` is
   for workflow nodes, and even there it is an allowlist of output options (`-crf`, `-preset`, `-tune`, `-b:v`,
   `-b:a`, `-maxrate`, `-bufsize`, `-r`, `-g`, `-ac`, `-ar`, `-pix_fmt`, `-profile:v`, `-level`, `-movflags`,
