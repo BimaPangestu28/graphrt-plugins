@@ -209,14 +209,14 @@ const INDONESIAN_MESSAGES = [
   [/^(".*") is not a plain file \(.*\) and cannot be overwritten$/, (file) => `${file} bukan file biasa (tautan, folder, atau file dengan beberapa hard link) dan tidak bisa ditimpa`],
   [/^The document is (\d+) bytes, over the (\d+)-byte limit \((.*)\); nothing was saved$/, (size, limit, setting) => `Dokumen berukuran ${size} byte, melebihi batas ${limit} byte (${setting}); tidak ada yang disimpan`],
   [/^Could not save the document: (.*)$/, (reason) => `Dokumen tidak bisa disimpan: ${reason}`],
-  [/^Could not create the folder (.*): (.*)$/, (folder, reason) => `Folder ${folder} tidak bisa dibuat: ${reason}`],
+  [/^Could not create the folder (".*"): (.*)$/, (folder, reason) => `Folder ${folder} tidak bisa dibuat: ${reason}`],
   [/^The folder (".*") leads outside (\S+) or is not a folder$/, (folder, setting) => `Folder ${folder} mengarah ke luar ${setting} atau bukan folder`],
   [/^`folder` has (\d+) levels, over the limit of (\d+)$/, (levels, limit) => `Folder punya ${levels} tingkat, melebihi batas ${limit}`],
   [/^`file_name` must not contain \/ or \\; use `folder` for the folder$/, () => "Nama file tidak boleh berisi / atau \\; pakai pengaturan folder untuk foldernya"],
   [/^`(folder|file_name)` has a malformed token in (.*); tokens look like \{YYYY\} or \{number\}$/, (parameter, pattern) => `${field(parameter)} berisi penanda yang salah di ${pattern}; penanda ditulis seperti {YYYY} atau {number}`],
   [/^`(folder|file_name)` uses \{(.*)\}, but the values have no usable text for it$/, (parameter, token) => `${field(parameter)} memakai {${token}}, tetapi datanya tidak punya teks untuk itu`],
   [/^`(folder|file_name)` resolves to an empty name$/, (parameter) => `${field(parameter)} menjadi nama kosong`],
-  [/^`(folder|file_name)` uses the unknown token \{(.*?)\}; tokens: (.*)$/, (parameter, token, tokens) => `${field(parameter)} memakai penanda {${token}} yang tidak dikenal; penanda yang ada: ${tokens}`],
+  [/^`(folder|file_name)` uses the unknown token \{(.*?)\}; tokens: (.*)$/, (parameter, token, tokens) => `${field(parameter)} memakai penanda {${token}} yang tidak dikenal; penanda yang ada: ${tokens.replace(" and ", " dan ")}`],
   [/^`if_exists: overwrite` is for workflow nodes only; .*$/, () => "if_exists: overwrite hanya untuk langkah workflow; pakai number untuk menyimpan salinan bernomor, atau nama file lain"],
   [/^Set (\S+) to the folder \(absolute, or ~\/\.\.\.\) where documents are saved$/, (setting) => `Isi ${setting} dengan folder (lengkap, atau ~/...) tempat dokumen disimpan`],
   [/^(\S+) \((.*)\) must be an existing folder$/, (setting, folder) => `${setting} (${folder}) harus berupa folder yang sudah ada`],
@@ -235,6 +235,21 @@ const INDONESIAN_MESSAGES = [
   [/^No available font has these characters: (.*)\. The built-in fonts cover Latin, Vietnamese, Cyrillic and Greek; for other scripts set (\S+) to a font file (.*)$/, (characters, setting, file) => `Tidak ada font yang punya huruf ini: ${characters}. Font bawaan mencakup huruf Latin, Vietnam, Sirilik dan Yunani; untuk aksara lain isi ${setting} dengan file font ${file.replace("that has them", "yang memilikinya").replace(" or ", " atau ")}`],
   [/^The document has (\d+) pages, over the (\d+)-page limit \((.*)\)$/, (pages, limit, setting) => `Dokumen ini ${pages} halaman, melebihi batas ${limit} halaman (${setting})`],
   [/^`([a-z_.]+)` (".*") is too light: .*$/, (path, color) => `${field(path)} ${color} terlalu terang: nama usaha dan total dicetak dengan warna ini di kertas putih dan tidak akan terbaca. Pilih warna yang lebih gelap`],
+  // Protected PDFs (pdf-protection.mjs; its English texts are shared with pdf-tools and stay as they are).
+  [/^The password that was given is not a password of (.+)\. Check it and try again; a PDF that opens without a password needs none$/, (file) => `Password yang diberikan bukan password ${toIndonesianFile(file)}. Periksa lalu coba lagi; PDF yang terbuka tanpa password tidak memerlukannya`],
+  [/^A password is needed to open (.+)\. Give it as `password`; it is used only to open the file and is not saved or shown anywhere$/, (file) => `${capitalise(toIndonesianFile(file))} memerlukan password untuk dibuka. Berikan sebagai password; password hanya dipakai untuk membuka file dan tidak disimpan atau ditampilkan di mana pun`],
+  [/^`password` must be a text$/, () => "Password harus berupa teks"],
+  [/^`password` must be one line of at most (\d+) characters$/, (max) => `Password harus satu baris, paling banyak ${max} karakter`],
+  [/^Could not open (.+), it is not a PDF that can be opened here: (.*)$/, (file, reason) => `${capitalise(toIndonesianFile(file))} tidak bisa dibuka; ini bukan PDF yang bisa dibuka di sini: ${reason}`],
+  // The values file and input files.
+  [/^`values` is larger than (\d+) bytes$/, (max) => `Data dokumen lebih besar dari ${max} byte`],
+  [/^`values_file` is larger than (\d+) bytes$/, (max) => `File data lebih besar dari ${max} byte`],
+  [/^`(values|values_file|fields_file)` is not valid JSON: (.*)$/, (parameter, reason) => `${capitalise(field(parameter))} bukan JSON yang valid: ${reason}`],
+  [/^`(values|values_file|fields_file)` must be a JSON object such as (.*)$/, (parameter, example) => `${capitalise(field(parameter))} harus berupa objek JSON seperti ${example}`],
+  [/^`([a-z_]+)` must be a file path$/, (parameter) => `${field(parameter)} harus berupa path file`],
+  [/^`([a-z_]+)` must not contain NUL characters$/, (parameter) => `${field(parameter)} tidak boleh berisi karakter NUL`],
+  [/^(".*") has (\d+) hard links; copy it to a plain file first .*$/, (file, links) => `${file} punya ${links} hard link; salin dulu ke file biasa (hard link bisa menunjuk ke luar folder yang diizinkan)`],
+  [/^The file is not a Word document \(\.docx\): it is not a zip archive\. Save \.doc files as \.docx first$/, () => "File ini bukan dokumen Word (.docx). Simpan file .doc sebagai .docx dulu"],
   // PDF forms and Word templates.
   [/^The PDF has no form field named (.*)\. Its fields: (.*)$/, (names, fields) => `PDF ini tidak punya kotak isian bernama ${names}. Kotak isiannya: ${fields}`],
   [/^The value for the form field (".*") must be a text, a number or true\/false$/, (name) => `Isian untuk kotak ${name} harus berupa teks, angka, atau true/false`],
@@ -286,6 +301,15 @@ const INDONESIAN_MESSAGES = [
 ];
 
 const KIND_WORDS = Object.freeze({ "a layout template": "template tata letak", "a Word document": "dokumen Word", "a PDF": "PDF" });
+
+// How pdf-protection.mjs names the file it opens: "the template", "this PDF", or a quoted file name.
+function toIndonesianFile(file) {
+  return { "the template": "template ini", "this PDF": "PDF ini" }[file] ?? file;
+}
+
+function capitalise(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 // "The logo "logo.png"" / "The image "x.png"" in Indonesian.
 function toIndonesianSubject(subject) {

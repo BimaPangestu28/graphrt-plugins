@@ -125,3 +125,35 @@ test("fill_pdf_form: the most boxes a form may have is a setting", options, () =
     }
     await assert.rejects(runOperation("fill_pdf_form", { template: "form.pdf", fields: { a: 1, b: 2, c: 3, d: 4, e: 5 }, file_name: "never" }, AS_TOOL), isRefused(/1 to 4 form fields/));
   }));
+
+test("protected forms: the messages are in Indonesian for a document in Indonesian, with the same kind and reason", options, () =>
+  withDocumentRunner({}, async ({ runOperation, inputDirectory }) => {
+    await writeFile(join(inputDirectory, "locked.pdf"), await protectPdf(await buildFormPdf(), { openPassword: OPEN_PASSWORD }));
+    await writeFile(join(inputDirectory, "no-filling.pdf"), await protectPdf(await buildFormPdf(), { isFillingAllowed: false, permissionsPassword: PERMISSIONS_PASSWORD }));
+    const indonesian = { language: "id", number: "INV-7", client: { name: "PT Contoh" } };
+    const refusal = async (args) => {
+      const error = await runOperation("fill_pdf_form", { fields, file_name: "never", ...args }, AS_TOOL).then(() => null, (raised) => raised);
+      return { kind: error.kind, reason: error.reason, message: error.message };
+    };
+    const english = await refusal({ template: "locked.pdf" });
+    const needed = await refusal({ template: "locked.pdf", values: indonesian });
+    assert.equal(needed.message, "Template ini memerlukan password untuk dibuka. Berikan sebagai password; password hanya dipakai untuk membuka file dan tidak disimpan atau ditampilkan di mana pun");
+    assert.deepEqual([needed.kind, needed.reason], [english.kind, english.reason]);
+    assert.deepEqual([needed.kind, needed.reason], ["invalid_input", "password_needed"]);
+    const wrong = await refusal({ template: "locked.pdf", values: indonesian, password: "a guess" });
+    assert.deepEqual([wrong.kind, wrong.reason, wrong.message], ["invalid_input", "password_wrong", "Password yang diberikan bukan password template ini. Periksa lalu coba lagi; PDF yang terbuka tanpa password tidak memerlukannya"]);
+    assert.doesNotMatch(wrong.message, /a guess/);
+    assert.match((await refusal({ template: "locked.pdf", values: indonesian, password: "two\nlines" })).message, /^Password harus satu baris, paling banyak 256 karakter$/);
+    assert.match((await refusal({ template: "no-filling.pdf", values: indonesian })).message, /^Penerbit formulir ini menguncinya agar tidak bisa diisi/);
+    // describe_template takes `language`; a saved brand in Indonesian makes it the default.
+    await assert.rejects(runOperation("describe_template", { template: "locked.pdf", language: "id" }, AS_TOOL), isRefused(/^Template ini memerlukan password untuk dibuka/));
+    assert.match((await runOperation("describe_template", { template: "no-filling.pdf", language: "id" }, AS_TOOL)).data.hint, /^Penerbit formulir ini menguncinya/);
+    await runOperation("save_brand", { look: { language: "id" } }, AS_TOOL);
+    assert.match((await refusal({ template: "locked.pdf" })).message, /^Template ini memerlukan password/);
+  }));
+
+test("protected forms through the real worker process: the Indonesian message keeps its kind", options, () =>
+  withDocumentRunner({ runTask: createWorkerLauncher() }, async ({ runOperation, inputDirectory }) => {
+    await writeFile(join(inputDirectory, "locked.pdf"), await protectPdf(await buildFormPdf(), { openPassword: OPEN_PASSWORD }));
+    await assert.rejects(runOperation("fill_pdf_form", { template: "locked.pdf", fields, values: { language: "id" }, file_name: "never" }, AS_TOOL), isRefused(/^Template ini memerlukan password untuk dibuka/));
+  }));
