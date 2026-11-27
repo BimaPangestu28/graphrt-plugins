@@ -222,6 +222,30 @@ with the reason for each. The table above, the status line in each plugin README
 The sources and mitigations behind each rating are in [docs/tos-audit.md](docs/tos-audit.md). Edit
 `plugin-status.json`, then run `npm run sync` to update the READMEs; `npm test` fails when they are out of date.
 
+## Minimum app version
+Some plugins need a newer graphrt Desktop than others: one that starts agents on events needs an app that can
+watch for events. The catalog says so with `min_app_version` (for example `"0.2.0"`) on the plugin's entry in
+`index-v2.json` and `index.json`. Desktop 0.2.1 and newer read it: such a plugin shows "Needs Graphrt Desktop
+0.2.0 or newer" with a way to update, and cannot be installed before that. A plugin without the field runs on
+every release.
+
+Nobody types that version per plugin. It is the highest of:
+
+| Source | Example |
+|--------|---------|
+| What the released manifest uses, from `MANIFEST_FEATURES` in [`scripts/lib/app-requirements.mjs`](scripts/lib/app-requirements.mjs) | `triggers`, `runtime: mcp` and `templates` need 0.2.0 |
+| A floor in [`plugin-requirements.json`](plugin-requirements.json), for a need the manifest cannot show | `ui-render`: the app has to draw the cards and charts it returns |
+
+`node scripts/check-app-requirements.mjs --list` prints every plugin that needs a minimum version, with the
+reasons. `npm test` fails when a manifest uses a key, runtime, node field or output type that has no first
+Desktop version in `MANIFEST_FEATURES`, so a new graphrt manifest feature cannot be used here without writing
+down which app first reads it.
+
+The field is in the catalog, not in `graphrt-plugin.json`, on purpose: every released Desktop reads the
+manifest strictly and refuses a key it does not know, while unknown catalog fields are ignored. Desktop 0.2.0 and
+older therefore still read the catalog and install everything they could install before; for a plugin they are
+too old for they show their own error, which a catalog field cannot change.
+
 ## Prerequisites
 - Node.js >= 20
 - graphrt with plugin support
@@ -278,6 +302,8 @@ lists them all.
       "detail_url": "https://github.com/Graphrt/graphrt-plugins/releases/download/catalog/plugin-meta-api-0.1.0.json",
       "detail_sha256": "<hex of the detail file>", "detail_size_bytes": 23849}]}
     ```
+    An entry that needs a newer app also has `"min_app_version": "0.2.0"` (see
+    [Minimum app version](#minimum-app-version)); readers that do not know the field ignore it.
     Each entry links the **detail file** of its version, `plugin-<name>-<version>.json` (at most 1 MiB):
     ```json
     {"schema": 2, "name": "meta-api", "version": "0.1.0",
