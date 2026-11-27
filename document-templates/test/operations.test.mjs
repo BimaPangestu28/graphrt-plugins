@@ -55,7 +55,7 @@ test("render_pdf: the built-in invoice becomes a filed PDF with the calculated f
     });
     const bytes = await readFile(result.data.path);
     const [pageText] = await readPageTexts(bytes);
-    for (const expected of ["CV Kenanga Digital", "PT Maju Bersama", "Jakarta 10110", "27 November 2026", "Desain antarmuka", "3,5 hari", "2.000.000", "7.000.000", "PPN (11%)", "Rp 1.100.000", "Rp 11.100.000", "H A L A M A N 1 D A R I 1"]) {
+    for (const expected of ["CV Kenanga Digital", "PT Maju Bersama", "Jakarta 10110", "27 November 2026", "Desain antarmuka", "3,5 hari", "2.000.000", "7.000.000", "PPN (11%)", "Rp 1.100.000", "Rp 11.100.000", "HALAMAN 1 DARI 1"]) {
       assert.ok(pageText.includes(expected), `${expected} in: ${pageText}`);
     }
     const document = await pdfLib.PDFDocument.load(bytes);
@@ -72,8 +72,8 @@ test("render_pdf: many items continue over pages with the table header repeated,
     assert.equal(result.data.totals.total_text, "Rp 7.000.000");
     const pageTexts = await readPageTexts(await readFile(result.data.path));
     assert.equal(pageTexts.length, result.data.page_count);
-    for (const pageText of pageTexts.slice(0, 3)) assert.ok(pageText.includes("D E S K R I P S I"), pageText.slice(0, 120));
-    assert.ok(pageTexts.at(-1).includes("Terima kasih.") && pageTexts.at(-1).includes(`H A L A M A N ${pageTexts.length} D A R I ${pageTexts.length}`));
+    for (const pageText of pageTexts.slice(0, 3)) assert.ok(pageText.includes("DESKRIPSI"), pageText.slice(0, 120));
+    assert.ok(pageTexts.at(-1).includes("Terima kasih.") && pageTexts.at(-1).includes(`HALAMAN ${pageTexts.length} DARI ${pageTexts.length}`));
     assert.ok(pageTexts.join(" ").includes("Layanan nomor 70"));
     await withDocumentRunner({ environment: { DOCUMENT_TEMPLATES_INPUT_DIRS: inputDirectory, DOCUMENT_TEMPLATES_OUTPUT_DIR: outputDirectory, DOCUMENT_TEMPLATES_MAX_PAGES: "2" } }, async (capped) => {
       await assert.rejects(capped.runOperation("render_pdf", { values_file: "big.json", file_name: "capped" }, AS_TOOL), (error) => error.kind === "invalid_input" && /DOCUMENT_TEMPLATES_MAX_PAGES/.test(error.message));

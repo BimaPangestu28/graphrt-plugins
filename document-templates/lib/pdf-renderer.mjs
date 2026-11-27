@@ -10,6 +10,7 @@
 import { invalidInput, operationFailed } from "./errors.mjs";
 import { assertAllCharactersDrawable, buildFontTable, loadFonts, splitByFont } from "./fonts.mjs";
 import { PAGE_COUNT_MARKER, PAGE_NUMBER_MARKER } from "./layout-template.mjs";
+import { installTrackedText } from "./tracked-text.mjs";
 
 const DEFAULT_FONT = "sans";
 const DEFAULT_MARGINS = [48, 48, 48, 64];
@@ -43,7 +44,9 @@ export async function renderLayoutPdf({ plan, images, backgroundPdf, extraFontPa
 }
 
 async function createPdfEngine(fonts) {
-  const { default: pdfmake } = await import("pdfmake");
+  const [{ default: pdfmake }, documentModule] = await Promise.all([import("pdfmake"), import("pdfmake/js/PDFDocument.js").catch(() => null)]);
+  // Letter-spaced labels stay whole words for copy, search and screen readers (see tracked-text.mjs).
+  installTrackedText(documentModule?.default?.default ?? documentModule?.default);
   pdfmake.setUrlAccessPolicy(() => false);
   pdfmake.setLocalAccessPolicy(() => false);
   for (const [fileName, bytes] of Object.entries(fonts.files)) pdfmake.sharedVirtualfs.writeFileSync(fileName, bytes);

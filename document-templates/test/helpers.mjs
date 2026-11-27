@@ -66,16 +66,26 @@ export async function withDocumentRunner({ environment = {}, runTask = (task, pa
  * Reads the text of every page of a PDF with pdfjs-dist.
  *
  * @param bytes - PDF bytes (Uint8Array)
- * @returns One text per page, items joined by spaces; letter-spaced labels come back as "T O T A L" (string[])
+ * @returns One text per page, items joined by spaces (string[])
  */
 export async function readPageTexts(bytes) {
+  return (await readPageTextItems(bytes)).map((items) => items.map((item) => item.text).join(" ").replace(/\s+/g, " "));
+}
+
+/**
+ * Reads the text items of every page of a PDF with pdfjs-dist, as a PDF viewer's copy, search and screen reader see them.
+ *
+ * @param bytes - PDF bytes (Uint8Array)
+ * @returns Per page, the items as `{text, x, width}` in points (object[][])
+ */
+export async function readPageTextItems(bytes) {
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes), isEvalSupported: false, disableFontFace: true, useSystemFonts: false, verbosity: 0 });
   try {
     const pdf = await loadingTask.promise;
     const texts = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const content = await (await pdf.getPage(pageNumber)).getTextContent();
-      texts.push(content.items.map((item) => item.str).join(" ").replace(/\s+/g, " "));
+      texts.push(content.items.map((item) => ({ text: item.str, x: item.transform[4], width: item.width })));
     }
     return texts;
   } finally {
