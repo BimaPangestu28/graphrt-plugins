@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-pdf-tools",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "description": "graphrt plugin: read, merge, split, rotate and watermark local PDF files",
   "type": "module",
@@ -11,6 +11,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@neslinesli93/qpdf-wasm": "0.3.1",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "6.5.438"
   }

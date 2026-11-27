@@ -6,53 +6,104 @@
  * the plugin kills (timeout, cancel, or the RSS watchdog in isolated-task.mjs,
  * which also catches inflated streams outside the V8 heap); it never touches
  * the file system.
+ *
+ * Protected (encrypted) PDFs are opened first (pdf-protection.mjs) and what
+ * their publisher forbids is refused here: copying text, rearranging pages,
+ * changing pages. The permissions password lifts that. Results are written
+ * without protection.
  */
 import { invalidInput, operationFailed } from "./errors.mjs";
 import { parsePageSelection } from "./page-ranges.mjs";
+import { PASSWORD_NEEDED, mayBeProtected, openProtectedPdf } from "./pdf-protection.mjs";
 
 const PAGE_SIZES = { a4: [595.28, 841.89], letter: [612, 792] };
 const MAX_SPLIT_OUTPUTS = 200;
+
+/** What an operation does with a PDF, and the publisher's permission it needs for that. */
+const USES = {
+  copy_text: { permission: "isTextCopyingAllowed", lockedAgainst: "having its text copied out" },
+  assemble_pages: { permission: "isPageAssemblyAllowed", lockedAgainst: "having its pages joined, taken out or rotated" },
+  change_pages: { permission: "isChangingAllowed", lockedAgainst: "having its pages changed" },
+};
 
 async function loadPdfLib() {
   return import("pdf-lib");
 }
 
 /**
- * Loads a PDF with pdf-lib and enforces the page cap.
+ * Opens a PDF that may be protected, and refuses a use its publisher forbids.
  *
  * @param bytes - PDF bytes (Uint8Array)
- * @param maxPages - Page cap (number)
- * @param label - File label for messages (string)
- * @returns PDFDocument (object)
- * @throws PluginError kind `invalid_input` - When the PDF is encrypted, unreadable or over the cap
+ * @param access - `{password, label, use}`; use is a key of USES, or undefined for only reading what the file is (object)
+ * @returns `{bytes, protection}`; bytes without protection, protection null for a PDF that has none (object)
+ * @throws PluginError kind `invalid_input` - When a password is missing or wrong, or the publisher forbids the use
  */
-export async function loadPdfDocument(bytes, maxPages, label = "input") {
-  const { PDFDocument } = await loadPdfLib();
-  const document = await PDFDocument.load(bytes, { updateMetadata: false, ignoreEncryption: true }).catch((loadError) => {
-    throw invalidInput(`${label} is not a readable PDF: ${loadError.message}`);
-  });
-  if (document.isEncrypted) throw invalidInput(`${label} is encrypted; encrypted PDFs are not supported`);
-  if (document.getPageCount() > maxPages) throw invalidInput(`${label} has ${document.getPageCount()} pages, over the ${maxPages}-page limit (PDF_TOOLS_MAX_PAGES)`);
-  return document;
+async function openPdf(bytes, { password, label = "input", use } = {}) {
+  if (!mayBeProtected(bytes)) return { bytes, protection: null };
+  const opened = await openProtectedPdf({ bytes, password, label });
+  if (use && opened.protection && !opened.protection[USES[use].permission]) {
+    throw invalidInput(`The publisher of ${label} has locked it against ${USES[use].lockedAgainst}, so that is not done here either. With its permissions password (the one that lifts the restrictions, also called the owner password) given as \`password\` it is done; \`info\` shows what the file allows`);
+  }
+  return opened;
 }
 
 /**
- * Page count, metadata and page sizes.
+ * Loads a PDF with pdf-lib, opening its protection first, and enforces the page cap.
  *
- * @param request - `{bytes, maxPages}` (object)
- * @returns `{data}` (object)
+ * @param bytes - PDF bytes (Uint8Array)
+ * @param maxPages - Page cap (number)
+ * @param access - `{password, label, use}`, see openPdf (object)
+ * @returns `{document, wasProtected}`; document is a PDFDocument without protection (object)
+ * @throws PluginError kind `invalid_input` - When the PDF is unreadable, over the cap, needs a password, or its publisher forbids the use
  */
-export async function inspectPdf({ bytes, maxPages }) {
+export async function loadPdfDocument(bytes, maxPages, access = {}) {
+  const label = access.label ?? "input";
   const { PDFDocument } = await loadPdfLib();
-  const document = await PDFDocument.load(bytes, { updateMetadata: false, ignoreEncryption: true }).catch((loadError) => {
+  const opened = await openPdf(bytes, access);
+  const document = await PDFDocument.load(opened.bytes, { updateMetadata: false, ignoreEncryption: true }).catch((loadError) => {
+    throw invalidInput(`${label} is not a readable PDF: ${loadError.message}`);
+  });
+  if (document.isEncrypted) throw invalidInput(`${label} is protected in a way that cannot be opened here`);
+  if (document.getPageCount() > maxPages) throw invalidInput(`${label} has ${document.getPageCount()} pages, over the ${maxPages}-page limit (PDF_TOOLS_MAX_PAGES)`);
+  return { document, wasProtected: opened.protection !== null };
+}
+
+function describePermissions(protection) {
+  return { copy_text: protection.isTextCopyingAllowed, assemble_pages: protection.isPageAssemblyAllowed, change_pages: protection.isChangingAllowed, fill_forms: protection.isFillingAllowed, print: protection.isPrintingAllowed };
+}
+
+// A PDF that asks for a password, looked at without one: that it is locked is all that can be said.
+const LOCKED_PDF_INFO = Object.freeze({
+  page_count: null, encrypted: true, password_required: true, permissions: null,
+  title: null, author: null, subject: null, keywords: null, creator: null, producer: null, creation_date: null, modification_date: null,
+  pages: [], pages_truncated: false,
+});
+
+/**
+ * Page count, metadata, page sizes, and for a protected PDF what its publisher allows.
+ *
+ * @param request - `{bytes, maxPages, password}` (object)
+ * @returns `{data}`; for a PDF that asks for a password and got none, only `encrypted` and `password_required` are known (object)
+ */
+export async function inspectPdf({ bytes, maxPages, password }) {
+  const { PDFDocument } = await loadPdfLib();
+  const opened = await openPdf(bytes, { password }).catch((openError) => {
+    if (openError.reason === PASSWORD_NEEDED) return null;
+    throw openError;
+  });
+  if (opened === null) return { data: { ...LOCKED_PDF_INFO } };
+  const document = await PDFDocument.load(opened.bytes, { updateMetadata: false, ignoreEncryption: true }).catch((loadError) => {
     throw invalidInput(`input is not a readable PDF: ${loadError.message}`);
   });
+  if (document.isEncrypted) throw invalidInput("input is protected in a way that cannot be opened here");
   const pageCount = document.getPageCount();
   const pages = document.getPages().slice(0, Math.min(100, maxPages)).map((page, index) => ({ page: index + 1, width: round(page.getWidth()), height: round(page.getHeight()), rotation: page.getRotation().angle }));
   return {
     data: {
       page_count: pageCount,
-      encrypted: document.isEncrypted,
+      encrypted: opened.protection !== null,
+      password_required: false,
+      permissions: opened.protection ? describePermissions(opened.protection) : null,
       title: document.getTitle() ?? null, author: document.getAuthor() ?? null, subject: document.getSubject() ?? null,
       keywords: document.getKeywords() ?? null, creator: document.getCreator() ?? null, producer: document.getProducer() ?? null,
       creation_date: toIsoDate(document.getCreationDate()), modification_date: toIsoDate(document.getModificationDate()),
@@ -64,12 +115,13 @@ export async function inspectPdf({ bytes, maxPages }) {
 /**
  * Extracts text per page with pdfjs-dist.
  *
- * @param request - `{bytes, pages, maxChars, maxPages}` (object)
+ * @param request - `{bytes, pages, maxChars, maxPages, password}` (object)
  * @returns `{data: {page_count, pages: [{page, text}], text, truncated}}` (object)
  */
-export async function extractPdfText({ bytes, pages, maxChars, maxPages }) {
+export async function extractPdfText({ bytes, pages, maxChars, maxPages, password }) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes), isEvalSupported: false, disableFontFace: true, useSystemFonts: false, verbosity: 0, enableXfa: false });
+  const opened = await openPdf(bytes, { password, use: "copy_text" });
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(opened.bytes), isEvalSupported: false, disableFontFace: true, useSystemFonts: false, verbosity: 0, enableXfa: false });
   try {
     const pdf = await loadingTask.promise.catch((loadError) => {
       throw invalidInput(`input is not a readable PDF: ${loadError.message}`);
@@ -100,18 +152,20 @@ async function collectPageTexts(pdf, pageNumbers, maxChars) {
 /**
  * Joins documents in order.
  *
- * @param request - `{documents: Uint8Array[], maxPages}` (object)
- * @returns `{data: {page_count}, outputs: [Uint8Array]}` (object)
+ * @param request - `{documents: Uint8Array[], maxPages, password}`; the one password is used for every input that is protected (object)
+ * @returns `{data: {page_count, was_protected}, outputs: [Uint8Array]}` (object)
  */
-export async function mergePdfs({ documents, maxPages }) {
+export async function mergePdfs({ documents, maxPages, password }) {
   const { PDFDocument } = await loadPdfLib();
   const merged = await PDFDocument.create();
+  let wasProtected = false;
   for (const [index, bytes] of documents.entries()) {
-    const source = await loadPdfDocument(bytes, maxPages, `inputs[${index}]`);
+    const { document: source, wasProtected: wasSourceProtected } = await loadPdfDocument(bytes, maxPages, { password, label: `inputs[${index}]`, use: "assemble_pages" });
+    wasProtected ||= wasSourceProtected;
     if (merged.getPageCount() + source.getPageCount() > maxPages) throw invalidInput(`The merged PDF would have more than ${maxPages} pages (PDF_TOOLS_MAX_PAGES)`);
     for (const page of await merged.copyPages(source, source.getPageIndices())) merged.addPage(page);
   }
-  return { data: { page_count: merged.getPageCount() }, outputs: [await merged.save()] };
+  return { data: { page_count: merged.getPageCount(), was_protected: wasProtected }, outputs: [await merged.save()] };
 }
 
 async function copySelectedPages(source, pageNumbers) {
@@ -124,29 +178,29 @@ async function copySelectedPages(source, pageNumbers) {
 /**
  * Copies the selected pages, in the given order, into one new PDF.
  *
- * @param request - `{bytes, pages, maxPages}` (object)
- * @returns `{data: {pages}, outputs: [Uint8Array]}` (object)
+ * @param request - `{bytes, pages, maxPages, password}` (object)
+ * @returns `{data: {pages, was_protected}, outputs: [Uint8Array]}` (object)
  */
-export async function extractPdfPages({ bytes, pages, maxPages }) {
-  const source = await loadPdfDocument(bytes, maxPages);
+export async function extractPdfPages({ bytes, pages, maxPages, password }) {
+  const { document: source, wasProtected } = await loadPdfDocument(bytes, maxPages, { password, use: "assemble_pages" });
   const pageNumbers = parsePageSelection(pages, source.getPageCount());
-  return { data: { pages: pageNumbers }, outputs: [await copySelectedPages(source, pageNumbers)] };
+  return { data: { pages: pageNumbers, was_protected: wasProtected }, outputs: [await copySelectedPages(source, pageNumbers)] };
 }
 
 /**
  * Splits into several PDFs: one per range, or one per `every` pages.
  *
- * @param request - `{bytes, ranges, every, maxPages}` (object)
- * @returns `{data: {parts: [{pages}]}, outputs: Uint8Array[]}` (object)
+ * @param request - `{bytes, ranges, every, maxPages, password}` (object)
+ * @returns `{data: {parts: [{pages}], was_protected}, outputs: Uint8Array[]}` (object)
  */
-export async function splitPdf({ bytes, ranges, every, maxPages }) {
-  const source = await loadPdfDocument(bytes, maxPages);
+export async function splitPdf({ bytes, ranges, every, maxPages, password }) {
+  const { document: source, wasProtected } = await loadPdfDocument(bytes, maxPages, { password, use: "assemble_pages" });
   const pageCount = source.getPageCount();
   const parts = ranges?.length ? ranges.map((range, index) => parsePageSelection(range, pageCount, `ranges[${index}]`)) : chunkPages(pageCount, every ?? 1);
   if (parts.length > MAX_SPLIT_OUTPUTS) throw invalidInput(`Splitting would write ${parts.length} files, over the limit of ${MAX_SPLIT_OUTPUTS}`);
   const outputs = [];
   for (const pageNumbers of parts) outputs.push(await copySelectedPages(source, pageNumbers));
-  return { data: { parts: parts.map((pageNumbers) => ({ pages: pageNumbers })) }, outputs };
+  return { data: { parts: parts.map((pageNumbers) => ({ pages: pageNumbers })), was_protected: wasProtected }, outputs };
 }
 
 function chunkPages(pageCount, chunkSize) {
@@ -158,29 +212,29 @@ function chunkPages(pageCount, chunkSize) {
 /**
  * Rotates selected pages by a multiple of 90 degrees (added to their current rotation).
  *
- * @param request - `{bytes, degrees, pages, maxPages}` (object)
- * @returns `{data: {rotated_pages}, outputs: [Uint8Array]}` (object)
+ * @param request - `{bytes, degrees, pages, maxPages, password}` (object)
+ * @returns `{data: {rotated_pages, was_protected}, outputs: [Uint8Array]}` (object)
  */
-export async function rotatePdfPages({ bytes, degrees, pages, maxPages }) {
+export async function rotatePdfPages({ bytes, degrees, pages, maxPages, password }) {
   const { degrees: toDegrees } = await loadPdfLib();
-  const document = await loadPdfDocument(bytes, maxPages);
+  const { document, wasProtected } = await loadPdfDocument(bytes, maxPages, { password, use: "assemble_pages" });
   const pageNumbers = parsePageSelection(pages, document.getPageCount());
   for (const pageNumber of pageNumbers) {
     const page = document.getPage(pageNumber - 1);
     page.setRotation(toDegrees((((page.getRotation().angle + degrees) % 360) + 360) % 360));
   }
-  return { data: { rotated_pages: pageNumbers }, outputs: [await document.save()] };
+  return { data: { rotated_pages: pageNumbers, was_protected: wasProtected }, outputs: [await document.save()] };
 }
 
 /**
  * Draws a text watermark on selected pages with Helvetica.
  *
- * @param request - `{bytes, text, fontSize, opacity, angle, color, placement, pages, maxPages}`; color is [r, g, b] 0-1 (object)
- * @returns `{data: {watermarked_pages}, outputs: [Uint8Array]}` (object)
+ * @param request - `{bytes, text, fontSize, opacity, angle, color, placement, pages, maxPages, password}`; color is [r, g, b] 0-1 (object)
+ * @returns `{data: {watermarked_pages, was_protected}, outputs: [Uint8Array]}` (object)
  */
-export async function watermarkPdf({ bytes, text, fontSize, opacity, angle, color, placement, pages, maxPages }) {
+export async function watermarkPdf({ bytes, text, fontSize, opacity, angle, color, placement, pages, maxPages, password }) {
   const { StandardFonts, degrees: toDegrees, rgb } = await loadPdfLib();
-  const document = await loadPdfDocument(bytes, maxPages);
+  const { document, wasProtected } = await loadPdfDocument(bytes, maxPages, { password, use: "change_pages" });
   const font = await document.embedFont(StandardFonts.Helvetica);
   const textWidth = measureText(font, text, fontSize);
   const pageNumbers = parsePageSelection(pages, document.getPageCount());
@@ -189,7 +243,7 @@ export async function watermarkPdf({ bytes, text, fontSize, opacity, angle, colo
     const { x, y } = placeWatermark(placement, { width: page.getWidth(), height: page.getHeight() }, { width: textWidth, height: fontSize }, angle);
     page.drawText(text, { x, y, size: fontSize, font, color: rgb(...color), opacity, rotate: toDegrees(angle) });
   }
-  return { data: { watermarked_pages: pageNumbers }, outputs: [await document.save()] };
+  return { data: { watermarked_pages: pageNumbers, was_protected: wasProtected }, outputs: [await document.save()] };
 }
 
 // Helvetica (WinAnsi) cannot encode every character; say so instead of failing obscurely.

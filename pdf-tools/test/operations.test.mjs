@@ -104,14 +104,6 @@ test("images_to_pdf takes jpeg/png by content, one page each", options, () =>
     await assert.rejects(runOperation("images_to_pdf", { images: ["fake.png"] }, AS_TOOL), { kind: "invalid_input" });
   }));
 
-test("encrypted PDFs are refused with a clear message", options, () =>
-  withPdfRunner({}, async ({ runOperation, inputDirectory }) => {
-    const encryptedPdf = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\n3 0 obj<</Filter/Standard/V 1/R 2/O(x)/U(y)/P -4>>endobj\ntrailer<</Root 1 0 R/Encrypt 3 0 R/Size 4>>\n%%EOF";
-    await writeFile(join(inputDirectory, "locked.pdf"), encryptedPdf);
-    await assert.rejects(runOperation("merge", { inputs: ["locked.pdf", "locked.pdf"] }, AS_TOOL), (error) => error.kind === "invalid_input" && /encrypted/.test(error.message));
-    assert.equal((await runOperation("info", { input: "locked.pdf" }, AS_TOOL)).data.encrypted, true);
-  }));
-
 test("review regression: merge and images_to_pdf refuse inputs whose combined size passes the total cap", options, () =>
   withPdfRunner({ environment: { PDF_TOOLS_MAX_TOTAL_INPUT_BYTES: "3000" } }, async ({ runOperation, inputDirectory }) => {
     await writeTestPdf(join(inputDirectory, "a.pdf"), { pageCount: 20 });
