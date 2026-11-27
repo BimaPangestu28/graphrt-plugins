@@ -63,8 +63,13 @@ jobs:
           fi
           chosen=""
           for plugin in $plugins; do
-            case "$plugin" in *[!a-z0-9-]*) echo "::error::Not a plugin name: $plugin"; exit 1 ;; esac
-            if [ -f "$plugin/graphrt-plugin.json" ] && [ -d "$plugin/test" ]; then chosen="$chosen $plugin"; fi
+            # Other changed directories (.github, scripts, docs) are not plugins.
+            case "$plugin" in *[!a-z0-9-]*) continue ;; esac
+            if [ -f "$plugin/graphrt-plugin.json" ] && [ -d "$plugin/test" ]; then
+              chosen="$chosen $plugin"
+            elif [ -n "$NAMED_PLUGINS" ]; then
+              echo "::error::$plugin is not a plugin with tests"; exit 1
+            fi
           done
           echo "systems=[$systems]" >> "$GITHUB_OUTPUT"
           echo "plugins=${chosen# }" >> "$GITHUB_OUTPUT"
