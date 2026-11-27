@@ -4,9 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { AS_TOOL, SKIP_WITHOUT_FFMPEG, generateTestVideo, withFfmpegRunner } from "./helpers.mjs";
+import { AS_TOOL, SKIP_WITHOUT_FFMPEG, countChangedPixels, generateTestVideo, readGreyFrame, withFfmpegRunner, withTemporaryDirectory } from "./helpers.mjs";
 
 const options = { skip: SKIP_WITHOUT_FFMPEG, timeout: 120000 };
 
@@ -39,6 +39,34 @@ test("real ffmpeg: probe, transcode, trim, extract audio, thumbnail, resize, GIF
     await runOperation("burn_subtitles", { input: "clip.mp4", subtitles: "subs.srt" }, AS_TOOL);
     assert.equal((await readdir(outputDirectory)).length, 8);
   }));
+
+// The subtitles filter gets the path of the plugin's own copy in the temporary directory. On Windows that path
+// always has a drive colon and backslashes; a user name can add spaces, quotes, commas or brackets on any system.
+const HOSTILE_DIRECTORY_NAME = process.platform === "win32" ? "it's a [temp], dir;x=1" : "it's a [temp], dir;x=1:y\\z";
+for (const [caseName, temporaryDirectoryName] of [["the system temporary directory", null], [`a temporary directory named ${HOSTILE_DIRECTORY_NAME}`, HOSTILE_DIRECTORY_NAME]]) {
+  test(`real ffmpeg: burn_subtitles draws the cues into the picture, with ${caseName}`, options, () =>
+    withFfmpegRunner({}, async ({ runOperation, inputDirectory, outsideDirectory }) => {
+      const inputPath = join(inputDirectory, "clip.mp4");
+      generateTestVideo(inputPath);
+      await writeFile(join(inputDirectory, "subs.srt"), "1\n00:00:00,000 --> 00:00:00,900\nHalo dunia\n");
+      const request = { input: "clip.mp4", subtitles: "subs.srt", font_size: 40 };
+      const temporaryDirectory = temporaryDirectoryName ? join(outsideDirectory, temporaryDirectoryName) : null;
+      if (temporaryDirectory) await mkdir(temporaryDirectory);
+      const burned = temporaryDirectory ? await withTemporaryDirectory(temporaryDirectory, () => runOperation("burn_subtitles", request, AS_TOOL)) : await runOperation("burn_subtitles", request, AS_TOOL);
+      if (temporaryDirectory) assert.deepEqual(await readdir(temporaryDirectory), []);
+
+      assert.ok(burned.data.size_bytes > 0);
+      assert.notDeepEqual(await readFile(burned.data.path), await readFile(inputPath));
+      assert.equal((await runOperation("probe", { input: burned.data.path }, AS_TOOL)).data.streams.find((stream) => stream.type === "video").width, 320);
+      // The same encode without subtitles is the baseline: only the drawn text may change pixels this much.
+      const plain = await runOperation("transcode", { input: "clip.mp4", format: "mp4" }, AS_TOOL);
+      const originalFrame = readGreyFrame(inputPath, 0.5);
+      const textPixels = countChangedPixels(originalFrame, readGreyFrame(burned.data.path, 0.5));
+      const noisePixels = countChangedPixels(originalFrame, readGreyFrame(plain.data.path, 0.5));
+      assert.ok(textPixels > 200, `expected drawn subtitle text, but only ${textPixels} pixels changed`);
+      assert.ok(noisePixels < textPixels / 10, `re-encoding alone changed ${noisePixels} pixels, the subtitles ${textPixels}`);
+    }));
+}
 
 test("real ffmpeg: an HLS playlist disguised as .mp4 or .m3u8-in-concat cannot pull in other files", options, () =>
   withFfmpegRunner({}, async ({ runOperation, inputDirectory, outsideDirectory, outputDirectory }) => {

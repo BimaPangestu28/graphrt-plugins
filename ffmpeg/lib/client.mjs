@@ -18,7 +18,7 @@ import { invalidInput, operationFailed } from "./errors.mjs";
 import { readFfmpegSettings } from "./settings.mjs";
 
 const MAX_PROBE_OUTPUT_BYTES = 2 * 1024 * 1024;
-const SETUP_HINT = "Install ffmpeg (it includes ffprobe), e.g. `brew install ffmpeg` or `apt install ffmpeg`, or set FFMPEG_BINARY / FFPROBE_BINARY to absolute paths.";
+const SETUP_HINT = "Install ffmpeg (it includes ffprobe), e.g. `brew install ffmpeg`, `apt install ffmpeg` or on Windows `winget install Gyan.FFmpeg`, or set FFMPEG_BINARY / FFPROBE_BINARY to absolute paths.";
 
 /**
  * Creates the client for one call.

@@ -186,19 +186,43 @@ export function buildConcatList(realPaths) {
 }
 
 /**
+ * Escapes a file path so it can be the value of a filter option inside a `-vf` / `-filter_complex` argument.
+ *
+ * ffmpeg reads that text twice. The filter graph parser splits on `,` `;` `[` `]` and takes `\` and `'` as escape
+ * and quote; then the filter's own option parser splits on `:` and again takes `\` and `'`. So the path is escaped
+ * once for the option parser (`\` `'` `:`) and the result once more for the graph parser (`\` `'` `[` `]` `,` `;`).
+ * A Windows path is written with `/` first (ffmpeg on Windows opens `C:/a/b` like `C:\a\b`), which keeps its
+ * separators out of the escaping. On other systems a backslash is an ordinary file name character and is escaped.
+ *
+ * @param filePath - Absolute path (string)
+ * @param platform - `process.platform` of the system ffmpeg runs on (string, optional)
+ * @returns The escaped path (string)
+ * @throws PluginError kind `setup_required` - When the path contains a control character
+ *
+ * @example
+ * escapeFilterPath("C:\\Users\\me\\subtitles.srt", "win32"); // "C\\\\:/Users/me/subtitles.srt", i.e. C\\:/Users/me/subtitles.srt
+ */
+export function escapeFilterPath(filePath, platform = process.platform) {
+  if (/[\u0000-\u001f\u007f]/.test(filePath)) {
+    throw setupRequired(`The temporary directory path ${JSON.stringify(filePath)} contains control characters, which an ffmpeg filter cannot take; set ${platform === "win32" ? "TEMP" : "TMPDIR"} to a plain path`);
+  }
+  const portablePath = platform === "win32" ? filePath.replaceAll("\\", "/") : filePath;
+  const optionValue = portablePath.replace(/[\\':]/g, "\\$&");
+  return optionValue.replace(/[\\'[\],;]/g, "\\$&");
+}
+
+/**
  * Builds the `subtitles` filter for a plugin-generated subtitle file.
  *
  * @param subtitlePath - Path of the sanitised copy in the plugin's temp directory (string)
  * @param fontSize - Optional font size, integer 8 to 120 (number, optional)
+ * @param platform - `process.platform` of the system ffmpeg runs on (string, optional)
  * @returns Filter text (string)
- * @throws PluginError kind `setup_required` - When the temp path has characters that would need filter escaping
+ * @throws PluginError kind `setup_required` - When the temp path contains a control character
  */
-export function buildSubtitlesFilter(subtitlePath, fontSize) {
-  if (!/^[A-Za-z0-9._/-]+$/.test(subtitlePath)) {
-    throw setupRequired(`The temporary directory path ${JSON.stringify(subtitlePath)} has characters ffmpeg filters cannot take safely; set TMPDIR to a plain path`);
-  }
+export function buildSubtitlesFilter(subtitlePath, fontSize, platform = process.platform) {
   const styleOption = fontSize !== undefined ? `:force_style='FontSize=${Math.trunc(fontSize)}'` : "";
-  return `subtitles=filename=${subtitlePath}${styleOption}`;
+  return `subtitles=filename=${escapeFilterPath(subtitlePath, platform)}${styleOption}`;
 }
 
 /**

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildConcatList, buildInputArguments, buildProbeArguments, buildScaleFilter, buildSubtitlesFilter, parseTimestamp, validateExtraArguments,
+  buildConcatList, buildInputArguments, buildProbeArguments, buildScaleFilter, buildSubtitlesFilter, escapeFilterPath, parseTimestamp, validateExtraArguments,
 } from "../lib/ffmpeg-arguments.mjs";
 import { buildEncodingArguments, chooseOutputFormat } from "../lib/media-formats.mjs";
 import { parseSubRip, serializeSubRip } from "../lib/subtitles.mjs";
@@ -48,8 +48,56 @@ test("subtitle files are re-written from parsed cues; anything else is refused",
   assert.deepEqual(cues, [{ startMs: 1000, endMs: 2500, text: "Hello\nworld" }, { startMs: 60000, endMs: 61000, text: "Bye" }]);
   assert.equal(serializeSubRip(cues), "1\n00:00:01,000 --> 00:00:02,500\nHello\nworld\n\n2\n00:01:00,000 --> 00:01:01,000\nBye\n");
   assert.throws(() => parseSubRip("#EXTM3U\nfile:/etc/passwd\n"), { kind: "invalid_input" });
-  assert.equal(buildSubtitlesFilter("/tmp/x/subtitles.srt", 24), "subtitles=filename=/tmp/x/subtitles.srt:force_style='FontSize=24'");
-  assert.throws(() => buildSubtitlesFilter("/tmp/a'b:c/subtitles.srt"), { kind: "setup_required" });
+  assert.equal(buildSubtitlesFilter("/tmp/x/subtitles.srt", 24, "linux"), "subtitles=filename=/tmp/x/subtitles.srt:force_style='FontSize=24'");
+});
+
+/** Undoes one ffmpeg parsing pass the way av_get_token does: `\x` is x, `'...'` is literal; stops at an unescaped terminator. */
+function readFilterToken(text, terminators) {
+  let token = "";
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === "\\") {
+      index += 1;
+      token += text[index];
+    } else if (character === "'") {
+      const closingQuote = text.indexOf("'", index + 1);
+      token += text.slice(index + 1, closingQuote);
+      index = closingQuote;
+    } else if (terminators.includes(character)) {
+      return { token, rest: text.slice(index) };
+    } else {
+      token += character;
+    }
+  }
+  return { token, rest: "" };
+}
+
+test("subtitles filter path: escaped for both ffmpeg parsers, Windows paths written with forward slashes", () => {
+  assert.equal(escapeFilterPath("C:\\Users\\me\\AppData\\Local\\Temp\\graphrt-ffmpeg-Ab12\\subtitles.srt", "win32"), "C\\\\:/Users/me/AppData/Local/Temp/graphrt-ffmpeg-Ab12/subtitles.srt");
+  assert.equal(buildSubtitlesFilter("C:\\Temp\\x\\subtitles.srt", 24, "win32"), "subtitles=filename=C\\\\:/Temp/x/subtitles.srt:force_style='FontSize=24'");
+  assert.equal(escapeFilterPath("\\\\server\\share\\subtitles.srt", "win32"), "//server/share/subtitles.srt");
+  assert.equal(escapeFilterPath("/tmp/plain-1.2_3/subtitles.srt", "linux"), "/tmp/plain-1.2_3/subtitles.srt");
+  assert.throws(() => escapeFilterPath("/tmp/a\nb/subtitles.srt", "linux"), { kind: "setup_required", message: /TMPDIR/ });
+  assert.throws(() => escapeFilterPath("C:\\a\u0000b\\subtitles.srt", "win32"), { kind: "setup_required", message: /TEMP/ });
+
+  // Whatever the temp path holds, ffmpeg's two passes give back exactly that path and nothing else: no second
+  // filter (`,` `;`), no link label (`[`), no extra option (`:`), no quote left open.
+  const hostilePaths = [
+    ["/tmp/it's a [dir], x;y:z=1/sub\\titles.srt", "linux"],
+    ["/tmp/a',drawtext=textfile=/etc/passwd,'/subtitles.srt", "linux"],
+    ["/tmp/x:force_style='Fontname=/etc/passwd'/subtitles.srt", "linux"],
+    ["/tmp/trailing\\/subtitles.srt", "linux"],
+    ["C:\\Users\\O'Brien, J; [dev]\\Temp\\subtitles.srt", "win32"],
+  ];
+  for (const [hostilePath, platform] of hostilePaths) {
+    const filterText = `${buildSubtitlesFilter(hostilePath, 24, platform)},format=yuv420p`;
+    const graphPass = readFilterToken(filterText, [",", ";", "["]);
+    assert.equal(graphPass.rest, ",format=yuv420p", hostilePath);
+    const filterArguments = graphPass.token.slice("subtitles=".length);
+    const optionPass = readFilterToken(filterArguments.slice("filename=".length), [":"]);
+    assert.equal(optionPass.token, platform === "win32" ? hostilePath.replaceAll("\\", "/") : hostilePath);
+    assert.equal(optionPass.rest, ":force_style=FontSize=24", hostilePath);
+  }
 });
 
 test("scale filter, encoding presets and output format choice", () => {

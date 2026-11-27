@@ -7,7 +7,8 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { buildManifest } from "../lib/shared/operations.mjs";
 import { pluginDefinition } from "../definition.mjs";
-import { AS_NODE, AS_TOOL, createFakeProcessRunner, withFfmpegRunner } from "./helpers.mjs";
+import { buildSubtitlesFilter } from "../lib/ffmpeg-arguments.mjs";
+import { AS_NODE, AS_TOOL, createFakeProcessRunner, withFfmpegRunner, withTemporaryDirectory } from "./helpers.mjs";
 
 const VIDEO_PROBE = {
   format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "1.000000", size: "17330", bit_rate: "138640" },
@@ -158,25 +159,23 @@ test("concatenate refuses stream copy when the parts differ", () => {
 
 test("burn_subtitles gives ffmpeg a re-written .srt copy, never the original path", () => {
   let subtitleCopy = null;
+  let temporaryDirectory = null;
   const fake = createFakeProcessRunner();
   const runProcess = async (request) => {
     if (request.displayName === "ffprobe") return fake.runProcess(request);
     const filterText = request.args[request.args.indexOf("-vf") + 1];
-    const subtitlePath = /subtitles=filename=([^:]+)/.exec(filterText)[1];
-    subtitleCopy = { path: subtitlePath, content: await readFile(subtitlePath, "utf8") };
+    const [scratchDirectory] = await readdir(temporaryDirectory);
+    const scratchPath = join(temporaryDirectory, scratchDirectory, "subtitles.srt");
+    assert.equal(filterText, buildSubtitlesFilter(scratchPath, 30));
+    subtitleCopy = { path: scratchPath, content: await readFile(scratchPath, "utf8") };
     return fake.runProcess(request);
   };
-  return withFfmpegRunner({ runProcess }, async ({ runOperation, inputDirectory }) => {
+  return withFfmpegRunner({ runProcess }, async ({ runOperation, inputDirectory, outsideDirectory }) => {
     await writeFile(join(inputDirectory, "clip.mp4"), "x");
     await writeFile(join(inputDirectory, "subs.srt"), "1\r\n00:00:00,000 --> 00:00:00,900\r\nHalo\r\n");
-    if (process.platform === "win32") {
-      // Known gap: a Windows path (C:\\...) has characters the subtitles filter is not given, so burn_subtitles
-      // is refused there before ffmpeg starts. The rest of this test needs the filter.
-      await assert.rejects(runOperation("burn_subtitles", { input: "clip.mp4", subtitles: "subs.srt", font_size: 30 }, AS_TOOL), { kind: "setup_required", message: /characters ffmpeg filters cannot take safely/ });
-      return;
-    }
-    await runOperation("burn_subtitles", { input: "clip.mp4", subtitles: "subs.srt", font_size: 30 }, AS_TOOL);
-    assert.notEqual(subtitleCopy.path, join(inputDirectory, "subs.srt"));
+    temporaryDirectory = outsideDirectory;
+    await withTemporaryDirectory(temporaryDirectory, () => runOperation("burn_subtitles", { input: "clip.mp4", subtitles: "subs.srt", font_size: 30 }, AS_TOOL));
+    assert.deepEqual(await readdir(temporaryDirectory), []);
     assert.equal(subtitleCopy.content, "1\n00:00:00,000 --> 00:00:00,900\nHalo\n");
     await writeFile(join(inputDirectory, "fake.srt"), "#EXTM3U\nfile:/etc/passwd\n");
     await assert.rejects(runOperation("burn_subtitles", { input: "clip.mp4", subtitles: "fake.srt" }, AS_TOOL), { kind: "invalid_input" });

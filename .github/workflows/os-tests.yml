@@ -95,6 +95,33 @@ jobs:
         with:
           node-version: 22
 
+      # The ffmpeg plugin's integration tests run the real program: Windows paths in filter and input arguments
+      # cannot be checked with a stand-in. Installed only when that plugin is tested; ci.yml has no ffmpeg and
+      # skips those tests. FFMPEG_TESTS_REQUIRED makes a missing program fail here instead of skipping.
+      - name: Install ffmpeg (ffmpeg plugin only)
+        if: ${{ contains(format(' {0} ', needs.plan.outputs.plugins), ' ffmpeg ') }}
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_ENV_HINTS: "1"
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            choco install ffmpeg --yes --no-progress --limit-output
+          else
+            # Homebrew's plain ffmpeg may come without libass (the subtitles filter); ffmpeg-full has it.
+            formula=ffmpeg
+            if brew info --formula ffmpeg-full >/dev/null 2>&1; then formula=ffmpeg-full; fi
+            brew install --quiet "$formula"
+            export PATH="$(brew --prefix "$formula")/bin:$PATH"
+            echo "$(brew --prefix "$formula")/bin" >> "$GITHUB_PATH"
+          fi
+          ffmpeg -hide_banner -version | head -n 1
+          ffprobe -hide_banner -version | head -n 1
+          if ! ffmpeg -hide_banner -filters | grep -q ' subtitles '; then
+            echo "::error::this ffmpeg has no subtitles filter (libass)"; exit 1
+          fi
+          echo "FFMPEG_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+
       - name: Test
         env:
           PLUGINS: ${{ needs.plan.outputs.plugins }}
