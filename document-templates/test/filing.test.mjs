@@ -48,6 +48,8 @@ test("filing plan: defaults to year/month and the number; tokens come from the v
   assert.deepEqual(plan({}), { folderSegments: ["2026", "03"], fileStem: "INV-2026-0007", extension: "pdf" });
   assert.deepEqual(plan({ folder: "Invoices/{client}/{YYYY}", fileName: "{YYYY}{MM}{DD} {number} {values.client.name}" }), { folderSegments: ["Invoices", "PT Maju Bersama", "2026"], fileStem: "20260305 INV-2026-0007 PT Maju Bersama", extension: "pdf" });
   assert.deepEqual(plan({ folder: "/" }).folderSegments, []);
+  // A form field left blank means the default, not the top of the documents folder.
+  assert.deepEqual(plan({ folder: "  ", fileName: "" }), plan({}));
   assert.deepEqual(plan({}, {}), { folderSegments: ["2026", "11"], fileStem: "invoice-20261127-093015", extension: "pdf" });
   assert.deepEqual(plan({}, { number: "001/INV/XI/2026" }).fileStem, "001-INV-XI-2026");
 });
@@ -63,7 +65,7 @@ test("filing plan: values can never add a folder level or leave the output direc
 test("saving: creates the folders, never replaces a file, numbers copies on request", () =>
   withOutputDirectory(async ({ outputDirectory, organiser }) => {
     const first = await organiser.saveDocument({ plan: plan({}), bytes: Buffer.from("one"), ifExists: "error" });
-    assert.deepEqual(first, { path: join(outputDirectory, "2026", "03", "INV-2026-0007.pdf"), relative_path: "2026/03/INV-2026-0007.pdf", folder: "2026/03", file_name: "INV-2026-0007.pdf", size_bytes: 3, replaced_existing: false });
+    assert.deepEqual(first, { path: join(outputDirectory, "2026", "03", "INV-2026-0007.pdf"), folder_path: join(outputDirectory, "2026", "03"), relative_path: "2026/03/INV-2026-0007.pdf", folder: "2026/03", file_name: "INV-2026-0007.pdf", size_bytes: 3, replaced_existing: false });
     await assert.rejects(organiser.saveDocument({ plan: plan({}), bytes: Buffer.from("two"), ifExists: "error" }), (error) => error.kind === "invalid_input" && /already exists; nothing was saved/.test(error.message));
     await assert.rejects(organiser.assertCanSave({ plan: plan({}), ifExists: "error" }), /already exists/);
     await organiser.assertCanSave({ plan: plan({}), ifExists: "number" });

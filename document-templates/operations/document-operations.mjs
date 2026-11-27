@@ -51,14 +51,14 @@ function describeResult(savedFile, { template, values, settings, isCalculated })
 const renderPdfOperation = {
   name: "render_pdf",
   title: "Create a PDF from a template",
-  description: "Creates a PDF from a layout template and values: the built-in `invoice`, or your own .json layout template. Totals are calculated for you, the table continues over pages, and the PDF is saved as <folder>/<file_name>.pdf (default 2026/11/INV-2026-0001.pdf). An existing file is never replaced unless a node asks",
+  description: "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
   parameters: {
     type: "object",
     properties: {
-      template: { type: "string", default: "invoice", description: "Built-in template name (invoice) or a .json layout template inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
+      template: { type: "string", default: "invoice", description: "`invoice` (the ready-made template), or your own template: a .json file in your templates folder, or the `path` that save_template_copy returned" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
-      background: { type: "string", description: "A PDF inside DOCUMENT_TEMPLATES_INPUT_DIRS drawn under every page, e.g. your letterhead (its page 1 under the first page, its page 2, if any, under the others)" },
+      background: { type: "string", description: "A PDF in your templates folder that is drawn under every page, e.g. your letterhead (its page 1 under the first page, its page 2, if any, under the others)" },
       ...FILING_PARAMETERS,
     },
   },
@@ -102,16 +102,16 @@ function fillFieldValues(fieldEntries, prepared) {
 const fillPdfFormOperation = {
   name: "fill_pdf_form",
   title: "Fill in a PDF form",
-  description: "Fills the form fields of a fillable PDF (AcroForm) and saves the result as a new PDF. `fields` maps field names to values; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without form fields (a scan, a picture, plain pages) cannot be filled: use render_pdf",
+  description: "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
   parameters: {
     type: "object",
     properties: {
-      template: { type: "string", description: "The fillable .pdf inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
+      template: { type: "string", description: "The PDF form, a .pdf file in your templates folder" },
       fields: { type: "object", description: "Form field names and their values, e.g. {\"InvoiceNo\": \"{{number}}\", \"Total\": \"{{totals.total | money}}\", \"Paid\": true}" },
-      fields_file: { type: "string", description: "Instead of `fields`: a .json file with the field map, inside DOCUMENT_TEMPLATES_INPUT_DIRS (reusable for every document from this form)" },
+      fields_file: { type: "string", description: "Instead of `fields`: a .json file with the field names and values, in your templates folder (reusable for every document from this form)" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
-      flatten: { type: "boolean", default: true, description: "Turn the filled fields into plain page content so the result can no longer be edited (default true)" },
+      flatten: { type: "boolean", default: true, description: "Make the filled-in values a fixed part of the page, so that nobody can change them afterwards (default true)" },
       ...FILING_PARAMETERS,
     },
     required: ["template"],
@@ -132,11 +132,11 @@ const fillPdfFormOperation = {
 const fillDocxOperation = {
   name: "fill_docx",
   title: "Fill in a Word template",
-  description: "Fills the {{placeholders}} of a Word template (.docx or .dotx) and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
+  description: "Fills in a Word document that has {{placeholders}} (.docx, or a Word template .dotx) and saves the result as a new Word file in your documents folder. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
   parameters: {
     type: "object",
     properties: {
-      template: { type: "string", description: "The .docx or .dotx template inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
+      template: { type: "string", description: "The Word file, a .docx or .dotx in your templates folder" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
       ...FILING_PARAMETERS,

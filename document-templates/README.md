@@ -66,6 +66,9 @@ Why not:
   the fields into plain page content.
 - **`fill_docx`:** the same placeholders in a Word file. A table row between `{{#items}}` and `{{/items}}`
   repeats for every item.
+- **`save_template_copy`:** saves your own copy of the built-in invoice in the folder `Templates` of your
+  documents folder, to change its texts, colours and layout. It never replaces a file; ask for it in chat, no
+  terminal needed.
 - **`next_number`:** running numbers such as `INV-2026-0001` from a pattern.
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md). Template reference: [TEMPLATES.md](TEMPLATES.md).
@@ -82,9 +85,12 @@ graphrt plugin install ./document-templates
 ```
 
 ## Configuration
+Only the first setting has to be filled in: the folder your documents go to. Every other one has a default
+that suits most people and can stay empty.
+
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `DOCUMENT_TEMPLATES_OUTPUT_DIR` | (none) | Existing folder (absolute or `~/...`) where documents are saved. Without it only `list_templates` and `describe_template` work. Files in it can also be read. |
+| `DOCUMENT_TEMPLATES_OUTPUT_DIR` | (none) | **Needed.** Your documents folder: an existing folder (absolute or `~/...`) where documents are saved. Without it only `list_templates` and `describe_template` work. Files in it can also be read. |
 | `DOCUMENT_TEMPLATES_INPUT_DIRS` | (none) | Comma-separated folders that your own templates, logos, backgrounds and values files may be read from, subfolders included. Not needed for the built-in invoice without a logo. |
 | `DOCUMENT_TEMPLATES_FONTS` | (none) | Comma-separated font files (`.ttf`, `.otf`, `.ttc`; at most 8) for scripts the built-in fonts lack, e.g. `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc` |
 | `DOCUMENT_TEMPLATES_MAX_INPUT_BYTES` | 20 MiB | Largest input file |
@@ -130,13 +136,17 @@ Run it again and you get `INV-2026-0002.pdf` next to it.
 Only `number`, `seller.name`, `client.name` and `items` are required; `describe_template` lists every field.
 `values` may also be JSON text, or `values_file` names a `.json` file. The result:
 ```json
-{ "path": "/home/me/invoices/2026/11/INV-2026-0042.pdf", "relative_path": "2026/11/INV-2026-0042.pdf",
-  "folder": "2026/11", "file_name": "INV-2026-0042.pdf", "size_bytes": 34120, "replaced_existing": false,
+{ "path": "/home/me/invoices/2026/11/INV-2026-0042.pdf", "folder_path": "/home/me/invoices/2026/11",
+  "relative_path": "2026/11/INV-2026-0042.pdf", "folder": "2026/11", "file_name": "INV-2026-0042.pdf",
+  "size_bytes": 34120, "replaced_existing": false,
   "template": "invoice", "number": "INV-2026-0042", "page_count": 1,
   "totals": { "currency": "IDR", "subtotal": "6900000", "discount": "345000", "tax_total": "589950",
               "total": "7144950", "amount_paid": "0", "balance_due": "7144950",
               "total_text": "Rp 7.144.950", "balance_due_text": "Rp 7.144.950" } }
 ```
+
+Every operation that makes a document answers with where it is: `path` (the file) and `folder_path` (its
+folder) are absolute, ready for an "open file" or "open folder" button.
 
 The same template makes a quotation, a receipt or a pro forma invoice: set `labels`, e.g.
 `labels: { title: Quotation, total_due: Total }`.
@@ -155,7 +165,8 @@ The same template makes a quotation, a receipt or a pro forma invoice: set `labe
   unless you set `currency_style: symbol`.
 
 ### Folders and file names
-`folder` and `file_name` are patterns. The defaults are `{YYYY}/{MM}` and `{number}`.
+`folder` and `file_name` are patterns. The defaults are `{YYYY}/{MM}` and `{number}`; leave both empty unless
+you want something else (an empty text means the default too).
 
 | Token | Value |
 |-------|-------|
@@ -172,6 +183,12 @@ The same template makes a quotation, a receipt or a pro forma invoice: set `labe
 
 `if_exists` decides what happens when the file is already there: `error` (default: keep it and fail), `number`
 (save `...-2.pdf`, `...-3.pdf`) or `overwrite` (workflow nodes only).
+
+### Your own version of the invoice
+`save_template_copy` (optionally with `name: Quotation`) saves `Templates/invoice.json` in your documents folder
+and answers with its `path`. Change the file in a text editor: `labels` are the texts, `styles` the colours and
+sizes, `content` the layout ([TEMPLATES.md](TEMPLATES.md)). Then pass the `path` as `template` to `render_pdf`.
+A second copy with the same name is saved as `invoice-2.json`; your changes are never overwritten.
 
 ### Running numbers
 `next_number` with `pattern: "INV-{YYYY}-{SEQ:4}"` returns `INV-2026-0001`, then `INV-2026-0002`. The count
@@ -240,8 +257,9 @@ then drawn with it. A character that no font has is an error that names it, neve
   cannot read the child's memory (it uses `ps`), so the heap cap and the timeout are the limits there.
 - **Caps:** input and output bytes, 2 MiB of values, 2000 line items, 100000 layout parts after loops are
   unrolled, 20 images, 2000 form fields, pages per document (`DOCUMENT_TEMPLATES_MAX_PAGES`).
-- **Agents vs nodes:** all six operations are available as tools. They read only allowlisted files and add new
+- **Agents vs nodes:** all seven operations are available as tools. They read only allowlisted files and add new
   files to the output folder (setting `DOCUMENT_TEMPLATES_OUTPUT_DIR` is the opt-in for writing).
+  `save_template_copy` writes only into `Templates` there and never over a file.
   `if_exists: overwrite` is for workflow nodes only; a tool call that asks for it gets `permission_denied`.
   `next_number` uses up a number each time it is called without `preview`.
 

@@ -1,6 +1,6 @@
 {
   "name": "document-templates",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Invoices and other documents from templates, fully local: a ready-made invoice or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -12,8 +12,8 @@
     "network": false,
     "secrets": false,
     "env": [
-      "DOCUMENT_TEMPLATES_INPUT_DIRS",
       "DOCUMENT_TEMPLATES_OUTPUT_DIR",
+      "DOCUMENT_TEMPLATES_INPUT_DIRS",
       "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES",
       "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES",
       "DOCUMENT_TEMPLATES_MAX_PAGES",
@@ -30,7 +30,7 @@
     {
       "kind": "document-templates.list_templates",
       "title": "List templates",
-      "description": "Lists the built-in templates and the template formats this plugin can fill, with the operation for each",
+      "description": "Lists the ready-made templates and the kinds of template you can bring yourself (your own layout, a PDF form, a Word document), with the operation for each",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -52,7 +52,7 @@
     {
       "kind": "document-templates.describe_template",
       "title": "Describe a template",
-      "description": "Shows what a template needs: for a layout template its fields, placeholders and sample values; for a Word template its {{placeholders}}; for a PDF its form fields (or that it has none)",
+      "description": "Shows what a template needs before you fill it: for the invoice or your own layout, its fields with an example; for a Word document, its {{placeholders}}; for a PDF form, its boxes (or that it has none)",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -60,12 +60,44 @@
           "template": {
             "type": "string",
             "default": "invoice",
-            "description": "Built-in template name (invoice), or a .json, .docx, .dotx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "`invoice` (the ready-made template), or a .json, .docx, .dotx or .pdf file in your templates folder"
           },
           "include_layout": {
             "type": "boolean",
             "default": false,
-            "description": "For a layout template: also return its full layout, to save as a .json file and adapt"
+            "description": "For the invoice or your own layout: also return the whole design. To get a copy you can change, use save_template_copy instead"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "document-templates.save_template_copy",
+      "title": "Save a copy of a template to change",
+      "description": "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its texts, colours and layout while the original stays as it is. Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "default": "invoice",
+            "description": "The ready-made template to copy (invoice)"
+          },
+          "name": {
+            "type": "string",
+            "description": "A name for your copy, without extension, e.g. \"Quotation\" (default: the template's own name)"
           }
         }
       },
@@ -85,7 +117,7 @@
     {
       "kind": "document-templates.next_number",
       "title": "Next document number",
-      "description": "Issues the next running number for a pattern such as INV-{YYYY}-{SEQ:4} (INV-2026-0001, INV-2026-0002, ...). The count restarts when the pattern's date part changes. Counters are kept in DOCUMENT_TEMPLATES_OUTPUT_DIR/.document-templates/numbering.json",
+      "description": "Gives the next number of a series, such as INV-2026-0001, then INV-2026-0002, so that no two documents get the same number. The count starts again with each new year (or month, when the pattern has one). The last number is remembered in your documents folder",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -109,7 +141,7 @@
           "preview": {
             "type": "boolean",
             "default": false,
-            "description": "Only show the next number without reserving it"
+            "description": "Only show what the next number would be, without using it up"
           }
         }
       },
@@ -129,7 +161,7 @@
     {
       "kind": "document-templates.render_pdf",
       "title": "Create a PDF from a template",
-      "description": "Creates a PDF from a layout template and values: the built-in `invoice`, or your own .json layout template. Totals are calculated for you, the table continues over pages, and the PDF is saved as <folder>/<file_name>.pdf (default 2026/11/INV-2026-0001.pdf). An existing file is never replaced unless a node asks",
+      "description": "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -137,7 +169,7 @@
           "template": {
             "type": "string",
             "default": "invoice",
-            "description": "Built-in template name (invoice) or a .json layout template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "`invoice` (the ready-made template), or your own template: a .json file in your templates folder, or the `path` that save_template_copy returned"
           },
           "values": {
             "type": "object",
@@ -145,7 +177,7 @@
           },
           "values_file": {
             "type": "string",
-            "description": "Instead of `values`: a .json file with the values, inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Instead of `values`: a .json file with the values, in your templates folder"
           },
           "calculate": {
             "type": "string",
@@ -159,15 +191,15 @@
           },
           "background": {
             "type": "string",
-            "description": "A PDF inside DOCUMENT_TEMPLATES_INPUT_DIRS drawn under every page, e.g. your letterhead (its page 1 under the first page, its page 2, if any, under the others)"
+            "description": "A PDF in your templates folder that is drawn under every page, e.g. your letterhead (its page 1 under the first page, its page 2, if any, under the others)"
           },
           "folder": {
             "type": "string",
-            "description": "Folder inside DOCUMENT_TEMPLATES_OUTPUT_DIR, as a pattern (default \"{YYYY}/{MM}\", the document's year and month). Tokens: {YYYY} {MM} {DD} (from the values' `date`, else today), {number}, {client}, {template}, and {values.some.field}. Example: \"Invoices/{client}/{YYYY}\""
+            "description": "Leave this empty unless a particular folder was asked for: documents are then sorted by year and month (2026/11) inside your documents folder. To sort them another way, write a pattern such as \"Invoices/{client}/{YYYY}\". Tokens: {YYYY} {MM} {DD} (the document's date, else today), {number}, {client}, {template} and {values.some.field}"
           },
           "file_name": {
             "type": "string",
-            "description": "File name without extension, as a pattern with the same tokens (default \"{number}\" when the values have a number, else \"{template}-{YYYY}{MM}{DD}-{time}\")"
+            "description": "Leave this empty to name the file after the document's number (INV-2026-0001). Or a name without extension, as a pattern with the same tokens as `folder`, e.g. \"{number} {client}\""
           },
           "if_exists": {
             "type": "string",
@@ -177,7 +209,7 @@
               "overwrite"
             ],
             "default": "error",
-            "description": "When the file already exists: error (keep it and fail), number (save next to it as name-2, name-3, ...) or overwrite (replace it; workflow nodes only)"
+            "description": "What to do when a document with this name is already there: error (keep it and report the problem; the default), number (keep both: the new one is saved as name-2, name-3, ...) or overwrite (replace it; only a step of a saved agent may do this, never a request made in chat)"
           }
         }
       },
@@ -197,14 +229,14 @@
     {
       "kind": "document-templates.fill_pdf_form",
       "title": "Fill in a PDF form",
-      "description": "Fills the form fields of a fillable PDF (AcroForm) and saves the result as a new PDF. `fields` maps field names to values; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without form fields (a scan, a picture, plain pages) cannot be filled: use render_pdf",
+      "description": "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
       "category": "integration",
       "config_schema": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
-            "description": "The fillable .pdf inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "The PDF form, a .pdf file in your templates folder"
           },
           "fields": {
             "type": "object",
@@ -212,7 +244,7 @@
           },
           "fields_file": {
             "type": "string",
-            "description": "Instead of `fields`: a .json file with the field map, inside DOCUMENT_TEMPLATES_INPUT_DIRS (reusable for every document from this form)"
+            "description": "Instead of `fields`: a .json file with the field names and values, in your templates folder (reusable for every document from this form)"
           },
           "values": {
             "type": "object",
@@ -220,7 +252,7 @@
           },
           "values_file": {
             "type": "string",
-            "description": "Instead of `values`: a .json file with the values, inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Instead of `values`: a .json file with the values, in your templates folder"
           },
           "calculate": {
             "type": "string",
@@ -235,15 +267,15 @@
           "flatten": {
             "type": "boolean",
             "default": true,
-            "description": "Turn the filled fields into plain page content so the result can no longer be edited (default true)"
+            "description": "Make the filled-in values a fixed part of the page, so that nobody can change them afterwards (default true)"
           },
           "folder": {
             "type": "string",
-            "description": "Folder inside DOCUMENT_TEMPLATES_OUTPUT_DIR, as a pattern (default \"{YYYY}/{MM}\", the document's year and month). Tokens: {YYYY} {MM} {DD} (from the values' `date`, else today), {number}, {client}, {template}, and {values.some.field}. Example: \"Invoices/{client}/{YYYY}\""
+            "description": "Leave this empty unless a particular folder was asked for: documents are then sorted by year and month (2026/11) inside your documents folder. To sort them another way, write a pattern such as \"Invoices/{client}/{YYYY}\". Tokens: {YYYY} {MM} {DD} (the document's date, else today), {number}, {client}, {template} and {values.some.field}"
           },
           "file_name": {
             "type": "string",
-            "description": "File name without extension, as a pattern with the same tokens (default \"{number}\" when the values have a number, else \"{template}-{YYYY}{MM}{DD}-{time}\")"
+            "description": "Leave this empty to name the file after the document's number (INV-2026-0001). Or a name without extension, as a pattern with the same tokens as `folder`, e.g. \"{number} {client}\""
           },
           "if_exists": {
             "type": "string",
@@ -253,7 +285,7 @@
               "overwrite"
             ],
             "default": "error",
-            "description": "When the file already exists: error (keep it and fail), number (save next to it as name-2, name-3, ...) or overwrite (replace it; workflow nodes only)"
+            "description": "What to do when a document with this name is already there: error (keep it and report the problem; the default), number (keep both: the new one is saved as name-2, name-3, ...) or overwrite (replace it; only a step of a saved agent may do this, never a request made in chat)"
           }
         },
         "required": [
@@ -276,14 +308,14 @@
     {
       "kind": "document-templates.fill_docx",
       "title": "Fill in a Word template",
-      "description": "Fills the {{placeholders}} of a Word template (.docx or .dotx) and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
+      "description": "Fills in a Word document that has {{placeholders}} (.docx, or a Word template .dotx) and saves the result as a new Word file in your documents folder. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
       "category": "integration",
       "config_schema": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
-            "description": "The .docx or .dotx template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "The Word file, a .docx or .dotx in your templates folder"
           },
           "values": {
             "type": "object",
@@ -291,7 +323,7 @@
           },
           "values_file": {
             "type": "string",
-            "description": "Instead of `values`: a .json file with the values, inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Instead of `values`: a .json file with the values, in your templates folder"
           },
           "calculate": {
             "type": "string",
@@ -305,11 +337,11 @@
           },
           "folder": {
             "type": "string",
-            "description": "Folder inside DOCUMENT_TEMPLATES_OUTPUT_DIR, as a pattern (default \"{YYYY}/{MM}\", the document's year and month). Tokens: {YYYY} {MM} {DD} (from the values' `date`, else today), {number}, {client}, {template}, and {values.some.field}. Example: \"Invoices/{client}/{YYYY}\""
+            "description": "Leave this empty unless a particular folder was asked for: documents are then sorted by year and month (2026/11) inside your documents folder. To sort them another way, write a pattern such as \"Invoices/{client}/{YYYY}\". Tokens: {YYYY} {MM} {DD} (the document's date, else today), {number}, {client}, {template} and {values.some.field}"
           },
           "file_name": {
             "type": "string",
-            "description": "File name without extension, as a pattern with the same tokens (default \"{number}\" when the values have a number, else \"{template}-{YYYY}{MM}{DD}-{time}\")"
+            "description": "Leave this empty to name the file after the document's number (INV-2026-0001). Or a name without extension, as a pattern with the same tokens as `folder`, e.g. \"{number} {client}\""
           },
           "if_exists": {
             "type": "string",
@@ -319,7 +351,7 @@
               "overwrite"
             ],
             "default": "error",
-            "description": "When the file already exists: error (keep it and fail), number (save next to it as name-2, name-3, ...) or overwrite (replace it; workflow nodes only)"
+            "description": "What to do when a document with this name is already there: error (keep it and report the problem; the default), number (keep both: the new one is saved as name-2, name-3, ...) or overwrite (replace it; only a step of a saved agent may do this, never a request made in chat)"
           }
         },
         "required": [
@@ -343,7 +375,7 @@
   "tools": [
     {
       "name": "list_templates",
-      "description": "Lists the built-in templates and the template formats this plugin can fill, with the operation for each",
+      "description": "Lists the ready-made templates and the kinds of template you can bring yourself (your own layout, a PDF form, a Word document), with the operation for each",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -351,26 +383,44 @@
     },
     {
       "name": "describe_template",
-      "description": "Shows what a template needs: for a layout template its fields, placeholders and sample values; for a Word template its {{placeholders}}; for a PDF its form fields (or that it has none)",
+      "description": "Shows what a template needs before you fill it: for the invoice or your own layout, its fields with an example; for a Word document, its {{placeholders}}; for a PDF form, its boxes (or that it has none)",
       "parameters": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
             "default": "invoice",
-            "description": "Built-in template name (invoice), or a .json, .docx, .dotx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "`invoice` (the ready-made template), or a .json, .docx, .dotx or .pdf file in your templates folder"
           },
           "include_layout": {
             "type": "boolean",
             "default": false,
-            "description": "For a layout template: also return its full layout, to save as a .json file and adapt"
+            "description": "For the invoice or your own layout: also return the whole design. To get a copy you can change, use save_template_copy instead"
+          }
+        }
+      }
+    },
+    {
+      "name": "save_template_copy",
+      "description": "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its texts, colours and layout while the original stays as it is. Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "default": "invoice",
+            "description": "The ready-made template to copy (invoice)"
+          },
+          "name": {
+            "type": "string",
+            "description": "A name for your copy, without extension, e.g. \"Quotation\" (default: the template's own name)"
           }
         }
       }
     },
     {
       "name": "next_number",
-      "description": "Issues the next running number for a pattern such as INV-{YYYY}-{SEQ:4} (INV-2026-0001, INV-2026-0002, ...). The count restarts when the pattern's date part changes. Counters are kept in DOCUMENT_TEMPLATES_OUTPUT_DIR/.document-templates/numbering.json",
+      "description": "Gives the next number of a series, such as INV-2026-0001, then INV-2026-0002, so that no two documents get the same number. The count starts again with each new year (or month, when the pattern has one). The last number is remembered in your documents folder",
       "parameters": {
         "type": "object",
         "properties": {
@@ -393,21 +443,21 @@
           "preview": {
             "type": "boolean",
             "default": false,
-            "description": "Only show the next number without reserving it"
+            "description": "Only show what the next number would be, without using it up"
           }
         }
       }
     },
     {
       "name": "render_pdf",
-      "description": "Creates a PDF from a layout template and values: the built-in `invoice`, or your own .json layout template. Totals are calculated for you, the table continues over pages, and the PDF is saved as <folder>/<file_name>.pdf (default 2026/11/INV-2026-0001.pdf). An existing file is never replaced unless a node asks",
+      "description": "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
       "parameters": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
             "default": "invoice",
-            "description": "Built-in template name (invoice) or a .json layout template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "`invoice` (the ready-made template), or your own template: a .json file in your templates folder, or the `path` that save_template_copy returned"
           },
           "values": {
             "type": "object",
@@ -415,7 +465,7 @@
           },
           "values_file": {
             "type": "string",
-            "description": "Instead of `values`: a .json file with the values, inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Instead of `values`: a .json file with the values, in your templates folder"
           },
           "calculate": {
             "type": "string",
@@ -429,15 +479,15 @@
           },
           "background": {
             "type": "string",
-            "description": "A PDF inside DOCUMENT_TEMPLATES_INPUT_DIRS drawn under every page, e.g. your letterhead (its page 1 under the first page, its page 2, if any, under the others)"
+            "description": "A PDF in your templates folder that is drawn under every page, e.g. your letterhead (its page 1 under the first page, its page 2, if any, under the others)"
           },
           "folder": {
             "type": "string",
-            "description": "Folder inside DOCUMENT_TEMPLATES_OUTPUT_DIR, as a pattern (default \"{YYYY}/{MM}\", the document's year and month). Tokens: {YYYY} {MM} {DD} (from the values' `date`, else today), {number}, {client}, {template}, and {values.some.field}. Example: \"Invoices/{client}/{YYYY}\""
+            "description": "Leave this empty unless a particular folder was asked for: documents are then sorted by year and month (2026/11) inside your documents folder. To sort them another way, write a pattern such as \"Invoices/{client}/{YYYY}\". Tokens: {YYYY} {MM} {DD} (the document's date, else today), {number}, {client}, {template} and {values.some.field}"
           },
           "file_name": {
             "type": "string",
-            "description": "File name without extension, as a pattern with the same tokens (default \"{number}\" when the values have a number, else \"{template}-{YYYY}{MM}{DD}-{time}\")"
+            "description": "Leave this empty to name the file after the document's number (INV-2026-0001). Or a name without extension, as a pattern with the same tokens as `folder`, e.g. \"{number} {client}\""
           },
           "if_exists": {
             "type": "string",
@@ -447,20 +497,20 @@
               "overwrite"
             ],
             "default": "error",
-            "description": "When the file already exists: error (keep it and fail), number (save next to it as name-2, name-3, ...) or overwrite (replace it; workflow nodes only)"
+            "description": "What to do when a document with this name is already there: error (keep it and report the problem; the default), number (keep both: the new one is saved as name-2, name-3, ...) or overwrite (replace it; only a step of a saved agent may do this, never a request made in chat)"
           }
         }
       }
     },
     {
       "name": "fill_pdf_form",
-      "description": "Fills the form fields of a fillable PDF (AcroForm) and saves the result as a new PDF. `fields` maps field names to values; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without form fields (a scan, a picture, plain pages) cannot be filled: use render_pdf",
+      "description": "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
       "parameters": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
-            "description": "The fillable .pdf inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "The PDF form, a .pdf file in your templates folder"
           },
           "fields": {
             "type": "object",
@@ -468,7 +518,7 @@
           },
           "fields_file": {
             "type": "string",
-            "description": "Instead of `fields`: a .json file with the field map, inside DOCUMENT_TEMPLATES_INPUT_DIRS (reusable for every document from this form)"
+            "description": "Instead of `fields`: a .json file with the field names and values, in your templates folder (reusable for every document from this form)"
           },
           "values": {
             "type": "object",
@@ -476,7 +526,7 @@
           },
           "values_file": {
             "type": "string",
-            "description": "Instead of `values`: a .json file with the values, inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Instead of `values`: a .json file with the values, in your templates folder"
           },
           "calculate": {
             "type": "string",
@@ -491,15 +541,15 @@
           "flatten": {
             "type": "boolean",
             "default": true,
-            "description": "Turn the filled fields into plain page content so the result can no longer be edited (default true)"
+            "description": "Make the filled-in values a fixed part of the page, so that nobody can change them afterwards (default true)"
           },
           "folder": {
             "type": "string",
-            "description": "Folder inside DOCUMENT_TEMPLATES_OUTPUT_DIR, as a pattern (default \"{YYYY}/{MM}\", the document's year and month). Tokens: {YYYY} {MM} {DD} (from the values' `date`, else today), {number}, {client}, {template}, and {values.some.field}. Example: \"Invoices/{client}/{YYYY}\""
+            "description": "Leave this empty unless a particular folder was asked for: documents are then sorted by year and month (2026/11) inside your documents folder. To sort them another way, write a pattern such as \"Invoices/{client}/{YYYY}\". Tokens: {YYYY} {MM} {DD} (the document's date, else today), {number}, {client}, {template} and {values.some.field}"
           },
           "file_name": {
             "type": "string",
-            "description": "File name without extension, as a pattern with the same tokens (default \"{number}\" when the values have a number, else \"{template}-{YYYY}{MM}{DD}-{time}\")"
+            "description": "Leave this empty to name the file after the document's number (INV-2026-0001). Or a name without extension, as a pattern with the same tokens as `folder`, e.g. \"{number} {client}\""
           },
           "if_exists": {
             "type": "string",
@@ -509,7 +559,7 @@
               "overwrite"
             ],
             "default": "error",
-            "description": "When the file already exists: error (keep it and fail), number (save next to it as name-2, name-3, ...) or overwrite (replace it; workflow nodes only)"
+            "description": "What to do when a document with this name is already there: error (keep it and report the problem; the default), number (keep both: the new one is saved as name-2, name-3, ...) or overwrite (replace it; only a step of a saved agent may do this, never a request made in chat)"
           }
         },
         "required": [
@@ -519,13 +569,13 @@
     },
     {
       "name": "fill_docx",
-      "description": "Fills the {{placeholders}} of a Word template (.docx or .dotx) and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
+      "description": "Fills in a Word document that has {{placeholders}} (.docx, or a Word template .dotx) and saves the result as a new Word file in your documents folder. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
       "parameters": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
-            "description": "The .docx or .dotx template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "The Word file, a .docx or .dotx in your templates folder"
           },
           "values": {
             "type": "object",
@@ -533,7 +583,7 @@
           },
           "values_file": {
             "type": "string",
-            "description": "Instead of `values`: a .json file with the values, inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Instead of `values`: a .json file with the values, in your templates folder"
           },
           "calculate": {
             "type": "string",
@@ -547,11 +597,11 @@
           },
           "folder": {
             "type": "string",
-            "description": "Folder inside DOCUMENT_TEMPLATES_OUTPUT_DIR, as a pattern (default \"{YYYY}/{MM}\", the document's year and month). Tokens: {YYYY} {MM} {DD} (from the values' `date`, else today), {number}, {client}, {template}, and {values.some.field}. Example: \"Invoices/{client}/{YYYY}\""
+            "description": "Leave this empty unless a particular folder was asked for: documents are then sorted by year and month (2026/11) inside your documents folder. To sort them another way, write a pattern such as \"Invoices/{client}/{YYYY}\". Tokens: {YYYY} {MM} {DD} (the document's date, else today), {number}, {client}, {template} and {values.some.field}"
           },
           "file_name": {
             "type": "string",
-            "description": "File name without extension, as a pattern with the same tokens (default \"{number}\" when the values have a number, else \"{template}-{YYYY}{MM}{DD}-{time}\")"
+            "description": "Leave this empty to name the file after the document's number (INV-2026-0001). Or a name without extension, as a pattern with the same tokens as `folder`, e.g. \"{number} {client}\""
           },
           "if_exists": {
             "type": "string",
@@ -561,7 +611,7 @@
               "overwrite"
             ],
             "default": "error",
-            "description": "When the file already exists: error (keep it and fail), number (save next to it as name-2, name-3, ...) or overwrite (replace it; workflow nodes only)"
+            "description": "What to do when a document with this name is already there: error (keep it and report the problem; the default), number (keep both: the new one is saved as name-2, name-3, ...) or overwrite (replace it; only a step of a saved agent may do this, never a request made in chat)"
           }
         },
         "required": [

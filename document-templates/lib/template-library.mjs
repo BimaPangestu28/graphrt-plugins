@@ -22,8 +22,17 @@ const MAX_LAYOUT_BYTES = 2 * 1024 * 1024;
  * @returns The parsed template (object)
  */
 export async function loadBuiltInTemplate(name) {
-  const text = await readFile(fileURLToPath(new URL(`${name}.json`, TEMPLATE_DIRECTORY)), "utf8");
-  return parseLayoutTemplate(text, name);
+  return parseLayoutTemplate(await readBuiltInTemplateText(name), name);
+}
+
+/**
+ * Reads a built-in layout template as the text of its file.
+ *
+ * @param name - One of BUILT_IN_TEMPLATE_NAMES (string)
+ * @returns The template's JSON text (string)
+ */
+export function readBuiltInTemplateText(name) {
+  return readFile(fileURLToPath(new URL(`${name}.json`, TEMPLATE_DIRECTORY)), "utf8");
 }
 
 /**

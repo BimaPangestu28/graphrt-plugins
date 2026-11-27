@@ -15,13 +15,17 @@ import { AS_NODE, AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, buildDocx, bu
 const options = { skip: SKIP_WITHOUT_LIBRARIES };
 const LAYOUT = { format: "graphrt-document-template", version: 1, name: "letter", content: [{ text: "Kepada {{client.name}}", bold: true }, "{{body}}"] };
 
-test("manifest: local only, no secrets, six tools, limits and folders declared", () => {
+test("manifest: local only, no secrets, seven tools, the documents folder first, and descriptions without setting names", () => {
   const manifest = buildManifest(pluginDefinition);
-  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "next_number", "render_pdf", "fill_pdf_form", "fill_docx"]);
+  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "save_template_copy", "next_number", "render_pdf", "fill_pdf_form", "fill_docx"]);
   assert.equal(manifest.permissions.network, false);
   assert.equal(manifest.permissions.secrets, false);
-  assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);
+  assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);
   assert.ok(manifest.limits.timeout_ms > readDocumentSettings({}).timeoutMs);
+  // What the app shows to people who set up and build agents: no variable names, no "node".
+  for (const text of JSON.stringify(manifest).match(/"description":"(?:[^"\\]|\\.)*"/g)) assert.doesNotMatch(text, /DOCUMENT_TEMPLATES_|\bnodes?\b|AcroForm/, text);
+  // Every setting but the documents folder has a default.
+  assert.deepEqual(readDocumentSettings({}), { ...readDocumentSettings({}), maxPages: 200, timeoutMs: 60000, maxMemoryMb: 768, extraFontPaths: [] });
 });
 
 test("settings: limits and font files are validated", () => {
@@ -48,7 +52,7 @@ test("render_pdf: the built-in invoice becomes a filed PDF with the calculated f
   withDocumentRunner({}, async ({ runOperation, outputDirectory }) => {
     const result = await runOperation("render_pdf", { values: JSON.stringify(INVOICE_VALUES) }, AS_TOOL);
     assert.deepEqual({ ...result.data, size_bytes: 0 }, {
-      path: join(outputDirectory, "2026", "11", "INV-2026-0007.pdf"), relative_path: "2026/11/INV-2026-0007.pdf", folder: "2026/11", file_name: "INV-2026-0007.pdf", size_bytes: 0, replaced_existing: false,
+      path: join(outputDirectory, "2026", "11", "INV-2026-0007.pdf"), folder_path: join(outputDirectory, "2026", "11"), relative_path: "2026/11/INV-2026-0007.pdf", folder: "2026/11", file_name: "INV-2026-0007.pdf", size_bytes: 0, replaced_existing: false,
       template: "invoice", number: "INV-2026-0007",
       totals: { currency: "IDR", subtotal: "10000000", discount: "0", tax_total: "1100000", total: "11100000", amount_paid: "0", balance_due: "11100000", total_text: "Rp 11.100.000", balance_due_text: "Rp 11.100.000" },
       page_count: 1,
@@ -231,4 +235,24 @@ test("next_number feeds render_pdf: two invoices get consecutive numbers and the
     assert.deepEqual((await readdir(outputDirectory)).sort(), [".document-templates", "2026"]);
     await mkdir(join(outputDirectory, "x"));
     await assert.rejects(runOperation("next_number", { pattern: "no sequence" }, AS_TOOL), { kind: "invalid_input" });
+  }));
+
+test("only the documents folder has to be set up: a copy of the invoice template is saved there, never over another, and used for a PDF", options, () =>
+  withDocumentRunner({ environment: { DOCUMENT_TEMPLATES_INPUT_DIRS: "" } }, async ({ runOperation, outputDirectory }) => {
+    const copy = await runOperation("save_template_copy", {}, AS_TOOL);
+    assert.deepEqual([copy.data.path, copy.data.folder_path, copy.data.relative_path, copy.data.copied_from, copy.data.replaced_existing], [join(outputDirectory, "Templates", "invoice.json"), join(outputDirectory, "Templates"), "Templates/invoice.json", "invoice", false]);
+    assert.ok(copy.data.how_to_use.includes(JSON.stringify(copy.data.path)));
+    const layout = JSON.parse(await readFile(copy.data.path, "utf8"));
+    layout.labels.en.title = "Quotation";
+    await writeFile(copy.data.path, JSON.stringify(layout));
+    const second = await runOperation("save_template_copy", { template: " Invoice " }, AS_TOOL);
+    assert.equal(second.data.relative_path, "Templates/invoice-2.json");
+    assert.equal(JSON.parse(await readFile(copy.data.path, "utf8")).labels.en.title, "Quotation", "the first copy and its changes are kept");
+    assert.equal((await runOperation("save_template_copy", { name: "../Penawaran: 2026?" }, AS_TOOL)).data.relative_path, "Templates/Penawaran- 2026.json");
+    const rendered = await runOperation("render_pdf", { template: copy.data.path, values: { ...INVOICE_VALUES, language: "en" }, folder: "", file_name: " " }, AS_TOOL);
+    assert.equal(rendered.data.relative_path, "2026/11/INV-2026-0007.pdf");
+    assert.ok((await readPageTexts(await readFile(rendered.data.path)))[0].includes("QUOTATION"));
+    assert.deepEqual((await runOperation("describe_template", { template: copy.data.path }, AS_TOOL)).data.built_in, false);
+    await assert.rejects(runOperation("save_template_copy", { template: "report" }, AS_TOOL), (error) => error.kind === "invalid_input" && /ready-made template \(invoice\)/.test(error.message));
+    await assert.rejects(runOperation("save_template_copy", { name: "..." }, AS_TOOL), { kind: "invalid_input" });
   }));
