@@ -397,6 +397,29 @@ object in `events` starts one run, as its inputs. Keep each call well inside `li
 writes the manifest's `triggers` (graphrt's field, see `docs/plugin-manifest.md` in Graphrt/graphrt) and a Triggers
 table in `OPERATIONS.md`; hosts older than the field refuse such a manifest with an `unknown field` error.
 
+### Services (server side work for collaboration workspaces)
+A definition may declare `services`: work a collaboration server (`graphrt collab`, see `docs/collab.md` in
+Graphrt/graphrt) runs for the workspaces whose owners turn it on. Each names one of the plugin's operations as `tool`:
+
+```js
+services: [{
+  id: "webhook",                          // [a-z0-9_-]{1,64}, unique
+  title: "Send changes to a webhook",
+  tool: "deliver",                        // an operation of this plugin (offered as a tool)
+  access: "owner",                        // lowest workspace role that may call it: viewer, operator or owner
+  events: ["project.changed", "version.saved", "member.joined"],
+  secrets: ["WEBHOOK_URL"],               // workspace secrets an owner grants, one by one
+  reads_projects: false,                  // whether project content goes along
+}]
+```
+
+The server calls the tool with `{event, workspace, project, details, at_ms}` for each event and with
+`{call, workspace, caller, project}` when a member calls the service. Granted secrets arrive in the tool call's
+`toolContext.secrets` (only for plugins the server trusts), never in the environment: a service that asks for
+secrets needs a definition that offers node tokens (the manifest's `permissions.secrets: true`). `npm run sync`
+copies `services` into the manifest as it is. graphrt checks it when the plugin loads. See
+[`collab-webhooks/`](../collab-webhooks/) for a complete one.
+
 ## Load-time validation
 `defineRestPlugin` checks the spec when `definition.mjs` is imported (so `npm run sync` fails at once).
 - **Typos and names:** unknown keys (`requried`), unknown param locations, types and styles, invalid or duplicate

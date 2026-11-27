@@ -81,6 +81,11 @@
     "reason": "Keyless public API read live (2026-11-19); the Demo and Pro key paths are checked only with fakes.",
     "tos_risk": "none"
   },
+  "collab-webhooks": {
+    "status": "beta",
+    "reason": "No third party API: posts to the address a workspace owner grants. Unit-tested with fakes; the service path checked end to end on a real graphrt collab server (granted secrets arrive, a loopback address is refused).",
+    "tos_risk": "none"
+  },
   "computer-control": {
     "status": "experimental",
     "reason": "Desktop UI automation: only read-only operations ran live; clicks, typing and the WhatsApp Desktop recipe are unverified.",

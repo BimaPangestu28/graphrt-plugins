@@ -1,0 +1,14 @@
+# The collab-webhooks node in a workflow: post a test message to COLLAB_WEBHOOK_URL.
+# On a collaboration server the plugin runs as the `webhook` service instead (see README.md).
+version: "1"
+name: collab-webhook-test
+graph:
+  nodes:
+    - { id: start, type: start }
+    - id: post
+      type: collab-webhooks.deliver
+      workspace: { name: "My team" }
+    - { id: done, type: answer, answer: "{{#post.data#}}" }
+  edges:
+    - { source: start, target: post }
+    - { source: post, target: done }

@@ -1,0 +1,152 @@
+{
+  "name": "collab-webhooks",
+  "version": "0.1.0",
+  "description": "Posts the events of a Graphrt collaboration workspace (a project changed, a version saved, someone joined) to a webhook such as Slack or Teams, signed with HMAC-SHA256",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "command": "node",
+  "args": [
+    "plugin.mjs"
+  ],
+  "permissions": {
+    "network": true,
+    "secrets": true,
+    "env": [
+      "COLLAB_WEBHOOK_URL",
+      "COLLAB_WEBHOOK_SECRET"
+    ]
+  },
+  "limits": {
+    "timeout_ms": 30000,
+    "max_concurrency": 4
+  },
+  "nodes": [
+    {
+      "kind": "collab-webhooks.deliver",
+      "title": "Send a workspace event to a webhook",
+      "description": "Post one collaboration workspace event (project.changed, version.saved, member.joined) to the webhook, signed with HMAC-SHA256. Without an event it sends a test message.",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "project.changed",
+              "version.saved",
+              "member.joined"
+            ],
+            "description": "The event (none: a test message)"
+          },
+          "workspace": {
+            "type": "object",
+            "description": "The workspace: {id, name}"
+          },
+          "project": {
+            "type": "object",
+            "description": "The project: {id, name}"
+          },
+          "details": {
+            "type": "object",
+            "description": "What happened (who, version, role)"
+          },
+          "at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "When it happened, Unix milliseconds"
+          },
+          "call": {
+            "type": "object",
+            "description": "Set when a member calls the service directly (a test)"
+          },
+          "caller": {
+            "type": "object",
+            "description": "Who called the service: {id, name, role}"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Overrides the plugin's default token for this node (use a secret; needs --trust-plugin)"
+          }
+        },
+        "required": []
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "deliver",
+      "description": "Post one collaboration workspace event (project.changed, version.saved, member.joined) to the webhook, signed with HMAC-SHA256. Without an event it sends a test message.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "project.changed",
+              "version.saved",
+              "member.joined"
+            ],
+            "description": "The event (none: a test message)"
+          },
+          "workspace": {
+            "type": "object",
+            "description": "The workspace: {id, name}"
+          },
+          "project": {
+            "type": "object",
+            "description": "The project: {id, name}"
+          },
+          "details": {
+            "type": "object",
+            "description": "What happened (who, version, role)"
+          },
+          "at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "When it happened, Unix milliseconds"
+          },
+          "call": {
+            "type": "object",
+            "description": "Set when a member calls the service directly (a test)"
+          },
+          "caller": {
+            "type": "object",
+            "description": "Who called the service: {id, name, role}"
+          }
+        },
+        "required": []
+      }
+    }
+  ],
+  "services": [
+    {
+      "id": "webhook",
+      "title": "Send changes to a webhook",
+      "description": "Posts to the team's webhook when a project changes, a version is saved or someone joins the workspace. Grant WEBHOOK_URL, and WEBHOOK_SECRET to sign the posts.",
+      "tool": "deliver",
+      "access": "owner",
+      "events": [
+        "project.changed",
+        "version.saved",
+        "member.joined"
+      ],
+      "secrets": [
+        "WEBHOOK_URL",
+        "WEBHOOK_SECRET"
+      ],
+      "reads_projects": false
+    }
+  ]
+}

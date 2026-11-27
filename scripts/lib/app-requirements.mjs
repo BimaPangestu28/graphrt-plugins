@@ -77,6 +77,13 @@ export const MANIFEST_FEATURES = Object.freeze([
     manifestKeys: ["templates"],
     uses: (manifest) => Object.hasOwn(manifest, "templates"),
   },
+  {
+    id: "services",
+    minAppVersion: "0.3.0",
+    reason: "runs on a collaboration server (manifest `services`)",
+    manifestKeys: ["services"],
+    uses: (manifest) => Object.hasOwn(manifest, "services"),
+  },
 ]);
 
 /**

@@ -15,6 +15,7 @@ its own `graphrt-plugin.json`, and it can be installed on its own.
 | [linkedin-api](linkedin-api/) | beta | **high** | LinkedIn posts, images, comments and reactions for members and organizations | 15 |
 | [tiktok-api](tiktok-api/) | experimental | medium | TikTok profile, videos and publishing, plus comments and DMs via the Business API | 19 |
 | [state-store](state-store/) | stable | none | Local state for polling workflows: seen-id sets with TTL (`filter_unseen`), JSON key/values and atomic counters | 11 |
+| [collab-webhooks](collab-webhooks/) | beta | none | A collaboration server service: posts workspace events (a project changed, a version saved, someone joined) to a webhook such as Slack or Teams, signed with HMAC-SHA256 | 1 |
 | [computer-control](computer-control/) | experimental | medium | Control macOS apps (incl. WhatsApp Desktop) via the Accessibility tree: read UI, click, type, keys, clipboard, screenshots — limited to an app allowlist | 17 |
 | [whatsapp-web](whatsapp-web/) | experimental | **high** | Your personal WhatsApp in the background via a headless WhatsApp Web session: read chats, send messages and files (rate limited) | 7 |
 | [whatsapp-api](whatsapp-api/) | beta | low | WhatsApp Business Cloud API: send text, templates, media and interactive messages, manage templates and the profile | 19 |
