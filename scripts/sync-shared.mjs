@@ -1,5 +1,6 @@
 /**
- * Copies shared/lib into every shared-based plugin's lib/shared/ and
+ * Copies shared/lib into every shared-based plugin's lib/shared/, copies the
+ * files of shared/optional into the plugins its plugins.json names, and
  * regenerates each graphrt-plugin.json and OPERATIONS.md from its definition.mjs.
  *
  * Plugins are installed one directory at a time (`graphrt plugin install <dir>`),
@@ -11,12 +12,18 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
-import { findSharedPlugins, SHARED_LIB_DIR } from "./plugins.mjs";
+import { findSharedPlugins, REPO_ROOT, SHARED_LIB_DIR } from "./plugins.mjs";
+import { readOptionalSharedFiles } from "./lib/optional-shared.mjs";
 import { buildManifest, offersNodeToken } from "../shared/lib/operations.mjs";
 import { buildManifestTriggers, renderTriggerSection } from "./lib/plugin-triggers.mjs";
 
 const isCheckMode = process.argv.includes("--check");
 const staleFiles = [];
+
+// Before the manifests: a definition may import a file that is copied here.
+for (const { relativePath, content, pluginDirectories } of readOptionalSharedFiles(join(REPO_ROOT, "shared", "optional"), REPO_ROOT)) {
+  for (const pluginDirectory of pluginDirectories) writeIfChanged(join(pluginDirectory, relativePath), content);
+}
 
 for (const pluginDirectory of findSharedPlugins()) {
   syncSharedLibrary(pluginDirectory);

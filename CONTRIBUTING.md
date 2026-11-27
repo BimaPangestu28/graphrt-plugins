@@ -62,6 +62,7 @@ Run `npm run sync` at the repo root after every change to a definition, to `shar
 `plugin-status.json`. It regenerates:
 
 - `<plugin>/lib/shared/`, a copy of `shared/lib` (each plugin is installed on its own, so each carries a copy),
+- the files of `shared/optional/` in the plugins that `shared/optional/plugins.json` names (see below),
 - `<plugin>/graphrt-plugin.json`, built from `definition.mjs`,
 - `<plugin>/OPERATIONS.md`,
 - the status columns of the root README table and the `**Status:**` line of each plugin README.
@@ -226,6 +227,20 @@ number of operations (nodes) listed in the generated `OPERATIONS.md`.
 Add the plugin's display name to [`plugin-names.json`](plugin-names.json), e.g. `"currency-rates": "Currency Rates"`.
 Use the brand's own spelling ("GitHub", "OpenAI Images", "WhatsApp Cloud API"), at most 60 characters. The
 catalog publishes it as `display_name` and the desktop app shows it; `npm test` fails if a plugin has none.
+
+### Code that only some plugins share (`shared/optional/`)
+`shared/lib` goes into every plugin. Code that a few plugins share, usually because it needs an npm package only
+they install, lives once under `shared/optional/` and is copied by `npm run sync` into the plugins named in
+[`shared/optional/plugins.json`](shared/optional/plugins.json):
+
+```json
+{ "lib/pdf-protection.mjs": ["document-templates", "pdf-tools"] }
+```
+
+The key is the file's path under `shared/optional/` and also inside each plugin (`lib/` or `test/`, `.mjs`).
+Edit the file there, never the copies: `npm test` fails when a copy differs. A change to a `lib/` file changes
+every plugin that carries it, so each of them needs a new version. The file may import what every one of its
+plugins has next to it (`./errors.mjs`, `./shared/...`).
 
 ### graphrt-settings.json (optional)
 A manifest only names the environment variables a plugin reads (`permissions.env`). Without more, the desktop

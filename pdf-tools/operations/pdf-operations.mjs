@@ -8,6 +8,7 @@ import { assertRasterFormat } from "../lib/raster-format.mjs";
 import { normalizeHexColor } from "../lib/colors.mjs";
 
 const INPUT_PARAMETER = { type: "string", description: "PDF file inside PDF_TOOLS_INPUT_DIRS (or PDF_TOOLS_OUTPUT_DIR); absolute, ~/..., or relative to the first input directory" };
+const PASSWORD_PARAMETER = { type: "string", format: "password", description: "Only for a PDF that asks for a password when you open it, or to lift the restrictions its publisher set: that password. It is used to open the file and is not saved or shown anywhere. Most protected PDFs open without one; leave this empty for them" };
 const PAGES_PARAMETER = { type: "string", description: "Pages such as \"1-3,5,8-\" (1-based; default: all pages)" };
 const MAX_MERGE_INPUTS = 50;
 const MAX_IMAGES = 200;
@@ -15,11 +16,11 @@ const MAX_IMAGES = 200;
 const infoOperation = {
   name: "info",
   title: "Read PDF info",
-  description: "Page count, whether the PDF is encrypted, document metadata (title, author, subject, keywords, creator, producer, dates) and the size and rotation of up to 100 pages",
-  parameters: { type: "object", properties: { input: INPUT_PARAMETER }, required: ["input"] },
+  description: "Page count, whether the PDF is protected (encrypted) and what its publisher then allows (`permissions`), document metadata (title, author, subject, keywords, creator, producer, dates) and the size and rotation of up to 100 pages",
+  parameters: { type: "object", properties: { input: INPUT_PARAMETER, password: PASSWORD_PARAMETER }, required: ["input"] },
   run: async ({ client, args, signal }) => {
     const { path, bytes } = await client.readPdf(args.input);
-    const { data } = await client.runTask("inspect", { bytes }, signal);
+    const { data } = await client.runTask("inspect", { bytes, password: args.password }, signal);
     return { data: { path, size_bytes: bytes.length, ...data } };
   },
 };
@@ -34,12 +35,13 @@ const extractTextOperation = {
       input: INPUT_PARAMETER,
       pages: PAGES_PARAMETER,
       max_chars: { type: "integer", minimum: 100, maximum: 2000000, default: 100000, description: "Most characters returned in total" },
+      password: PASSWORD_PARAMETER,
     },
     required: ["input"],
   },
   run: async ({ client, args, signal }) => {
     const { path, bytes } = await client.readPdf(args.input);
-    const { data } = await client.runTask("extract_text", { bytes, pages: args.pages, maxChars: args.max_chars }, signal);
+    const { data } = await client.runTask("extract_text", { bytes, pages: args.pages, maxChars: args.max_chars, password: args.password }, signal);
     return { data: { path, ...data } };
   },
 };
@@ -52,6 +54,7 @@ const mergeOperation = {
     type: "object",
     properties: {
       inputs: { type: "array", items: { type: "string" }, maxItems: MAX_MERGE_INPUTS, description: "PDF files in order, each inside PDF_TOOLS_INPUT_DIRS" },
+      password: { ...PASSWORD_PARAMETER, description: `${PASSWORD_PARAMETER.description}. The one password is used for every input that is protected` },
       output_name: OUTPUT_NAME_PARAMETER,
     },
     required: ["inputs"],
@@ -60,7 +63,7 @@ const mergeOperation = {
     if (args.inputs.length < 2) throw invalidInput("`inputs` needs at least 2 PDFs");
     const files = await client.readInputs(args.inputs, (rawPath, index) => client.readPdf(rawPath, `inputs[${index}]`));
     const documents = files.map((file) => file.bytes);
-    const { data, outputs } = await client.runTask("merge", { documents }, signal);
+    const { data, outputs } = await client.runTask("merge", { documents, password: args.password }, signal);
     const [outputFile] = await client.saveOutputs(outputs, [buildNameHint(args.output_name ?? "merged")]);
     return { data: { ...outputFile, ...data } };
   },
@@ -70,10 +73,10 @@ const extractPagesOperation = {
   name: "extract_pages",
   title: "Extract pages",
   description: "Copies the selected pages (in the order given, e.g. \"3,1-2\") into one new PDF",
-  parameters: { type: "object", properties: { input: INPUT_PARAMETER, pages: { ...PAGES_PARAMETER, description: "Pages such as \"1-3,5\" (1-based)" }, output_name: OUTPUT_NAME_PARAMETER }, required: ["input", "pages"] },
+  parameters: { type: "object", properties: { input: INPUT_PARAMETER, pages: { ...PAGES_PARAMETER, description: "Pages such as \"1-3,5\" (1-based)" }, password: PASSWORD_PARAMETER, output_name: OUTPUT_NAME_PARAMETER }, required: ["input", "pages"] },
   run: async ({ client, args, signal }) => {
     const { path, bytes } = await client.readPdf(args.input);
-    const { data, outputs } = await client.runTask("extract_pages", { bytes, pages: args.pages }, signal);
+    const { data, outputs } = await client.runTask("extract_pages", { bytes, pages: args.pages, password: args.password }, signal);
     const [outputFile] = await client.saveOutputs(outputs, [buildNameHint(args.output_name, path)]);
     return { data: { ...outputFile, ...data } };
   },
@@ -89,6 +92,7 @@ const splitOperation = {
       input: INPUT_PARAMETER,
       ranges: { type: "array", items: { type: "string" }, maxItems: 200, description: "Page selections, one output each" },
       every: { type: "integer", minimum: 1, maximum: 100000, description: "Pages per output when `ranges` is not given (default 1)" },
+      password: PASSWORD_PARAMETER,
       output_name: OUTPUT_NAME_PARAMETER,
     },
     required: ["input"],
@@ -96,10 +100,10 @@ const splitOperation = {
   run: async ({ client, args, signal }) => {
     if (args.ranges?.length && args.every !== undefined) throw invalidInput("Pass `ranges` or `every`, not both");
     const { path, bytes } = await client.readPdf(args.input);
-    const { data, outputs } = await client.runTask("split", { bytes, ranges: args.ranges, every: args.every }, signal);
+    const { data, outputs } = await client.runTask("split", { bytes, ranges: args.ranges, every: args.every, password: args.password }, signal);
     const nameHint = buildNameHint(args.output_name, path);
     const files = await client.saveOutputs(outputs, data.parts.map((_, index) => `${nameHint}-part${index + 1}`));
-    return { data: { files: files.map((file, index) => ({ ...file, pages: data.parts[index].pages })) } };
+    return { data: { files: files.map((file, index) => ({ ...file, pages: data.parts[index].pages })), was_protected: data.was_protected } };
   },
 };
 
@@ -113,13 +117,14 @@ const rotateOperation = {
       input: INPUT_PARAMETER,
       degrees: { type: "integer", enum: [90, 180, 270, -90], default: 90, description: "Clockwise rotation" },
       pages: PAGES_PARAMETER,
+      password: PASSWORD_PARAMETER,
       output_name: OUTPUT_NAME_PARAMETER,
     },
     required: ["input"],
   },
   run: async ({ client, args, signal }) => {
     const { path, bytes } = await client.readPdf(args.input);
-    const { data, outputs } = await client.runTask("rotate", { bytes, degrees: args.degrees, pages: args.pages }, signal);
+    const { data, outputs } = await client.runTask("rotate", { bytes, degrees: args.degrees, pages: args.pages, password: args.password }, signal);
     const [outputFile] = await client.saveOutputs(outputs, [buildNameHint(args.output_name, path)]);
     return { data: { ...outputFile, ...data } };
   },
@@ -140,6 +145,7 @@ const watermarkOperation = {
       color: { type: "string", default: "#ff0000", description: "Text colour (hex)" },
       placement: { type: "string", enum: ["center", "top", "bottom"], default: "center", description: "Vertical placement" },
       pages: PAGES_PARAMETER,
+      password: PASSWORD_PARAMETER,
       output_name: OUTPUT_NAME_PARAMETER,
     },
     required: ["input", "text"],
@@ -148,7 +154,7 @@ const watermarkOperation = {
     if (args.text.length > 200) throw invalidInput("`text` must be at most 200 characters");
     const color = hexToUnitRgb(normalizeHexColor(args.color));
     const { path, bytes } = await client.readPdf(args.input);
-    const payload = { bytes, text: args.text, fontSize: args.font_size, opacity: args.opacity, angle: args.angle, color, placement: args.placement, pages: args.pages };
+    const payload = { bytes, text: args.text, fontSize: args.font_size, opacity: args.opacity, angle: args.angle, color, placement: args.placement, pages: args.pages, password: args.password };
     const { data, outputs } = await client.runTask("watermark", payload, signal);
     const [outputFile] = await client.saveOutputs(outputs, [buildNameHint(args.output_name, path)]);
     return { data: { ...outputFile, ...data } };

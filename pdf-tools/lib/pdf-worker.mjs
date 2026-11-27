@@ -18,6 +18,7 @@ process.once("message", async ({ task, payload }) => {
 });
 
 function classifyPdfImportError(taskError) {
-  const missingPackage = /pdfjs-dist/.test(taskError?.message ?? "") ? "pdfjs-dist" : "pdf-lib";
+  const message = taskError?.message ?? "";
+  const missingPackage = /pdfjs-dist/.test(message) ? "pdfjs-dist" : /qpdf-wasm/.test(message) ? "@neslinesli93/qpdf-wasm" : "pdf-lib";
   return classifyImportError(missingPackage, "pdf-tools", taskError);
 }

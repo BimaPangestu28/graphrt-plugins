@@ -10,7 +10,7 @@ from images. It uses [pdf-lib](https://pdf-lib.js.org/) for structure and Mozill
 directory.
 
 ## Features
-- **`info`:** page count, `encrypted`, title, author, subject, keywords, creator, producer, creation and modification
+- **`info`:** page count, `encrypted`, for a protected PDF what its publisher allows (`permissions`), title, author, subject, keywords, creator, producer, creation and modification
   dates, and the size and rotation of up to 100 pages.
 - **`extract_text`:** the text layer per page for `pages` (e.g. `"1-3,5,8-"`), capped by `max_chars` (default
   100000) with a `truncated` flag. There is no OCR: scanned pages come back empty (use the ocr-tesseract plugin).
@@ -26,9 +26,49 @@ directory.
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md).
 
+## Protected PDFs
+Many PDFs are protected (encrypted), official forms above all. Every operation that reads a PDF (`info`,
+`extract_text`, `merge`, `extract_pages`, `split`, `rotate`, `watermark`) opens them:
+
+- **PDFs that open without a password** and are protected only to carry their publisher's restrictions are
+  opened as every PDF reader opens them; you give no password.
+- **PDFs that ask for a password when you open them** need that password as `password`. It is used once, in
+  memory, to open the file. It is never saved, never written to a log and never part of a result or an error
+  message. A password is never guessed: without the right one the call is refused with a message that says a
+  password is needed, or that the one given does not fit. `merge` uses the one `password` for every input that is
+  protected.
+
+**The publisher's restrictions are kept.** A protected PDF says what may be done with it. An operation the
+publisher forbids is refused, with a message that says which restriction it is:
+
+| Operation | Needs the publisher to allow | In `info` as `permissions.` |
+|-----------|------------------------------|------------------------------|
+| `info` | nothing: it always answers | |
+| `extract_text` | copying text | `copy_text` |
+| `merge`, `extract_pages`, `split`, `rotate` | putting pages together, taking them out or rotating them (or changing the document) | `assemble_pages` |
+| `watermark` | changing the document | `change_pages` |
+
+`info` also reports `fill_forms` and `print`, which no operation here needs. Give the PDF's permissions password
+(also called the owner password) as `password` and nothing is refused: that password is the publisher's own way
+to lift the restrictions. For a PDF that asks for a password and gets none, `info` answers only
+`encrypted: true` and `password_required: true`.
+
+Official forms are usually strict. Of five tested (USCIS G-1145, I-765 and G-28, OPM SF 181, Australian Form 80)
+all allow printing and filling in, two allow copying text, and none allows rearranging or changing pages. To fill
+such a form in, use the `document-templates` plugin (`fill_pdf_form`); the filled copy it saves has no protection
+and can be merged, split or watermarked here.
+
+**Results are saved without protection.** A PDF written by `merge`, `extract_pages`, `split`, `rotate` or
+`watermark` opens without a password and carries no restrictions, also when its input was protected; the result
+then says `was_protected: true`. If it should stay behind a password, protect it again with your PDF program.
+
+All formats of the PDF standard's password security are opened (RC4 40 and 128 bit, AES 128 and 256 bit), by
+[qpdf](https://qpdf.org) compiled to WebAssembly: nothing to install, the same on Windows, macOS and Linux, inside
+the worker process and without touching a file on disk. PDFs protected with a certificate are refused.
+
 ## Prerequisites
 - Node.js 22.13 or newer (pdfjs-dist 6 needs it).
-- `npm install` in this directory (`pdf-lib` 1.17.1, `pdfjs-dist` 6.4.299). Without it calls return
+- `npm install` in this directory (`pdf-lib` 1.17.1, `pdfjs-dist` 6.4.299, `@neslinesli93/qpdf-wasm` 0.3.1, which is qpdf 12.2.0). Without it calls return
   `setup_required`.
 
 ## Installation
@@ -83,7 +123,10 @@ Paths may be absolute, `~/...`, or relative to the first input directory. An out
   `split` that fails partway removes the parts it already wrote and names them in the error.
 - **Hard links:** inputs with more than one hard link are refused, since a hard link inside an allowed directory
   could point at a file outside it.
-- **Encrypted PDFs** are reported by `info` and refused by the other operations.
+- **Protected PDFs:** only the password that was given, or none, is ever tried. It reaches the worker process in
+  memory (never on a command line, in an environment variable or in a file on disk) and is gone when the worker
+  exits. What the publisher forbids is refused unless the permissions password is given
+  ([Protected PDFs](#protected-pdfs)).
 - **Agents vs nodes:** all operations are available as tools; they only read allowlisted files and add new files to
   the output directory (setting `PDF_TOOLS_OUTPUT_DIR` is the opt-in for writing).
 
@@ -92,7 +135,7 @@ Paths may be absolute, `~/...`, or relative to the first input directory. An out
 |------|------|
 | `setup_required` | npm packages not installed, `PDF_TOOLS_INPUT_DIRS` or (for outputs) `PDF_TOOLS_OUTPUT_DIR` unset |
 | `not_found` | The file is missing or outside the allowed directories |
-| `invalid_input` | Not a PDF, unreadable or encrypted PDF, over a cap (including the memory budget), bad page selection, text the font can't draw |
+| `invalid_input` | Not a PDF, unreadable PDF, a protected PDF whose password is missing or wrong or whose publisher forbids the operation, over a cap (including the memory budget), bad page selection, text the font can't draw |
 | `timeout` / `cancelled` | The worker passed `PDF_TOOLS_TIMEOUT_MS` or the call was cancelled; nothing is kept |
 | `plugin_error` | The worker crashed (malformed file or memory limit) or another failure |
 

@@ -20,7 +20,7 @@ import { pdfOperations } from "./operations/pdf-operations.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "pdf-tools",
-    version: "0.1.1",
+    version: "0.2.0",
     description: "Local PDFs: page count and metadata, text extraction, merge, extract or split pages, rotate, text watermark and images to PDF, on files in allowed directories",
     extraEnv: [FILE_VARIABLES.inputDirs, FILE_VARIABLES.outputDir, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, ...LIMIT_VARIABLES],
     localOnly: true,

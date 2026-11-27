@@ -11,9 +11,14 @@
  * password the caller gives. A password is never guessed, and it is never
  * part of a message, a log line or a result.
  *
- * The result is a copy without protection, which pdf-lib can read. Whether
- * the publisher allows the form to be filled in is reported, not decided,
- * here (see pdf-form.mjs).
+ * The result is a copy without protection, which pdf-lib and pdf.js can
+ * read. What the publisher allows (filling in, copying text, rearranging or
+ * changing pages) is reported here, not decided: the plugin that asked
+ * decides what to refuse.
+ *
+ * This file lives in shared/optional/lib and is copied by `npm run sync`
+ * into the plugins that shared/optional/plugins.json names. It needs the npm
+ * package @neslinesli93/qpdf-wasm and the plugin's own errors.mjs.
  */
 import { createRequire } from "node:module";
 import { invalidInput } from "./errors.mjs";
@@ -27,8 +32,18 @@ const PASSWORD_PATH = "/password.txt";
 const QPDF_SUCCESS_CODES = new Set([0, 3]);
 const ENCRYPT_MARKER = Buffer.from("/Encrypt", "latin1");
 
-export const PASSWORD_NEEDED_MESSAGE = "This PDF asks for a password when it is opened. Give that password as `password`; it is used only to open the file and is not saved or shown anywhere";
-export const PASSWORD_WRONG_MESSAGE = "The password that was given is not a password of this PDF. Check it and try again; a form that opens without a password needs none";
+/** `reason` of the error when a PDF asks for a password and none was given. */
+export const PASSWORD_NEEDED = "password_needed";
+/** `reason` of the error when the password that was given does not fit. */
+export const PASSWORD_WRONG = "password_wrong";
+
+function passwordRefusal(label, hasPassword) {
+  const refusal = hasPassword
+    ? invalidInput(`The password that was given is not a password of ${label}. Check it and try again; a PDF that opens without a password needs none`)
+    : invalidInput(`A password is needed to open ${label}. Give it as \`password\`; it is used only to open the file and is not saved or shown anywhere`);
+  refusal.reason = hasPassword ? PASSWORD_WRONG : PASSWORD_NEEDED;
+  return refusal;
+}
 
 /**
  * Says whether a PDF can be protected at all: the entry that switches protection on is always written in plain
@@ -92,11 +107,11 @@ function describeFailure(qpdfMessage) {
 /**
  * Opens a PDF that may be protected and returns a copy without protection.
  *
- * @param request - `{bytes, password}`; password is only for a PDF that asks for one (object)
- * @returns `{bytes, protection}`; protection is null for a PDF that is not protected (the bytes are then the ones given), otherwise `{isFillingAllowed, isOpenedWithPassword}` (object)
- * @throws PluginError kind `invalid_input` - When the PDF needs a password that was not given or is wrong, or cannot be read
+ * @param request - `{bytes, password, label}`; password is only for a PDF that asks for one, label names the file in messages (default "this PDF") (object)
+ * @returns `{bytes, protection}`; protection is null for a PDF that is not protected (the bytes are then the ones given), otherwise `{isFillingAllowed, isTextCopyingAllowed, isPageAssemblyAllowed, isChangingAllowed, isPrintingAllowed, isOpenedWithPassword, hasFullAccess}` (object)
+ * @throws PluginError kind `invalid_input` - When the PDF needs a password that was not given (`reason` PASSWORD_NEEDED) or is wrong (`reason` PASSWORD_WRONG), or cannot be read
  */
-export async function openProtectedPdf({ bytes, password }) {
+export async function openProtectedPdf({ bytes, password, label = "this PDF" }) {
   const givenPassword = assertPassword(password);
   const qpdf = await startQpdf();
   qpdf.files.writeFile(INPUT_PATH, bytes);
@@ -113,21 +128,32 @@ export async function openProtectedPdf({ bytes, password }) {
   const runOrRefuse = (qpdfArguments) => {
     if (hasOpened(qpdfArguments)) return;
     const qpdfMessage = qpdf.readMessage();
-    if (/invalid password/i.test(qpdfMessage)) throw invalidInput(givenPassword === null ? PASSWORD_NEEDED_MESSAGE : PASSWORD_WRONG_MESSAGE);
-    throw invalidInput(`The template is not a PDF that can be opened here: ${describeFailure(qpdfMessage)}`);
+    if (/invalid password/i.test(qpdfMessage)) throw passwordRefusal(label, givenPassword !== null);
+    throw invalidInput(`Could not open ${label}, it is not a PDF that can be opened here: ${describeFailure(qpdfMessage)}`);
   };
   runOrRefuse(["--json", "--json-key=encrypt", INPUT_PATH, DETAILS_PATH]);
   // Only these entries are read; the rest of qpdf's report stays in the in-memory file.
   const { encrypted: isEncrypted, capabilities, ownerpasswordmatched: isOwnerPassword } = JSON.parse(Buffer.from(qpdf.files.readFile(DETAILS_PATH)).toString("utf8")).encrypt;
   if (!isEncrypted) return { bytes, protection: null };
   runOrRefuse(["--decrypt", INPUT_PATH, OUTPUT_PATH]);
+  // The permissions password (owner password) lifts every restriction; that is what it is for.
+  const hasFullAccess = Boolean(isOwnerPassword);
+  const allows = (...capabilityNames) => hasFullAccess || capabilityNames.some((capabilityName) => Boolean(capabilities?.[capabilityName]));
   return {
     bytes: qpdf.files.readFile(OUTPUT_PATH),
     protection: {
-      // PDF permission bits 9 (fill in form fields) and 6 (annotate, which includes filling in); the
-      // permissions password lifts every restriction.
-      isFillingAllowed: Boolean(isOwnerPassword || capabilities?.modifyforms || capabilities?.modifyannotations),
+      // PDF permission bits 9 (fill in form fields) and 6 (annotate, which includes filling in).
+      isFillingAllowed: allows("modifyforms", "modifyannotations"),
+      // Bit 5 (copy or extract text and graphics).
+      isTextCopyingAllowed: allows("extract"),
+      // Bits 11 (insert, delete and rotate pages) and 4 (change the document, which includes that).
+      isPageAssemblyAllowed: allows("modifyassembly", "modifyother"),
+      // Bit 4 (change the contents of pages).
+      isChangingAllowed: allows("modifyother"),
+      // Bits 3 and 12 (print, in low or high quality).
+      isPrintingAllowed: allows("printlow", "printhigh"),
       isOpenedWithPassword: givenPassword !== null,
+      hasFullAccess,
     },
   };
 }

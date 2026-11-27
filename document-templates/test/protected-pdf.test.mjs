@@ -57,9 +57,9 @@ test("fill_pdf_form: a PDF that asks for a password opens only with the password
       const messages = [];
       const refusedWith = (pattern) => (error) => messages.push(error.message) > 0 && isRefused(pattern)(error);
       for (const operation of ["describe_template", "fill_pdf_form"]) {
-        await assert.rejects(runOperation(operation, { template, fields, file_name: "never" }, AS_TOOL), refusedWith(/asks for a password.*Give that password as `password`/), operation);
-        await assert.rejects(runOperation(operation, { template, fields, password: "", file_name: "never" }, AS_TOOL), refusedWith(/asks for a password/), operation);
-        await assert.rejects(runOperation(operation, { template, fields, password: "a guess", file_name: "never" }, AS_TOOL), refusedWith(/is not a password of this PDF/), operation);
+        await assert.rejects(runOperation(operation, { template, fields, file_name: "never" }, AS_TOOL), refusedWith(/A password is needed to open the template\. Give it as `password`/), operation);
+        await assert.rejects(runOperation(operation, { template, fields, password: "", file_name: "never" }, AS_TOOL), refusedWith(/A password is needed to open/), operation);
+        await assert.rejects(runOperation(operation, { template, fields, password: "a guess", file_name: "never" }, AS_TOOL), refusedWith(/is not a password of the template/), operation);
         await assert.rejects(runOperation(operation, { template, fields, password: "two\nlines", file_name: "never" }, AS_TOOL), refusedWith(/one line of at most 256 characters/), operation);
       }
       const described = await runOperation("describe_template", { template, password: OPEN_PASSWORD }, AS_TOOL);
@@ -81,7 +81,7 @@ test("fill_pdf_form: a form its publisher locked against filling in is listed bu
       assert.deepEqual([described.data.kind, described.data.is_protected, described.data.filling_allowed, described.data.fields.length], ["pdf_form", true, false, 5], template);
       assert.match(described.data.hint, /locked it against being filled in.*permissions password/);
       await assert.rejects(runOperation("fill_pdf_form", { template, fields, file_name: "never" }, AS_TOOL), isRefused(/locked it against being filled in.*permissions password.*`password`/), template);
-      await assert.rejects(runOperation("fill_pdf_form", { template, fields, password: "not it", file_name: "never" }, AS_TOOL), isRefused(/is not a password of this PDF/), template);
+      await assert.rejects(runOperation("fill_pdf_form", { template, fields, password: "not it", file_name: "never" }, AS_TOOL), isRefused(/is not a password of the template/), template);
       const unlocked = await runOperation("fill_pdf_form", { template, fields, password: PERMISSIONS_PASSWORD, file_name: `unlocked-${bits}` }, AS_TOOL);
       assert.ok((await readPageTexts(await readFile(unlocked.data.path)))[0].includes("INV-7"), template);
       assert.equal((await runOperation("describe_template", { template, password: PERMISSIONS_PASSWORD }, AS_TOOL)).data.filling_allowed, true);
@@ -99,7 +99,7 @@ test("a protected PDF that cannot be read is refused in plain words, and opening
   const written = [];
   process.stderr.write = (chunk) => written.push(String(chunk)) > 0;
   try {
-    await assert.rejects(openProtectedPdf({ bytes: unreadableBytes }), isRefused(/asks for a password/));
+    await assert.rejects(openProtectedPdf({ bytes: unreadableBytes }), isRefused(/A password is needed to open/));
     await assert.rejects(openProtectedPdf({ bytes: Buffer.from("%PDF-1.7\n1 0 obj << /Encrypt 2 0 R >> endobj\nnot a real file") }), isRefused(/not a PDF that can be opened here: /));
     await assert.rejects(openProtectedPdf({ bytes: unreadableBytes, password: 42 }), isRefused(/`password` must be a text/));
   } finally {
@@ -114,7 +114,7 @@ test("a protected form is filled through the real worker process", options, () =
     const filled = await runOperation("fill_pdf_form", { template: "locked.pdf", fields, password: OPEN_PASSWORD, file_name: "from-worker" }, AS_TOOL);
     assert.equal(filled.data.was_protected, true);
     assert.ok((await readPageTexts(await readFile(filled.data.path)))[0].includes("INV-7"));
-    await assert.rejects(runOperation("fill_pdf_form", { template: "locked.pdf", fields, file_name: "never" }, AS_TOOL), isRefused(/asks for a password/));
+    await assert.rejects(runOperation("fill_pdf_form", { template: "locked.pdf", fields, file_name: "never" }, AS_TOOL), isRefused(/A password is needed to open/));
   }));
 
 test("fill_pdf_form: the most boxes a form may have is a setting", options, () =>
