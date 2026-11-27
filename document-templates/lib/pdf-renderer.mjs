@@ -55,11 +55,20 @@ async function renderOnce(pdfmake, builder, bottomSpace) {
   const measured = { pageCount: 0, bottomTop: null, bottomPage: null, endTop: null, endPage: null, pageHeight: 0, marginBottom: 0 };
   const definition = buildDocumentDefinition(builder, bottomSpace, measured);
   const bytes = await pdfmake.createPdf(definition).getBuffer().catch((renderError) => {
-    throw renderError?.kind ? renderError : operationFailed(`The document could not be drawn: ${renderError?.message ?? renderError}`);
+    throw describeRenderError(renderError);
   });
   const isBottomOnOnePage = measured.endPage !== null && measured.endPage === measured.bottomPage;
   const bottomGap = isBottomOnOnePage ? measured.pageHeight - measured.marginBottom - measured.endTop : 0;
   return { bytes, pageCount: measured.pageCount, bottomGap };
+}
+
+// pdfmake reports an undecodable image with advice about its own API; say what the user can act on.
+function describeRenderError(renderError) {
+  if (renderError?.kind) return renderError;
+  const message = String(renderError?.message ?? renderError);
+  const imageProblem = /^Invalid image: (?:Error: )?([^\n]*)/.exec(message);
+  if (imageProblem) return invalidInput(`An image could not be read (${imageProblem[1]}); save it again as a PNG or JPEG`);
+  return operationFailed(`The document could not be drawn: ${message.split("\n")[0]}`);
 }
 
 function buildDocumentDefinition({ plan, fonts, images, hasBackgroundPdf }, bottomSpace, measured) {

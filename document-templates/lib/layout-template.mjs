@@ -26,6 +26,7 @@ const MAX_NODES = 100000;
 const MAX_DEPTH = 40;
 const MAX_IMAGES = 20;
 const MAX_TEXT_LENGTH = 100000;
+const MAX_QR_LENGTH = 1000;
 const PAGE_SIZES = ["A3", "A4", "A5", "LETTER", "LEGAL"];
 const HEX_COLOR_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -308,7 +309,7 @@ function expandContent(key, value, scope, context, path, depth) {
     case "table": return expandTable(value, scope, context, path, depth);
     case "layout": return checkProperties(value, LAYOUT_PROPERTIES, path);
     case "image": return registerImage(value, scope, context, path);
-    case "qr": return fillText(requireString(value, path), scope, context, path).slice(0, 2000);
+    case "qr": return fillQrText(value, scope, context, path);
     case "canvas": return expandList(value, scope, context, path, depth + 1, (vector, _scope, _context, vectorPath) => checkProperties(vector, VECTOR_PROPERTIES, vectorPath));
     case "rule": return checkProperties(value === true ? {} : value, RULE_PROPERTIES, path);
     default: return expandStyleNames(value, context, path);
@@ -354,6 +355,13 @@ function registerImage(value, scope, context, path) {
   if (context.imagePaths.length >= MAX_IMAGES) throw templateError(path, `is image number ${MAX_IMAGES + 1}; a document may use at most ${MAX_IMAGES} different images`);
   context.imagePaths.push(imagePath);
   return context.imagePaths.length - 1;
+}
+
+function fillQrText(value, scope, context, path) {
+  const qrText = fillText(requireString(value, path), scope, context, path).trim();
+  if (qrText === "") throw templateError(path, "is empty; wrap the QR code in a `$if` when the value is optional");
+  if (qrText.length > MAX_QR_LENGTH) throw templateError(path, `is longer than ${MAX_QR_LENGTH} characters, more than a QR code holds reliably`);
+  return qrText;
 }
 
 function expandStyleNames(value, context, path) {

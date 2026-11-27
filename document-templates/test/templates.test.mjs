@@ -132,6 +132,8 @@ test("layout: only known properties with valid values are accepted", () => {
     [{ $if: "x" }, /condition/],
     [["nested list"], /text or an object/],
     [{ image: 5 }, /must be a text/],
+    [{ qr: "{{nothing}}" }, /\$if/],
+    [{ qr: "x".repeat(1001) }, /QR code/],
   ];
   for (const [node, pattern] of refused) {
     assert.throws(() => expand(layout([node]), { items: [1], client: { name: "x" } }), (error) => error.kind === "invalid_input" && pattern.test(error.message), JSON.stringify(node));

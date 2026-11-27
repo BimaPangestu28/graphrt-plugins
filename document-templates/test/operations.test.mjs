@@ -135,6 +135,7 @@ test("render_pdf: your own layout, a logo and a letterhead background, all from 
     await writeFile(join(inputDirectory, "letter.json"), JSON.stringify({ ...LAYOUT, content: [{ image: "{{logo}}", width: 40 }, ...LAYOUT.content], footer: { text: "{{page.number}} / {{page.count}}", alignment: "center" } }));
     await writeFile(join(inputDirectory, "logo.png"), buildPng());
     await writeFile(join(inputDirectory, "fake.png"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+    await writeFile(join(inputDirectory, "broken.png"), Buffer.concat([buildPng().subarray(0, 40), Buffer.alloc(30, 7)]));
     await writeFile(join(outsideDirectory, "secret.png"), buildPng());
     await symlink(join(outsideDirectory, "secret.png"), join(inputDirectory, "link.png"));
     await writeFile(join(inputDirectory, "letterhead.pdf"), await buildPlainPdf(2));
@@ -145,7 +146,7 @@ test("render_pdf: your own layout, a logo and a letterhead background, all from 
     const onLetterhead = await runOperation("render_pdf", { template: "letter.json", values, background: "letterhead.pdf", file_name: "letterhead" }, AS_TOOL);
     const letterheadText = (await readPageTexts(await readFile(onLetterhead.data.path)))[0];
     assert.ok(letterheadText.includes("Letterhead page 1") && letterheadText.includes("Kepada Ibu Sari"), letterheadText);
-    for (const [logo, kind] of [["fake.png", "invalid_input"], ["link.png", "not_found"], [join(outsideDirectory, "secret.png"), "not_found"], ["../outside/secret.png", "not_found"]]) {
+    for (const [logo, kind] of [["fake.png", "invalid_input"], ["broken.png", "invalid_input"], ["link.png", "not_found"], [join(outsideDirectory, "secret.png"), "not_found"], ["../outside/secret.png", "not_found"]]) {
       await assert.rejects(runOperation("render_pdf", { template: "letter.json", values: { ...values, logo }, file_name: "never" }, AS_TOOL), { kind }, logo);
     }
     await assert.rejects(runOperation("render_pdf", { template: "letter.json", values, background: "logo.png", file_name: "never" }, AS_TOOL), /not a PDF/);
