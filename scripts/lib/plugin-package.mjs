@@ -20,6 +20,7 @@ import { displayNameFor } from "./plugin-names.mjs";
 import { readPluginStatuses, statusForPlugin } from "./plugin-status.mjs";
 import { appRequirementFields, readDeclaredRequirements } from "./app-requirements.mjs";
 import { describeRuntimes, readRepositoryWasmRuntimes } from "./plugin-runtimes.mjs";
+import { SETTINGS_FILE_NAME, parsePluginSettings } from "./plugin-settings.mjs";
 import { createTarGz, readTarGz } from "./tar-archive.mjs";
 
 export const MANIFEST_FILE_NAME = "graphrt-plugin.json";
@@ -171,7 +172,7 @@ export function readSourceManifest(pluginName, sourceDirectory = join(REPO_ROOT,
  *   published with the catalog instead; community tarballs must carry theirs)
  * @param options.commandEnvironment - Environment of the git and npm commands (object, default: process.env; a
  *   community rebuild passes an isolated one)
- * @returns `{name, version, tag, tarballName, tarballPath, sha256, sizeBytes, manifest, readmeText}` (object)
+ * @returns `{name, version, tag, tarballName, tarballPath, sha256, sizeBytes, manifest, readmeText, settingsText}` (object)
  * @throws Error - When npm fails, a symlink or forbidden file would be shipped, or the manifest is invalid
  */
 export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join(REPO_ROOT, pluginName), includeIcon = false, commandEnvironment = process.env }) {
@@ -200,6 +201,7 @@ export function packPlugin(pluginName, { outputDirectory, sourceDirectory = join
       sizeBytes: tarballBytes.length,
       manifest: releasedManifest,
       readmeText: existsSync(join(stagedDirectory, README_FILE_NAME)) ? readFileSync(join(stagedDirectory, README_FILE_NAME), "utf8") : null,
+      settingsText: existsSync(join(stagedDirectory, SETTINGS_FILE_NAME)) ? readFileSync(join(stagedDirectory, SETTINGS_FILE_NAME), "utf8") : null,
     };
   } finally {
     rmSync(stagedDirectory, { recursive: true, force: true });
@@ -449,7 +451,8 @@ export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = re
  * the tarball. Shared by official entries (buildCatalogEntry) and community entries (community-ingest.mjs).
  *
  * @param releasedManifest - The manifest inside the tarball (object)
- * @param tarball - `{sha256, sizeBytes, readmeText}` of the published tarball (object)
+ * @param tarball - `{sha256, sizeBytes, readmeText, settingsText}` of the published tarball; settingsText is its
+ *   graphrt-settings.json (see plugin-settings.mjs), whose valid items become the entry's `settings` (object)
  * @param listing - Listing data (object)
  * @param listing.displayName - `display_name` (string)
  * @param listing.iconAssetName - The icon's `catalog` release asset name (string)
@@ -466,8 +469,10 @@ export function buildCatalogEntry(releasedManifest, tarball, pluginStatuses = re
  *   app-requirements.mjs); the field is left out for a plugin that runs on every release
  * @returns A catalog `plugins[]` entry (object)
  */
-export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null }, listing) {
+export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, readmeText = null, settingsText = null }, listing) {
   const permissions = releasedManifest.permissions ?? {};
+  // Only the valid items of the shipped file, as the app reads it; a plugin without the file has no `settings`.
+  const settings = settingsText === null ? [] : parsePluginSettings(settingsText, permissions.env ?? []).settings;
   const manifestNodes = releasedManifest.nodes ?? [];
   return {
     name: releasedManifest.name,
@@ -492,6 +497,7 @@ export function assembleCatalogEntry(releasedManifest, { sha256, sizeBytes, read
     operations_count: manifestNodes.length,
     nodes: manifestNodes.map((manifestNode) => buildCatalogNode(manifestNode)),
     tools: (releasedManifest.tools ?? []).map((tool) => tool.name),
+    ...(settings.length > 0 ? { settings } : {}),
     ...(listing.runtimes ? { runtimes: listing.runtimes } : {}),
     ...(isMcpPreset(releasedManifest) ? { mcp_server: { url: releasedManifest.mcp.url, auth: releasedManifest.mcp.auth ?? "none" } } : {}),
     ...appRequirementFields(releasedManifest, listing.declaredRequirements ?? {}),
@@ -570,7 +576,8 @@ export function extractCatalogWarning(readmeText) {
  * @param tarballBytes - The tarball bytes (Buffer)
  * @param options - Reading options
  * @param options.maxUnpackedBytes - Refuse a tarball that unpacks to more than this (number, default: no limit)
- * @returns `{tarballName, sha256, sizeBytes, manifest, readmeText}` (object)
+ * @returns `{tarballName, sha256, sizeBytes, manifest, readmeText, settingsText}`; settingsText is the shipped
+ *   graphrt-settings.json, or null (object)
  * @throws Error - When the tarball has no top-level `<name>/graphrt-plugin.json`
  */
 export function describeTarballBytes(tarballName, tarballBytes, { maxUnpackedBytes = undefined } = {}) {
@@ -580,12 +587,14 @@ export function describeTarballBytes(tarballName, tarballBytes, { maxUnpackedByt
   const manifestEntry = findTopLevelFile(MANIFEST_FILE_NAME);
   if (!manifestEntry) throw new Error(`${tarballName}: tarball has no ${MANIFEST_FILE_NAME}`);
   const readmeEntry = findTopLevelFile(README_FILE_NAME);
+  const settingsEntry = findTopLevelFile(SETTINGS_FILE_NAME);
   return {
     tarballName,
     sha256: sha256Hex(tarballBytes),
     sizeBytes: tarballBytes.length,
     manifest: JSON.parse(manifestEntry.content.toString("utf8")),
     readmeText: readmeEntry ? readmeEntry.content.toString("utf8") : null,
+    settingsText: settingsEntry ? settingsEntry.content.toString("utf8") : null,
   };
 }
 

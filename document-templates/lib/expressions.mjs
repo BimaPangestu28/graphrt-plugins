@@ -109,9 +109,18 @@ function parseOperand(text, source) {
   return { kind: "path", segments };
 }
 
+// Word turns typed quotes into typographic ones (and a different pair on a German or a French keyboard); a
+// quoted text may use either kind, opened and closed with the same kind.
+const QUOTE_KINDS = ['"', "'", "“”„", "‘’‚"];
+
+function quoteKindOf(character) {
+  return QUOTE_KINDS.find((kind) => kind.includes(character)) ?? null;
+}
+
 function parseLiteral(text) {
-  const quoted = /^"([^"]*)"$/.exec(text) ?? /^'([^']*)'$/.exec(text);
-  if (quoted) return { kind: "literal", value: quoted[1] };
+  const quoteKind = text.length >= 2 ? quoteKindOf(text[0]) : null;
+  const inner = text.slice(1, -1);
+  if (quoteKind && quoteKind.includes(text.at(-1)) && ![...inner].some((character) => quoteKind.includes(character))) return { kind: "literal", value: inner };
   if (/^-?\d+(\.\d+)?$/.test(text)) return { kind: "literal", value: Number(text) };
   if (text === "true" || text === "false") return { kind: "literal", value: text === "true" };
   return null;
@@ -123,7 +132,7 @@ function parseFilter(filterPart, source) {
   return { name, args: rawArguments.map((argument) => parseLiteral(argument)?.value ?? argument) };
 }
 
-// Splits on a separator, leaving separators inside "..." or '...' alone.
+// Splits on a separator, leaving separators inside "..." or '...' (straight or typographic) alone.
 function splitOutsideQuotes(text, separator) {
   const parts = [];
   let current = "";
@@ -131,9 +140,9 @@ function splitOutsideQuotes(text, separator) {
   for (let index = 0; index < text.length; index += 1) {
     const character = text[index];
     if (openQuote) {
-      if (character === openQuote) openQuote = null;
-    } else if (character === '"' || character === "'") {
-      openQuote = character;
+      if (openQuote.includes(character)) openQuote = null;
+    } else if (quoteKindOf(character)) {
+      openQuote = quoteKindOf(character);
     } else if (text.startsWith(separator, index)) {
       parts.push(current);
       current = "";

@@ -13,7 +13,7 @@ const MAX_VALUES_BYTES = 2 * 1024 * 1024;
 /** Schemas of the parameters that carry a document's values. */
 export const VALUES_PARAMETERS = {
   values: { type: "object", description: "The document's values as an object (or JSON text), e.g. {\"number\": \"INV-2026-0001\", \"client\": {\"name\": \"PT Maju\"}, \"items\": [...]}. describe_template lists what a template uses" },
-  values_file: { type: "string", description: "Instead of `values`: a .json file with the values, inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
+  values_file: { type: "string", description: "Instead of `values`: a .json file with the values, in your templates folder" },
 };
 
 /** Schema of the `calculate` parameter. */

@@ -1,0 +1,112 @@
+# Runs plugin tests on Windows and macOS. ci.yml tests everything on Linux only; plugins that work with local
+# files, fonts or child processes (paths, line endings, file locking, case-insensitive file systems, killing a
+# worker) can break on the other two.
+#
+# Never required and never automatic, to keep CI time small:
+# - on a pull request, add the label `windows` and/or `macos`: the plugins that pull request changes are tested
+#   on that system, again on every push while the label is there;
+# - or run it by hand (workflow_dispatch) for the plugins you name.
+name: Plugin tests on Windows and macOS
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      plugins:
+        description: "Space-separated plugin names, e.g. document-templates"
+        required: true
+      systems:
+        description: "Where to run"
+        type: choice
+        options: [windows macos, windows, macos]
+        default: windows macos
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Which systems (the pull request's labels, or the manual choice) and which plugins.
+  plan:
+    name: Systems and plugins
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      systems: ${{ steps.plan.outputs.systems }}
+      plugins: ${{ steps.plan.outputs.plugins }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history, to list what a pull request changes.
+          fetch-depth: 0
+
+      - name: Plan
+        id: plan
+        env:
+          WANTED: ${{ github.event_name == 'pull_request' && join(github.event.pull_request.labels.*.name, ' ') || inputs.systems }}
+          NAMED_PLUGINS: ${{ inputs.plugins }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          systems=""
+          for system in windows macos; do
+            case " $WANTED " in *" $system "*) systems="$systems${systems:+,}\"$system\"" ;; esac
+          done
+          # A pull request: every changed top-level directory that is a plugin with tests.
+          if [ -n "$NAMED_PLUGINS" ]; then
+            plugins="$NAMED_PLUGINS"
+          else
+            plugins="$(git diff --name-only "origin/$BASE_REF...HEAD" | grep / | cut -d/ -f1 | sort -u | tr '\n' ' ')"
+          fi
+          chosen=""
+          for plugin in $plugins; do
+            # Other changed directories (.github, scripts, docs) are not plugins.
+            case "$plugin" in *[!a-z0-9-]*) continue ;; esac
+            if [ -f "$plugin/graphrt-plugin.json" ] && [ -d "$plugin/test" ]; then
+              chosen="$chosen $plugin"
+            elif [ -n "$NAMED_PLUGINS" ]; then
+              echo "::error::$plugin is not a plugin with tests"; exit 1
+            fi
+          done
+          echo "systems=[$systems]" >> "$GITHUB_OUTPUT"
+          echo "plugins=${chosen# }" >> "$GITHUB_OUTPUT"
+          echo "Systems: [$systems]; plugins: ${chosen:-none}"
+
+  plugin-tests:
+    name: ${{ matrix.system }}
+    needs: plan
+    if: ${{ needs.plan.outputs.systems != '[]' && needs.plan.outputs.plugins != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJSON(needs.plan.outputs.systems) }}
+    runs-on: ${{ matrix.system }}-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Test
+        env:
+          PLUGINS: ${{ needs.plan.outputs.plugins }}
+        run: |
+          for plugin in $PLUGINS; do
+            echo "::group::$plugin"
+            (
+              cd "$plugin"
+              if [ -f package-lock.json ]; then
+                PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 PUPPETEER_SKIP_DOWNLOAD=1 npm ci --no-audit --no-fund --loglevel=error
+              fi
+              node --test test/*.test.mjs
+            )
+            echo "::endgroup::"
+          done

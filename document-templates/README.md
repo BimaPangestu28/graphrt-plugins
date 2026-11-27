@@ -25,7 +25,8 @@ bundled Inter and EB Garamond fonts, so a document looks the same on Linux, Wind
 | Your own design, written as a layout template (`.json`) | yes | `render_pdf` | PDF |
 | A letterhead or pre-printed page as a PDF | yes, as the `background` of a layout template | `render_pdf` | PDF |
 | A PDF with form fields (AcroForm) | yes | `fill_pdf_form` | PDF |
-| A Word `.docx` with `{{placeholders}}` | yes | `fill_docx` | DOCX |
+| A Word `.docx` or `.dotx` (Word template) with `{{placeholders}}` | yes | `fill_docx` | DOCX |
+| A PDF form that is protected (encrypted), as many official forms are | **no** | | |
 | A PDF that is a finished document, a scan or a picture | **no** | | |
 | Word to PDF | **no** | | |
 | Excel `.xlsx` | **no** | | |
@@ -44,7 +45,12 @@ Why not:
   tables.
 - **HTML** needs a browser engine (150 MB or more), and an HTML template can run scripts and load things from the
   network.
-- **XFA** is a different, retired form technology that pdf-lib cannot fill. A PDF that has both keeps its AcroForm.
+- **XFA** is a different, retired form technology (Adobe LiveCycle Designer) that pdf-lib cannot fill. Most
+  official forms carry both kinds: those are filled through their standard fields, and the XFA copy is removed
+  so that no viewer shows it empty. A PDF that is XFA only (other programs show "Please wait...") is refused.
+- **Protected PDFs**: many official forms open without a password and are still encrypted, so that they cannot
+  be changed. pdf-lib cannot read them. Use a copy without the protection, for example
+  `qpdf --decrypt form.pdf unprotected.pdf`.
 - **Right-to-left scripts** (Arabic, Hebrew) are not laid out correctly yet.
 
 ## Features
@@ -60,6 +66,9 @@ Why not:
   the fields into plain page content.
 - **`fill_docx`:** the same placeholders in a Word file. A table row between `{{#items}}` and `{{/items}}`
   repeats for every item.
+- **`save_template_copy`:** saves your own copy of the built-in invoice in the folder `Templates` of your
+  documents folder, to change its texts, colours and layout. It never replaces a file; ask for it in chat, no
+  terminal needed.
 - **`next_number`:** running numbers such as `INV-2026-0001` from a pattern.
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md). Template reference: [TEMPLATES.md](TEMPLATES.md).
@@ -76,9 +85,12 @@ graphrt plugin install ./document-templates
 ```
 
 ## Configuration
+Only the first setting has to be filled in: the folder your documents go to. Every other one has a default
+that suits most people and can stay empty.
+
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `DOCUMENT_TEMPLATES_OUTPUT_DIR` | (none) | Existing folder (absolute or `~/...`) where documents are saved. Without it only `list_templates` and `describe_template` work. Files in it can also be read. |
+| `DOCUMENT_TEMPLATES_OUTPUT_DIR` | (none) | **Needed.** Your documents folder: an existing folder (absolute or `~/...`) where documents are saved. Without it only `list_templates` and `describe_template` work. Files in it can also be read. |
 | `DOCUMENT_TEMPLATES_INPUT_DIRS` | (none) | Comma-separated folders that your own templates, logos, backgrounds and values files may be read from, subfolders included. Not needed for the built-in invoice without a logo. |
 | `DOCUMENT_TEMPLATES_FONTS` | (none) | Comma-separated font files (`.ttf`, `.otf`, `.ttc`; at most 8) for scripts the built-in fonts lack, e.g. `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc` |
 | `DOCUMENT_TEMPLATES_MAX_INPUT_BYTES` | 20 MiB | Largest input file |
@@ -88,6 +100,10 @@ graphrt plugin install ./document-templates
 | `DOCUMENT_TEMPLATES_MAX_MEMORY_MB` | `768` | Memory budget of the worker process: heap cap and resident-memory (RSS) watchdog |
 
 The plugin is local only: it asks graphrt for no network access and no secrets, and nodes have no `access_token`.
+
+[`graphrt-settings.json`](graphrt-settings.json) tells graphrt Desktop what to call these settings, which one is
+needed (the documents folder) and what the defaults are, so the app shows a folder picker and plain labels
+instead of the variable names.
 
 ## Quick Start
 ```bash
@@ -124,13 +140,17 @@ Run it again and you get `INV-2026-0002.pdf` next to it.
 Only `number`, `seller.name`, `client.name` and `items` are required; `describe_template` lists every field.
 `values` may also be JSON text, or `values_file` names a `.json` file. The result:
 ```json
-{ "path": "/home/me/invoices/2026/11/INV-2026-0042.pdf", "relative_path": "2026/11/INV-2026-0042.pdf",
-  "folder": "2026/11", "file_name": "INV-2026-0042.pdf", "size_bytes": 34120, "replaced_existing": false,
+{ "path": "/home/me/invoices/2026/11/INV-2026-0042.pdf", "folder_path": "/home/me/invoices/2026/11",
+  "relative_path": "2026/11/INV-2026-0042.pdf", "folder": "2026/11", "file_name": "INV-2026-0042.pdf",
+  "size_bytes": 34120, "replaced_existing": false,
   "template": "invoice", "number": "INV-2026-0042", "page_count": 1,
   "totals": { "currency": "IDR", "subtotal": "6900000", "discount": "345000", "tax_total": "589950",
               "total": "7144950", "amount_paid": "0", "balance_due": "7144950",
               "total_text": "Rp 7.144.950", "balance_due_text": "Rp 7.144.950" } }
 ```
+
+Every operation that makes a document answers with where it is: `path` (the file) and `folder_path` (its
+folder) are absolute, ready for an "open file" or "open folder" button.
 
 The same template makes a quotation, a receipt or a pro forma invoice: set `labels`, e.g.
 `labels: { title: Quotation, total_due: Total }`.
@@ -149,7 +169,8 @@ The same template makes a quotation, a receipt or a pro forma invoice: set `labe
   unless you set `currency_style: symbol`.
 
 ### Folders and file names
-`folder` and `file_name` are patterns. The defaults are `{YYYY}/{MM}` and `{number}`.
+`folder` and `file_name` are patterns. The defaults are `{YYYY}/{MM}` and `{number}`; leave both empty unless
+you want something else (an empty text means the default too).
 
 | Token | Value |
 |-------|-------|
@@ -166,6 +187,12 @@ The same template makes a quotation, a receipt or a pro forma invoice: set `labe
 
 `if_exists` decides what happens when the file is already there: `error` (default: keep it and fail), `number`
 (save `...-2.pdf`, `...-3.pdf`) or `overwrite` (workflow nodes only).
+
+### Your own version of the invoice
+`save_template_copy` (optionally with `name: Quotation`) saves `Templates/invoice.json` in your documents folder
+and answers with its `path`. Change the file in a text editor: `labels` are the texts, `styles` the colours and
+sizes, `content` the layout ([TEMPLATES.md](TEMPLATES.md)). Then pass the `path` as `template` to `render_pdf`.
+A second copy with the same name is saved as `invoice-2.json`; your changes are never overwritten.
 
 ### Running numbers
 `next_number` with `pattern: "INV-{YYYY}-{SEQ:4}"` returns `INV-2026-0001`, then `INV-2026-0002`. The count
@@ -185,14 +212,26 @@ is issued, even if the document is then never made; edit that file to give one b
   fields: { InvoiceNo: "{{number}}", Client: "{{client.name}}", Total: "{{totals.total | money}}", Paid: true }
   values: { number: INV-2026-0042, client: { name: PT Maju Bersama }, items: [{ description: Jasa, amount: 500000 }] }
 ```
-`describe_template` lists the form's field names. Keep the field map in a `.json` file and pass `fields_file` to
-reuse it. A form has as many rows as it was drawn with: for the third item use `{{items.2.description}}`.
+`describe_template` lists the form's field names, with each field's kind, its `options` and its `max_length`.
+Keep the field map in a `.json` file and pass `fields_file` to reuse it. A form has as many rows as it was drawn
+with: for the third item use `{{items.2.description}}`.
+
+- A check box takes `true` or `false`; a radio group, a drop-down and a list take one of their `options`
+  (a list also several, as an array). A value that is not an option, or longer than `max_length`, is refused.
+- Boxed fields (one character per box, such as a tax number) are filled box by box.
+- Read-only fields can be filled: read-only stops a person typing in a viewer, not a workflow.
+- Signature fields and buttons cannot be filled. With `flatten` they are removed like every other field.
 
 ### A Word template
-Type the placeholders in Word: `{{client.name}}`, `{{date | date}}`, `{{totals.total | money}}`. For line items,
+Type the placeholders in Word, in a `.docx` or in a Word template (`.dotx`, the format Microsoft's own templates
+come in): `{{client.name}}`, `{{date | date}}`, `{{totals.total | money}}`. For line items,
 put `{{#items}}` in the first cell of a table row and `{{/items}}` in its last cell; the row repeats.
 `{{#flags.has_taxes}}...{{/flags.has_taxes}}` shows a part only when there are taxes, `{{^notes}}...{{/notes}}`
 only when there are no notes.
+
+Placeholders work in the text, in tables, in headers and footers, in text boxes and inside content controls
+(the grey "click here" fields of Microsoft's templates). Word may store a placeholder in several pieces or turn
+`"` into `“ ”`; both are fine. The result is always a `.docx`.
 
 ### Other scripts
 The built-in fonts cover Latin (including Vietnamese), Cyrillic and Greek. For Chinese, Japanese, Korean, Thai
@@ -209,7 +248,7 @@ then drawn with it. A character that no font has is an error that names it, neve
   after `realpath` on both sides with a separator-suffixed prefix; symlinks out, `../`, FIFOs, devices and files
   with several hard links are refused, and a file outside the allowlist gets the same `not_found` as a missing
   one. Images must be PNG or JPEG by content, backgrounds and forms PDFs by content, Word files plain `.docx`
-  (no macros), checked for zip bombs before unpacking. `DOCUMENT_TEMPLATES_FONTS` is configuration, not an
+  or `.dotx` (no macros), checked for zip bombs before unpacking. `DOCUMENT_TEMPLATES_FONTS` is configuration, not an
   argument, so those files may be anywhere.
 - **Outputs:** every part of a folder or file name is reduced to a plain name, so no value can add a folder level
   or leave the output folder. Folders are created one level at a time under the real output folder and
@@ -218,11 +257,13 @@ then drawn with it. A character that no font has is an error that names it, neve
   link, atomically.
 - **Isolation:** laying out pages and parsing PDFs, Word files, images and fonts runs in a short-lived child
   process that gets bytes over IPC. `DOCUMENT_TEMPLATES_MAX_MEMORY_MB` is enforced as the V8 heap cap and by an
-  RSS watchdog; on timeout, cancel or the memory budget the child is killed with SIGKILL.
+  RSS watchdog; on timeout, cancel or the memory budget the child is killed with SIGKILL. On Windows the watchdog
+  cannot read the child's memory (it uses `ps`), so the heap cap and the timeout are the limits there.
 - **Caps:** input and output bytes, 2 MiB of values, 2000 line items, 100000 layout parts after loops are
   unrolled, 20 images, 2000 form fields, pages per document (`DOCUMENT_TEMPLATES_MAX_PAGES`).
-- **Agents vs nodes:** all six operations are available as tools. They read only allowlisted files and add new
+- **Agents vs nodes:** all seven operations are available as tools. They read only allowlisted files and add new
   files to the output folder (setting `DOCUMENT_TEMPLATES_OUTPUT_DIR` is the opt-in for writing).
+  `save_template_copy` writes only into `Templates` there and never over a file.
   `if_exists: overwrite` is for workflow nodes only; a tool call that asks for it gets `permission_denied`.
   `next_number` uses up a number each time it is called without `preview`.
 
@@ -231,10 +272,19 @@ then drawn with it. A character that no font has is an error that names it, neve
 |------|------|
 | `setup_required` | npm packages not installed, `DOCUMENT_TEMPLATES_OUTPUT_DIR` unset or missing, `DOCUMENT_TEMPLATES_INPUT_DIRS` unset when a file is read, a font file unreadable |
 | `not_found` | A template, image, background or values file is missing or outside the allowed folders |
-| `invalid_input` | Required values missing, an amount that is not a plain number, a template with an unknown property or malformed placeholder, a PDF without form fields, an unknown form field, a character no font has, a file that already exists, over a cap |
+| `invalid_input` | Required values missing, an amount that is not a plain number, a template with an unknown property or malformed placeholder, a PDF without form fields, a protected or XFA-only PDF, an unknown form field, a value a form field does not accept, a character no font has, a file that already exists, over a cap |
 | `permission_denied` | A tool call asked for `if_exists: overwrite` |
 | `timeout` / `cancelled` | The worker passed `DOCUMENT_TEMPLATES_TIMEOUT_MS` or the call was cancelled; nothing is saved |
 | `plugin_error` | The worker crashed, the document could not be written, or the numbering file is locked |
+
+## Tested with
+- **Text read back from the PDF:** letter-spaced labels such as TOTAL DUE are copied, searched and read aloud as
+  words (checked with pdf.js, PDFium, Poppler, MuPDF, pdfminer, pypdf and Ghostscript).
+- **Word:** Microsoft's own invoice and letter templates (`.dotx`) and documents saved by Word 2007, Word 2016 and
+  Word for Mac, with placeholders in content controls, headers, footers, text boxes and repeating table rows.
+- **PDF forms:** public forms made with Adobe Acrobat, InDesign and LiveCycle Designer (IRS W-9, W-4, 1040, SS-4
+  and 8949, USCIS I-9, State Department DS-11, OPM SF 3102, GSA SF 1449, VA 10-10EZ, FDIC 7200/09).
+- **Systems:** the tests run on Linux, Windows and macOS.
 
 ## Fonts
 [Inter](https://rsms.me/inter/) and [EB Garamond](https://github.com/octaviopardo/EBGaramond12) ship in `fonts/`

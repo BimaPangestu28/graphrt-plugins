@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { buildManifest } from "../lib/shared/operations.mjs";
 import { pluginDefinition } from "../definition.mjs";
 import { readDocumentSettings } from "../lib/client.mjs";
@@ -15,17 +15,21 @@ import { AS_NODE, AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, buildDocx, bu
 const options = { skip: SKIP_WITHOUT_LIBRARIES };
 const LAYOUT = { format: "graphrt-document-template", version: 1, name: "letter", content: [{ text: "Kepada {{client.name}}", bold: true }, "{{body}}"] };
 
-test("manifest: local only, no secrets, six tools, limits and folders declared", () => {
+test("manifest: local only, no secrets, seven tools, the documents folder first, and descriptions without setting names", () => {
   const manifest = buildManifest(pluginDefinition);
-  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "next_number", "render_pdf", "fill_pdf_form", "fill_docx"]);
+  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "save_template_copy", "next_number", "render_pdf", "fill_pdf_form", "fill_docx"]);
   assert.equal(manifest.permissions.network, false);
   assert.equal(manifest.permissions.secrets, false);
-  assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);
+  assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);
   assert.ok(manifest.limits.timeout_ms > readDocumentSettings({}).timeoutMs);
+  // What the app shows to people who set up and build agents: no variable names, no "node".
+  for (const text of JSON.stringify(manifest).match(/"description":"(?:[^"\\]|\\.)*"/g)) assert.doesNotMatch(text, /DOCUMENT_TEMPLATES_|\bnodes?\b|AcroForm/, text);
+  // Every setting but the documents folder has a default.
+  assert.deepEqual(readDocumentSettings({}), { ...readDocumentSettings({}), maxPages: 200, timeoutMs: 60000, maxMemoryMb: 768, extraFontPaths: [] });
 });
 
 test("settings: limits and font files are validated", () => {
-  assert.deepEqual(readDocumentSettings({ HOME: "/home/someone", DOCUMENT_TEMPLATES_FONTS: "~/fonts/NotoSansJP-Regular.ttf, /fonts/collection.TTC" }).extraFontPaths, ["/home/someone/fonts/NotoSansJP-Regular.ttf", "/fonts/collection.TTC"]);
+  assert.deepEqual(readDocumentSettings({ HOME: "/home/someone", DOCUMENT_TEMPLATES_FONTS: "~/fonts/NotoSansJP-Regular.ttf, /fonts/collection.TTC" }).extraFontPaths, [join("/home/someone", "fonts", "NotoSansJP-Regular.ttf"), resolve("/fonts/collection.TTC")]);
   for (const environment of [{ DOCUMENT_TEMPLATES_FONTS: "relative.ttf" }, { DOCUMENT_TEMPLATES_FONTS: "/fonts/font.woff2" }, { DOCUMENT_TEMPLATES_FONTS: Array(9).fill("/f.ttf").join(",") }, { DOCUMENT_TEMPLATES_MAX_PAGES: "0" }, { DOCUMENT_TEMPLATES_TIMEOUT_MS: "999999999" }]) {
     assert.throws(() => readDocumentSettings(environment), { kind: "invalid_input" }, JSON.stringify(environment));
   }
@@ -48,14 +52,14 @@ test("render_pdf: the built-in invoice becomes a filed PDF with the calculated f
   withDocumentRunner({}, async ({ runOperation, outputDirectory }) => {
     const result = await runOperation("render_pdf", { values: JSON.stringify(INVOICE_VALUES) }, AS_TOOL);
     assert.deepEqual({ ...result.data, size_bytes: 0 }, {
-      path: join(outputDirectory, "2026", "11", "INV-2026-0007.pdf"), relative_path: "2026/11/INV-2026-0007.pdf", folder: "2026/11", file_name: "INV-2026-0007.pdf", size_bytes: 0, replaced_existing: false,
+      path: join(outputDirectory, "2026", "11", "INV-2026-0007.pdf"), folder_path: join(outputDirectory, "2026", "11"), relative_path: "2026/11/INV-2026-0007.pdf", folder: "2026/11", file_name: "INV-2026-0007.pdf", size_bytes: 0, replaced_existing: false,
       template: "invoice", number: "INV-2026-0007",
       totals: { currency: "IDR", subtotal: "10000000", discount: "0", tax_total: "1100000", total: "11100000", amount_paid: "0", balance_due: "11100000", total_text: "Rp 11.100.000", balance_due_text: "Rp 11.100.000" },
       page_count: 1,
     });
     const bytes = await readFile(result.data.path);
     const [pageText] = await readPageTexts(bytes);
-    for (const expected of ["CV Kenanga Digital", "PT Maju Bersama", "Jakarta 10110", "27 November 2026", "Desain antarmuka", "3,5 hari", "2.000.000", "7.000.000", "PPN (11%)", "Rp 1.100.000", "Rp 11.100.000", "H A L A M A N 1 D A R I 1"]) {
+    for (const expected of ["CV Kenanga Digital", "PT Maju Bersama", "Jakarta 10110", "27 November 2026", "Desain antarmuka", "3,5 hari", "2.000.000", "7.000.000", "PPN (11%)", "Rp 1.100.000", "Rp 11.100.000", "HALAMAN 1 DARI 1"]) {
       assert.ok(pageText.includes(expected), `${expected} in: ${pageText}`);
     }
     const document = await pdfLib.PDFDocument.load(bytes);
@@ -72,8 +76,8 @@ test("render_pdf: many items continue over pages with the table header repeated,
     assert.equal(result.data.totals.total_text, "Rp 7.000.000");
     const pageTexts = await readPageTexts(await readFile(result.data.path));
     assert.equal(pageTexts.length, result.data.page_count);
-    for (const pageText of pageTexts.slice(0, 3)) assert.ok(pageText.includes("D E S K R I P S I"), pageText.slice(0, 120));
-    assert.ok(pageTexts.at(-1).includes("Terima kasih.") && pageTexts.at(-1).includes(`H A L A M A N ${pageTexts.length} D A R I ${pageTexts.length}`));
+    for (const pageText of pageTexts.slice(0, 3)) assert.ok(pageText.includes("DESKRIPSI"), pageText.slice(0, 120));
+    assert.ok(pageTexts.at(-1).includes("Terima kasih.") && pageTexts.at(-1).includes(`HALAMAN ${pageTexts.length} DARI ${pageTexts.length}`));
     assert.ok(pageTexts.join(" ").includes("Layanan nomor 70"));
     await withDocumentRunner({ environment: { DOCUMENT_TEMPLATES_INPUT_DIRS: inputDirectory, DOCUMENT_TEMPLATES_OUTPUT_DIR: outputDirectory, DOCUMENT_TEMPLATES_MAX_PAGES: "2" } }, async (capped) => {
       await assert.rejects(capped.runOperation("render_pdf", { values_file: "big.json", file_name: "capped" }, AS_TOOL), (error) => error.kind === "invalid_input" && /DOCUMENT_TEMPLATES_MAX_PAGES/.test(error.message));
@@ -122,7 +126,7 @@ test("render_pdf: missing values, bad numbers and bad file names are refused bef
       [{}, /`values` is required/],
       [{ values: "[1,2]" }, /values/],
       [{ values: INVOICE_VALUES, template: "report.docx" }, /fill_docx/],
-      [{ values: INVOICE_VALUES, template: "nothing.xlsx" }, /\.json, \.docx or \.pdf/],
+      [{ values: INVOICE_VALUES, template: "nothing.xlsx" }, /\.json, \.docx, \.dotx or \.pdf/],
       [{ values: { ...INVOICE_VALUES, client: { name: "株式会社 東京" } } }, /No available font has these characters: 株 \(U\+682A\)/],
     ];
     for (const [args, pattern] of refused) await assert.rejects(runOperation("render_pdf", args, AS_TOOL), (error) => error.kind === "invalid_input" && pattern.test(error.message), JSON.stringify(args).slice(0, 80));
@@ -232,3 +236,35 @@ test("next_number feeds render_pdf: two invoices get consecutive numbers and the
     await mkdir(join(outputDirectory, "x"));
     await assert.rejects(runOperation("next_number", { pattern: "no sequence" }, AS_TOOL), { kind: "invalid_input" });
   }));
+
+test("only the documents folder has to be set up: a copy of the invoice template is saved there, never over another, and used for a PDF", options, () =>
+  withDocumentRunner({ environment: { DOCUMENT_TEMPLATES_INPUT_DIRS: "" } }, async ({ runOperation, outputDirectory }) => {
+    const copy = await runOperation("save_template_copy", {}, AS_TOOL);
+    assert.deepEqual([copy.data.path, copy.data.folder_path, copy.data.relative_path, copy.data.copied_from, copy.data.replaced_existing], [join(outputDirectory, "Templates", "invoice.json"), join(outputDirectory, "Templates"), "Templates/invoice.json", "invoice", false]);
+    assert.ok(copy.data.how_to_use.includes(JSON.stringify(copy.data.path)));
+    const layout = JSON.parse(await readFile(copy.data.path, "utf8"));
+    layout.labels.en.title = "Quotation";
+    await writeFile(copy.data.path, JSON.stringify(layout));
+    const second = await runOperation("save_template_copy", { template: " Invoice " }, AS_TOOL);
+    assert.equal(second.data.relative_path, "Templates/invoice-2.json");
+    assert.equal(JSON.parse(await readFile(copy.data.path, "utf8")).labels.en.title, "Quotation", "the first copy and its changes are kept");
+    assert.equal((await runOperation("save_template_copy", { name: "../Penawaran: 2026?" }, AS_TOOL)).data.relative_path, "Templates/Penawaran- 2026.json");
+    const rendered = await runOperation("render_pdf", { template: copy.data.path, values: { ...INVOICE_VALUES, language: "en" }, folder: "", file_name: " " }, AS_TOOL);
+    assert.equal(rendered.data.relative_path, "2026/11/INV-2026-0007.pdf");
+    assert.ok((await readPageTexts(await readFile(rendered.data.path)))[0].includes("QUOTATION"));
+    assert.deepEqual((await runOperation("describe_template", { template: copy.data.path }, AS_TOOL)).data.built_in, false);
+    await assert.rejects(runOperation("save_template_copy", { template: "report" }, AS_TOOL), (error) => error.kind === "invalid_input" && /ready-made template \(invoice\)/.test(error.message));
+    await assert.rejects(runOperation("save_template_copy", { name: "..." }, AS_TOOL), { kind: "invalid_input" });
+  }));
+
+test("graphrt-settings.json: only the documents folder is required, and each default is the one the plugin uses", async () => {
+  const { settings } = JSON.parse(await readFile(new URL("../graphrt-settings.json", import.meta.url), "utf8"));
+  const byName = Object.fromEntries(settings.map((setting) => [setting.name, setting]));
+  assert.deepEqual(Object.keys(byName).sort(), [...buildManifest(pluginDefinition).permissions.env].sort());
+  assert.deepEqual(settings.filter((setting) => setting.required).map((setting) => setting.name), ["DOCUMENT_TEMPLATES_OUTPUT_DIR"]);
+  const defaults = readDocumentSettings({});
+  assert.deepEqual(
+    ["MAX_INPUT_BYTES", "MAX_OUTPUT_BYTES", "MAX_PAGES", "TIMEOUT_MS", "MAX_MEMORY_MB"].map((suffix) => byName[`DOCUMENT_TEMPLATES_${suffix}`].default),
+    [defaults.files.maxInputBytes, defaults.files.maxOutputBytes, defaults.maxPages, defaults.timeoutMs, defaults.maxMemoryMb],
+  );
+});

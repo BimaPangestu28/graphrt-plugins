@@ -36,17 +36,17 @@ const WINDOWS_RESERVED_NAME_PATTERN = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*
 export const FILING_PARAMETERS = {
   folder: {
     type: "string",
-    description: "Folder inside DOCUMENT_TEMPLATES_OUTPUT_DIR, as a pattern (default \"{YYYY}/{MM}\", the document's year and month). Tokens: {YYYY} {MM} {DD} (from the values' `date`, else today), {number}, {client}, {template}, and {values.some.field}. Example: \"Invoices/{client}/{YYYY}\"",
+    description: "Leave this empty unless a particular folder was asked for: documents are then sorted by year and month (2026/11) inside your documents folder. To sort them another way, write a pattern such as \"Invoices/{client}/{YYYY}\". Tokens: {YYYY} {MM} {DD} (the document's date, else today), {number}, {client}, {template} and {values.some.field}",
   },
   file_name: {
     type: "string",
-    description: "File name without extension, as a pattern with the same tokens (default \"{number}\" when the values have a number, else \"{template}-{YYYY}{MM}{DD}-{time}\")",
+    description: "Leave this empty to name the file after the document's number (INV-2026-0001). Or a name without extension, as a pattern with the same tokens as `folder`, e.g. \"{number} {client}\"",
   },
   if_exists: {
     type: "string",
     enum: IF_EXISTS_CHOICES,
     default: "error",
-    description: "When the file already exists: error (keep it and fail), number (save next to it as name-2, name-3, ...) or overwrite (replace it; workflow nodes only)",
+    description: "What to do when a document with this name is already there: error (keep it and report the problem; the default), number (keep both: the new one is saved as name-2, name-3, ...) or overwrite (replace it; only a step of a saved agent may do this, never a request made in chat)",
   },
 };
 
@@ -103,13 +103,18 @@ export function buildFilingTokens({ values, templateName, now }) {
  * @throws PluginError kind `invalid_input` - When a token is unknown or empty, or a pattern is malformed
  */
 export function resolveFilingPlan({ folder, fileName, extension, filing }) {
-  const folderPattern = folder ?? DEFAULT_FOLDER_PATTERN;
+  // An empty `folder` or `file_name` is a form field left blank, and means the default.
+  const folderPattern = isBlank(folder) ? DEFAULT_FOLDER_PATTERN : folder;
   const hasNumber = toSafeSegment(filing.tokens.number) !== "";
-  const namePattern = fileName ?? (hasNumber ? "{number}" : "{template}-{YYYY}{MM}{DD}-{time}");
+  const namePattern = isBlank(fileName) ? (hasNumber ? "{number}" : "{template}-{YYYY}{MM}{DD}-{time}") : fileName;
   const folderSegments = folderPattern.split(/[\\/]+/).filter((segment) => segment.trim() !== "").map((segment) => fillSegment(segment, filing, "folder"));
   if (folderSegments.length > MAX_FOLDER_DEPTH) throw invalidInput(`\`folder\` has ${folderSegments.length} levels, over the limit of ${MAX_FOLDER_DEPTH}`);
   if (/[\\/]/.test(namePattern)) throw invalidInput("`file_name` must not contain / or \\; use `folder` for the folder");
   return { folderSegments, fileStem: fillSegment(namePattern, filing, "file_name"), extension };
+}
+
+function isBlank(pattern) {
+  return pattern === undefined || pattern === null || String(pattern).trim() === "";
 }
 
 function fillSegment(pattern, filing, parameterName) {
@@ -199,7 +204,7 @@ async function saveDocument(context, { plan, bytes, ifExists }) {
     await writeStagingFile(context.fileSystem, stagingPath, bytes);
     const published = await publish(context, { stagingPath, directory, plan, ifExists });
     const relativePath = [...plan.folderSegments, published.fileName].join("/");
-    return { path: published.path, relative_path: relativePath, folder: plan.folderSegments.join("/"), file_name: published.fileName, size_bytes: bytes.length, replaced_existing: published.replacedExisting };
+    return { path: published.path, folder_path: directory, relative_path: relativePath, folder: plan.folderSegments.join("/"), file_name: published.fileName, size_bytes: bytes.length, replaced_existing: published.replacedExisting };
   } catch (saveError) {
     throw saveError?.kind ? saveError : operationFailed(`Could not save the document: ${saveError?.code ?? saveError?.message ?? saveError}`);
   } finally {

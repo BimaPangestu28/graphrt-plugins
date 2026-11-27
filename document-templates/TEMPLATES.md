@@ -117,6 +117,9 @@ Every part may have: `font` (`sans`, `serif`, or the file name without extension
 `absolutePosition` and `relativePosition` (`{"x", "y"}`), and in tables `colSpan`, `rowSpan`, `fillColor`,
 `border` and `borderColor`. Anything else is refused with the name of the property.
 
+`characterSpacing` above 0 (letter-spaced labels) is drawn so that the text is still copied, searched and read
+aloud as words: TOTAL DUE, not "T O T A L D U E".
+
 `absolutePosition` places a part at fixed coordinates on the page, which is how to write into the boxes of a
 pre-printed `background_pdf`.
 
