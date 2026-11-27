@@ -291,6 +291,11 @@ to update the READMEs and the table.
 
 Run `npm run check && npm test` locally first. A red CI run blocks review.
 
+CI runs on Linux. A plugin that works with local files, fonts or child processes should also be tested on
+Windows and macOS once: add the label `windows` and/or `macos` to the pull request, and
+[`os-tests.yml`](.github/workflows/os-tests.yml) runs the tests of the plugins the pull request changes on that
+system. It is never required, and maintainers can also run it by hand for any plugin.
+
 The `ci-ok` check sums up the run: it passes when every job passed or was skipped, and it is the check a merge
 needs. The merge queue runs everything again on top of `main` and the pull requests queued ahead.
 
