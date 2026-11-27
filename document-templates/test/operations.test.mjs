@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { buildManifest } from "../lib/shared/operations.mjs";
 import { pluginDefinition } from "../definition.mjs";
@@ -15,9 +15,9 @@ import { AS_NODE, AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, buildDocx, bu
 const options = { skip: SKIP_WITHOUT_LIBRARIES };
 const LAYOUT = { format: "graphrt-document-template", version: 1, name: "letter", content: [{ text: "Kepada {{client.name}}", bold: true }, "{{body}}"] };
 
-test("manifest: local only, no secrets, nine tools, the documents folder first, and descriptions without setting names", () => {
+test("manifest: local only, no secrets, ten tools, the documents folder first, and descriptions without setting names", () => {
   const manifest = buildManifest(pluginDefinition);
-  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "save_template_copy", "next_number", "save_brand", "show_brand", "render_pdf", "fill_pdf_form", "fill_docx"]);
+  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "save_template_copy", "next_number", "save_brand", "show_brand", "check_values", "render_pdf", "fill_pdf_form", "fill_docx"]);
   assert.equal(manifest.permissions.network, false);
   assert.equal(manifest.permissions.secrets, false);
   assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_MAX_FORM_FIELDS", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);
@@ -236,6 +236,88 @@ test("next_number feeds render_pdf: two invoices get consecutive numbers and the
     await mkdir(join(outputDirectory, "x"));
     await assert.rejects(runOperation("next_number", { pattern: "no sequence" }, AS_TOOL), { kind: "invalid_input" });
   }));
+
+test("check_values: checks everything render_pdf checks, draws the PDF and throws it away, saves nothing and uses no number", options, () =>
+  withDocumentRunner({}, async ({ runOperation, outputDirectory }) => {
+    const { number: _number, ...valuesWithoutNumber } = INVOICE_VALUES;
+    const checked = await runOperation("check_values", { values: valuesWithoutNumber, number_pattern: "INV-{YYYY}-{SEQ:4}" }, AS_NODE);
+    assert.deepEqual({ ...checked.data, totals: checked.data.totals.balance_due_text }, { ok: true, problem: null, template: "invoice", number: "INV-2026-0001", totals: "Rp 11.100.000", page_count: 1, relative_path: "2026/11/INV-2026-0001.pdf" });
+    assert.deepEqual(await readdir(outputDirectory), [], "no file, no numbering file");
+    // Without a series, the number given in the values is the one checked.
+    assert.equal((await runOperation("check_values", { values: INVOICE_VALUES }, AS_TOOL)).data.relative_path, "2026/11/INV-2026-0007.pdf");
+
+    // Everything a person can fix comes back as a problem in plain words, not as a failure.
+    const problems = {
+      "The unit price of item 1 must be a plain number": { ...valuesWithoutNumber, items: [{ description: "Jasa", quantity: 2, unit_price: "seratus ribu" }] },
+      "The unit price of item 1 is required when quantity is given": { ...valuesWithoutNumber, items: [{ description: "Jasa", quantity: 2 }] },
+      "Currency must be a three-letter code such as IDR or USD, got \"Rp\"": { ...valuesWithoutNumber, currency: "Rp" },
+      "The invoice template needs these values: client.name": { ...valuesWithoutNumber, client: {} },
+    };
+    for (const [expected, values] of Object.entries(problems)) {
+      const result = await runOperation("check_values", { values, number_pattern: "INV-{YYYY}-{SEQ:4}" }, AS_NODE);
+      assert.deepEqual([result.data.ok, result.data.number, result.data.problem.startsWith(expected)], [false, null, true], result.data.problem);
+    }
+    for (const [args, expected] of [
+      [{ values: INVOICE_VALUES, number_pattern: "INV-{SEQ}" }, /Give the document's number in values or a number pattern, not both/],
+      [{ values: valuesWithoutNumber, number_pattern: "INV-no-sequence" }, /needs exactly one \{SEQ\} token/],
+      [{ values: { ...valuesWithoutNumber, seller: { ...valuesWithoutNumber.seller, logo: "missing.png" } }, number_pattern: "INV-{SEQ}" }, /missing\.png/],
+    ]) assert.match((await runOperation("check_values", args, AS_NODE)).data.problem, expected);
+    // A file that is already there is a problem too, before any number is taken.
+    await mkdir(join(outputDirectory, "2026", "11"), { recursive: true });
+    await writeFile(join(outputDirectory, "2026", "11", "INV-2026-0001.pdf"), "taken");
+    assert.match((await runOperation("check_values", { values: valuesWithoutNumber, number_pattern: "INV-{YYYY}-{SEQ:4}" }, AS_NODE)).data.problem, /already exists/);
+    assert.deepEqual((await readdir(outputDirectory)).sort(), ["2026"]);
+  }));
+
+test("check_values: what is not the values' fault is still a failure (no documents folder, a broken renderer)", options, async () => {
+  await withDocumentRunner({ environment: { DOCUMENT_TEMPLATES_OUTPUT_DIR: "" } }, async ({ runOperation }) => {
+    await assert.rejects(runOperation("check_values", { values: INVOICE_VALUES }, AS_NODE), { kind: "setup_required" });
+    await assert.rejects(runOperation("check_values", { values: { ...INVOICE_VALUES, number: "" }, number_pattern: "INV-{SEQ}" }, AS_NODE), { kind: "setup_required" });
+  });
+  const brokenRenderer = async () => { throw Object.assign(new Error("renderer crashed"), { kind: "plugin_error" }); };
+  await withDocumentRunner({ runTask: brokenRenderer }, async ({ runOperation }) => {
+    await assert.rejects(runOperation("check_values", { values: INVOICE_VALUES }, AS_NODE), /renderer crashed/);
+  });
+});
+
+test("render_pdf with number_pattern: the number is used only once the PDF is saved, so a failed invoice leaves no gap", options, () => {
+  let isRendererBroken = false;
+  const runTask = (task, payload) => {
+    if (isRendererBroken) throw Object.assign(new Error("renderer crashed"), { kind: "plugin_error" });
+    return runEngineTask(task, structuredClone(payload));
+  };
+  return withDocumentRunner({ runTask }, async ({ runOperation, outputDirectory }) => {
+    const { number: _number, ...values } = INVOICE_VALUES;
+    const render = (overrides = {}) => runOperation("render_pdf", { values: { ...values, ...overrides }, number_pattern: "INV-{YYYY}-{SEQ:4}" }, AS_NODE);
+    const counterPath = join(outputDirectory, ".document-templates", "numbering.json");
+    const readLast = async () => JSON.parse(await readFile(counterPath, "utf8").catch(() => "{\"counters\":{}}")).counters["INV-2026-{SEQ:4}"]?.last ?? 0;
+
+    // The desktop test: an amount in words fails, and no number is used.
+    await assert.rejects(render({ items: [{ description: "Jasa", quantity: 2, unit_price: "seratus ribu" }] }), { kind: "invalid_input" });
+    assert.equal(await readLast(), 0);
+    isRendererBroken = true;
+    await assert.rejects(render(), /renderer crashed/);
+    isRendererBroken = false;
+    assert.equal(await readLast(), 0);
+
+    const first = await render();
+    assert.deepEqual([first.data.number, first.data.relative_path], ["INV-2026-0001", "2026/11/INV-2026-0001.pdf"]);
+    assert.ok((await readPageTexts(await readFile(first.data.path)))[0].includes("INV-2026-0001"));
+    // Saving fails (the file name is taken): the number is given back.
+    await writeFile(join(outputDirectory, "2026", "11", "INV-2026-0002.pdf"), "someone else's file");
+    await assert.rejects(render(), /already exists/);
+    assert.equal(await readLast(), 1);
+    await rm(join(outputDirectory, "2026", "11", "INV-2026-0002.pdf"));
+    assert.equal((await render()).data.number, "INV-2026-0002");
+
+    // The series follows the document's date, and two at the same time get their own numbers.
+    assert.equal((await render({ date: "2027-01-04" })).data.relative_path, "2027/01/INV-2027-0001.pdf");
+    const together = await Promise.all([render(), render(), render()]);
+    assert.deepEqual(together.map((result) => result.data.number).sort(), ["INV-2026-0003", "INV-2026-0004", "INV-2026-0005"]);
+    assert.equal(await readLast(), 5);
+    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES, number_pattern: "INV-{SEQ}" }, AS_NODE), /not both/);
+  });
+});
 
 test("only the documents folder has to be set up: a copy of the invoice template is saved there, never over another, and used for a PDF", options, () =>
   withDocumentRunner({ environment: { DOCUMENT_TEMPLATES_INPUT_DIRS: "" } }, async ({ runOperation, outputDirectory }) => {

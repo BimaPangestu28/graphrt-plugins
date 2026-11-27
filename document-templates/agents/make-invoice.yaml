@@ -1,7 +1,9 @@
 # Ready-made agent "Make an invoice": no AI model is involved in any step.
-# It asks for the client, the items, the tax and the currency, asks before anything is created,
-# takes the next invoice number, creates the PDF with the ready-made invoice template in the
-# usual year/month folder, and says where the file is.
+# It asks for the client, the items, the tax and the currency, checks them all before anything else
+# (a mistake is reported in plain words and nothing is made), asks before anything is created, then
+# creates the PDF with the ready-made invoice template in the usual year/month folder under the next
+# invoice number, and says where the file is. The number is only used up once the PDF is saved,
+# so the invoice series never has a gap.
 #   graphrt run document-templates/agents/make-invoice.yaml --plugins . -i client_name="Northwind Analytics Ltd" -i seller_name="Rina Wijaya"
 version: "1"
 name: make-invoice
@@ -35,6 +37,29 @@ graph:
         - { variable: currency, type: text-input, required: true, max_length: 3, label: "Currency (USD, EUR, SGD, IDR...)", default: USD }
         - { variable: seller_name, type: text-input, required: true, max_length: 200, label: Your name or business name }
 
+    - id: check_invoice
+      type: document-templates.check_values
+      title: Check the invoice details
+      template: invoice
+      number_pattern: "INV-{YYYY}-{SEQ:4}"
+      values:
+        currency: "{{#start.currency#}}"
+        language: en
+        seller: { name: "{{#start.seller_name#}}" }
+        client: { name: "{{#start.client_name#}}", address: "{{#start.client_address#}}" }
+        items: "{{#start.items#}}"
+        taxes:
+          - { name: "{{#start.tax_name#}}", rate: "{{#start.tax_percent#}}" }
+
+    - id: is_ok
+      type: if-else
+      title: Is everything right?
+      cases:
+        - case_id: ok
+          logical_operator: and
+          conditions:
+            - { variable_selector: [check_invoice, data, problem], comparison_operator: empty }
+
     - id: list_details
       type: template-transform
       title: Put the invoice in plain words
@@ -49,22 +74,18 @@ graph:
     - id: approve
       type: human-input
       title: Ask before making the invoice
-      prompt: "Make this invoice? It gets the next invoice number.\n\n{{#list_details.output#}}"
+      prompt: "Make this invoice? It gets number {{#check_invoice.data.number#}} (or the next free one, if another invoice is made first). Total due: {{#check_invoice.data.totals.balance_due_text#}}.\n\n{{#list_details.output#}}"
       actions:
         - { id: create, title: Make the invoice }
         - { id: cancel, title: Cancel }
 
-    - id: take_number
-      type: document-templates.next_number
-      title: Take the next invoice number
-      pattern: "INV-{YYYY}-{SEQ:4}"
-
     - id: create_pdf
       type: document-templates.render_pdf
       title: Make and save the invoice PDF
+      on_error: { strategy: fail-branch }
       template: invoice
+      number_pattern: "INV-{YYYY}-{SEQ:4}"
       values:
-        number: "{{#take_number.data.number#}}"
         currency: "{{#start.currency#}}"
         language: en
         seller: { name: "{{#start.seller_name#}}" }
@@ -89,12 +110,28 @@ graph:
       template: "No invoice was made and no number was used."
       variables: []
 
+    - id: write_problem
+      type: template-transform
+      title: Say what needs fixing
+      template: "No invoice was made and no number was used, because something in the details needs fixing:\n{{ problem }}\nCorrect it and run the agent again."
+      variables:
+        - { variable: problem, value_selector: [check_invoice, data, problem] }
+
+    - id: write_failed
+      type: template-transform
+      title: Say that the invoice could not be made
+      template: "The invoice could not be made, and no number was used:\n{{ error }}"
+      variables:
+        - { variable: error, value_selector: [create_pdf, error_message] }
+
     - id: result
       type: variable-aggregator
       title: Result
       variables:
         - [write_summary, output]
         - [write_cancelled, output]
+        - [write_problem, output]
+        - [write_failed, output]
 
     - id: end
       type: end
@@ -102,12 +139,17 @@ graph:
         - { variable: summary, value_selector: [result, output] }
 
   edges:
-    - { source: start, target: list_details }
+    - { source: start, target: check_invoice }
+    - { source: check_invoice, target: is_ok }
+    - { source: is_ok, target: list_details, handle: ok }
+    - { source: is_ok, target: write_problem, handle: "false" }
     - { source: list_details, target: approve }
-    - { source: approve, target: take_number, handle: create }
+    - { source: approve, target: create_pdf, handle: create }
     - { source: approve, target: write_cancelled, handle: cancel }
-    - { source: take_number, target: create_pdf }
     - { source: create_pdf, target: write_summary }
+    - { source: create_pdf, target: write_failed, handle: fail-branch }
     - { source: write_summary, target: result }
     - { source: write_cancelled, target: result }
+    - { source: write_problem, target: result }
+    - { source: write_failed, target: result }
     - { source: result, target: end }

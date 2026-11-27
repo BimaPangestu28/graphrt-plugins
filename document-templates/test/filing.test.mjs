@@ -7,7 +7,7 @@ import { promises as realFileSystem } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, utimes, writeFile, link } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { issueNextNumber, readNumberDate, resolveNumberPattern } from "../lib/number-sequence.mjs";
+import { issueNextNumber, readNumberDate, resolveNumberPattern, useNumberWhenSaved } from "../lib/number-sequence.mjs";
 import { assertIfExistsAllowed, buildFilingTokens, createOutputOrganiser, resolveFilingPlan, toSafeSegment } from "../lib/output-organiser.mjs";
 import { FIXED_NOW } from "./helpers.mjs";
 
@@ -170,4 +170,51 @@ test("numbering: calls at the same time never share a number; a stale lock is ta
     await writeFile(join(outputDirectory, ".document-templates", "numbering.json"), "{ not json");
     await assert.rejects(issueNextNumber(outputDirectory, request), (error) => error.kind === "invalid_input" && /damaged/.test(error.message));
     await assert.rejects(issueNextNumber(outputDirectory, { ...request, isPreview: true }), /damaged/);
+  }));
+
+test("numbering when saved: the number is used only when the document is saved, given back when saving fails, and never twice", () =>
+  withOutputDirectory(async ({ outputDirectory }) => {
+    const request = { pattern: "INV-{YYYY}-{SEQ:4}", date: new Date(Date.UTC(2026, 10, 27)), startAt: 1 };
+    const preview = () => issueNextNumber(outputDirectory, { ...request, isPreview: true });
+    const readCounters = async () => JSON.parse(await readFile(join(outputDirectory, ".document-templates", "numbering.json"), "utf8")).counters;
+
+    // Saving fails: the counter is put back, here to no counter at all, and the error is the save's own.
+    const failedSave = useNumberWhenSaved(outputDirectory, { ...request, sequence: 1 }, async () => {
+      throw Object.assign(new Error("disk full"), { kind: "plugin_error" });
+    });
+    await assert.rejects(failedSave, /disk full/);
+    assert.deepEqual(await readCounters(), {});
+    assert.equal((await preview()).number, "INV-2026-0001");
+
+    const saved = await useNumberWhenSaved(outputDirectory, { ...request, sequence: 1 }, async () => ({ path: "INV-2026-0001.pdf" }));
+    assert.deepEqual(saved, { isTaken: false, saved: { path: "INV-2026-0001.pdf" }, number: "INV-2026-0001", sequence: 1, counter: "INV-2026-{SEQ:4}" });
+    // A document drawn with a number another call has used since is not saved.
+    let isSaveCalled = false;
+    assert.deepEqual(await useNumberWhenSaved(outputDirectory, { ...request, sequence: 1 }, async () => { isSaveCalled = true; }), { isTaken: true });
+    assert.equal(isSaveCalled, false);
+    // A failed save after earlier documents gives back only its own number.
+    await assert.rejects(useNumberWhenSaved(outputDirectory, { ...request, sequence: 2 }, async () => { throw new Error("exists"); }), /exists/);
+    assert.equal((await readCounters())["INV-2026-{SEQ:4}"].last, 1);
+
+    // When even giving the number back fails, the message says which number is gone.
+    const failingRestore = { ...realFileSystem, writeFile: async (...writeArguments) => { if (isRestoring) throw Object.assign(new Error("read-only"), { code: "EROFS" }); return realFileSystem.writeFile(...writeArguments); } };
+    let isRestoring = false;
+    const restoreFails = useNumberWhenSaved(outputDirectory, { ...request, sequence: 2 }, async () => { isRestoring = true; throw new Error("exists"); }, { fileSystem: failingRestore });
+    await assert.rejects(restoreFails, (error) => error.kind === "plugin_error" && /INV-2026-0002 could not be given back/.test(error.message));
+  }));
+
+test("numbering when saved: documents saved at the same time each get their own number, with no gap", () =>
+  withOutputDirectory(async ({ outputDirectory }) => {
+    const request = { pattern: "INV-{SEQ}", date: new Date(Date.UTC(2026, 0, 1)), startAt: 1 };
+    // What render_pdf does: preview, draw, then try to use the number; when it was taken, preview again.
+    const saveOne = async () => {
+      for (;;) {
+        const next = await issueNextNumber(outputDirectory, { ...request, isPreview: true });
+        await new Promise((resolvePromise) => setImmediate(resolvePromise));
+        const used = await useNumberWhenSaved(outputDirectory, { ...request, sequence: next.sequence }, async () => next.number);
+        if (!used.isTaken) return used.saved;
+      }
+    };
+    const numbers = await Promise.all(Array.from({ length: 8 }, saveOne));
+    assert.deepEqual([...numbers].sort(), ["INV-1", "INV-2", "INV-3", "INV-4", "INV-5", "INV-6", "INV-7", "INV-8"]);
   }));

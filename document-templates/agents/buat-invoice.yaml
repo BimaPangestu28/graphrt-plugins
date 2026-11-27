@@ -1,7 +1,9 @@
 # Agent siap pakai "Buat invoice": tidak ada langkah yang memakai model AI.
-# Agent ini menanyakan klien, daftar item, pajak dan mata uang, meminta persetujuan sebelum membuat apa pun,
-# mengambil nomor invoice berikutnya, membuat PDF dengan template invoice bawaan di folder tahun/bulan,
-# lalu memberi tahu di mana filenya.
+# Agent ini menanyakan klien, daftar item, pajak dan mata uang, memeriksa semuanya lebih dulu (kesalahan
+# disampaikan dengan kata-kata biasa dan tidak ada yang dibuat), meminta persetujuan sebelum membuat apa pun,
+# lalu membuat PDF dengan template invoice bawaan di folder tahun/bulan dengan nomor invoice berikutnya,
+# dan memberi tahu di mana filenya. Nomor baru terpakai setelah PDF tersimpan, jadi urutan nomor invoice
+# tidak pernah bolong.
 #   graphrt run document-templates/agents/buat-invoice.yaml --plugins . -i client_name="PT Maju Bersama" -i seller_name="CV Kenanga Digital"
 version: "1"
 name: buat-invoice
@@ -35,6 +37,29 @@ graph:
         - { variable: currency, type: text-input, required: true, max_length: 3, label: "Mata uang (IDR, USD, SGD...)", default: IDR }
         - { variable: seller_name, type: text-input, required: true, max_length: 200, label: Nama Anda atau nama usaha Anda }
 
+    - id: check_invoice
+      type: document-templates.check_values
+      title: Periksa data invoice
+      template: invoice
+      number_pattern: "INV-{YYYY}-{SEQ:4}"
+      values:
+        currency: "{{#start.currency#}}"
+        language: id
+        seller: { name: "{{#start.seller_name#}}" }
+        client: { name: "{{#start.client_name#}}", address: "{{#start.client_address#}}" }
+        items: "{{#start.items#}}"
+        taxes:
+          - { name: "{{#start.tax_name#}}", rate: "{{#start.tax_percent#}}" }
+
+    - id: is_ok
+      type: if-else
+      title: Apakah semuanya benar?
+      cases:
+        - case_id: ok
+          logical_operator: and
+          conditions:
+            - { variable_selector: [check_invoice, data, problem], comparison_operator: empty }
+
     - id: list_details
       type: template-transform
       title: Tulis isi invoice dengan kata-kata biasa
@@ -49,22 +74,18 @@ graph:
     - id: approve
       type: human-input
       title: Tanya sebelum membuat invoice
-      prompt: "Buat invoice ini? Invoice akan memakai nomor urut berikutnya.\n\n{{#list_details.output#}}"
+      prompt: "Buat invoice ini? Nomornya {{#check_invoice.data.number#}} (atau nomor kosong berikutnya, bila ada invoice lain yang dibuat lebih dulu). Total tagihan: {{#check_invoice.data.totals.balance_due_text#}}.\n\n{{#list_details.output#}}"
       actions:
         - { id: create, title: Buat invoice }
         - { id: cancel, title: Batal }
 
-    - id: take_number
-      type: document-templates.next_number
-      title: Ambil nomor invoice berikutnya
-      pattern: "INV-{YYYY}-{SEQ:4}"
-
     - id: create_pdf
       type: document-templates.render_pdf
       title: Buat dan simpan PDF invoice
+      on_error: { strategy: fail-branch }
       template: invoice
+      number_pattern: "INV-{YYYY}-{SEQ:4}"
       values:
-        number: "{{#take_number.data.number#}}"
         currency: "{{#start.currency#}}"
         language: id
         seller: { name: "{{#start.seller_name#}}" }
@@ -89,12 +110,28 @@ graph:
       template: "Tidak ada invoice yang dibuat dan tidak ada nomor yang terpakai."
       variables: []
 
+    - id: write_problem
+      type: template-transform
+      title: Beri tahu apa yang perlu diperbaiki
+      template: "Tidak ada invoice yang dibuat dan tidak ada nomor yang terpakai, karena ada data yang perlu diperbaiki:\n{{ problem }}\nPerbaiki lalu jalankan agent ini lagi."
+      variables:
+        - { variable: problem, value_selector: [check_invoice, data, problem] }
+
+    - id: write_failed
+      type: template-transform
+      title: Beri tahu bahwa invoice tidak bisa dibuat
+      template: "Invoice tidak bisa dibuat, dan tidak ada nomor yang terpakai:\n{{ error }}"
+      variables:
+        - { variable: error, value_selector: [create_pdf, error_message] }
+
     - id: result
       type: variable-aggregator
       title: Hasil
       variables:
         - [write_summary, output]
         - [write_cancelled, output]
+        - [write_problem, output]
+        - [write_failed, output]
 
     - id: end
       type: end
@@ -102,12 +139,17 @@ graph:
         - { variable: summary, value_selector: [result, output] }
 
   edges:
-    - { source: start, target: list_details }
+    - { source: start, target: check_invoice }
+    - { source: check_invoice, target: is_ok }
+    - { source: is_ok, target: list_details, handle: ok }
+    - { source: is_ok, target: write_problem, handle: "false" }
     - { source: list_details, target: approve }
-    - { source: approve, target: take_number, handle: create }
+    - { source: approve, target: create_pdf, handle: create }
     - { source: approve, target: write_cancelled, handle: cancel }
-    - { source: take_number, target: create_pdf }
     - { source: create_pdf, target: write_summary }
+    - { source: create_pdf, target: write_failed, handle: fail-branch }
     - { source: write_summary, target: result }
     - { source: write_cancelled, target: result }
+    - { source: write_problem, target: result }
+    - { source: write_failed, target: result }
     - { source: result, target: end }
