@@ -290,7 +290,8 @@ client and the items:
   notes: ["Pembayaran paling lambat 14 hari setelah tanggal invoice."]
 ```
 
-- The saved look is used for every document from then on. What a document says itself always wins: its own
+- The saved look is used for every PDF made from a template (`render_pdf`) from then on; filled-in PDF forms
+  and Word files are left as they are. What a document says itself always wins: its own
   `values` over the saved details, and its own `look` over both.
 - Call `save_brand` again with only what changes ("make the colour green"); everything else stays. `reset: true`
   starts again. `show_brand` shows what is saved.

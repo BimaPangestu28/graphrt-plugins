@@ -36,7 +36,7 @@ const saveBrandOperation = {
       data: {
         ...saved,
         ...(logo ? { logo_checked: { format: logo.format, width: logo.width, height: logo.height, size_bytes: logo.size_bytes } } : {}),
-        used_for: name === DEFAULT_BRAND_NAME ? "Every document from now on, unless a document asks for another brand or for `brand: none`" : `Documents that ask for \`brand: ${name}\``,
+        used_for: name === DEFAULT_BRAND_NAME ? "Every PDF created from a template from now on (render_pdf), unless a document asks for another brand or for `brand: none`. Filled-in PDF forms and Word files are not changed" : `PDFs created from a template (render_pdf) that ask for \`brand: ${name}\``,
       },
     };
   },

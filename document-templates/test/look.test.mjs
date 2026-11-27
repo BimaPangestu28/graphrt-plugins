@@ -190,7 +190,7 @@ test("save_brand: saved once, used for every later document, changed part by par
     await writeFile(join(inputDirectory, "logo.png"), buildPng(320, 120));
     const saved = await runOperation("save_brand", { ...BRAND, look: { ...BRAND.look, logo: "logo.png" } }, AS_TOOL);
     assert.deepEqual([saved.data.name, saved.data.look.logo, saved.data.logo_checked.width, saved.data.look.accent_color], ["default", join(inputDirectory, "logo.png"), 320, "#1F3A5F"]);
-    assert.match(saved.data.used_for, /Every document/);
+    assert.match(saved.data.used_for, /Every PDF created from a template/);
     assert.deepEqual(await readdir(join(outputDirectory, ".document-templates", "brands")), ["default.json"]);
 
     const first = await runOperation("render_pdf", { values: CLIENT_ONLY }, AS_TOOL);
