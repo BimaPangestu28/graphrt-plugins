@@ -24,7 +24,7 @@ const CALL_TIMEOUT_MS = (MAX_WAIT_SECONDS + 30) * 1000;
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "file-watcher",
-    version: "0.1.0",
+    version: "0.1.1",
     description: "Notice added, modified and removed files in allowed directories by polling: snapshot to a cursor, list changes since a cursor, or wait (up to 5 minutes) for the next change; bounded, never follows symlinks",
     extraEnv: [ALLOWED_DIRS_VARIABLE, MAX_ENTRIES_VARIABLE],
     localOnly: true,

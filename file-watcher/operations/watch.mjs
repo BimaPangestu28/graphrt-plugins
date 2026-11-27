@@ -3,6 +3,7 @@
  * request/response, so "watching" is polling: a snapshot becomes a cursor,
  * and a later call rescans and diffs against it.
  */
+import { isAbsolute } from "node:path";
 import { decodeCursor, encodeCursor } from "../lib/cursor.mjs";
 import { invalidInput, throwIfCancelled } from "../lib/errors.mjs";
 import { diffSnapshots, resolveWatchDirectory, takeSnapshot } from "../lib/snapshots.mjs";
@@ -43,7 +44,8 @@ function assertCursorOptions(options) {
  */
 async function snapshotFromCursor(client, cursor) {
   const previous = decodeCursor(cursor);
-  if (!previous.root.startsWith("/")) throw invalidInput("`cursor` names a relative directory; take a new snapshot");
+  // isAbsolute, not a leading "/": on Windows a directory is C:\\... and every cursor was refused here.
+  if (!isAbsolute(previous.root)) throw invalidInput("`cursor` names a relative directory; take a new snapshot");
   assertCursorOptions(previous.options);
   if (previous.entries.length > client.settings.maxEntries) throw invalidInput("`cursor` has more entries than FILE_WATCHER_MAX_ENTRIES; take a new snapshot");
   const realRoot = await resolveWatchDirectory(client, previous.root);

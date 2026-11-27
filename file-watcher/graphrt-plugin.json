@@ -1,6 +1,6 @@
 {
   "name": "file-watcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Notice added, modified and removed files in allowed directories by polling: snapshot to a cursor, list changes since a cursor, or wait (up to 5 minutes) for the next change; bounded, never follows symlinks",
   "license": "Apache-2.0",
   "runtime": "process",

@@ -87,11 +87,11 @@ test("read_file: a symlink that stays inside the allowlist is followed", async (
 test("read_file: directories, FIFOs and hard-linked files are refused", async () => {
   await withLocalFiles({}, async ({ runOperation, allowed, outside }) => {
     await mkdir(join(allowed, "folder"));
-    makeFifo(join(allowed, "pipe"));
+    const hasFifo = makeFifo(join(allowed, "pipe"));
     await writeFile(join(outside, "target.txt"), "outside");
     await link(join(outside, "target.txt"), join(allowed, "hard.txt"));
     await assert.rejects(runOperation("read_file", { path: "folder" }, AS_TOOL), { kind: "invalid_input" });
-    await assert.rejects(runOperation("read_file", { path: "pipe" }, AS_TOOL), { kind: "invalid_input" });
+    if (hasFifo) await assert.rejects(runOperation("read_file", { path: "pipe" }, AS_TOOL), { kind: "invalid_input" });
     await assert.rejects(runOperation("read_file", { path: "hard.txt" }, AS_TOOL), { kind: "invalid_input", message: /hard link/ });
   });
 });
@@ -106,7 +106,7 @@ test("read_file: NUL characters and a device path are refused", async () => {
 test("stat: files, directories (an allowed root too) and FIFOs are described without being opened", async () => {
   await withLocalFiles({}, async ({ runOperation, allowed }) => {
     await writeFile(join(allowed, "a.txt"), "abc");
-    makeFifo(join(allowed, "pipe"));
+    const hasFifo = makeFifo(join(allowed, "pipe"));
     const fileStat = await runOperation("stat", { path: "a.txt" }, AS_TOOL);
     assert.equal(fileStat.data.type, "file");
     assert.equal(fileStat.data.size_bytes, 3);
@@ -114,8 +114,7 @@ test("stat: files, directories (an allowed root too) and FIFOs are described wit
     assert.match(fileStat.data.mode, /^0[0-7]{3}$/);
     const rootStat = await runOperation("stat", { path: allowed }, AS_TOOL);
     assert.equal(rootStat.data.type, "directory");
-    const fifoStat = await runOperation("stat", { path: "pipe" }, AS_NODE);
-    assert.equal(fifoStat.data.type, "fifo");
+    if (hasFifo) assert.equal((await runOperation("stat", { path: "pipe" }, AS_NODE)).data.type, "fifo");
   });
 });
 

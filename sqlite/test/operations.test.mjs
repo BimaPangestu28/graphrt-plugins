@@ -109,7 +109,8 @@ test("path policy: outside, symlink escape, '..', relative, directories and devi
     await assert.rejects(runOperation("execute", { database: join(allowedDirectory, "missing.db"), sql: "CREATE TABLE t (x)" }, AS_NODE), { kind: "not_found" });
     await assert.rejects(runOperation("execute", { database: join(outsideDirectory, "new.db"), sql: "CREATE TABLE t (x)", create_if_missing: true }, AS_NODE), { kind: "not_found" });
     const fifoPath = join(allowedDirectory, "pipe.db");
-    if (spawnSync("mkfifo", [fifoPath]).status === 0) await assert.rejects(read(fifoPath), { kind: "invalid_input", message: /not a regular file/ });
+    // Not on Windows: Git's mkfifo reports success there without making anything a Windows program can see.
+    if (process.platform !== "win32" && spawnSync("mkfifo", [fifoPath]).status === 0) await assert.rejects(read(fifoPath), { kind: "invalid_input", message: /not a regular file/ });
   }));
 
 test("no SQLITE_ALLOWED_DIRS → setup_required; no database and no SQLITE_PATH → invalid_input", options, async () => {

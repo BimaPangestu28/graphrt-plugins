@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { promises as realFileSystem } from "node:fs";
 import { link, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { AS_NODE, AS_TOOL, makeFifo, withLocalFiles } from "./helpers.mjs";
+import { AS_NODE, AS_TOOL, IS_WINDOWS, makeFifo, withLocalFiles } from "./helpers.mjs";
 import { pluginDefinition } from "../definition.mjs";
 import { buildManifest } from "../lib/shared/operations.mjs";
 
@@ -46,7 +46,7 @@ test("write_file: an existing file is never replaced unless a node asks with ove
     const { data } = await runOperation("write_file", { path: "keep.txt", content: "replaced", overwrite: true }, AS_NODE);
     assert.equal(data.created, false);
     assert.equal(await readFile(join(allowed, "keep.txt"), "utf8"), "replaced");
-    assert.equal((await stat(join(allowed, "keep.txt"))).mode & 0o777, 0o640);
+    if (!IS_WINDOWS) assert.equal((await stat(join(allowed, "keep.txt"))).mode & 0o777, 0o640);
     assert.deepEqual(await readdir(allowed), ["keep.txt"]);
   });
 });
@@ -56,9 +56,9 @@ test("write_file: refuses to overwrite symlinks, hard-linked files, FIFOs and di
     await writeFile(join(outside, "target.txt"), "outside");
     await symlink(join(outside, "target.txt"), join(allowed, "soft.txt"));
     await link(join(outside, "target.txt"), join(allowed, "hard.txt"));
-    makeFifo(join(allowed, "pipe"));
+    const hasFifo = makeFifo(join(allowed, "pipe"));
     await mkdir(join(allowed, "folder"));
-    for (const name of ["soft.txt", "hard.txt", "pipe", "folder"]) {
+    for (const name of ["soft.txt", "hard.txt", ...(hasFifo ? ["pipe"] : []), "folder"]) {
       await assert.rejects(runOperation("write_file", { path: name, content: "x", overwrite: true }, AS_NODE), { kind: "invalid_input" }, name);
     }
     assert.equal(await readFile(join(outside, "target.txt"), "utf8"), "outside");
