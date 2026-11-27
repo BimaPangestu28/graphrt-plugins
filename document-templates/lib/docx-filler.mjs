@@ -1,5 +1,5 @@
 /**
- * Word documents (.docx) with placeholders, filled with docxtemplater.
+ * Word documents (.docx) and Word templates (.dotx) with placeholders, filled with docxtemplater.
  *
  * The placeholders are the same as everywhere else in this plugin:
  * `{{client.name}}`, `{{totals.total | money}}`. A section repeats for every
@@ -18,6 +18,11 @@ import { assertZipWithinLimits } from "./zip-inspection.mjs";
 const ZIP_LIMITS = { maxUnzippedBytes: 200 * 1024 * 1024, maxEntries: 2000 };
 const MAX_REPORTED_ERRORS = 8;
 const MACRO_PART_PATTERN = /vbaProject/i;
+const CONTENT_TYPES_PART = "[Content_Types].xml";
+// A Word template file (.dotx) differs from a document (.docx) in this one content type.
+const TEMPLATE_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml";
+const DOCUMENT_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
+const PART_NAMES = [[/^word\/header\d*\.xml$/, "the page header"], [/^word\/footer\d*\.xml$/, "the page footer"], [/^word\/footnotes\.xml$/, "a footnote"], [/^word\/endnotes\.xml$/, "an endnote"]];
 
 async function openTemplate(bytes) {
   const buffer = Buffer.from(bytes);
@@ -41,6 +46,8 @@ function createDocument(Docxtemplater, zip, settings) {
       paragraphLoop: true,
       linebreaks: true,
       nullGetter: () => "",
+      // Problems are reported through the thrown error; docxtemplater would also print each one.
+      errorLogging: false,
       parser: (tag) => createTagReader(tag, settings),
     });
   } catch (templateError) {
@@ -71,8 +78,25 @@ function toVariables(scopeValue) {
 
 function describeTemplateError(templateError) {
   if (templateError?.kind) return templateError;
-  const details = (templateError?.properties?.errors ?? [templateError]).slice(0, MAX_REPORTED_ERRORS).map((error) => error?.properties?.explanation ?? error?.message ?? String(error));
-  return invalidInput(`The Word template has a problem with its placeholders: ${details.join("; ")}`);
+  const details = (templateError?.properties?.errors ?? [templateError]).slice(0, MAX_REPORTED_ERRORS).map(describePlaceholderProblem);
+  return invalidInput(`The Word template has a problem with its placeholders: ${[...new Set(details)].join("; ")}`);
+}
+
+// A placeholder this plugin's parser refused carries its own message (which names the placeholder and what to
+// write instead); docxtemplater's wording is used for its own findings, such as a tag that is never closed.
+function describePlaceholderProblem(problem) {
+  const properties = problem?.properties ?? {};
+  const message = properties.rootError?.message ?? properties.explanation ?? problem?.message ?? String(problem);
+  const partName = PART_NAMES.find(([pattern]) => pattern.test(properties.file ?? ""))?.[1];
+  return partName ? `${message} (in ${partName})` : message;
+}
+
+// The result is always a document: a filled .dotx would otherwise open in Word as a new unnamed copy, and under
+// the name .docx Word refuses a file that says it is a template.
+function saveAsDocument(zip) {
+  const contentTypes = zip.file(CONTENT_TYPES_PART)?.asText();
+  if (contentTypes?.includes(TEMPLATE_CONTENT_TYPE)) zip.file(CONTENT_TYPES_PART, contentTypes.replaceAll(TEMPLATE_CONTENT_TYPE, DOCUMENT_CONTENT_TYPE));
+  return zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
 /**
@@ -112,5 +136,5 @@ export async function fillDocx({ bytes, values, settings }) {
   } catch (renderError) {
     throw describeTemplateError(renderError);
   }
-  return { data: {}, outputs: [document.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" })] };
+  return { data: {}, outputs: [saveAsDocument(document.getZip())] };
 }

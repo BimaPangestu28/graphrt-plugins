@@ -122,7 +122,7 @@ test("render_pdf: missing values, bad numbers and bad file names are refused bef
       [{}, /`values` is required/],
       [{ values: "[1,2]" }, /values/],
       [{ values: INVOICE_VALUES, template: "report.docx" }, /fill_docx/],
-      [{ values: INVOICE_VALUES, template: "nothing.xlsx" }, /\.json, \.docx or \.pdf/],
+      [{ values: INVOICE_VALUES, template: "nothing.xlsx" }, /\.json, \.docx, \.dotx or \.pdf/],
       [{ values: { ...INVOICE_VALUES, client: { name: "株式会社 東京" } } }, /No available font has these characters: 株 \(U\+682A\)/],
     ];
     for (const [args, pattern] of refused) await assert.rejects(runOperation("render_pdf", args, AS_TOOL), (error) => error.kind === "invalid_input" && pattern.test(error.message), JSON.stringify(args).slice(0, 80));

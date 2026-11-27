@@ -1,7 +1,7 @@
 /**
  * Finds the template a call names: a built-in layout that ships with the
  * plugin (templates/*.json), or a file inside the allowed input directories
- * (a layout .json, a Word .docx or a PDF form).
+ * (a layout .json, a Word .docx or .dotx, or a PDF form).
  */
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
@@ -11,7 +11,8 @@ import { parseLayoutTemplate } from "./layout-template.mjs";
 
 export const BUILT_IN_TEMPLATE_NAMES = ["invoice"];
 const TEMPLATE_DIRECTORY = new URL("../templates/", import.meta.url);
-const KINDS_BY_EXTENSION = { json: "layout", docx: "docx", pdf: "pdf" };
+// .dotx is the format Word saves templates in, and the one Microsoft's own templates are downloaded as.
+const KINDS_BY_EXTENSION = { json: "layout", docx: "docx", dotx: "docx", pdf: "pdf" };
 const MAX_LAYOUT_BYTES = 2 * 1024 * 1024;
 
 /**
@@ -42,7 +43,7 @@ export async function resolveTemplate(client, templateArgument, allowedKinds) {
   }
   const extension = extname(trimmed).slice(1).toLowerCase();
   const kind = KINDS_BY_EXTENSION[extension];
-  if (!kind) throw invalidInput(`\`template\` must be a built-in template (${BUILT_IN_TEMPLATE_NAMES.join(", ")}) or a .json, .docx or .pdf file, got ${JSON.stringify(trimmed)}`);
+  if (!kind) throw invalidInput(`\`template\` must be a built-in template (${BUILT_IN_TEMPLATE_NAMES.join(", ")}) or a .json, .docx, .dotx or .pdf file, got ${JSON.stringify(trimmed)}`);
   if (!allowedKinds.includes(kind)) throw wrongKind(trimmed, kind, allowedKinds);
   const file = await client.fileAccess.readInputFile(trimmed, { parameterName: "template", extensions: [extension] });
   const name = trimmed.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");

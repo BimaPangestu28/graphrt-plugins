@@ -133,31 +133,89 @@ function tableRow(cells) {
   return `<w:tr>${cells.map((cell) => `<w:tc>${paragraph(cell)}</w:tc>`).join("")}</w:tr>`;
 }
 
+const WORD_NAMESPACES = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+const WORD_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml";
+
 /**
  * Builds a minimal Word document.
  *
- * @param options - `{paragraphs, rows, extraFiles}`: body paragraphs, table rows (arrays of cell texts), extra zip entries (object)
+ * @param options - `{paragraphs, rows, extraFiles, bodyXml, parts, isTemplate}`: body paragraphs, table rows (arrays of cell texts), extra zip entries, raw WordprocessingML placed before the paragraphs, header and footer parts as `{"header1": xml}`, and whether the file is a Word template (.dotx) (object)
  * @returns .docx bytes (Buffer)
  */
-export function buildDocx({ paragraphs = [], rows = [], extraFiles = {} } = {}) {
+export function buildDocx({ paragraphs = [], rows = [], extraFiles = {}, bodyXml = "", parts = {}, isTemplate = false } = {}) {
   const table = rows.length > 0 ? `<w:tbl>${rows.map(tableRow).join("")}</w:tbl>` : "";
-  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paragraphs.map(paragraph).join("")}${table}<w:sectPr/></w:body></w:document>`;
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${WORD_NAMESPACES}><w:body>${bodyXml}${paragraphs.map(paragraph).join("")}${table}<w:sectPr/></w:body></w:document>`;
+  const partOverrides = Object.keys(parts).map((partName) => `<Override PartName="/word/${partName}.xml" ContentType="${WORD_CONTENT_TYPE}.${partName.replace(/\d+$/, "")}+xml"/>`).join("");
   const zip = new PizZip();
-  zip.file("[Content_Types].xml", DOCX_CONTENT_TYPES);
+  zip.file("[Content_Types].xml", DOCX_CONTENT_TYPES.replace("</Types>", `${partOverrides}</Types>`).replace(".document.main+xml", isTemplate ? ".template.main+xml" : ".document.main+xml"));
   zip.file("_rels/.rels", DOCX_RELATIONSHIPS);
   zip.file("word/document.xml", documentXml);
+  for (const [partName, partXml] of Object.entries(parts)) {
+    const tagName = partName.startsWith("header") ? "w:hdr" : "w:ftr";
+    zip.file(`word/${partName}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${tagName} ${WORD_NAMESPACES}>${partXml}</${tagName}>`);
+  }
   for (const [entryName, content] of Object.entries(extraFiles)) zip.file(entryName, content);
   return zip.generate({ type: "nodebuffer" });
+}
+
+/**
+ * A paragraph the way Word saves text that was typed, corrected and spell-checked: cut into runs with their
+ * own revision ids, with proofing marks and a bookmark between them. `{{title}}` typed in Word is routinely
+ * saved as the three runs `{{`, `title`, `}}`.
+ *
+ * @param runTexts - The text of each run (string[])
+ * @returns WordprocessingML of one paragraph (string)
+ */
+export function wordParagraph(runTexts) {
+  const runs = runTexts.map((text, index) => {
+    const escaped = text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    const run = `<w:r w:rsidR="00A1${String(index).padStart(2, "0")}F4"><w:rPr><w:lang w:val="en-US"/></w:rPr><w:t xml:space="preserve">${escaped}</w:t></w:r>`;
+    return index % 2 === 1 ? `<w:proofErr w:type="spellStart"/>${run}<w:proofErr w:type="spellEnd"/>` : run;
+  });
+  return `<w:p w:rsidR="00B36F1C" w:rsidRDefault="00B36F1C"><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:bookmarkStart w:id="0" w:name="_GoBack"/>${runs.join("")}<w:bookmarkEnd w:id="0"/></w:p>`;
+}
+
+/**
+ * A table cell inside a content control, as in Microsoft's own invoice templates.
+ *
+ * @param runTexts - The text of each run of the cell's paragraph (string[])
+ * @returns WordprocessingML of one `<w:sdt>` holding a cell (string)
+ */
+export function wordControlCell(runTexts) {
+  return `<w:sdt><w:sdtPr><w:alias w:val="Enter text:"/><w:id w:val="-926576106"/><w:temporary/><w:showingPlcHdr/></w:sdtPr><w:sdtEndPr/><w:sdtContent><w:tc><w:tcPr><w:tcW w:w="2410" w:type="dxa"/></w:tcPr>${wordParagraph(runTexts)}</w:tc></w:sdtContent></w:sdt>`;
+}
+
+/**
+ * A paragraph holding a text box the way Word 2010 and later save one: the drawing, and a VML copy of it for older programs.
+ *
+ * @param runTexts - The text of each run inside the box (string[])
+ * @returns WordprocessingML of one paragraph (string)
+ */
+export function wordTextBox(runTexts) {
+  const content = `<w:txbxContent>${wordParagraph(runTexts)}</w:txbxContent>`;
+  return `<w:p><w:r><mc:AlternateContent><mc:Choice Requires="wps"><wps:wsp><wps:txbx>${content}</wps:txbx></wps:wsp></mc:Choice><mc:Fallback><w:pict><v:shape><v:textbox>${content}</v:textbox></v:shape></w:pict></mc:Fallback></mc:AlternateContent></w:r></w:p>`;
+}
+
+/**
+ * Reads one entry of a .docx file as text.
+ *
+ * @param bytes - .docx bytes (Buffer)
+ * @param entryName - Zip entry, e.g. "[Content_Types].xml" (string)
+ * @returns The entry's text (string)
+ */
+export function readDocxEntry(bytes, entryName) {
+  return new PizZip(bytes).file(entryName).asText();
 }
 
 /**
  * Reads the visible text of a .docx file's paragraphs.
  *
  * @param bytes - .docx bytes (Buffer)
+ * @param partName - Part to read: "document", or a header or footer such as "header1" (string, default "document")
  * @returns One text per paragraph (string[])
  */
-export function readDocxParagraphs(bytes) {
-  const documentXml = new PizZip(bytes).file("word/document.xml").asText();
+export function readDocxParagraphs(bytes, partName = "document") {
+  const documentXml = readDocxEntry(bytes, `word/${partName}.xml`);
   const decode = (text) => text.replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&quot;", '"').replaceAll("&apos;", "'").replaceAll("&amp;", "&");
   return [...documentXml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>|<w:p\/>/g)].map((match) => decode([...match[0].matchAll(/<w:t[^>]*>([^<]*)<\/w:t>|<w:br\/>/g)].map((run) => run[1] ?? "\n").join("")));
 }

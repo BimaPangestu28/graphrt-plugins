@@ -132,11 +132,11 @@ const fillPdfFormOperation = {
 const fillDocxOperation = {
   name: "fill_docx",
   title: "Fill in a Word template",
-  description: "Fills the {{placeholders}} of a Word .docx template and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
+  description: "Fills the {{placeholders}} of a Word template (.docx or .dotx) and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
   parameters: {
     type: "object",
     properties: {
-      template: { type: "string", description: "The .docx template inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
+      template: { type: "string", description: "The .docx or .dotx template inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
       ...FILING_PARAMETERS,

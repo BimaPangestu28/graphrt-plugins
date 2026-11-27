@@ -1,6 +1,6 @@
 {
   "name": "document-templates",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Invoices and other documents from templates, fully local: a ready-made invoice or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -60,7 +60,7 @@
           "template": {
             "type": "string",
             "default": "invoice",
-            "description": "Built-in template name (invoice), or a .json, .docx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Built-in template name (invoice), or a .json, .docx, .dotx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS"
           },
           "include_layout": {
             "type": "boolean",
@@ -276,14 +276,14 @@
     {
       "kind": "document-templates.fill_docx",
       "title": "Fill in a Word template",
-      "description": "Fills the {{placeholders}} of a Word .docx template and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
+      "description": "Fills the {{placeholders}} of a Word template (.docx or .dotx) and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
       "category": "integration",
       "config_schema": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
-            "description": "The .docx template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "The .docx or .dotx template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
           },
           "values": {
             "type": "object",
@@ -358,7 +358,7 @@
           "template": {
             "type": "string",
             "default": "invoice",
-            "description": "Built-in template name (invoice), or a .json, .docx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "Built-in template name (invoice), or a .json, .docx, .dotx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS"
           },
           "include_layout": {
             "type": "boolean",
@@ -519,13 +519,13 @@
     },
     {
       "name": "fill_docx",
-      "description": "Fills the {{placeholders}} of a Word .docx template and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
+      "description": "Fills the {{placeholders}} of a Word template (.docx or .dotx) and saves the result as a new .docx. A table row between {{#items}} and {{/items}} repeats for every item, and totals are calculated for you. The result is a Word file, not a PDF",
       "parameters": {
         "type": "object",
         "properties": {
           "template": {
             "type": "string",
-            "description": "The .docx template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
+            "description": "The .docx or .dotx template inside DOCUMENT_TEMPLATES_INPUT_DIRS"
           },
           "values": {
             "type": "object",

@@ -5,6 +5,7 @@
 import { FILTER_NAMES } from "../lib/expressions.mjs";
 import { listTemplatePlaceholders } from "../lib/layout-template.mjs";
 import { DEFAULT_NUMBER_PATTERN, issueNextNumber, readNumberDate } from "../lib/number-sequence.mjs";
+import { XFA_ONLY_MESSAGE } from "../lib/pdf-form.mjs";
 import { BUILT_IN_TEMPLATE_NAMES, loadBuiltInTemplate, resolveTemplate } from "../lib/template-library.mjs";
 
 const listTemplatesOperation = {
@@ -23,7 +24,7 @@ const listTemplatesOperation = {
         your_own: [
           { format: "Layout template (.json)", operation: "render_pdf", result: "PDF", note: "Same format as the built-in templates; describe_template with include_layout: true returns one to start from" },
           { format: "Fillable PDF form (.pdf with form fields)", operation: "fill_pdf_form", result: "PDF", note: "The form's fields are filled; the number of rows is fixed by the form" },
-          { format: "Word template (.docx with {{placeholders}})", operation: "fill_docx", result: "DOCX", note: "Rows repeat between {{#items}} and {{/items}}" },
+          { format: "Word template (.docx or .dotx with {{placeholders}})", operation: "fill_docx", result: "DOCX", note: "Rows repeat between {{#items}} and {{/items}}" },
         ],
         not_supported: ["PDF without form fields (scans, pictures): recreate it as a layout template, or use it as a `background`", "Excel (.xlsx)", "HTML", "Word to PDF conversion", "XFA forms"],
       },
@@ -50,7 +51,7 @@ async function describe(client, template, signal, includeLayout) {
     return { kind: "docx", operation: "fill_docx", name: template.name, path: template.path, ...data, filters: FILTER_NAMES };
   }
   const { data } = await client.runTask("inspect_pdf_form", { bytes: template.bytes }, signal);
-  const hint = data.is_form ? null : "This PDF has no form fields, so it cannot be filled in. Use render_pdf with the built-in invoice template, or a layout template with this PDF as its `background`";
+  const hint = data.is_form ? null : data.is_xfa_only ? XFA_ONLY_MESSAGE : "This PDF has no form fields, so it cannot be filled in. Use render_pdf with the built-in invoice template, or a layout template with this PDF as its `background`";
   return { kind: data.is_form ? "pdf_form" : "pdf", operation: data.is_form ? "fill_pdf_form" : null, name: template.name, path: template.path, ...data, hint };
 }
 
@@ -61,7 +62,7 @@ const describeTemplateOperation = {
   parameters: {
     type: "object",
     properties: {
-      template: { type: "string", default: "invoice", description: "Built-in template name (invoice), or a .json, .docx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
+      template: { type: "string", default: "invoice", description: "Built-in template name (invoice), or a .json, .docx, .dotx or .pdf file inside DOCUMENT_TEMPLATES_INPUT_DIRS" },
       include_layout: { type: "boolean", default: false, description: "For a layout template: also return its full layout, to save as a .json file and adapt" },
     },
   },
