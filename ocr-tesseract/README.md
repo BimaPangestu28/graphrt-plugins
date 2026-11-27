@@ -75,7 +75,7 @@ Common `psm` values: 3 automatic (default), 4 one column, 6 one uniform block, 7
 - **Hard links:** inputs with more than one hard link are refused, since a hard link inside an allowed directory
   could point at a file outside it.
 - **Error messages** keep the program's reason but replace paths outside the allowed directories (library
-  locations, temp files) with `[path]`.
+  locations, temp files) with `[path]`. Names with spaces are hidden whole: a quoted path up to its closing quote, otherwise up to the word with a file extension (`My File.txt`); a name without an extension takes along the words that start with a capital letter (`C:\Users\Budi Santoso`), so the message text after it stays.
 - **Limits:** a timeout per run with SIGKILL, cancel kills the program at once, 8 MiB of OCR output per run,
   `max_chars` of returned text, two calls at a time.
 - **Agents vs nodes:** both operations are tools. `save_output` only adds new files with generated names to the

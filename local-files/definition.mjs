@@ -24,7 +24,7 @@ import { writeOperations } from "./operations/write.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "local-files",
-    version: "0.1.1",
+    version: "0.1.2",
     description: "Local files in allowed directories: list, stat, read (text or base64, capped), search by name or content, and staged writes that never overwrite unless a node asks; deletes are node only",
     extraEnv: ALL_VARIABLES,
     localOnly: true,

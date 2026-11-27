@@ -19,7 +19,7 @@ import { ocrOperations } from "./operations/ocr-operations.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "ocr-tesseract",
-    version: "0.1.1",
+    version: "0.1.2",
     description: "OCR with the system Tesseract: text, hOCR or TSV from images or PDF pages in allowed directories, with language and page segmentation choices",
     extraEnv: [FILE_VARIABLES.inputDirs, FILE_VARIABLES.outputDir, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, ...OTHER_VARIABLES],
     localOnly: true,

@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { link, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -165,7 +165,7 @@ test("Windows paths outside the allowed directories are redacted: drive, UNC and
   assert.equal(redact("open //fileserver/home/budi/notes.txt failed"), "open [path] failed");
   assert.equal(redact("open \\\\?\\D:\\secret\\a.txt, then \\\\?\\UNC\\fileserver\\home\\b.txt"), "open [path], then [path]");
   assert.equal(redact("device \\\\.\\PhysicalDrive0 busy"), "device [path] busy");
-  assert.equal(redact("Error opening input file file:D:\\other\\a.mp4."), "Error opening input file file:[path]");
+  assert.equal(redact("Error opening input file file:D:\\other\\a.mp4."), "Error opening input file file:[path].");
   assert.equal(redact("'c:\\windows\\system32\\x.dll' (C:\\ProgramData\\y)"), "'[path]' ([path])");
   // Folder names with spaces do not leave their second half behind.
   assert.equal(redact("C:\\Users\\Budi Santoso\\AppData\\Local\\Temp\\graphrt-1\\list.txt: denied"), "[path]: denied");
@@ -179,6 +179,68 @@ test("Windows paths outside the allowed directories are redacted: drive, UNC and
   // Paths with a single leading "/" stay hidden on Windows, as before; plain text is untouched.
   assert.equal(redact("dyld: /opt/homebrew/lib/x.dylib; ratio 4:3, time 00:00:01, a\\b, see https://example.com/x"), "dyld: [path]; ratio 4:3, time 00:00:01, a\\b, see https:[path]");
   assert.equal(redact(undefined), "");
+});
+
+test("names with spaces are hidden whole, and the text after a path stays (Windows)", () => {
+  const redact = (message) => redactPathsOutside(message, ["C:\\Data\\In"], "win32");
+  // The last name: up to the word with a file extension.
+  assert.equal(redact("Cannot open C:\\Users\\budi\\Documents\\My File.txt"), "Cannot open [path]");
+  assert.equal(redact("C:\\Users\\budi\\Videos\\Clip Liburan 2026.mp4: Invalid data found when processing input"), "[path]: Invalid data found when processing input");
+  assert.equal(redact("Error, cannot read input file C:\\Users\\Budi Santoso\\Pictures\\scan 01.png: No such file or directory"), "Error, cannot read input file [path]: No such file or directory");
+  assert.equal(redact("Error opening output file C:\\Users\\budi\\out 1.mp4."), "Error opening output file [path].");
+  assert.equal(redact("C:\\Users\\budi\\Invoice (1).pdf (os error 2)"), "[path] (os error 2)");
+  // Quoted: up to the closing quote, also over an apostrophe inside the name.
+  assert.equal(redact("Input #0, mov,mp4,m4a, from 'C:\\Users\\budi\\Video Saya.mp4':"), "Input #0, mov,mp4,m4a, from '[path]':");
+  assert.equal(redact("Error: unable to open database \"C:\\Users\\budi\\Data Toko.db\": unable to open database file"), "Error: unable to open database \"[path]\": unable to open database file");
+  assert.equal(redact("ENOENT: no such file or directory, open 'C:\\Users\\budi\\Budi's File.txt'"), "ENOENT: no such file or directory, open '[path]'");
+  assert.equal(redact("I/O Error: Couldn't open file 'C:\\Users\\budi\\Surat Kontrak.pdf': No such file or directory."), "I/O Error: Couldn't open file '[path]': No such file or directory.");
+  // No extension: capitalised words go with the name (a person's name), ordinary words stay.
+  assert.equal(redact("Permission denied: C:\\Users\\Budi Santoso"), "Permission denied: [path]");
+  assert.equal(redact("Permission denied: C:\\Users\\Budi Santoso\nnext line"), "Permission denied: [path]\nnext line");
+  assert.equal(redact("open C:\\Users\\budi\\Documents failed (os error 5)"), "open [path] failed (os error 5)");
+  assert.equal(redact("load C:\\Users\\budi\\lib version 2.3 not found"), "load [path] version 2.3 not found");
+  assert.equal(redact("C:\\Users\\budi\\x.dll: not found; C:\\Temp\\a and C:\\Temp\\b"), "[path]: not found; [path] and [path]");
+  // Inside the allowed folder a name with spaces stays whole, and so does what follows.
+  assert.equal(redact("reading C:\\Data\\In\\My Clip Final.mp4 now, then C:\\Users\\budi\\Other Clip.mp4"), "reading C:\\Data\\In\\My Clip Final.mp4 now, then [path]");
+  assert.equal(redact("C:\\Data\\In\\..\\Secret Plan.txt"), "[path]");
+});
+
+test("names with spaces are hidden whole, and the text after a path stays (Linux and macOS)", () => {
+  const redact = (message) => redactPathsOutside(message, ["/data/in"], "linux");
+  assert.equal(redact("/home/budi/My File.txt: No such file or directory"), "[path]: No such file or directory");
+  assert.equal(redact("dyld: Library not loaded: /Users/Budi Santoso/Library/x.dylib"), "dyld: Library not loaded: [path]");
+  assert.equal(redact("/usr/lib/libx.so.6: cannot open shared object file"), "[path]: cannot open shared object file");
+  assert.equal(redact("I/O Error: Couldn't open file '/home/budi/Surat Kontrak.pdf': No such file or directory."), "I/O Error: Couldn't open file '[path]': No such file or directory.");
+  assert.equal(redact("tesseract: /tmp/x/scan page.png (No such file)"), "tesseract: [path] (No such file)");
+  assert.equal(redact("/home/Budi Santoso: Is a directory"), "[path]: Is a directory");
+  assert.equal(redact("reading /data/in/My Clip.mp4 and /tmp/Other Clip.mp4."), "reading /data/in/My Clip.mp4 and [path].");
+  // A way back out with "..", a lone slash and relative paths.
+  assert.equal(redact("/data/in/../../etc/passwd; ratio 4 / 3, a/b"), "[path]; ratio 4 / 3, a/b");
+});
+
+test("real program messages about a file in a folder with spaces keep nothing of the path", async (context) => {
+  const baseDirectory = await realpath(await mkdtemp(join(tmpdir(), "graphrt redact ")));
+  const folder = join(baseDirectory, "Budi Santoso", "Dokumen Saya");
+  try {
+    const programs = [
+      { name: "tesseract", args: [join(folder, "scan 01.png"), "-"] },
+      { name: "pdftoppm", args: [join(folder, "Surat Kontrak.pdf"), join(folder, "page")] },
+      { name: "sqlite3", args: [join(folder, "Data Toko.db"), "select 1"] },
+      { name: "ffmpeg", args: ["-hide_banner", "-i", join(folder, "Clip Liburan.mp4")] },
+    ];
+    let checked = 0;
+    for (const program of programs) {
+      const run = spawnSync(program.name, program.args, { encoding: "utf8", timeout: 20000 });
+      if (run.error) continue;
+      const message = redactPathsOutside(`${run.stdout}\n${run.stderr}`, [join(baseDirectory, "allowed")]);
+      for (const word of ["Santoso", "Dokumen", "Saya", "scan 01", "Kontrak", "Toko", "Liburan", "graphrt redact"]) assert.ok(!message.includes(word), `${program.name}: ${JSON.stringify(word)} is left in ${JSON.stringify(message)}`);
+      assert.ok(message.includes("[path]"), `${program.name} named the file: ${JSON.stringify(message)}`);
+      checked += 1;
+    }
+    if (checked === 0) context.skip("none of tesseract, pdftoppm, sqlite3 and ffmpeg is installed");
+  } finally {
+    await rm(baseDirectory, { recursive: true, force: true });
+  }
 });
 
 test("on Linux and macOS only / paths are looked at: Windows-looking text stays as it is", () => {

@@ -1,6 +1,6 @@
 {
   "name": "ffmpeg",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Local media with the system ffmpeg: probe, convert (fixed presets), trim, extract audio, thumbnails, resize, join, burn subtitles and GIFs, on files in allowed directories",
   "license": "Apache-2.0",
   "runtime": "process",

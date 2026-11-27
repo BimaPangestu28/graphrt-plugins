@@ -17,7 +17,7 @@ import { qrOperations } from "./operations/qr-operations.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "qr-code",
-    version: "0.1.1",
+    version: "0.1.2",
     description: "QR codes: generate PNG or SVG files (error correction, size, colours) and decode QR codes from local images in allowed directories",
     extraEnv: [FILE_VARIABLES.inputDirs, FILE_VARIABLES.outputDir, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, MAX_PIXELS_VARIABLE, MAX_OUTPUT_PIXELS_VARIABLE],
     localOnly: true,

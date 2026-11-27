@@ -1,6 +1,6 @@
 {
   "name": "document-templates",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Invoices and other documents from templates, fully local: a ready-made invoice with your logo, colour and wording or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
   "license": "Apache-2.0",
   "runtime": "process",
