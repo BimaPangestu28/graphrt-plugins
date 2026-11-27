@@ -75,7 +75,7 @@ export function readNumberDate(rawDate, now) {
  *
  * @param outputRoot - Real path of the output directory (string)
  * @param request - `{pattern, date, startAt, isPreview}` (object)
- * @param dependencies - `{fileSystem, now, sleep}` overrides for tests (object, optional)
+ * @param dependencies - `{fileSystem, now, sleep, platform}` overrides for tests (object, optional)
  * @returns `{number, sequence, counter, reserved}` (object)
  * @throws PluginError kinds `invalid_input` (bad pattern, counter file damaged), `plugin_error` (lock not obtained, I/O failure)
  */
@@ -90,7 +90,7 @@ export async function issueNextNumber(outputRoot, { pattern, date, startAt, isPr
     return { number: format(sequence), sequence, counter: counterName, reserved: false };
   }
   await fileSystem.mkdir(stateDirectory, { recursive: true });
-  const releaseLock = await acquireLock(fileSystem, join(stateDirectory, LOCK_FILE_NAME), now, dependencies.sleep ?? defaultSleep);
+  const releaseLock = await acquireLock(fileSystem, join(stateDirectory, LOCK_FILE_NAME), now, dependencies.sleep ?? defaultSleep, dependencies.platform ?? process.platform);
   try {
     const state = await readState(fileSystem, statePath);
     const sequence = nextSequence(state, counterName, startAt);
@@ -136,19 +136,24 @@ async function writeState(fileSystem, statePath, state) {
 }
 
 // The lock is a file created exclusively; one left behind by a crashed process is taken over after 30 s.
-async function acquireLock(fileSystem, lockPath, now, sleep) {
+// On Windows, creating the lock just after another call removed it can fail with EPERM (the removed file is still
+// going away), so that is waited out like a held lock; if it lasts until the deadline it is reported as it is.
+async function acquireLock(fileSystem, lockPath, now, sleep, platform) {
   const deadline = now().getTime() + LOCK_WAIT_MS;
   for (;;) {
+    let isHeld = true;
     try {
       const lockHandle = await fileSystem.open(lockPath, "wx", 0o600);
       await lockHandle.close();
       return () => fileSystem.rm(lockPath, { force: true }).catch(() => {});
     } catch (lockError) {
-      if (lockError?.code !== "EEXIST") throw operationFailed(`Could not lock the numbering file: ${lockError.code ?? lockError.message}`);
+      isHeld = lockError?.code === "EEXIST";
+      const isBeingRemoved = platform === "win32" && lockError?.code === "EPERM";
+      if (!isHeld && (!isBeingRemoved || now().getTime() > deadline)) throw operationFailed(`Could not lock the numbering file: ${lockError.code ?? lockError.message}`);
     }
-    const lockStats = await fileSystem.stat(lockPath).catch(() => null);
+    const lockStats = isHeld ? await fileSystem.stat(lockPath).catch(() => null) : null;
     if (lockStats && now().getTime() - lockStats.mtimeMs > STALE_LOCK_MS) await fileSystem.rm(lockPath, { force: true }).catch(() => {});
-    else if (now().getTime() > deadline) throw operationFailed("Another call is issuing a number and did not finish within 5 seconds; try again");
+    else if (isHeld && now().getTime() > deadline) throw operationFailed("Another call is issuing a number and did not finish within 5 seconds; try again");
     else await sleep(LOCK_RETRY_MS);
   }
 }
