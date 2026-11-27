@@ -263,13 +263,16 @@ to update the READMEs and the table.
 ### Commits
 - [Conventional commits](https://www.conventionalcommits.org/): `feat(<plugin>): add <API> plugin`,
   `fix(<plugin>): ...`, `docs: ...`, `ci: ...`, `test(<plugin>): ...`.
-- **One commit per plugin** for a new plugin: definition, tests, README, example, status entry, README row and
-  the regenerated files together. A PR adding several plugins has one commit for each.
+- Commits inside a pull request are for the reviewer: `main` gets the whole pull request as one squashed commit
+  (see below), so split or fix up commits as suits the review.
 - Keep unrelated changes out. Regenerated files belong in the commit that caused them.
 
 ### Pull requests
 - The PR template ([.github/pull_request_template.md](.github/pull_request_template.md)) loads automatically.
   Fill in the test plan honestly: say what you did and did not verify against the real API.
+- **One pull request per plugin** for a new plugin: definition, tests, README, example, status entry, README row
+  and the regenerated files together. Several new plugins are several pull requests, so that each plugin is one
+  commit on `main` and can be reverted alone. The same holds for unrelated fixes to different plugins.
 - Do not include credentials, real account ids, personal data or recorded real responses.
 - Pull requests reach `main` through the merge queue as one squashed commit, so the pull request title becomes
   the commit subject: write it as a conventional commit. A maintainer adds the pull request to the queue once
