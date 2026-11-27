@@ -32,7 +32,13 @@ const HEX_COLOR_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 // pdfmake's own default is a dark, 60% opaque text across the page, which hides what is under it.
 const WATERMARK_DEFAULTS = { color: "#808080", opacity: 0.12, bold: true };
-const TOP_LEVEL_KEYS = ["format", "version", "name", "description", "calculate", "page", "defaults", "styles", "labels", "fields", "sample_values", "info", "watermark", "header", "footer", "content", "bottom"];
+const MAX_NAMED_COLORS = 20;
+const COLOR_NAME_PATTERN = /^[a-z][a-z0-9_]{0,30}$/;
+const COLOR_REFERENCE_PATTERN = /^@([a-z][a-z0-9_]{0,30})$/;
+/** Properties whose value is a colour, and so may name one of the template's `colors` as "@name". */
+const COLOR_KEYS = new Set(["color", "background", "fillColor", "foreground", "lineColor", "line_color", "header_line_color", "background_color", "borderColor"]);
+const COLORED_SECTIONS = ["page", "defaults", "styles", "watermark", "header", "footer", "content", "bottom"];
+const TOP_LEVEL_KEYS = ["format", "version", "name", "description", "calculate", "page", "defaults", "styles", "colors", "labels", "fields", "sample_values", "info", "watermark", "header", "footer", "content", "bottom"];
 
 const isNumber = (value) => typeof value === "number" && Number.isFinite(value);
 const numberBetween = (minimum, maximum) => (value) => isNumber(value) && value >= minimum && value <= maximum;
@@ -177,11 +183,12 @@ export function listTemplatePlaceholders(template) {
  * @param template - Parsed template (object)
  * @param values - Document values, already calculated (object)
  * @param settings - Format settings from readFormatSettings (object)
- * @param options - `{today}` ISO date exposed as `{{today}}` (object)
+ * @param options - `{today, colors}`: today is the ISO date exposed as `{{today}}`; colors replaces named colours of the template, e.g. `{accent: "#1D4ED8"}` (a name the template does not have is ignored) (object)
  * @returns Render plan `{page, defaultStyle, styles, content, header, footer, bottom, watermark, info, imagePaths}`; image nodes carry an index into imagePaths (object)
  * @throws PluginError kind `invalid_input` - When the template uses an unknown property, a bad value or a malformed placeholder
  */
-export function expandLayout(template, values, settings, { today }) {
+export function expandLayout(rawTemplate, values, settings, { today, colors }) {
+  const template = resolveNamedColors(rawTemplate, colors);
   const context = { settings, nodeCount: 0, imagePaths: [], styleNames: new Set(Object.keys(template.styles ?? {})) };
   const scope = new Scope({ ...values, labels: mergeLabels(template.labels, values.labels, settings.language), today, page: { number: PAGE_NUMBER_MARKER, count: PAGE_COUNT_MARKER } });
   const section = (name) => (template[name] === undefined ? null : dropEmptyBlock(expandBlock(template[name], scope, context, name, 0)));
@@ -197,6 +204,50 @@ export function expandLayout(template, values, settings, { today }) {
     info: expandInfo(template.info, scope, context),
     imagePaths: context.imagePaths,
   };
+}
+
+/**
+ * Lists the named colours of a template.
+ *
+ * @param template - Parsed template (object)
+ * @returns Name to hex colour, e.g. `{accent: "#1C1C1A"}`; empty when the template names none (object)
+ * @throws PluginError kind `invalid_input` - When `colors` is not an object of up to 20 names and hex colours
+ */
+export function readNamedColors(template) {
+  if (template.colors === undefined) return {};
+  const entries = isPlainObject(template.colors) ? Object.entries(template.colors) : null;
+  if (!entries || entries.length > MAX_NAMED_COLORS) throw templateError("colors", `must be an object of at most ${MAX_NAMED_COLORS} named colours such as {"accent": "#1D4ED8"}`);
+  for (const [name, color] of entries) {
+    if (!COLOR_NAME_PATTERN.test(name)) throw templateError(`colors.${name}`, "is not a valid colour name (lowercase letters, digits and _)");
+    if (!isColor(color)) throw templateError(`colors.${name}`, `has an invalid value ${JSON.stringify(color)?.slice(0, 60)}`);
+  }
+  return { ...template.colors };
+}
+
+// A colour property may be "@accent": it is replaced by that named colour before anything is checked, so the rest of the module only ever sees hex colours.
+function resolveNamedColors(template, overrides = {}) {
+  const namedColors = readNamedColors(template);
+  for (const [name, color] of Object.entries(overrides ?? {})) if (Object.hasOwn(namedColors, name)) namedColors[name] = color;
+  if (Object.keys(namedColors).length === 0) return template;
+  const lookUp = (value, path) => {
+    const reference = typeof value === "string" ? COLOR_REFERENCE_PATTERN.exec(value) : null;
+    if (!reference) return value;
+    if (!Object.hasOwn(namedColors, reference[1])) throw templateError(path, `names the colour ${JSON.stringify(value)}, which the template's \`colors\` do not define`);
+    return namedColors[reference[1]];
+  };
+  const visit = (value, path, depth) => {
+    if (depth > MAX_DEPTH * 3) throw templateError(path, "is nested too deeply");
+    if (Array.isArray(value)) return value.map((entry, index) => visit(entry, `${path}[${index}]`, depth + 1));
+    if (!isPlainObject(value)) return value;
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
+      const entryPath = `${path}.${key}`;
+      if (!COLOR_KEYS.has(key)) return [key, visit(entry, entryPath, depth + 1)];
+      return [key, Array.isArray(entry) ? entry.map((color) => lookUp(color, entryPath)) : lookUp(entry, entryPath)];
+    }));
+  };
+  const resolved = { ...template };
+  for (const section of COLORED_SECTIONS) if (template[section] !== undefined) resolved[section] = visit(template[section], section, 0);
+  return resolved;
 }
 
 // A section whose condition was false is an empty text; the renderer should not reserve or measure it.

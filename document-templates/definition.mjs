@@ -12,6 +12,7 @@
  * (see lib/isolated-task.mjs).
  */
 import { CALL_TIMEOUT_MS, FILE_VARIABLES, FONTS_VARIABLE, LIMIT_VARIABLES, createDocumentClient } from "./lib/client.mjs";
+import { brandOperations } from "./operations/brand-operations.mjs";
 import { documentOperations } from "./operations/document-operations.mjs";
 import { templateOperations } from "./operations/template-operations.mjs";
 
@@ -32,7 +33,7 @@ export function createPluginDefinition(dependencies = {}) {
     noCredentials: true,
     limits: { timeout_ms: CALL_TIMEOUT_MS, max_concurrency: 4 },
     createClient: ({ environment }) => createDocumentClient(environment, dependencies),
-    operations: [...templateOperations, ...documentOperations],
+    operations: [...templateOperations, ...brandOperations, ...documentOperations],
   };
 }
 
