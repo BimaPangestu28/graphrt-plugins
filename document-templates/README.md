@@ -502,8 +502,14 @@ the English text. Only the text changes: the error's kind (the table above) is t
 app that reacts to the kind works the same. The **Buat invoice** agent writes its invoices in Indonesian, so
 everything it tells you is in Indonesian.
 
+Protected PDF forms are covered too: "Template ini memerlukan password untuk dibuka", a wrong password, a form its
+publisher locked against filling in, or a PDF protected in a way that cannot be opened here (for example with a
+certificate) are all written in Indonesian; the error's `reason` (`password_needed`, `password_wrong`) stays the
+same.
+
 These stay in English, because they are read by whoever builds templates or looks into a failure, not by the
-person making an invoice:
+person making an invoice (`test/message-coverage.test.mjs` lists every message the plugin raises with its
+Indonesian text or its reason to stay English, so none slips through):
 - the structure of a layout template (its JSON, unknown keys, version, fonts it names, placeholders and
   filters in it, more than the parts limit after loops) and Word placeholders that insert raw XML,
 - a Word or PDF file that cannot be opened at all (damaged zip, unreadable PDF or background, encrypted
