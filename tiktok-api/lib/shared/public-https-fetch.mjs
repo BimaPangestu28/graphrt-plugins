@@ -74,6 +74,30 @@ export async function fetchPublicHttps(url, { fetchImpl, resolveHostAddresses = 
 }
 
 /**
+ * POSTs to a public https URL (a webhook): the host is checked like {@link fetchPublicHttps}, and redirects are
+ * refused (a POST body must not follow a redirect to another host).
+ *
+ * @param url - URL to post to (string)
+ * @param options.body - Request body (string)
+ * @param options.headers - Request headers (object)
+ * @param options.fetchImpl - fetch implementation (function)
+ * @param options.resolveHostAddresses - `async (hostname) => string[]`; DNS by default (function, optional)
+ * @param options.signal - Signal for the request (AbortSignal, optional)
+ * @param options.label - What the URL is, for messages, e.g. "webhook_url" (string)
+ * @returns The Response (Promise<Response>)
+ * @throws PluginError kind `invalid_input` (not https, internal host, a redirect); transport errors are rethrown as-is
+ */
+export async function postPublicHttps(url, { body, headers, fetchImpl, resolveHostAddresses = resolveWithDns, signal, label }) {
+  await assertPublicHttpsUrl(url, { originalUrl: url, resolveHostAddresses, label });
+  const response = await fetchImpl(url, { method: "POST", body, headers, redirect: "manual", signal });
+  if (REDIRECT_STATUSES.has(response.status)) {
+    await response.body?.cancel?.().catch(() => {});
+    throw invalidInput(`\`${label}\` answered HTTP ${response.status} (a redirect); give the final address`);
+  }
+  return response;
+}
+
+/**
  * Downloads a public https URL into `directory`, streaming the body with a size cap. The file is written as
  * `<name>.part` and renamed when complete, so a failed download leaves nothing behind.
  *

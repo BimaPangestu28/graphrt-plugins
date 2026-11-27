@@ -62,6 +62,8 @@ async function syncManifest(pluginDirectory) {
   const manifest = buildManifest(pluginDefinition);
   const triggers = buildManifestTriggers(pluginDefinition);
   if (triggers.length > 0) manifest.triggers = triggers;
+  // Server side services a collaboration server (`graphrt collab`) runs for workspaces; graphrt checks them.
+  if (pluginDefinition.services?.length > 0) manifest.services = pluginDefinition.services;
   writeIfChanged(join(pluginDirectory, "graphrt-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   writeIfChanged(join(pluginDirectory, "OPERATIONS.md"), renderOperationsReference(pluginDefinition));
 }
