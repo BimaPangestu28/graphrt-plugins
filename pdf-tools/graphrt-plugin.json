@@ -1,6 +1,6 @@
 {
   "name": "pdf-tools",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Local PDFs: page count and metadata, text extraction, merge, extract or split pages, rotate, text watermark and images to PDF, on files in allowed directories",
   "license": "Apache-2.0",
   "runtime": "process",

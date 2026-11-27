@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-local-files",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "graphrt plugin: read, list, search and write files inside allowed directories",
   "type": "module",

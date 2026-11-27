@@ -23,7 +23,7 @@ import { frameOperations } from "./operations/frames.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "ffmpeg",
-    version: "0.1.2",
+    version: "0.1.3",
     description: "Local media with the system ffmpeg: probe, convert (fixed presets), trim, extract audio, thumbnails, resize, join, burn subtitles and GIFs, on files in allowed directories",
     extraEnv: [FILE_VARIABLES.inputDirs, FILE_VARIABLES.outputDir, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, TIMEOUT_VARIABLE, ...MEDIA_LIMIT_VARIABLES, ...PROGRAM_VARIABLES],
     localOnly: true,

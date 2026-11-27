@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-ocr-tesseract",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "graphrt plugin: OCR local images and PDF pages with the system Tesseract",
   "type": "module",

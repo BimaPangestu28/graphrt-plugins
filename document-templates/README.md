@@ -101,7 +101,8 @@ certificate instead of a password are refused.
   terminal needed.
 - **`next_number`:** running numbers such as `INV-2026-0001` from a pattern.
 - **`save_brand` and `show_brand`:** the look of your documents and your own details, saved once and used for
-  every later invoice ([Your logo, colour and wording](#your-logo-colour-and-wording)).
+  every later invoice; your details also fill Word templates and PDF forms
+  ([Your logo, colour and wording](#your-logo-colour-and-wording), [Your details in Word and PDF forms](#your-details-in-word-and-pdf-forms)).
 - **Ready-made agents:** "Make an invoice" and "Buat invoice", finished workflows that need no AI model
   ([Ready-made agents](#ready-made-agents)).
 
@@ -293,15 +294,43 @@ client and the items:
   notes: ["Pembayaran paling lambat 14 hari setelah tanggal invoice."]
 ```
 
-- The saved look is used for every PDF made from a template (`render_pdf`) from then on; filled-in PDF forms
-  and Word files are left as they are. What a document says itself always wins: its own
-  `values` over the saved details, and its own `look` over both.
+- The saved look is used for every PDF made from a template (`render_pdf`) from then on. Word templates and PDF
+  forms get your details, not the look ([Your details in Word and PDF forms](#your-details-in-word-and-pdf-forms)).
+  What a document says itself always wins: its own `values` over the saved details, and its own `look` over both.
 - Call `save_brand` again with only what changes ("make the colour green"); everything else stays. `reset: true`
   starts again. `show_brand` shows what is saved.
 - More than one business: give each a `name` (`save_brand` with `name: studio`), and ask for it with
-  `brand: studio` on `render_pdf`. `brand: none` makes a document without the saved look.
+  `brand: studio` on `render_pdf`, `fill_docx` or `fill_pdf_form`. `brand: none` makes a document without the
+  saved look and details.
 - The look is kept in `.document-templates/brands/` inside your documents folder. It is not a template and
   holds no layout, only the choices above.
+
+### Your details in Word and PDF forms
+`fill_docx` and `fill_pdf_form` use the same saved brand for your own details. Write these placeholders in the
+Word file, or in `fields` for a form; `save_brand` and `show_brand` list the ones your brand fills
+(`word_and_form_placeholders`):
+
+| Placeholder | Filled with |
+|---|---|
+| `{{business.name}}`, `{{business.tagline}}` | `seller.name`, `seller.tagline` |
+| `{{business.address}}`, `{{business.details}}` | the lines of `seller.address` / `seller.details`, one per line; add `\| join` for one line with commas (`\| join: " · "` for another separator) |
+| `{{payment.<label>}}` | one payment detail, by its label in lowercase with `_` for spaces and other signs: `Bank` gives `{{payment.bank}}`, `No. rekening` gives `{{payment.no_rekening}}`, `Account number` gives `{{payment.account_number}}` |
+| `{{#payment.details}}{{label}}: {{value}}{{/payment.details}}` | every payment detail, in Word (a table row with these tags repeats) |
+| `{{notes}}` | your standard notes, one paragraph each |
+
+`{{seller.name}}` and the other `seller.*` names work too, as in the invoice. The rules are the same as for
+`render_pdf`:
+
+- What `values` gives always wins, field by field: `values: {seller: {name: "Toko Sendiri"}}` changes only the
+  name, and `values: {payment: {bank: "Bank Lain"}}` only `{{payment.bank}}`.
+- The saved language sets how `{{date | date}}` and `{{amount | money}}` are written (`Rp 1.250.000` for `id`),
+  unless `values` gives a `language`.
+- `brand: none` uses only `values`; `brand: studio` uses another saved brand.
+- With a saved brand a Word file may need no `values` at all, e.g. a letterhead with only `{{business.name}}`.
+
+The saved **logo, accent colour, title, labels and hidden parts are not used** in Word files and PDF forms. Those
+files keep the layout they were made with: a Word template has its own logo and colours, and a PDF form's boxes
+cannot take a picture or another colour. Put your logo into the Word template once, in Word.
 
 For a different layout (other columns, another arrangement), make your own version of the invoice:
 
@@ -349,8 +378,10 @@ put `{{#items}}` in the first cell of a table row and `{{/items}}` in its last c
 only when there are no notes.
 
 Placeholders work in the text, in tables, in headers and footers, in text boxes and inside content controls
-(the grey "click here" fields of Microsoft's templates). Word may store a placeholder in several pieces or turn
-`"` into `“ ”`; both are fine. The result is always a `.docx`.
+(the grey "click here" fields of Microsoft's templates; a field you put a placeholder in becomes ordinary text
+in the result, so Word no longer selects and clears it on a click). Word may store a placeholder in several pieces or turn
+`"` into `“ ”`; both are fine. The result is always a `.docx`. Your saved details fill `{{business.name}}`,
+`{{payment.bank}}` and the like ([Your details in Word and PDF forms](#your-details-in-word-and-pdf-forms)).
 
 ### Other scripts
 The built-in fonts cover Latin (including Vietnamese), Cyrillic and Greek. For Chinese, Japanese, Korean, Thai
@@ -398,7 +429,7 @@ then drawn with it. A character that no font has is an error that names it, neve
   files to the output folder (setting `DOCUMENT_TEMPLATES_OUTPUT_DIR` is the opt-in for writing).
   `save_template_copy` writes only into `Templates` there and never over a file.
   `save_brand` replaces only its own small settings file there; what it saves (including payment details) is
-  what a tool could also pass to `render_pdf` directly, and every document's result names the brand it used.
+  what a tool could also pass to `render_pdf`, `fill_docx` or `fill_pdf_form` directly, and every document's result names the brand it used.
   `if_exists: overwrite` is for workflow nodes only; a tool call that asks for it gets `permission_denied`.
   `next_number` uses up a number each time it is called without `preview`.
 

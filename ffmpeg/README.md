@@ -85,7 +85,7 @@ Paths may be absolute, `~/...`, or relative to the first input directory. Result
 - **Hard links:** inputs with more than one hard link are refused, since a hard link inside an allowed directory
   could point at a file outside it.
 - **Error messages** keep ffmpeg's own reason but replace paths outside the allowed directories (temp files,
-  library locations) with `[path]`.
+  library locations) with `[path]`. Names with spaces are hidden whole: a quoted path up to its closing quote, otherwise up to the word with a file extension (`My File.txt`); a name without an extension takes along the words that start with a capital letter (`C:\Users\Budi Santoso`), so the message text after it stays.
 - **No shell, no protocols:** ffmpeg is started with an argument array. Every input is passed as `file:<real path>`
   with `-protocol_whitelist file` (so `concat:`, `http(s):`, `pipe:`, `data:`, `subfile:`, `tcp:` and the rest are
   refused, also inside playlists) and `-format_whitelist` of plain media demuxers (no HLS/DASH playlists, concat

@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-image-tools",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "graphrt plugin: resize, crop, rotate, convert, compress and watermark local images with sharp",
   "type": "module",

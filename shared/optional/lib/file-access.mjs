@@ -19,9 +19,8 @@
  * the output directory; the finished file is then hard-linked to its final
  * name (link() never replaces an existing file) and the staging copy removed.
  *
- * This file is identical in the ffmpeg, image-tools, pdf-tools, excel-csv,
- * ocr-tesseract, qr-code, local-files and sftp plugins; keep the copies in
- * step.
+ * This file is copied from shared/optional into the plugins that
+ * shared/optional/plugins.json names (npm run sync); edit it only there.
  */
 import { constants as fileConstants, promises as defaultFileSystem } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -325,11 +324,49 @@ export function describeOutputFile(outputPath, sizeBytes) {
   return { path: outputPath, file_name: basename(outputPath), size_bytes: sizeBytes };
 }
 
-const POSIX_PATH_PATTERN = /(?<![\w.])\/[^\s'"`,;()<>|]+/g;
-// A Windows path: an optional `\\?\` or `\\.\` prefix, then a drive (`C:\`, `C:/`) or two separators (`\\server`,
-// `//server`), then its folders and a last name. Windows folder names often hold spaces ("Program Files (x86)",
-// a user's full name), so a folder may have up to six more words after a space; the last name ends at the first space.
-const WINDOWS_PATH_PATTERN = /(?<![\w.])(?:(?:\\\\[?.]\\(?:UNC\\)?)?(?:[A-Za-z]:[\\/]|[\\/]{2})|\\\\[?.]\\)(?:[^\s\\/:'"`,;()<>|]+(?: [^\s\\/:'"`,;<>|]+){0,6}[\\/])*[^\s\\/:'"`,;()<>|]*|(?<![\w.])\/[^\s'"`,;()<>|]+/gi;
+// How far a path in a message goes. A path starts at `/` (or, on Windows, a drive `C:\`, `C:/`, two separators
+// `\\server`, `//server`, or a `\\?\` / `\\.\` prefix) and the end is found by these rules, in order:
+//  1. A path right after a quote (' " ` ‘ “) runs to the matching closing quote on the same line, spaces and all.
+//  2. Otherwise its folders may hold spaces ("Program Files (x86)", "Budi Santoso"): a folder is up to seven words
+//     that end in a separator.
+//  3. The last name ends at the first space, unless its first word has no file extension and the text goes on with
+//     a single space: then it runs over up to six more words, to the first one with an extension ("My File.txt",
+//     "Invoice (1).pdf"), or else over the words that start with a capital letter ("C:\Users\Budi Santoso").
+//  4. A `.` or `:` at the very end is the sentence's, not the path's.
+// Words never run past a line break, a separator, another drive or punctuation such as `:` `,` `;` `)`, so in
+// "x.dll: not found", "C:\Docs failed" or "(os error 2)" the text after the path stays. When a rule cannot tell,
+// it hides more, not less.
+const MAX_FOLDER_EXTRA_WORDS = 6;
+const MAX_NAME_EXTRA_WORDS = 6;
+const QUOTE_PAIRS = { "'": "'", "\"": "\"", "`": "`'", "\u2018": "\u2019", "\u201C": "\u201D" };
+const AFTER_CLOSING_QUOTE = /[\s:,.;)\]]/;
+const FILE_EXTENSION = /\.(?=[0-9]*[A-Za-z])[A-Za-z0-9]{1,8}$/;
+const CAPITALISED = /^\p{Lu}/u;
+
+function buildPathForm({ start, separator, nameCharacter, wordCharacter }) {
+  return {
+    start,
+    separator: new RegExp(`^${separator}$`),
+    folders: new RegExp(`(?:(?:${nameCharacter}+(?: ${wordCharacter}+){0,${MAX_FOLDER_EXTRA_WORDS}})?${separator})*`, "uy"),
+    firstWord: new RegExp(`${nameCharacter}*`, "uy"),
+    word: new RegExp(`${wordCharacter}+`, "uy"),
+  };
+}
+
+const PATH_FORMS = {
+  posix: buildPathForm({
+    start: /(?<![\w.])\//g,
+    separator: "\\/",
+    nameCharacter: "[^\\s\\/'\"`,;()<>|]",
+    wordCharacter: "[^\\s\\/:'\"`,;<>|]",
+  }),
+  win32: buildPathForm({
+    start: /(?<![\w.])(?:(?:\\\\[?.]\\(?:UNC\\)?)?(?:[A-Za-z]:[\\/]|[\\/]{2})|\\\\[?.]\\|\/)/gi,
+    separator: "[\\\\\\/]",
+    nameCharacter: "[^\\s\\\\\\/:'\"`,;()<>|]",
+    wordCharacter: "[^\\s\\\\\\/:'\"`,;<>|]",
+  }),
+};
 
 /**
  * Replaces absolute paths outside the given directories with "[path]", so error messages from
@@ -337,8 +374,9 @@ const WINDOWS_PATH_PATTERN = /(?<![\w.])(?:(?:\\\\[?.]\\(?:UNC\\)?)?(?:[A-Za-z]:
  *
  * On Windows this covers drive paths with either separator (`C:\Users\me\x`, `C:/Users/me/x`), network paths
  * (`\\server\share\x`) and the long forms (`\\?\C:\x`, `\\?\UNC\server\share\x`); the comparison with the allowed
- * directories ignores letter case and the separator used, and a path with a `..` part is always hidden. Paths
- * written with a single leading `/` are hidden there too. On other systems only `/` paths are looked at.
+ * directories ignores letter case and the separator used. Paths written with a single leading `/` are hidden there
+ * too. On other systems only `/` paths are looked at. A path with a `..` part is always hidden. Names with spaces
+ * are hidden whole (see the rules above PATH_FORMS).
  *
  * @param text - Message text (string)
  * @param allowedDirectories - Directories whose paths may stay (string[])
@@ -347,14 +385,94 @@ const WINDOWS_PATH_PATTERN = /(?<![\w.])(?:(?:\\\\[?.]\\(?:UNC\\)?)?(?:[A-Za-z]:
  *
  * @example
  * redactPathsOutside("Library not loaded: /opt/lib/x.dylib", ["/data"]); // "Library not loaded: [path]"
- * redactPathsOutside("Cannot open C:\\Users\\me\\x.dll", ["D:\\data"], "win32"); // "Cannot open [path]"
+ * redactPathsOutside("Cannot open C:\\Users\\me\\My File.dll: denied", ["D:\\data"], "win32"); // "Cannot open [path]: denied"
  */
 export function redactPathsOutside(text, allowedDirectories, platform = process.platform) {
-  if (platform !== "win32") {
-    return String(text ?? "").replace(POSIX_PATH_PATTERN, (candidatePath) => (isInsideAny(candidatePath, allowedDirectories, "/") ? candidatePath : "[path]"));
-  }
+  const message = String(text ?? "");
+  if (platform !== "win32") return replacePaths(message, PATH_FORMS.posix, (candidatePath) => isInsideAnyPosix(candidatePath, allowedDirectories));
   const allowedKeys = allowedDirectories.map(toWindowsComparisonKey);
-  return String(text ?? "").replace(WINDOWS_PATH_PATTERN, (candidatePath) => (isInsideAnyWindows(candidatePath, allowedKeys) ? candidatePath : "[path]"));
+  return replacePaths(message, PATH_FORMS.win32, (candidatePath) => isInsideAnyWindows(candidatePath, allowedKeys));
+}
+
+function replacePaths(message, form, isAllowed) {
+  const startPattern = new RegExp(form.start.source, form.start.flags);
+  let redacted = "";
+  let copiedUpTo = 0;
+  for (let match = startPattern.exec(message); match !== null; match = startPattern.exec(message)) {
+    const pathStart = match.index;
+    const pathEnd = findPathEnd(message, pathStart, pathStart + match[0].length, form);
+    // A lone "/" (as in "4 / 3") is not a path.
+    if (match[0] === "/" && pathEnd === pathStart + 1) continue;
+    const candidatePath = message.slice(pathStart, pathEnd);
+    redacted += message.slice(copiedUpTo, pathStart) + (isAllowed(candidatePath) ? candidatePath : "[path]");
+    copiedUpTo = pathEnd;
+    startPattern.lastIndex = pathEnd;
+  }
+  return redacted + message.slice(copiedUpTo);
+}
+
+function findPathEnd(message, pathStart, bodyStart, form) {
+  const closingQuote = findClosingQuote(message, pathStart);
+  if (closingQuote !== -1) return closingQuote;
+  const nameStart = matchEnd(form.folders, message, bodyStart);
+  const firstWordEnd = matchEnd(form.firstWord, message, nameStart);
+  const lastNameEnd = extendLastName(message, nameStart, firstWordEnd, form);
+  return trimSentencePunctuation(message, nameStart, lastNameEnd);
+}
+
+function matchEnd(stickyPattern, message, position) {
+  stickyPattern.lastIndex = position;
+  return stickyPattern.test(message) ? stickyPattern.lastIndex : position;
+}
+
+// The closing quote must be followed by a space, punctuation or the end: "Budi's File.txt" keeps its apostrophe.
+function findClosingQuote(message, pathStart) {
+  const closingQuotes = QUOTE_PAIRS[message[pathStart - 1]];
+  if (!closingQuotes) return -1;
+  for (let position = pathStart; position < message.length && message[position] !== "\n"; position += 1) {
+    const isFollowedByBreak = position + 1 === message.length || AFTER_CLOSING_QUOTE.test(message[position + 1]);
+    if (closingQuotes.includes(message[position]) && isFollowedByBreak) return position;
+  }
+  return -1;
+}
+
+function extendLastName(message, nameStart, firstWordEnd, form) {
+  const firstWord = message.slice(nameStart, firstWordEnd);
+  if (firstWord === "" || /[.:]$/.test(firstWord) || FILE_EXTENSION.test(firstWord) || message[firstWordEnd] !== " ") return firstWordEnd;
+  const followingWords = readFollowingWords(message, firstWordEnd, form);
+  const wordWithExtension = followingWords.find((followingWord) => FILE_EXTENSION.test(followingWord.text));
+  if (wordWithExtension) return wordWithExtension.end;
+  let lastNameEnd = firstWordEnd;
+  for (const followingWord of followingWords) {
+    if (!CAPITALISED.test(followingWord.text)) break;
+    lastNameEnd = followingWord.end;
+  }
+  return lastNameEnd;
+}
+
+// The words after a name, each after one space: `{text, end}`. A word that is followed by anything but a space
+// (punctuation, a line break, the end) or that ends with a dot is the last one.
+function readFollowingWords(message, position, form) {
+  const followingWords = [];
+  let wordStart = position + 1;
+  while (followingWords.length < MAX_NAME_EXTRA_WORDS && message[wordStart - 1] === " ") {
+    const wordEnd = matchEnd(form.word, message, wordStart);
+    const nextCharacter = message[wordEnd] ?? "";
+    // Not a word: nothing there, or the start of something else, such as a separator or a drive ("C:\").
+    if (wordEnd === wordStart || form.separator.test(nextCharacter) || (nextCharacter === ":" && form.separator.test(message[wordEnd + 1] ?? ""))) break;
+    const word = message.slice(wordStart, wordEnd);
+    followingWords.push({ text: word.replace(/\.+$/, ""), end: wordEnd });
+    if (nextCharacter !== " " || word.endsWith(".")) break;
+    wordStart = wordEnd + 1;
+  }
+  return followingWords;
+}
+
+// "x.mp4." and "x.so:" end a sentence or start a message; a name that is only dots ("..") stays as it is.
+function trimSentencePunctuation(message, nameStart, nameEnd) {
+  let end = nameEnd;
+  while (end > nameStart + 1 && /[.:]/.test(message[end - 1]) && !/[.:]/.test(message[nameStart])) end -= 1;
+  return end;
 }
 
 // The same folder can be written C:\Data\In, c:/data/in or \\?\C:\Data\In; all three give `c:\data\in`.
@@ -365,6 +483,11 @@ function toWindowsComparisonKey(windowsPath) {
     .replace(/^\\\\[?.]\\(?=[A-Za-z]:)/, "")
     .replace(/\\+$/, "")
     .toLowerCase();
+}
+
+function isInsideAnyPosix(candidatePath, allowedDirectories) {
+  if (candidatePath.split("/").includes("..")) return false;
+  return isInsideAny(candidatePath, allowedDirectories, "/");
 }
 
 function isInsideAnyWindows(candidatePath, allowedKeys) {

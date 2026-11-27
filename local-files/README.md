@@ -87,7 +87,7 @@ A read result looks like:
   files, FIFOs, devices and directories, and `rename()`s over the target atomically. Failed writes leave nothing behind.
 - **Agents vs nodes:** tool calls are read-only by default. `LOCAL_FILES_TOOL_ALLOW_WRITES=1` lets them create new
   files, never overwrite. `delete_path` is never a tool. An allowed directory itself can never be written or deleted.
-- **Error messages** keep the system's reason but replace absolute paths outside the allowlist with `[path]`.
+- **Error messages** keep the system's reason but replace absolute paths outside the allowlist with `[path]`. Names with spaces are hidden whole: a quoted path up to its closing quote, otherwise up to the word with a file extension (`My File.txt`); a name without an extension takes along the words that start with a capital letter (`C:\Users\Budi Santoso`), so the message text after it stays.
 - **File access code** (`lib/file-access.mjs`, `lib/errors.mjs`, `lib/environment-readers.mjs`) is a copy of the
   local media plugins' (ffmpeg, image-tools, pdf-tools, excel-csv, ocr-tesseract, qr-code); keep the copies in step.
 

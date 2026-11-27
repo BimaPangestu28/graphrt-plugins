@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-sftp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "graphrt plugin: list, stat, read, download and upload files over SFTP with host key pinning",
   "type": "module",

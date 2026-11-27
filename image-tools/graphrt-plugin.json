@@ -1,6 +1,6 @@
 {
   "name": "image-tools",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local images with sharp: metadata, resize, crop, rotate, convert (jpeg/png/webp/avif), compress, text or image watermarks and thumbnails, on files in allowed directories",
   "license": "Apache-2.0",
   "runtime": "process",

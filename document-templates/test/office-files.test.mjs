@@ -37,7 +37,26 @@ test("fill_docx: a table row of content controls repeats for every item, with it
     const itemRow = `<w:tr>${wordControlCell(["{{#", "items", "}}{{quantity}}"])}${wordControlCell(["{{description}}"])}${wordControlCell(["{{amount | am", "ount}}{{/", "items}}"])}</w:tr>`;
     await writeFile(join(inputDirectory, "invoice.docx"), buildDocx({ bodyXml: `<w:tbl><w:tr>${wordControlCell(["Qty"])}${wordControlCell(["Description"])}${wordControlCell(["Total"])}</w:tr>${itemRow}</w:tbl>` }));
     const result = await runOperation("fill_docx", { template: "invoice.docx", values: INVOICE_VALUES }, AS_TOOL);
-    assert.deepEqual(readDocxParagraphs(await readFile(result.data.path)), ["Qty", "Description", "Total", "2", "Desain antarmuka", "3.000.000", "3.5", "Pengembangan", "7.000.000"]);
+    const bytes = await readFile(result.data.path);
+    assert.deepEqual(readDocxParagraphs(bytes), ["Qty", "Description", "Total", "2", "Desain antarmuka", "3.000.000", "3.5", "Pengembangan", "7.000.000"]);
+    // Filled controls hold real text now (Word would select and drop "placeholder" text); the header row keeps its mark.
+    assert.equal(readDocxEntry(bytes, "word/document.xml").match(/<w:showingPlcHdr\/>/g).length, 3);
+  }));
+
+test("fill_docx: only content controls whose text holds a placeholder lose the 'showing placeholder' mark, also nested and in a header", options, () =>
+  withDocumentRunner({}, async ({ runOperation, inputDirectory }) => {
+    const control = (inner, id) => `<w:sdt><w:sdtPr><w:id w:val="${id}"/><w:temporary/><w:showingPlcHdr/></w:sdtPr><w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
+    const run = (text) => `<w:r><w:t xml:space="preserve">${text}</w:t></w:r>`;
+    const bodyXml = `<w:p>${control(run("Click to enter a date"), 1)}${control(run("{") + run("{number}}"), 2)}</w:p>`
+      + control(`<w:p>${run("Outer ")}${control(run("{{client.name}}"), 4)}</w:p>`, 3) + `<w:p>${control(run("Company Name"), 5)}</w:p>`;
+    await writeFile(join(inputDirectory, "controls.docx"), buildDocx({ bodyXml, parts: { header1: `<w:p>${control(run("{{seller.name}}"), 6)}${control(run("Slogan"), 7)}</w:p>` } }));
+    const bytes = await readFile((await runOperation("fill_docx", { template: "controls.docx", values: INVOICE_VALUES }, AS_TOOL)).data.path);
+    const documentXml = readDocxEntry(bytes, "word/document.xml");
+    const markedIds = (xml) => [...xml.matchAll(/<w:id w:val="(\d+)"\/><w:temporary\/>(<w:showingPlcHdr\/>)?/g)].filter((match) => match[2]).map((match) => match[1]);
+    // 3 holds no placeholder of its own, but the control inside it does, so its text is no longer only a placeholder.
+    assert.deepEqual(markedIds(documentXml), ["1", "5"]);
+    assert.deepEqual(markedIds(readDocxEntry(bytes, "word/header1.xml")), ["7"]);
+    assert.deepEqual(readDocxParagraphs(bytes).filter(Boolean), ["Click to enter a dateINV-2026-0007", "Outer PT Maju Bersama", "Company Name"]);
   }));
 
 test("fill_docx: a Word template file (.dotx) is filled and saved as a document", options, () =>

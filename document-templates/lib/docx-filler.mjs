@@ -22,6 +22,8 @@ const CONTENT_TYPES_PART = "[Content_Types].xml";
 // A Word template file (.dotx) differs from a document (.docx) in this one content type.
 const TEMPLATE_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml";
 const DOCUMENT_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
+const TEXT_PART_PATTERN = /^word\/(?:document|header\d*|footer\d*|footnotes|endnotes)\.xml$/;
+const PLACEHOLDER_FLAG_PATTERN = /<w:showingPlcHdr\s*\/>/g;
 const PART_NAMES = [[/^word\/header\d*\.xml$/, "the page header"], [/^word\/footer\d*\.xml$/, "the page footer"], [/^word\/footnotes\.xml$/, "a footnote"], [/^word\/endnotes\.xml$/, "an endnote"]];
 
 async function openTemplate(bytes) {
@@ -99,6 +101,50 @@ function saveAsDocument(zip) {
   return zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
+// Microsoft's templates keep their grey "click here" texts in content controls marked `showingPlcHdr`: the content
+// is only a placeholder. Word then selects the whole control on a click and throws the text away on the first key
+// press, and may show it as empty. A control whose text holds a {{placeholder}} gets real content, so it loses the
+// mark; every other control stays as it is.
+function markFilledControls(zip) {
+  for (const entryName of Object.keys(zip.files).filter((name) => TEXT_PART_PATTERN.test(name))) {
+    const partXml = zip.file(entryName).asText();
+    const updatedXml = removeFilledPlaceholderFlags(partXml);
+    if (updatedXml !== partXml) zip.file(entryName, updatedXml);
+  }
+}
+
+function removeFilledPlaceholderFlags(partXml) {
+  let updatedXml = "";
+  let copiedUpTo = 0;
+  for (const flag of partXml.matchAll(PLACEHOLDER_FLAG_PATTERN)) {
+    // The flag sits in the control's properties, right before that control's own content.
+    const contentStart = partXml.indexOf("<w:sdtContent", flag.index);
+    if (contentStart === -1) break;
+    const contentText = readRunTexts(partXml.slice(contentStart, findContentEnd(partXml, contentStart)));
+    if (!contentText.includes("{{")) continue;
+    updatedXml += partXml.slice(copiedUpTo, flag.index);
+    copiedUpTo = flag.index + flag[0].length;
+  }
+  return updatedXml + partXml.slice(copiedUpTo);
+}
+
+// Controls may hold controls: the content ends at the closing tag that matches its opening one.
+function findContentEnd(partXml, contentStart) {
+  const tagPattern = /<w:sdtContent[\s>]|<\/w:sdtContent>/g;
+  tagPattern.lastIndex = contentStart;
+  let depth = 0;
+  for (let tag = tagPattern.exec(partXml); tag !== null; tag = tagPattern.exec(partXml)) {
+    depth += tag[0].startsWith("</") ? -1 : 1;
+    if (depth === 0) return tag.index;
+  }
+  return partXml.length;
+}
+
+// Word may cut "{{" itself into two runs, so the runs' texts are joined before looking.
+function readRunTexts(xml) {
+  return [...xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)].map((match) => match[1]).join("");
+}
+
 /**
  * Lists the placeholders of a .docx template.
  *
@@ -130,6 +176,7 @@ export async function inspectDocx({ bytes }) {
  */
 export async function fillDocx({ bytes, values, settings }) {
   const { zip, Docxtemplater } = await openTemplate(bytes);
+  markFilledControls(zip);
   const document = createDocument(Docxtemplater, zip, settings);
   try {
     document.render(values);
