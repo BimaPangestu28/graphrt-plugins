@@ -484,12 +484,14 @@ come back as `ok: false` with the `problem` in plain words. Only what is not the
 folder set up, a crashed worker) fails.
 
 ### Messages in Indonesian
-What a person reads when something is wrong with an invoice's details, its number, its file or its folder is
-written in the document's language: English, or Indonesian for a document in Indonesian. The language is the
-first of:
+What a person reads is written in the document's language: English, or Indonesian. That covers what is wrong
+with an invoice's details, its number, its file or its folder, and also the texts the other operations return
+(`save_brand`'s `used_for`, `save_template_copy`'s `how_to_use`, the template list and descriptions, the hint
+about a PDF that cannot be filled in). The language is the first of:
 
 1. `language` in the document's values (`render_pdf`, `check_values`, `fill_docx`, `fill_pdf_form`), or the
-   `language` parameter of `next_number`,
+   `language` parameter of `next_number`, `list_templates`, `describe_template`, `save_template_copy` and
+   `show_brand`; for `save_brand`, the language it saves (`look.language`),
 2. `language` in the call's `look`,
 3. the language of your saved brand (`save_brand` with `look: {language: id}`),
 4. English.
@@ -497,9 +499,17 @@ first of:
 So `Harga satuan item 1 harus berupa angka biasa seperti 1500000 …`, `Mata uang harus berupa kode tiga huruf
 seperti IDR atau USD, bukan "Rp"` or `"2026/11/INV-2026-0003.pdf" sudah ada; tidak ada yang disimpan` instead of
 the English text. Only the text changes: the error's kind (the table above) is the same in both languages, so an
-app that reacts to the kind works the same. Messages meant for whoever sets up or builds templates (a template's
-own structure, a crashed worker) stay in English. The **Buat invoice** agent writes its invoices in Indonesian,
-so everything it tells you is in Indonesian.
+app that reacts to the kind works the same. The **Buat invoice** agent writes its invoices in Indonesian, so
+everything it tells you is in Indonesian.
+
+These stay in English, because they are read by whoever builds templates or looks into a failure, not by the
+person making an invoice:
+- the structure of a layout template (its JSON, unknown keys, version, fonts it names, placeholders and
+  filters in it, more than the parts limit after loops) and Word placeholders that insert raw XML,
+- a Word or PDF file that cannot be opened at all (damaged zip, unreadable PDF or background, encrypted
+  background, a value that cannot be drawn in a form field),
+- the setup of input folders and limits (`DOCUMENT_TEMPLATES_*` variables, a fonts file that cannot be read),
+- failures inside the plugin: a crashed or stopped worker, a timeout or cancellation, a document that could not be drawn.
 
 ## Tested with
 - **Text read back from the PDF:** letter-spaced labels such as TOTAL DUE are copied, searched and read aloud as

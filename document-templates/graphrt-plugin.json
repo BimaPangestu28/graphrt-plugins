@@ -35,7 +35,16 @@
       "category": "integration",
       "config_schema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
+          }
+        }
       },
       "outputs": [
         {
@@ -72,6 +81,14 @@
             "type": "boolean",
             "default": false,
             "description": "For the invoice or your own layout: also return the whole design. To get a copy you can change, use save_template_copy instead"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       },
@@ -104,6 +121,14 @@
           "name": {
             "type": "string",
             "description": "A name for your copy, without extension, e.g. \"Quotation\" (default: the template's own name)"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       },
@@ -155,7 +180,7 @@
               "en",
               "id"
             ],
-            "description": "Language of a message when something is wrong: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       },
@@ -241,6 +266,14 @@
             "type": "string",
             "default": "default",
             "description": "Only when you keep more than one brand: its name, e.g. \"studio\". The brand named \"default\" is used for every document"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       },
@@ -600,7 +633,16 @@
       "description": "Lists the ready-made templates and the kinds of template you can bring yourself (your own layout, a PDF form, a Word document), with the operation for each",
       "parameters": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
+          }
+        }
       }
     },
     {
@@ -623,6 +665,14 @@
             "type": "boolean",
             "default": false,
             "description": "For the invoice or your own layout: also return the whole design. To get a copy you can change, use save_template_copy instead"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       }
@@ -641,6 +691,14 @@
           "name": {
             "type": "string",
             "description": "A name for your copy, without extension, e.g. \"Quotation\" (default: the template's own name)"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       }
@@ -678,7 +736,7 @@
               "en",
               "id"
             ],
-            "description": "Language of a message when something is wrong: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       }
@@ -736,6 +794,14 @@
             "type": "string",
             "default": "default",
             "description": "Only when you keep more than one brand: its name, e.g. \"studio\". The brand named \"default\" is used for every document"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       }

@@ -9,6 +9,15 @@ import { DEFAULT_BRAND_NAME, resolveBrand } from "./brand-profile.mjs";
 
 export const MESSAGE_LANGUAGES = Object.freeze(["en", "id"]);
 const DEFAULT_MESSAGE_LANGUAGE = "en";
+// The same names a look accepts for its language (look-options.mjs).
+const LANGUAGE_NAMES = Object.freeze({ english: "en", inggris: "en", indonesian: "id", indonesia: "id", "bahasa indonesia": "id" });
+
+/** Schema of the `language` parameter of operations that have no document values to take the language from. */
+export const MESSAGE_LANGUAGE_PARAMETER = Object.freeze({
+  type: "string",
+  enum: MESSAGE_LANGUAGES,
+  description: "Language of the messages you read: en (English) or id (Indonesian). Default: the language of your saved brand, else English",
+});
 
 /** Indonesian words for the names in a value path (`items[0].unit_price` is "harga satuan item 1"). */
 const INDONESIAN_FIELD_WORDS = Object.freeze({
@@ -52,6 +61,13 @@ const INDONESIAN_FIELD_WORDS = Object.freeze({
   accent_color: "warna aksen",
   title: "judul",
   notes: "catatan",
+  labels: "label",
+  show: "bagian yang tampil",
+  payment_details: "rincian pembayaran",
+  tax_id: "NPWP",
+  email: "email",
+  phone: "telepon",
+  website: "situs web",
 });
 
 /** Item lists whose entries are named "item 1" / "pajak ke-1" in a path. */
@@ -65,7 +81,8 @@ const LIST_ENTRY_NAMES = Object.freeze({ items: { en: "item", id: "item" }, taxe
  */
 export function readMessageLanguage(rawLanguage) {
   const language = typeof rawLanguage === "string" ? rawLanguage.trim().toLowerCase() : "";
-  return MESSAGE_LANGUAGES.includes(language) ? language : null;
+  const code = LANGUAGE_NAMES[language] ?? language;
+  return MESSAGE_LANGUAGES.includes(code) ? code : null;
 }
 
 /**
@@ -120,6 +137,9 @@ export function describeValuePath(path, language) {
   const parts = String(path).replace(/^values\./, "").split(".");
   const entry = /^([a-z_]+)\[(\d+)\]$/.exec(parts[0]);
   if (language === "id") {
+    // A look's own parts read best without "tampilan": `look.accent_color` is "warna aksen", `look.show.notes` "bagian catatan".
+    if (parts[0] === "look" && parts.length > 1) parts.shift();
+    if (parts[0] === "show" && parts.length === 2) return `bagian ${toIndonesianWord(parts[1])}`;
     const words = parts.slice(1).reverse().map(toIndonesianWord);
     if (entry) words.push(LIST_ENTRY_NAMES[entry[1]]?.id === "pajak ke-" ? `pajak ke-${Number(entry[2]) + 1}` : `${LIST_ENTRY_NAMES[entry[1]]?.id ?? toIndonesianWord(entry[1])} ${Number(entry[2]) + 1}`);
     else words.push(toIndonesianWord(parts[0]));
@@ -227,7 +247,45 @@ const INDONESIAN_MESSAGES = [
   [/^The template is not a Word document \(\.docx\): .*$/, () => "Template ini bukan dokumen Word (.docx). Simpan file .doc, .odt atau .pages sebagai .docx dulu"],
   [/^The template contains macros \(\.docm\); .*$/, () => "Template ini berisi macro (.docm); simpan sebagai .docx biasa tanpa macro"],
   [/^The Word template has a problem with its placeholders: (.*)$/, (details) => `Template Word ini punya masalah pada penanda isiannya: ${details}`],
+  // Templates: which exist, what they need, a copy to change.
+  [/^`template` must be a ready-made template \((.*)\), got (.*)$/, (names, got) => `Template harus template bawaan (${names}), bukan ${got}`],
+  [/^`name` must have letters or digits, e\.g\. "Quotation"$/, () => "Nama harus berisi huruf atau angka, misalnya \"Penawaran\""],
+  [/^(".*") is (a layout template|a Word document|a PDF); this operation takes (.*)\. Use (\S+) for it$/, (file, kind, allowed, operation) => `${file} adalah ${KIND_WORDS[kind]}; operasi ini memerlukan ${allowed.split(" or ").map((what) => KIND_WORDS[what] ?? what).join(" atau ")}. Pakai ${operation} untuk file itu`],
+  [/^The layout template is (\d+) bytes, over the limit of (\d+)$/, (size, limit) => `Template tata letak berukuran ${size} byte, melebihi batas ${limit}`],
+  [/^The template is not a readable PDF: (.*)$/, (reason) => `Template ini bukan PDF yang bisa dibaca: ${reason}`],
+  [/^The PDF has (\d+) form fields, over the limit of (\d+) \((.*)\)$/, (count, limit, setting) => `PDF ini punya ${count} kotak isian, melebihi batas ${limit} (${setting})`],
+  [/^The PDF is protected in a way that cannot be opened here\. .*$/, () => "PDF ini dilindungi dengan cara yang tidak bisa dibuka di sini. Mintalah salinan tanpa perlindungan kepada penerbitnya"],
+  [/^Whoever published this form has locked it against being filled in.*$/, () => "Penerbit formulir ini menguncinya agar tidak bisa diisi, jadi di sini juga tidak diisi. Dengan kata sandi izin formulir (yang mencabut pembatasannya, disebut juga kata sandi pemilik) sebagai password, formulir ini bisa diisi; tanpa itu, mintalah formulir yang boleh diisi kepada penerbitnya"],
+  [/^This PDF is an XFA form .*$/, () => "PDF ini adalah formulir XFA (dibuat dengan Adobe LiveCycle Designer; program lain menampilkan \"Please wait...\" sebagai ganti formulirnya). Formulir XFA tidak bisa diisi di sini: hanya Adobe Acrobat yang bisa membacanya. Mintalah PDF isian standar (AcroForm) kepada penerbitnya, atau buat ulang dokumennya sebagai template tata letak untuk render_pdf"],
+  [/^This PDF has no form fields, so it cannot be filled in\. .*$/, () => "PDF ini tidak punya kotak isian, jadi tidak bisa diisi. Pakai render_pdf dengan template invoice bawaan, atau template tata letak dengan PDF ini sebagai latar belakang"],
+  // Saved brands.
+  [/^Give at least one thing to save: .*$/, () => "Berikan paling tidak satu hal untuk disimpan: tampilan (logo, warna aksen, judul, bahasa, label, bagian yang tampil), data penjual, rincian pembayaran atau catatan"],
+  [/^`name` must be a short name of letters and digits such as "default" or "studio", got (.*)$/, (got) => `Nama brand harus nama pendek dari huruf dan angka seperti "default" atau "studio", bukan ${got}`],
+  [/^Could not read the brand (".*"): (.*)$/, (name, reason) => `Brand ${name} tidak bisa dibaca: ${reason}`],
+  [/^The saved brand (".*") is damaged \((.*)\)\. Save it again with save_brand and `reset: true`$/, (name, reason) => `Brand tersimpan ${name} rusak (${reason}). Simpan lagi dengan save_brand dan reset: true`],
+  [/^There are already (\d+) saved brands; save over one of them$/, (count) => `Sudah ada ${count} brand tersimpan; simpan dengan menimpa salah satunya`],
+  [/^Could not save the brand: (.*)$/, (reason) => `Brand tidak bisa disimpan: ${reason}`],
+  [/^There is no saved brand named (".*")\. .*$/, (name) => `Tidak ada brand tersimpan bernama ${name}. save_brand membuatnya; kosongkan brand untuk memakai brand default`],
+  [/^Could not create the folder for brands: (.*)$/, (reason) => `Folder untuk brand tidak bisa dibuat: ${reason}`],
+  [/^(\S+) in your documents folder is not a plain folder; brands cannot be saved there$/, (folder) => `${folder} di folder dokumen Anda bukan folder biasa; brand tidak bisa disimpan di sana`],
+  [/^`seller` must be an object such as (.*)$/, (example) => `Data penjual harus berisi nama dan alamat, misalnya ${example}`],
+  [/^`seller` does not know (.*); it takes (.*) \(a logo goes in `look`\)$/, (unknown, allowed) => `Data penjual tidak mengenal ${unknown}; yang bisa diisi: ${allowed} (logo masuk ke tampilan)`],
+  [/^`payment_details` must be a list of at most (\d+) pairs such as (.*)$/, (max, example) => `Rincian pembayaran harus berupa daftar paling banyak ${max} pasangan seperti ${example}`],
+  [/^`payment_details\[(\d+)\]` needs a `label` and a `value`, e\.g\. (.*)$/, (index, example) => `Rincian pembayaran ke-${Number(index) + 1} perlu label dan nilai, misalnya ${example}`],
+  [new RegExp(`^\`${PATH}\` has (\\d+) lines, over the limit of (\\d+)$`), (path, lines, limit) => `${field(path)} berisi ${lines} baris, melebihi batas ${limit}`],
+  [new RegExp(`^\`${PATH}\` must be a text of at most (\\d+) characters$`), (path, max) => `${field(path)} harus berupa teks paling banyak ${max} karakter`],
+  // The look of a document.
+  [new RegExp(`^\`${PATH}\` must be an object such as \\{"accent_color".*$`), (path) => `${field(path)} harus berisi pilihan seperti {"accent_color": "navy", "title": "Faktur"}`],
+  [new RegExp(`^\`${PATH}\` does not know (.*); it takes (.*)$`), (path, unknown, allowed) => `${field(path)} tidak mengenal ${unknown}; yang bisa diisi: ${allowed}`],
+  [new RegExp(`^\`${PATH}\` must be a colour such as #1D4ED8, or one of these names: (.*); got (.*)$`), (path, names, got) => `${field(path)} harus berupa warna seperti #1D4ED8, atau salah satu nama ini: ${names}; bukan ${got}`],
+  [new RegExp(`^\`${PATH}\` must be the path of a PNG or JPEG file in your templates folder, e\\.g\\. "logo\\.png"$`), (path) => `${field(path)} harus berupa path file PNG atau JPEG di folder template Anda, misalnya "logo.png"`],
+  [new RegExp(`^\`${PATH}\` must be an object of label names and their texts, .*$`), (path) => `${field(path)} harus berisi nama label dan teksnya, misalnya {"tax": "PPN", "bill_to": "Pelanggan"}`],
+  [new RegExp(`^\`${PATH}\` has the invalid label name (.*?); .*$`), (path, name) => `${field(path)} memakai nama label ${name} yang tidak dikenal; describe_template menampilkan nama-namanya, misalnya tax, bill_to, total_due`],
+  [new RegExp(`^\`${PATH}\` must be an object such as \\{"notes": false\\}; it takes (.*)$`), (path, parts) => `${field(path)} harus berisi pilihan seperti {"notes": false}; yang bisa diisi: ${parts}`],
+  [new RegExp(`^\`${PATH}\` must be true or false, got (.*)$`), (path, got) => `${field(path)} harus true atau false, bukan ${got}`],
 ];
+
+const KIND_WORDS = Object.freeze({ "a layout template": "template tata letak", "a Word document": "dokumen Word", "a PDF": "PDF" });
 
 // "The logo "logo.png"" / "The image "x.png"" in Indonesian.
 function toIndonesianSubject(subject) {

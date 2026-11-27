@@ -126,3 +126,50 @@ test("fill_docx and fill_pdf_form write their messages in the document's languag
     await assert.rejects(runOperation("fill_docx", { template: "letter.docx", values: { ...INVOICE_VALUES, currency: "Rp" }, folder: "x" }, AS_NODE), { message: /^Mata uang harus/ });
     await assert.rejects(runOperation("fill_docx", { template: "missing.docx", values: INVOICE_VALUES }, AS_TOOL), { kind: "not_found", message: /^Tidak ada file "missing\.docx"/ });
   }));
+
+test("save_brand, show_brand, describe_template, save_template_copy, list_templates and next_number follow the same language", options, () =>
+  withDocumentRunner({}, async ({ runOperation, inputDirectory }) => {
+    // Without a saved brand and without `language`: English, as before.
+    await assert.rejects(runOperation("save_brand", {}, AS_TOOL), { kind: "invalid_input", message: /^Give at least one thing to save/ });
+    await assert.rejects(runOperation("show_brand", { name: "!!!" }, AS_TOOL), { kind: "invalid_input", message: /^`name` must be a short name/ });
+    assert.equal((await runOperation("list_templates", {}, AS_TOOL)).data.your_own[0].format, "Layout template (.json)");
+    assert.match((await runOperation("describe_template", {}, AS_TOOL)).data.description, /^A4 invoice/);
+    await assert.rejects(runOperation("save_template_copy", { template: "letter" }, AS_TOOL), { kind: "invalid_input", message: /^`template` must be a ready-made template/ });
+
+    // `language: id` on the call.
+    await assert.rejects(runOperation("show_brand", { name: "!!!", language: "id" }, AS_TOOL), { kind: "invalid_input", message: /^Nama brand harus nama pendek dari huruf dan angka/ });
+    const listed = (await runOperation("list_templates", { language: "id" }, AS_TOOL)).data;
+    assert.deepEqual([listed.built_in[0].description.slice(0, 11), listed.your_own[0].format, listed.not_supported.at(-1)], ["Invoice A4:", "Template tata letak (.json)", "Formulir XFA"]);
+    const described = (await runOperation("describe_template", { language: "id" }, AS_TOOL)).data;
+    assert.deepEqual([described.description.slice(0, 11), described.calculates.slice(0, 13)], ["Invoice A4:", "total invoice"]);
+    await assert.rejects(runOperation("describe_template", { template: "nothing.xlsx", language: "id" }, AS_TOOL), { kind: "invalid_input", message: /^Template harus template bawaan/ });
+    await assert.rejects(runOperation("save_template_copy", { template: "letter", language: "id" }, AS_TOOL), { kind: "invalid_input", message: /^Template harus template bawaan \(invoice\), bukan "letter"$/ });
+    await assert.rejects(runOperation("save_template_copy", { name: "   ", language: "id" }, AS_TOOL), { kind: "invalid_input", message: /^Nama harus berisi huruf atau angka/ });
+    assert.match((await runOperation("save_template_copy", { language: "id" }, AS_TOOL)).data.how_to_use, /^Untuk membuat PDF dengan salinan ini/);
+    await writeFile(join(inputDirectory, "plain.pdf"), await buildFormPdf());
+
+    // save_brand speaks the language it saves; a look in another language fails in that language.
+    await assert.rejects(runOperation("save_brand", { look: { language: "id", accent_color: "#FFFFFF" } }, AS_TOOL), { kind: "invalid_input", message: /^Warna aksen "#FFFFFF" terlalu terang/ });
+    await assert.rejects(runOperation("save_brand", { look: { language: "id" }, payment_details: [{ label: "Bank" }] }, AS_TOOL), { kind: "invalid_input", message: /^Rincian pembayaran ke-1 perlu label dan nilai/ });
+    const saved = await runOperation("save_brand", { look: { language: "indonesia" }, seller: { name: "CV Kenanga Digital" } }, AS_TOOL);
+    assert.match(saved.data.used_for, /^Setiap dokumen mulai sekarang/);
+
+    // With the brand saved in Indonesian, everything is Indonesian by default; `language: en` still wins.
+    await assert.rejects(runOperation("save_brand", {}, AS_TOOL), { kind: "invalid_input", message: /^Berikan paling tidak satu hal untuk disimpan/ });
+    await assert.rejects(runOperation("save_brand", { seller: { name: "X", fax: "1" } }, AS_TOOL), { kind: "invalid_input", message: /^Data penjual tidak mengenal "fax"/ });
+    await assert.rejects(runOperation("show_brand", { name: "!!!" }, AS_TOOL), { message: /^Nama brand harus/ });
+    await assert.rejects(runOperation("show_brand", { name: "!!!", language: "en" }, AS_TOOL), { message: /^`name` must be/ });
+    assert.equal((await runOperation("list_templates", {}, AS_TOOL)).data.your_own[1].format, "Formulir PDF isian (.pdf dengan kotak isian)");
+    assert.equal((await runOperation("list_templates", { language: "en" }, AS_TOOL)).data.your_own[1].format, "Fillable PDF form (.pdf with form fields)");
+    await assert.rejects(runOperation("describe_template", { template: "missing.pdf" }, AS_TOOL), { kind: "not_found", message: /^Tidak ada file "missing\.pdf"/ });
+    await assert.rejects(runOperation("render_pdf", { values: { ...INVOICE_VALUES, currency: "Rp" }, brand: "studio" }, AS_TOOL), { kind: "not_found", message: /^Tidak ada brand tersimpan bernama "studio"/ });
+    await assert.rejects(runOperation("next_number", { pattern: "INV" }, AS_TOOL), { kind: "invalid_input", message: /^Pola nomor harus/ });
+  }));
+
+test("describe_template: the hint about a PDF that cannot be filled in follows the language", options, () =>
+  withDocumentRunner({}, async ({ runOperation, inputDirectory }) => {
+    const { buildPlainPdf } = await import("./helpers.mjs");
+    await writeFile(join(inputDirectory, "plain.pdf"), await buildPlainPdf());
+    assert.match((await runOperation("describe_template", { template: "plain.pdf" }, AS_TOOL)).data.hint, /^This PDF has no form fields/);
+    assert.match((await runOperation("describe_template", { template: "plain.pdf", language: "id" }, AS_TOOL)).data.hint, /^PDF ini tidak punya kotak isian, jadi tidak bisa diisi/);
+  }));
