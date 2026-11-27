@@ -12,7 +12,7 @@ graph:
       type: start
       variables:
         - { variable: client_name, type: text-input, required: true, max_length: 200, label: Client name }
-        - { variable: client_address, type: paragraph, required: false, max_length: 600, label: Client address (optional) }
+        - { variable: client_address, type: paragraph, required: false, max_length: 600, label: Client address }
         - variable: items
           type: json
           required: true
