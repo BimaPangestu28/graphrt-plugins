@@ -1,6 +1,6 @@
 {
   "name": "sftp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SFTP with a pinned host key: list, stat and read remote files inside SFTP_ROOT, download to an allowed local directory, upload from one (staged, no overwrite unless a node asks); agent writes opt-in, deletes node only",
   "license": "Apache-2.0",
   "runtime": "process",

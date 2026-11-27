@@ -156,3 +156,42 @@ test("review regression: paths outside the allowed directories are redacted from
   const allowedPath = process.platform === "win32" ? "[path]" : "/data/in/a.mp4";
   assert.equal(redactPathsOutside(message, ["/data/in"]), `dyld: Library not loaded: [path]; reading file:${allowedPath} from [path]`);
 });
+
+test("Windows paths outside the allowed directories are redacted: drive, UNC and \\\\?\\ forms, either separator", () => {
+  const allowed = ["C:\\Data\\In", "\\\\nas\\media\\out"];
+  const redact = (message) => redactPathsOutside(message, allowed, "win32");
+  // Outside: hidden, whatever the form.
+  assert.equal(redact("Cannot load C:\\Users\\budi\\AppData\\Local\\Temp\\x.dll: not found"), "Cannot load [path]: not found");
+  assert.equal(redact("Cannot load C:/Users/budi/AppData/Local/Temp/x.dll"), "Cannot load [path]");
+  assert.equal(redact("open \\\\fileserver\\home\\budi\\notes.txt failed"), "open [path] failed");
+  assert.equal(redact("open //fileserver/home/budi/notes.txt failed"), "open [path] failed");
+  assert.equal(redact("open \\\\?\\D:\\secret\\a.txt, then \\\\?\\UNC\\fileserver\\home\\b.txt"), "open [path], then [path]");
+  assert.equal(redact("device \\\\.\\PhysicalDrive0 busy"), "device [path] busy");
+  assert.equal(redact("Error opening input file file:D:\\other\\a.mp4."), "Error opening input file file:[path]");
+  assert.equal(redact("'c:\\windows\\system32\\x.dll' (C:\\ProgramData\\y)"), "'[path]' ([path])");
+  // Folder names with spaces do not leave their second half behind.
+  assert.equal(redact("C:\\Users\\Budi Santoso\\AppData\\Local\\Temp\\graphrt-1\\list.txt: denied"), "[path]: denied");
+  assert.equal(redact("load C:\\Program Files (x86)\\ffmpeg\\bin\\avcodec.dll failed"), "load [path] failed");
+  // Inside: kept, also when written with other letter case, the other separator or the long form.
+  assert.equal(redact("reading C:\\Data\\In\\clip.mp4 and c:/data/in/sub/b.mp4"), "reading C:\\Data\\In\\clip.mp4 and c:/data/in/sub/b.mp4");
+  assert.equal(redact("reading \\\\?\\C:\\Data\\In\\clip.mp4"), "reading \\\\?\\C:\\Data\\In\\clip.mp4");
+  assert.equal(redact("wrote \\\\NAS\\media\\out\\a.png and \\\\?\\UNC\\nas\\media\\out\\b.png"), "wrote \\\\NAS\\media\\out\\a.png and \\\\?\\UNC\\nas\\media\\out\\b.png");
+  // Not inside: a look-alike folder, the folder's parent, a way back out with "..", another share.
+  assert.equal(redact("C:\\Data\\In-evil\\a.txt C:\\Data C:\\Data\\In\\..\\..\\Users\\budi \\\\nas\\media\\private\\a"), "[path] [path] [path] [path]");
+  // Paths with a single leading "/" stay hidden on Windows, as before; plain text is untouched.
+  assert.equal(redact("dyld: /opt/homebrew/lib/x.dylib; ratio 4:3, time 00:00:01, a\\b, see https://example.com/x"), "dyld: [path]; ratio 4:3, time 00:00:01, a\\b, see https:[path]");
+  assert.equal(redact(undefined), "");
+});
+
+test("on Linux and macOS only / paths are looked at: Windows-looking text stays as it is", () => {
+  for (const platform of ["linux", "darwin"]) {
+    const message = "note C:\\Users\\budi\\x and \\\\server\\share\\y; reading /data/in/a.mp4 from /tmp/graphrt-1/list";
+    assert.equal(redactPathsOutside(message, ["/data/in"], platform), "note C:\\Users\\budi\\x and \\\\server\\share\\y; reading /data/in/a.mp4 from [path]");
+  }
+});
+
+test("redaction uses the system's own path form by default", () =>
+  withDirectories(async ({ input, outside, fileAccess }) => {
+    const message = `could not read ${join(outside, "secret.txt")} while opening ${join(input, "a.txt")}`;
+    assert.equal(fileAccess.redactPaths(message), `could not read [path] while opening ${join(input, "a.txt")}`);
+  }));

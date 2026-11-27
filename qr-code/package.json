@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-qr-code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "graphrt plugin: generate QR codes as PNG/SVG and decode QR codes from local images",
   "type": "module",

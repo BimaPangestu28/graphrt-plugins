@@ -21,7 +21,7 @@ import { watermarkOperations } from "./operations/watermark.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "image-tools",
-    version: "0.1.0",
+    version: "0.1.1",
     description: "Local images with sharp: metadata, resize, crop, rotate, convert (jpeg/png/webp/avif), compress, text or image watermarks and thumbnails, on files in allowed directories",
     extraEnv: [FILE_VARIABLES.inputDirs, FILE_VARIABLES.outputDir, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, MAX_PIXELS_VARIABLE, TIMEOUT_VARIABLE],
     localOnly: true,

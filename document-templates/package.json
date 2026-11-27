@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-document-templates",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "graphrt plugin: invoices and other documents from templates to local PDF and DOCX files",
   "type": "module",
