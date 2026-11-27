@@ -1,0 +1,272 @@
+{
+  "format": "graphrt-document-template",
+  "version": 1,
+  "name": "invoice",
+  "description": "A4 invoice: seller name and invoice number, From / Bill to / Details, a line-item table that continues over pages, subtotal, discount, taxes, total due, a payment details box, notes at the foot of the last page and page numbers. Columns for period, quantity and unit price appear only when an item uses them.",
+  "calculate": "invoice",
+  "page": { "size": "A4", "margins": [45, 42, 45, 58], "background_color": "#FCFCFA" },
+  "defaults": { "font": "sans", "fontSize": 9, "characterSpacing": -0.12, "color": "#1C1C1A", "lineHeight": 1.38 },
+  "styles": {
+    "label": { "fontSize": 6.8, "characterSpacing": 1.6, "color": "#77756F", "lineHeight": 1.2 },
+    "muted": { "color": "#5F5E5A" },
+    "display": { "font": "serif", "characterSpacing": 0, "lineHeight": 1.1 },
+    "note": { "fontSize": 7.7, "characterSpacing": -0.08, "color": "#5F5E5A", "lineHeight": 1.4 }
+  },
+  "labels": {
+    "en": {
+      "title": "Invoice", "from": "From", "bill_to": "Bill to", "details": "Details", "issued": "Issued", "terms": "Terms", "due": "Due",
+      "currency": "Currency", "attention": "Attn:", "description": "Description", "period": "Period", "quantity": "Qty", "unit_price": "Unit price",
+      "amount": "Amount", "subtotal": "Subtotal", "discount": "Discount", "tax": "VAT / GST", "shipping": "Shipping", "total": "Total",
+      "amount_paid": "Paid", "total_due": "Total due", "payment_details": "Payment details", "page": "Page", "of": "of"
+    },
+    "id": {
+      "title": "Invoice", "from": "Dari", "bill_to": "Ditagihkan kepada", "details": "Rincian", "issued": "Tanggal", "terms": "Termin", "due": "Jatuh tempo",
+      "currency": "Mata uang", "attention": "U.p.", "description": "Deskripsi", "period": "Periode", "quantity": "Jml", "unit_price": "Harga satuan",
+      "amount": "Jumlah", "subtotal": "Subtotal", "discount": "Diskon", "tax": "Pajak", "shipping": "Ongkos kirim", "total": "Total",
+      "amount_paid": "Sudah dibayar", "total_due": "Total tagihan", "payment_details": "Rincian pembayaran", "page": "Halaman", "of": "dari"
+    }
+  },
+  "fields": [
+    { "name": "number", "required": true, "description": "Invoice number, e.g. INV-2026-0001 (the next_number operation issues one)" },
+    { "name": "date", "description": "Issue date as YYYY-MM-DD (default: today)" },
+    { "name": "due_date", "description": "Due date as YYYY-MM-DD" },
+    { "name": "terms", "description": "Payment terms, e.g. Net 14" },
+    { "name": "currency", "description": "Three-letter currency code such as IDR or USD (default: USD, or IDR when language is id)" },
+    { "name": "language", "description": "Language of the labels and of dates and numbers: en or id (default en)" },
+    { "name": "seller.name", "required": true, "description": "Your name or company name" },
+    { "name": "seller.tagline", "description": "Short line under the name, e.g. your profession" },
+    { "name": "seller.address", "description": "Your address: a list of lines, or one text" },
+    { "name": "seller.details", "description": "Extra lines such as a tax number or an email address" },
+    { "name": "seller.logo", "description": "PNG or JPEG logo file inside the allowed input directories" },
+    { "name": "client.name", "required": true, "description": "Who the invoice is for" },
+    { "name": "client.address", "description": "The client's address: a list of lines, or one text" },
+    { "name": "client.attention", "description": "Contact person at the client" },
+    { "name": "client.details", "description": "Extra lines such as the client's tax number" },
+    { "name": "items", "required": true, "description": "Line items: each has `description` and either `amount`, or `quantity` and `unit_price`; optional `period`, `unit` and `discount` ({\"percent\": 10} or an amount). Amounts are plain numbers such as 1500000 or 1050.50" },
+    { "name": "discount", "description": "Discount on the subtotal: {\"percent\": 10} or an amount" },
+    { "name": "taxes", "description": "Taxes on the subtotal after discount, e.g. [{\"name\": \"PPN\", \"rate\": 11}]; a negative rate is a withholding such as PPh 23" },
+    { "name": "tax_note", "description": "Text shown in place of a tax when there is none, e.g. Not applicable" },
+    { "name": "shipping", "description": "Shipping amount, added after tax" },
+    { "name": "amount_paid", "description": "Amount already paid; the total due is the total less this" },
+    { "name": "payment.details", "description": "Payment details as a list of {\"label\", \"value\"} pairs, e.g. bank, account holder, account number" },
+    { "name": "notes", "description": "Notes at the foot of the last page: a list of paragraphs, or one text" },
+    { "name": "watermark", "description": "Large diagonal text across every page, e.g. PAID or DRAFT" },
+    { "name": "labels", "description": "Replaces label texts, e.g. {\"title\": \"Quotation\", \"tax\": \"PPN\"}" },
+    { "name": "currency_style", "description": "How totals show the currency: code (USD 1,050.00), symbol ($1,050.00) or auto (default: the symbol when it is unambiguous, such as Rp)" }
+  ],
+  "sample_values": {
+    "number": "INV-2026-0042",
+    "date": "2026-11-27",
+    "due_date": "2026-12-11",
+    "terms": "Net 14",
+    "currency": "USD",
+    "seller": {
+      "name": "Rina Wijaya",
+      "tagline": "Independent product designer",
+      "address": ["Jalan Kenanga 12", "Bandung 40115", "Indonesia"],
+      "details": ["Tax ID 00.000.000.0-000.000", "rina@studio-kenanga.example"]
+    },
+    "client": {
+      "name": "Northwind Analytics Ltd",
+      "address": ["18 Harbour Street", "Bristol BS1 4XY", "United Kingdom"],
+      "attention": "Sam Carter"
+    },
+    "items": [
+      { "description": "Product design: onboarding flow", "period": "2-13 Nov 2026", "amount": "1800.00" },
+      { "description": "Design system maintenance", "period": "16-20 Nov 2026", "amount": "650.00" }
+    ],
+    "tax_note": "Not applicable",
+    "payment": {
+      "details": [
+        { "label": "Account holder", "value": "Rina Wijaya" },
+        { "label": "Account number", "value": "000 111 2222" },
+        { "label": "Bank", "value": "Example Bank" },
+        { "label": "SWIFT / BIC", "value": "EXAMIDJA" }
+      ]
+    },
+    "notes": [
+      "Please pay in USD. Bank fees charged by intermediary banks are paid by the payer, so that the full invoiced amount is received.",
+      "Services provided as an independent contractor."
+    ]
+  },
+  "info": { "title": "{{labels.title}} {{number}}", "author": "{{seller.name}}" },
+  "watermark": { "text": "{{watermark}}", "color": "#8A8A85", "opacity": 0.08, "bold": true, "fontSize": 110 },
+  "footer": {
+    "margin": [45, 14, 45, 0],
+    "columns": [
+      { "text": "{{number}}", "style": "label" },
+      { "text": "{{labels.page | upper}} {{page.number}} {{labels.of | upper}} {{page.count}}", "style": "label", "alignment": "right" }
+    ]
+  },
+  "content": [
+    {
+      "columns": [
+        {
+          "width": "*",
+          "stack": [
+            { "$if": "seller.logo", "then": { "image": "{{seller.logo}}", "fit": [160, 44], "margin": [0, 0, 0, 10] } },
+            { "text": "{{seller.name}}", "style": "display", "bold": true, "fontSize": 23 },
+            { "$if": "seller.tagline", "then": { "text": "{{seller.tagline | upper}}", "style": "label", "margin": [0, 1, 0, 0] } }
+          ]
+        },
+        {
+          "width": "auto",
+          "stack": [
+            { "text": "{{labels.title | upper}}", "style": "label", "alignment": "right", "characterSpacing": 2.4, "margin": [0, 0, 0, 3] },
+            { "text": "{{number}}", "style": "display", "fontSize": 15.5, "alignment": "right" }
+          ]
+        }
+      ]
+    },
+    { "rule": { "color": "#DEDDD8", "thickness": 0.6, "margin": [0, 14, 0, 26] } },
+    {
+      "columns": [
+        {
+          "width": 177,
+          "stack": [
+            { "text": "{{labels.from | upper}}", "style": "label", "margin": [0, 0, 0, 9] },
+            { "text": "{{seller.name}}", "bold": true },
+            { "$if": "seller.address", "then": { "text": "{{seller.address}}" } },
+            { "$if": "seller.details", "then": { "text": "{{seller.details}}", "style": "muted", "margin": [0, 6, 0, 0] } }
+          ]
+        },
+        {
+          "width": 177,
+          "stack": [
+            { "text": "{{labels.bill_to | upper}}", "style": "label", "margin": [0, 0, 0, 9] },
+            { "text": "{{client.name}}", "bold": true },
+            { "$if": "client.address", "then": { "text": "{{client.address}}" } },
+            { "$if": "client.attention", "then": { "text": "{{labels.attention}} {{client.attention}}", "style": "muted", "margin": [0, 6, 0, 0] } },
+            { "$if": "client.details", "then": { "text": "{{client.details}}", "style": "muted", "margin": [0, 6, 0, 0] } }
+          ]
+        },
+        {
+          "width": "*",
+          "stack": [
+            { "text": "{{labels.details | upper}}", "style": "label", "margin": [0, 0, 0, 9] },
+            {
+              "table": {
+                "widths": ["auto", "*"],
+                "body": [
+                  [{ "text": "{{labels.issued}}", "style": "muted" }, "{{date | date}}"],
+                  { "$if": "terms", "then": [{ "text": "{{labels.terms}}", "style": "muted" }, "{{terms}}"] },
+                  { "$if": "due_date", "then": [{ "text": "{{labels.due}}", "style": "muted" }, "{{due_date | date}}"] },
+                  [{ "text": "{{labels.currency}}", "style": "muted" }, "{{currency}}"]
+                ]
+              },
+              "layout": { "lines": "none", "padding": [0, 0, 0, 3.5], "column_gap": 12 }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "margin": [0, 4, 0, 0],
+      "table": {
+        "headerRows": 1,
+        "dontBreakRows": true,
+        "keepWithHeaderRows": 1,
+        "widths": ["*", { "$if": "flags.has_period", "then": 120 }, { "$if": "flags.has_quantity", "then": 48 }, { "$if": "flags.has_quantity", "then": 86 }, 92],
+        "body": [
+          [
+            { "text": "{{labels.description | upper}}", "style": "label", "margin": [0, 5, 0, -3] },
+            { "$if": "flags.has_period", "then": { "text": "{{labels.period | upper}}", "style": "label", "margin": [0, 5, 0, -3] } },
+            { "$if": "flags.has_quantity", "then": { "text": "{{labels.quantity | upper}}", "style": "label", "alignment": "right", "margin": [0, 5, 0, -3] } },
+            { "$if": "flags.has_quantity", "then": { "text": "{{labels.unit_price | upper}}", "style": "label", "alignment": "right", "margin": [0, 5, 0, -3] } },
+            { "text": "{{labels.amount | upper}}", "style": "label", "alignment": "right", "margin": [0, 5, 0, -3] }
+          ],
+          {
+            "$each": "items",
+            "as": "item",
+            "do": [
+              { "text": "{{item.description}}" },
+              { "$if": "flags.has_period", "then": { "text": "{{item.period}}" } },
+              { "$if": "flags.has_quantity", "then": { "text": "{{item.quantity | number}} {{item.unit}}", "alignment": "right" } },
+              { "$if": "flags.has_quantity", "then": { "text": "{{item.unit_price | amount}}", "alignment": "right" } },
+              { "text": "{{item.amount | amount}}", "alignment": "right" }
+            ]
+          }
+        ]
+      },
+      "layout": { "lines": "rows", "line_width": 0.6, "line_color": "#E4E3DE", "header_line_width": 0.8, "header_line_color": "#1C1C1A", "padding": [0, 14, 0, 11], "column_gap": 16 }
+    },
+    {
+      "unbreakable": true,
+      "margin": [0, 10, 0, 0],
+      "columns": [
+        { "width": "*", "text": "" },
+        {
+          "width": 270,
+          "stack": [
+            {
+              "table": {
+                "widths": ["*", "auto"],
+                "body": [
+                  [{ "text": "{{labels.subtotal}}", "style": "muted" }, { "text": "{{totals.subtotal | money}}", "alignment": "right" }],
+                  { "$if": "flags.has_discount", "then": [{ "text": "{{labels.discount}}", "style": "muted" }, { "text": "-{{totals.discount | money}}", "alignment": "right" }] },
+                  { "$each": "totals.taxes", "as": "tax", "do": [{ "text": "{{tax.name}} ({{tax.rate | percent}})", "style": "muted" }, { "text": "{{tax.amount | money}}", "alignment": "right" }] },
+                  { "$if": "flags.show_tax_note", "then": [{ "text": "{{labels.tax}}", "style": "muted" }, { "text": "{{tax_note}}", "alignment": "right" }] },
+                  { "$if": "flags.has_shipping", "then": [{ "text": "{{labels.shipping}}", "style": "muted" }, { "text": "{{totals.shipping | money}}", "alignment": "right" }] },
+                  { "$if": "flags.has_amount_paid", "then": [{ "text": "{{labels.total}}", "style": "muted" }, { "text": "{{totals.total | money}}", "alignment": "right" }] },
+                  { "$if": "flags.has_amount_paid", "then": [{ "text": "{{labels.amount_paid}}", "style": "muted" }, { "text": "-{{totals.amount_paid | money}}", "alignment": "right" }] }
+                ]
+              },
+              "layout": { "lines": "none", "padding": [0, 1.5, 0, 1.5] }
+            },
+            { "rule": { "color": "#1C1C1A", "thickness": 0.8, "margin": [0, 4, 0, 9] } },
+            {
+              "columns": [
+                { "width": "auto", "text": "{{labels.total_due | upper}}", "style": "label", "margin": [0, 9, 0, 0] },
+                { "width": "*", "text": "{{totals.balance_due | money}}", "style": "display", "fontSize": 18, "alignment": "right" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "$if": "payment.details",
+      "then": {
+        "unbreakable": true,
+        "margin": [0, 22, 0, 0],
+        "table": {
+          "widths": ["*"],
+          "body": [
+            [
+              {
+                "fillColor": "#F4F3EE",
+                "stack": [
+                  { "text": "{{labels.payment_details | upper}}", "style": "label", "margin": [0, 0, 0, 10] },
+                  {
+                    "table": {
+                      "widths": [86, "*", 86, "*"],
+                      "body": [
+                        {
+                          "$each": "payment.details",
+                          "as": "pair",
+                          "chunk": 2,
+                          "do": [{ "text": "{{pair.0.label}}", "style": "muted" }, "{{pair.0.value}}", { "text": "{{pair.1.label}}", "style": "muted" }, "{{pair.1.value}}"]
+                        }
+                      ]
+                    },
+                    "layout": { "lines": "none", "padding": [0, 0, 0, 8], "column_gap": 14 }
+                  }
+                ]
+              }
+            ]
+          ]
+        },
+        "layout": { "lines": "grid", "line_width": 0.6, "line_color": "#E8E6DF", "padding": [18, 17, 18, 7] }
+      }
+    }
+  ],
+  "bottom": {
+    "$if": "notes",
+    "then": {
+      "stack": [
+        { "rule": { "color": "#DEDDD8", "thickness": 0.6, "margin": [0, 0, 0, 13] } },
+        { "$each": "notes", "as": "note", "do": { "text": "{{note}}", "style": "note", "margin": [0, 0, 0, 6] } }
+      ]
+    }
+  }
+}

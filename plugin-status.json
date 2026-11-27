@@ -108,6 +108,11 @@
     "tos_risk": "low",
     "tos_notes": "Discord Developer Policy: no spam or unsolicited DMs; mass mentions need an opt-in."
   },
+  "document-templates": {
+    "status": "stable",
+    "reason": "Local only; its example workflow produced a real invoice PDF from real files during the build (PR #94).",
+    "tos_risk": "none"
+  },
   "dropbox": {
     "status": "beta",
     "reason": "Official API; reviewed and unit-tested with fakes, checked live only with an invalid credential (auth_error).",
