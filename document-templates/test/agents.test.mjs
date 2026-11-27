@@ -86,7 +86,11 @@ for (const agent of agents) {
       // The desktop test: an amount written in words. The check says so in plain words; no file, no number.
       const wrongItems = [{ description: "Jasa konsultasi", quantity: 2, unit: "jam", unit_price: "seratus ribu" }];
       const refused = await runOperation("check_values", readOperationArguments(checkNode, { ...inputs, ...given, items: wrongItems }), AS_NODE);
-      assert.deepEqual([refused.data.ok, refused.data.problem], [false, "The unit price of item 1 must be a plain number such as 1500000 or 1500000.50 (no thousands separators or currency symbols), got \"seratus ribu\""]);
+      const plainProblem = {
+        en: "The unit price of item 1 must be a plain number such as 1500000 or 1500000.50 (no thousands separators or currency symbols), got \"seratus ribu\"",
+        id: "Harga satuan item 1 harus berupa angka biasa seperti 1500000 atau 1500000.50 (tanpa pemisah ribuan atau simbol mata uang), bukan \"seratus ribu\"",
+      };
+      assert.deepEqual([refused.data.ok, refused.data.problem], [false, plainProblem[agent.language]]);
       assert.deepEqual(await readdir(outputDirectory), []);
 
       const checked = await runOperation("check_values", readOperationArguments(checkNode, { ...inputs, ...given }), AS_NODE);

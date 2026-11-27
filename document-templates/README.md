@@ -483,6 +483,24 @@ then drawn with it. A character that no font has is an error that names it, neve
 come back as `ok: false` with the `problem` in plain words. Only what is not the details' fault (no documents
 folder set up, a crashed worker) fails.
 
+### Messages in Indonesian
+What a person reads when something is wrong with an invoice's details, its number, its file or its folder is
+written in the document's language: English, or Indonesian for a document in Indonesian. The language is the
+first of:
+
+1. `language` in the document's values (`render_pdf`, `check_values`, `fill_docx`, `fill_pdf_form`), or the
+   `language` parameter of `next_number`,
+2. `language` in the call's `look`,
+3. the language of your saved brand (`save_brand` with `look: {language: id}`),
+4. English.
+
+So `Harga satuan item 1 harus berupa angka biasa seperti 1500000 …`, `Mata uang harus berupa kode tiga huruf
+seperti IDR atau USD, bukan "Rp"` or `"2026/11/INV-2026-0003.pdf" sudah ada; tidak ada yang disimpan` instead of
+the English text. Only the text changes: the error's kind (the table above) is the same in both languages, so an
+app that reacts to the kind works the same. Messages meant for whoever sets up or builds templates (a template's
+own structure, a crashed worker) stay in English. The **Buat invoice** agent writes its invoices in Indonesian,
+so everything it tells you is in Indonesian.
+
 ## Tested with
 - **Text read back from the PDF:** letter-spaced labels such as TOTAL DUE are copied, searched and read aloud as
   words (checked with pdf.js, PDFium, Poppler, MuPDF, pdfminer, pypdf and Ghostscript).

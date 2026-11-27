@@ -89,7 +89,9 @@ test("render_pdf: an existing document is kept; a tool may not overwrite, a node
   withDocumentRunner({}, async ({ runOperation }) => {
     const first = await runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL);
     const original = await readFile(first.data.path);
-    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL), (error) => error.kind === "invalid_input" && /already exists/.test(error.message));
+    // The invoice is in Indonesian, so is the message; the kind stays the same.
+    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL), (error) => error.kind === "invalid_input" && /^"2026\/11\/INV-2026-0007\.pdf" sudah ada; tidak ada yang disimpan/.test(error.message));
+    await assert.rejects(runOperation("render_pdf", { values: { ...INVOICE_VALUES, language: "en" } }, AS_TOOL), (error) => error.kind === "invalid_input" && /already exists/.test(error.message));
     await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES, if_exists: "overwrite" }, AS_TOOL), { kind: "permission_denied" });
     assert.deepEqual(await readFile(first.data.path), original);
     assert.equal((await runOperation("render_pdf", { values: INVOICE_VALUES, if_exists: "number" }, AS_TOOL)).data.file_name, "INV-2026-0007-2.pdf");
@@ -106,7 +108,7 @@ test("render_pdf: a taken file name or a missing output folder is noticed before
   };
   await withDocumentRunner({ runTask: countingTask }, async ({ runOperation }) => {
     await runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL);
-    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL), /already exists/);
+    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL), /sudah ada/);
     assert.equal(taskCount, 1);
   });
   await withDocumentRunner({ runTask: countingTask, environment: { DOCUMENT_TEMPLATES_OUTPUT_DIR: "" } }, async ({ runOperation }) => {
@@ -119,15 +121,17 @@ test("render_pdf: missing values, bad numbers and bad file names are refused bef
   withDocumentRunner({}, async ({ runOperation, outputDirectory }) => {
     const refused = [
       [{ values: { number: "X" } }, /needs these values: seller\.name, client\.name, items/],
-      [{ values: { ...INVOICE_VALUES, items: [{ description: "x", amount: "1.500.000" }] } }, /items\[0\]\.amount/],
-      [{ values: { ...INVOICE_VALUES, currency: "RUPIAH" } }, /currency/],
-      [{ values: INVOICE_VALUES, folder: "{nope}" }, /unknown token/],
-      [{ values: INVOICE_VALUES, values_file: "x.json" }, /not both/],
+      [{ values: { ...INVOICE_VALUES, items: [{ description: "x", amount: "1.500.000" }] } }, /^Nilai item 1 harus berupa angka biasa/],
+      [{ values: { ...INVOICE_VALUES, language: "en", items: [{ description: "x", amount: "1.500.000" }] } }, /^`items\[0\]\.amount` must be a plain number/],
+      [{ values: { ...INVOICE_VALUES, currency: "RUPIAH" } }, /^Mata uang harus berupa kode tiga huruf/],
+      [{ values: INVOICE_VALUES, folder: "{nope}" }, /penanda \{nope\} yang tidak dikenal/],
+      [{ values: INVOICE_VALUES, values_file: "x.json" }, /tidak keduanya/],
       [{}, /`values` is required/],
       [{ values: "[1,2]" }, /values/],
       [{ values: INVOICE_VALUES, template: "report.docx" }, /fill_docx/],
-      [{ values: INVOICE_VALUES, template: "nothing.xlsx" }, /\.json, \.docx, \.dotx or \.pdf/],
-      [{ values: { ...INVOICE_VALUES, client: { name: "株式会社 東京" } } }, /No available font has these characters: 株 \(U\+682A\)/],
+      [{ values: INVOICE_VALUES, template: "nothing.xlsx" }, /\.json, \.docx, \.dotx atau \.pdf/],
+      [{ values: { ...INVOICE_VALUES, client: { name: "株式会社 東京" } } }, /^Tidak ada font yang punya huruf ini: 株 \(U\+682A\)/],
+      [{ values: { ...INVOICE_VALUES, language: "en", client: { name: "株式会社 東京" } } }, /^No available font has these characters: 株 \(U\+682A\)/],
     ];
     for (const [args, pattern] of refused) await assert.rejects(runOperation("render_pdf", args, AS_TOOL), (error) => error.kind === "invalid_input" && pattern.test(error.message), JSON.stringify(args).slice(0, 80));
     await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES, template: "missing.json" }, AS_TOOL), { kind: "not_found" });
@@ -246,26 +250,33 @@ test("check_values: checks everything render_pdf checks, draws the PDF and throw
     // Without a series, the number given in the values is the one checked.
     assert.equal((await runOperation("check_values", { values: INVOICE_VALUES }, AS_TOOL)).data.relative_path, "2026/11/INV-2026-0007.pdf");
 
-    // Everything a person can fix comes back as a problem in plain words, not as a failure.
-    const problems = {
-      "The unit price of item 1 must be a plain number": { ...valuesWithoutNumber, items: [{ description: "Jasa", quantity: 2, unit_price: "seratus ribu" }] },
-      "The unit price of item 1 is required when quantity is given": { ...valuesWithoutNumber, items: [{ description: "Jasa", quantity: 2 }] },
-      "Currency must be a three-letter code such as IDR or USD, got \"Rp\"": { ...valuesWithoutNumber, currency: "Rp" },
-      "The invoice template needs these values: client.name": { ...valuesWithoutNumber, client: {} },
-    };
-    for (const [expected, values] of Object.entries(problems)) {
+    // Everything a person can fix comes back as a problem in plain words, not as a failure, in the invoice's language.
+    const english = { ...valuesWithoutNumber, language: "en" };
+    const problems = [
+      ["The unit price of item 1 must be a plain number", { ...english, items: [{ description: "Jasa", quantity: 2, unit_price: "seratus ribu" }] }],
+      ["The unit price of item 1 is required when quantity is given", { ...english, items: [{ description: "Jasa", quantity: 2 }] }],
+      ["Currency must be a three-letter code such as IDR or USD, got \"Rp\"", { ...english, currency: "Rp" }],
+      ["The invoice template needs these values: client.name", { ...english, client: {} }],
+      ["Harga satuan item 1 harus berupa angka biasa seperti 1500000", { ...valuesWithoutNumber, items: [{ description: "Jasa", quantity: 2, unit_price: "seratus ribu" }] }],
+      ["Harga satuan item 1 wajib diisi bila jumlah diisi", { ...valuesWithoutNumber, items: [{ description: "Jasa", quantity: 2 }] }],
+      ["Mata uang harus berupa kode tiga huruf seperti IDR atau USD, bukan \"Rp\"", { ...valuesWithoutNumber, currency: "Rp" }],
+      ["Template invoice memerlukan data berikut: nama klien", { ...valuesWithoutNumber, client: {} }],
+      ["Tarif pajak ke-1 harus berupa persen dari -100 sampai 100", { ...valuesWithoutNumber, taxes: [{ name: "PPN", rate: 300 }] }],
+    ];
+    for (const [expected, values] of problems) {
       const result = await runOperation("check_values", { values, number_pattern: "INV-{YYYY}-{SEQ:4}" }, AS_NODE);
       assert.deepEqual([result.data.ok, result.data.number, result.data.problem.startsWith(expected)], [false, null, true], result.data.problem);
     }
     for (const [args, expected] of [
-      [{ values: INVOICE_VALUES, number_pattern: "INV-{SEQ}" }, /Give the document's number in values or a number pattern, not both/],
-      [{ values: valuesWithoutNumber, number_pattern: "INV-no-sequence" }, /needs exactly one \{SEQ\} token/],
-      [{ values: { ...valuesWithoutNumber, seller: { ...valuesWithoutNumber.seller, logo: "missing.png" } }, number_pattern: "INV-{SEQ}" }, /missing\.png/],
+      [{ values: { ...INVOICE_VALUES, language: "en" }, number_pattern: "INV-{SEQ}" }, /Give the document's number in values or a number pattern, not both/],
+      [{ values: INVOICE_VALUES, number_pattern: "INV-{SEQ}" }, /^Berikan nomor dokumen di data atau pola nomor, tidak keduanya$/],
+      [{ values: valuesWithoutNumber, number_pattern: "INV-no-sequence" }, /^Pola nomor harus punya tepat satu \{SEQ\}/],
+      [{ values: { ...valuesWithoutNumber, seller: { ...valuesWithoutNumber.seller, logo: "missing.png" } }, number_pattern: "INV-{SEQ}" }, /^Tidak ada file "missing\.png" di dalam/],
     ]) assert.match((await runOperation("check_values", args, AS_NODE)).data.problem, expected);
     // A file that is already there is a problem too, before any number is taken.
     await mkdir(join(outputDirectory, "2026", "11"), { recursive: true });
     await writeFile(join(outputDirectory, "2026", "11", "INV-2026-0001.pdf"), "taken");
-    assert.match((await runOperation("check_values", { values: valuesWithoutNumber, number_pattern: "INV-{YYYY}-{SEQ:4}" }, AS_NODE)).data.problem, /already exists/);
+    assert.match((await runOperation("check_values", { values: valuesWithoutNumber, number_pattern: "INV-{YYYY}-{SEQ:4}" }, AS_NODE)).data.problem, /^"2026\/11\/INV-2026-0001\.pdf" sudah ada/);
     assert.deepEqual((await readdir(outputDirectory)).sort(), ["2026"]);
   }));
 
@@ -305,7 +316,7 @@ test("render_pdf with number_pattern: the number is used only once the PDF is sa
     assert.ok((await readPageTexts(await readFile(first.data.path)))[0].includes("INV-2026-0001"));
     // Saving fails (the file name is taken): the number is given back.
     await writeFile(join(outputDirectory, "2026", "11", "INV-2026-0002.pdf"), "someone else's file");
-    await assert.rejects(render(), /already exists/);
+    await assert.rejects(render(), /sudah ada/);
     assert.equal(await readLast(), 1);
     await rm(join(outputDirectory, "2026", "11", "INV-2026-0002.pdf"));
     assert.equal((await render()).data.number, "INV-2026-0002");
@@ -315,7 +326,7 @@ test("render_pdf with number_pattern: the number is used only once the PDF is sa
     const together = await Promise.all([render(), render(), render()]);
     assert.deepEqual(together.map((result) => result.data.number).sort(), ["INV-2026-0003", "INV-2026-0004", "INV-2026-0005"]);
     assert.equal(await readLast(), 5);
-    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES, number_pattern: "INV-{SEQ}" }, AS_NODE), /not both/);
+    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES, number_pattern: "INV-{SEQ}" }, AS_NODE), /tidak keduanya/);
   });
 });
 

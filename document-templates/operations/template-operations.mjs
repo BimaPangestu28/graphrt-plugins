@@ -7,6 +7,7 @@ import { listTemplatePlaceholders } from "../lib/layout-template.mjs";
 import { DEFAULT_NUMBER_PATTERN, issueNextNumber, readNumberDate } from "../lib/number-sequence.mjs";
 import { FILLING_FORBIDDEN_MESSAGE, PDF_PASSWORD_PARAMETER, XFA_ONLY_MESSAGE } from "../lib/pdf-form.mjs";
 import { invalidInput } from "../lib/errors.mjs";
+import { MESSAGE_LANGUAGES, resolveMessageLanguage, withMessageLanguage } from "../lib/message-language.mjs";
 import { toSafeSegment } from "../lib/output-organiser.mjs";
 import { BUILT_IN_TEMPLATE_NAMES, loadBuiltInTemplate, readBuiltInTemplateText, resolveTemplate } from "../lib/template-library.mjs";
 
@@ -93,13 +94,14 @@ const nextNumberOperation = {
       date: { type: "string", description: "Date the number is for, as YYYY-MM-DD (default: today)" },
       start_at: { type: "integer", minimum: 1, maximum: 999999999, default: 1, description: "First number of a counter that has not been used yet, e.g. 38 to continue after INV-2026-0037" },
       preview: { type: "boolean", default: false, description: "Only show what the next number would be, without using it up" },
+      language: { type: "string", enum: MESSAGE_LANGUAGES, description: "Language of a message when something is wrong: en (English) or id (Indonesian). Default: the language of your saved brand, else English" },
     },
   },
-  run: async ({ client, args }) => {
+  run: ({ client, args }) => withMessageLanguage(() => resolveMessageLanguage(client, args, [args.language]), async () => {
     const outputRoot = await client.organiser.resolveOutputRoot();
     const request = { pattern: args.pattern, date: readNumberDate(args.date, client.now()), startAt: args.start_at, isPreview: args.preview };
     return { data: await issueNextNumber(outputRoot, request, { now: client.now, ...client.numberingDependencies }) };
-  },
+  }),
 };
 
 const saveTemplateCopyOperation = {

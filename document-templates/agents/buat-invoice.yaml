@@ -4,6 +4,8 @@
 # lalu membuat PDF dengan template invoice bawaan di folder tahun/bulan dengan nomor invoice berikutnya,
 # dan memberi tahu di mana filenya. Nomor baru terpakai setelah PDF tersimpan, jadi urutan nomor invoice
 # tidak pernah bolong.
+# Bahasanya Indonesia (`language: id`), jadi pesan bila ada data yang salah atau PDF gagal dibuat juga
+# berbahasa Indonesia.
 #   graphrt run document-templates/agents/buat-invoice.yaml --plugins . -i client_name="PT Maju Bersama" -i seller_name="CV Kenanga Digital"
 version: "1"
 name: buat-invoice

@@ -1,6 +1,6 @@
 {
   "name": "document-templates",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Invoices and other documents from templates, fully local: a ready-made invoice with your logo, colour and wording or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -148,6 +148,14 @@
             "type": "boolean",
             "default": false,
             "description": "Only show what the next number would be, without using it up"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of a message when something is wrong: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       },
@@ -252,7 +260,7 @@
     {
       "kind": "document-templates.check_values",
       "title": "Check a document before creating it",
-      "description": "Checks everything render_pdf would check, without saving anything or using up a number: the values, amounts, currency and dates, the fields the template needs, the logo and the file name. The PDF is drawn to be sure, then thrown away. The result says `ok` and, when something is wrong, the `problem` in plain words; when it is fine, the totals, the number the document would get with `number_pattern` and where it would be saved. Use it before asking for an approval and taking a number",
+      "description": "Checks everything render_pdf would check, without saving anything or using up a number: the values, amounts, currency and dates, the fields the template needs, the logo and the file name. The PDF is drawn to be sure, then thrown away. The result says `ok` and, when something is wrong, the `problem` in plain words; when it is fine, the totals, the number the document would get with `number_pattern` and where it would be saved. The problem is written in the document's language (English or Indonesian). Use it before asking for an approval and taking a number",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -663,6 +671,14 @@
             "type": "boolean",
             "default": false,
             "description": "Only show what the next number would be, without using it up"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "description": "Language of a message when something is wrong: en (English) or id (Indonesian). Default: the language of your saved brand, else English"
           }
         }
       }
@@ -726,7 +742,7 @@
     },
     {
       "name": "check_values",
-      "description": "Checks everything render_pdf would check, without saving anything or using up a number: the values, amounts, currency and dates, the fields the template needs, the logo and the file name. The PDF is drawn to be sure, then thrown away. The result says `ok` and, when something is wrong, the `problem` in plain words; when it is fine, the totals, the number the document would get with `number_pattern` and where it would be saved. Use it before asking for an approval and taking a number",
+      "description": "Checks everything render_pdf would check, without saving anything or using up a number: the values, amounts, currency and dates, the fields the template needs, the logo and the file name. The PDF is drawn to be sure, then thrown away. The result says `ok` and, when something is wrong, the `problem` in plain words; when it is fine, the totals, the number the document would get with `number_pattern` and where it would be saved. The problem is written in the document's language (English or Indonesian). Use it before asking for an approval and taking a number",
       "parameters": {
         "type": "object",
         "properties": {

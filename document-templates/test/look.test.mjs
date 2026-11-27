@@ -172,11 +172,11 @@ test("render_pdf: a look changes the title, language, labels and hidden parts of
     await writeFile(join(inputDirectory, "tiny.png"), buildPng(8, 4));
     await writeFile(join(inputDirectory, "logo.svg"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
     for (const [badLook, expected] of [
-      [{ logo: "tiny.png" }, { kind: "invalid_input", message: /smaller than 16 pixels/ }],
-      [{ logo: "logo.svg" }, { kind: "invalid_input", message: /png, jpeg image/ }],
+      [{ logo: "tiny.png" }, { kind: "invalid_input", message: /lebih kecil dari 16 piksel/ }],
+      [{ logo: "logo.svg" }, { kind: "invalid_input", message: /harus berupa gambar png, jpeg/ }],
       [{ logo: "/etc/hostname" }, { kind: "not_found" }],
       [{ logo: "missing.png" }, { kind: "not_found" }],
-      [{ accent_color: "#FFFFFF" }, { kind: "invalid_input", message: /too light/ }],
+      [{ accent_color: "#FFFFFF" }, { kind: "invalid_input", message: /terlalu terang/ }],
     ]) await assert.rejects(runOperation("render_pdf", { values, look: badLook, file_name: "bad" }, AS_TOOL), expected, JSON.stringify(badLook));
   }));
 
