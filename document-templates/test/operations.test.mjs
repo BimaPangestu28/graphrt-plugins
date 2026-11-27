@@ -15,9 +15,9 @@ import { AS_NODE, AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, buildDocx, bu
 const options = { skip: SKIP_WITHOUT_LIBRARIES };
 const LAYOUT = { format: "graphrt-document-template", version: 1, name: "letter", content: [{ text: "Kepada {{client.name}}", bold: true }, "{{body}}"] };
 
-test("manifest: local only, no secrets, seven tools, the documents folder first, and descriptions without setting names", () => {
+test("manifest: local only, no secrets, nine tools, the documents folder first, and descriptions without setting names", () => {
   const manifest = buildManifest(pluginDefinition);
-  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "save_template_copy", "next_number", "render_pdf", "fill_pdf_form", "fill_docx"]);
+  assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "save_template_copy", "next_number", "save_brand", "show_brand", "render_pdf", "fill_pdf_form", "fill_docx"]);
   assert.equal(manifest.permissions.network, false);
   assert.equal(manifest.permissions.secrets, false);
   assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_MAX_FORM_FIELDS", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);

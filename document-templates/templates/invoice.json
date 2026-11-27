@@ -12,6 +12,7 @@
     "display": { "font": "serif", "characterSpacing": 0, "lineHeight": 1.1 },
     "note": { "fontSize": 7.7, "characterSpacing": -0.08, "color": "#5F5E5A", "lineHeight": 1.4 }
   },
+  "colors": { "accent": "#1C1C1A" },
   "labels": {
     "en": {
       "title": "Invoice", "from": "From", "bill_to": "Bill to", "details": "Details", "issued": "Issued", "terms": "Terms", "due": "Due",
@@ -105,7 +106,7 @@
           "width": "*",
           "stack": [
             { "$if": "seller.logo", "then": { "image": "{{seller.logo}}", "fit": [160, 44], "margin": [0, 0, 0, 10] } },
-            { "text": "{{seller.name}}", "style": "display", "bold": true, "fontSize": 23 },
+            { "text": "{{seller.name}}", "style": "display", "bold": true, "fontSize": 23, "color": "@accent" },
             { "$if": "seller.tagline", "then": { "text": "{{seller.tagline | upper}}", "style": "label", "margin": [0, 1, 0, 0] } }
           ]
         },
@@ -188,7 +189,7 @@
           }
         ]
       },
-      "layout": { "lines": "rows", "line_width": 0.6, "line_color": "#E4E3DE", "header_line_width": 0.8, "header_line_color": "#1C1C1A", "padding": [0, 14, 0, 11], "column_gap": 16 }
+      "layout": { "lines": "rows", "line_width": 0.6, "line_color": "#E4E3DE", "header_line_width": 0.8, "header_line_color": "@accent", "padding": [0, 14, 0, 11], "column_gap": 16 }
     },
     {
       "unbreakable": true,
@@ -213,11 +214,11 @@
               },
               "layout": { "lines": "none", "padding": [0, 1.5, 0, 1.5] }
             },
-            { "rule": { "color": "#1C1C1A", "thickness": 0.8, "margin": [0, 4, 0, 9] } },
+            { "rule": { "color": "@accent", "thickness": 0.8, "margin": [0, 4, 0, 9] } },
             {
               "columns": [
                 { "width": "auto", "text": "{{labels.total_due | upper}}", "style": "label", "margin": [0, 9, 0, 0] },
-                { "width": "*", "text": "{{totals.balance_due | money}}", "style": "display", "fontSize": 18, "alignment": "right" }
+                { "width": "*", "text": "{{totals.balance_due | money}}", "style": "display", "fontSize": 18, "alignment": "right", "color": "@accent" }
               ]
             }
           ]

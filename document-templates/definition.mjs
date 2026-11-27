@@ -12,6 +12,7 @@
  * (see lib/isolated-task.mjs).
  */
 import { CALL_TIMEOUT_MS, FILE_VARIABLES, FONTS_VARIABLE, LIMIT_VARIABLES, createDocumentClient } from "./lib/client.mjs";
+import { brandOperations } from "./operations/brand-operations.mjs";
 import { documentOperations } from "./operations/document-operations.mjs";
 import { templateOperations } from "./operations/template-operations.mjs";
 
@@ -24,15 +25,15 @@ import { templateOperations } from "./operations/template-operations.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "document-templates",
-    version: "0.3.2",
-    description: "Invoices and other documents from templates, fully local: a ready-made invoice or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
+    version: "0.4.1",
+    description: "Invoices and other documents from templates, fully local: a ready-made invoice with your logo, colour and wording or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
     // The output folder first: it is the one setting a user has to fill in; every other one has a default.
     extraEnv: [FILE_VARIABLES.outputDir, FILE_VARIABLES.inputDirs, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, ...LIMIT_VARIABLES, FONTS_VARIABLE],
     localOnly: true,
     noCredentials: true,
     limits: { timeout_ms: CALL_TIMEOUT_MS, max_concurrency: 4 },
     createClient: ({ environment }) => createDocumentClient(environment, dependencies),
-    operations: [...templateOperations, ...documentOperations],
+    operations: [...templateOperations, ...brandOperations, ...documentOperations],
   };
 }
 

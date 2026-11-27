@@ -4,10 +4,13 @@
  * its inputs from the allowed directories, does the heavy work in the
  * worker process and files the result under DOCUMENT_TEMPLATES_OUTPUT_DIR.
  */
+import { DEFAULT_BRAND_NAME, applyBrandToValues, resolveBrand } from "../lib/brand-profile.mjs";
 import { invalidInput } from "../lib/errors.mjs";
 import { Scope, interpolate } from "../lib/expressions.mjs";
 import { CALCULATE_PARAMETER, VALUES_PARAMETERS, prepareValues, readValues, summariseTotals } from "../lib/document-values.mjs";
 import { expandLayout, listMissingFields } from "../lib/layout-template.mjs";
+import { checkLogoBytes } from "../lib/logo-file.mjs";
+import { LOOK_PARAMETER, applyLookToValues, applyShowToValues, mergeLooks, readLook } from "../lib/look-options.mjs";
 import { FILING_PARAMETERS, assertIfExistsAllowed, buildFilingTokens, resolveFilingPlan } from "../lib/output-organiser.mjs";
 import { PDF_PASSWORD_PARAMETER } from "../lib/pdf-form.mjs";
 import { assertRasterFormat } from "../lib/raster-format.mjs";
@@ -20,14 +23,32 @@ async function readPdfInput(client, rawPath, parameterName) {
   return file.bytes;
 }
 
-async function readImages(client, imagePaths) {
+// logoPath is the logo a look or a brand chose: it gets the stricter checks of a logo (size in bytes and pixels).
+async function readImages(client, imagePaths, logoPath) {
   const images = [];
   for (const imagePath of imagePaths) {
     const file = await client.fileAccess.readInputFile(imagePath, { parameterName: "image" });
-    assertRasterFormat(file.bytes, ["png", "jpeg"], `The image ${JSON.stringify(imagePath)}`);
+    if (imagePath === logoPath) checkLogoBytes(file.bytes, `The logo ${JSON.stringify(imagePath)}`);
+    else assertRasterFormat(file.bytes, ["png", "jpeg"], `The image ${JSON.stringify(imagePath)}`);
     images.push(file.bytes);
   }
   return images;
+}
+
+/**
+ * Joins the saved brand and the look of this call into the values of a document.
+ * The look of the call wins over the values, the values win over the brand.
+ *
+ * @returns `{values, look, brandName, logoPath}`: look is the joined look (accent colour, hidden parts); logoPath is set when the logo came from a look (object)
+ */
+async function applyBrandAndLook(client, args, rawValues) {
+  const callLook = readLook(args.look);
+  // Without a documents folder nothing can be saved anyway; that message comes from the filing step.
+  const outputRoot = await client.organiser.resolveOutputRoot().catch(() => null);
+  const brand = outputRoot ? await resolveBrand(outputRoot, args.brand, client.numberingDependencies) : null;
+  const values = applyLookToValues(applyBrandToValues(rawValues, brand), callLook, { isDefault: false });
+  const lookLogo = callLook.logo ?? brand?.look?.logo;
+  return { values, look: mergeLooks(brand?.look, callLook), brandName: brand?.name ?? null, logoPath: lookLogo !== undefined && values.seller?.logo === lookLogo ? lookLogo : null };
 }
 
 // Resolved and checked before the document is drawn, so a bad folder, a taken file name or a missing output folder fails fast.
@@ -50,13 +71,15 @@ function describeResult(savedFile, { template, values, settings, isCalculated })
 const renderPdfOperation = {
   name: "render_pdf",
   title: "Create a PDF from a template",
-  description: "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
+  description: "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. `look` gives it your logo, colour, title and language and hides parts you do not use; what save_brand saved is used by itself. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
   parameters: {
     type: "object",
     properties: {
       template: { type: "string", default: "invoice", description: "`invoice` (the ready-made template), or your own template: a .json file in your templates folder, or the `path` that save_template_copy returned" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
+      look: LOOK_PARAMETER,
+      brand: { type: "string", default: DEFAULT_BRAND_NAME, description: "Only when you keep more than one saved brand: its name, or `none` for a document without your saved look and details. The look saved with save_brand is used by itself" },
       background: { type: "string", description: "A PDF in your templates folder that is drawn under every page, e.g. your letterhead (its page 1 under the first page, its page 2, if any, under the others)" },
       ...FILING_PARAMETERS,
     },
@@ -64,19 +87,21 @@ const renderPdfOperation = {
   run: async ({ client, args, signal, source }) => {
     assertIfExistsAllowed(args.if_exists, source);
     const template = await resolveTemplate(client, args.template, ["layout"]);
-    const rawValues = await readValues(client, args);
+    const branded = await applyBrandAndLook(client, args, await readValues(client, args));
+    const rawValues = branded.values;
     // Checked on the values as given, so the message names what to add before any amount is calculated.
     const missingFields = listMissingFields(template.layout, rawValues);
     if (missingFields.length > 0) throw invalidInput(`The ${template.name} template needs these values: ${missingFields.join(", ")}. describe_template shows every field with an example`);
     const prepared = prepareValues(rawValues, { calculate: args.calculate, templateCalculates: template.layout.calculate === "invoice", now: client.now() });
-    const plan = expandLayout(template.layout, prepared.values, prepared.settings, { today: prepared.today });
+    const shownValues = applyShowToValues(prepared.values, branded.look.show);
+    const plan = expandLayout(template.layout, shownValues, prepared.settings, { today: prepared.today, colors: branded.look.accent_color ? { accent: branded.look.accent_color } : {} });
     const filingPlan = await planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "pdf" });
-    const images = await readImages(client, plan.imagePaths);
+    const images = await readImages(client, plan.imagePaths, branded.logoPath);
     const backgroundPath = args.background ?? plan.page.background_pdf;
     const backgroundPdf = backgroundPath ? await readPdfInput(client, backgroundPath, "background") : null;
     const { data, outputs } = await client.runTask("render_layout", { plan, images, backgroundPdf, extraFontPaths: client.settings.extraFontPaths, maxPages: client.settings.maxPages }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
-    return { data: { ...describeResult(savedFile, { template, ...prepared }), page_count: data.page_count } };
+    return { data: { ...describeResult(savedFile, { template, ...prepared }), page_count: data.page_count, ...(branded.brandName ? { brand: branded.brandName } : {}) } };
   },
 };
 
