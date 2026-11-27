@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNoOtherFiles, assertSingleStatement, stripSqlComments } from "../lib/statement-guard.mjs";
 import { mapSqliteError } from "../lib/error-mapping.mjs";
@@ -38,8 +38,9 @@ test("mapSqliteError: result codes to kinds", () => {
 });
 
 test("settings: allowed directories expand ~ and must be absolute", () => {
-  const settings = resolveSettings({ HOME: "/home/budi", SQLITE_ALLOWED_DIRS: "~/data, /srv/db" });
-  assert.deepEqual(settings.allowedDirectories, ["/home/budi/data", "/srv/db"]);
+  // resolve() gives each path the form of the system the tests run on (a drive letter on Windows).
+  const settings = resolveSettings({ HOME: resolve("/home/budi"), SQLITE_ALLOWED_DIRS: `~/data, ${resolve("/srv/db")}` });
+  assert.deepEqual(settings.allowedDirectories, [resolve("/home/budi/data"), resolve("/srv/db")]);
   assert.throws(() => resolveSettings({ SQLITE_ALLOWED_DIRS: "data" }), { kind: "invalid_input" });
   assert.throws(() => resolveSettings({ SQLITE_BUSY_TIMEOUT_MS: "-1" }), { kind: "invalid_input" });
 });

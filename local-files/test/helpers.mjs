@@ -40,11 +40,17 @@ export async function withLocalFiles({ environment = {}, dependencies = {} } = {
   }
 }
 
+/** Windows has no FIFOs in a folder and no file permission bits; tests leave those parts out there. */
+export const IS_WINDOWS = process.platform === "win32";
+
 /**
  * Makes a FIFO with the system `mkfifo` (the test's own call, never the plugin's).
  *
  * @param fifoPath - Where to create it (string)
+ * @returns False on Windows, where nothing is made (boolean)
  */
 export function makeFifo(fifoPath) {
+  if (IS_WINDOWS) return false;
   execFileSync("mkfifo", [fifoPath]);
+  return true;
 }

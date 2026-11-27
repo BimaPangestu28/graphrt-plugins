@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { buildManifest } from "../lib/shared/operations.mjs";
 import { pluginDefinition } from "../definition.mjs";
 import { AS_NODE, AS_TOOL, createFakeProcessRunner, withFfmpegRunner } from "./helpers.mjs";
@@ -56,7 +56,10 @@ test("transcode writes a new generated file in the output directory with the pre
     assert.ok(args.indexOf("-protocol_whitelist") < args.indexOf("-i"));
     assert.deepEqual(args.slice(args.indexOf("-i") - 4, args.indexOf("-i")), ["-max_pixels", String(7680 * 4320), "-threads", "4"]);
     const stagingTarget = args.at(-1);
-    assert.match(stagingTarget, new RegExp(`^file:${outputDirectory}/\\.staging-[^/]+/output\\.webm$`));
+    assert.ok(stagingTarget.startsWith("file:"), stagingTarget);
+    const stagingPath = stagingTarget.slice("file:".length);
+    assert.deepEqual([dirname(dirname(stagingPath)), basename(stagingPath)], [outputDirectory, "output.webm"]);
+    assert.match(basename(dirname(stagingPath)), /^\.staging-/);
     assert.deepEqual(args.slice(-6, -1), ["-threads", "4", "-fs", String(2 * 1024 ** 3), "-n"]);
     assert.deepEqual(await readdir(outputDirectory), [data.file_name]);
     assert.ok(args.includes("libvpx-vp9") && args.includes("40"));
@@ -166,6 +169,12 @@ test("burn_subtitles gives ffmpeg a re-written .srt copy, never the original pat
   return withFfmpegRunner({ runProcess }, async ({ runOperation, inputDirectory }) => {
     await writeFile(join(inputDirectory, "clip.mp4"), "x");
     await writeFile(join(inputDirectory, "subs.srt"), "1\r\n00:00:00,000 --> 00:00:00,900\r\nHalo\r\n");
+    if (process.platform === "win32") {
+      // Known gap: a Windows path (C:\\...) has characters the subtitles filter is not given, so burn_subtitles
+      // is refused there before ffmpeg starts. The rest of this test needs the filter.
+      await assert.rejects(runOperation("burn_subtitles", { input: "clip.mp4", subtitles: "subs.srt", font_size: 30 }, AS_TOOL), { kind: "setup_required", message: /characters ffmpeg filters cannot take safely/ });
+      return;
+    }
     await runOperation("burn_subtitles", { input: "clip.mp4", subtitles: "subs.srt", font_size: 30 }, AS_TOOL);
     assert.notEqual(subtitleCopy.path, join(inputDirectory, "subs.srt"));
     assert.equal(subtitleCopy.content, "1\n00:00:00,000 --> 00:00:00,900\nHalo\n");

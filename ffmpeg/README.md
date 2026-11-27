@@ -20,7 +20,9 @@ formats, codecs and quality levels; they never pass raw ffmpeg options.
 - **`thumbnail`:** one frame at `time` as jpg, png or webp, optionally scaled to `target_width`.
 - **`resize`:** `target_width` and/or `target_height` (16–7680), aspect kept.
 - **`concatenate`:** 2–50 files in order, by stream copy (all parts must share codecs and sizes) or `reencode: true`.
-- **`burn_subtitles`:** draws the cues of an `.srt` file into the picture, with an optional `font_size`.
+- **`burn_subtitles`:** draws the cues of an `.srt` file into the picture, with an optional `font_size`. Not on
+  Windows yet: the plugin hands ffmpeg its own copy of the subtitles in the temporary folder, and a Windows path
+  (`C:\...`) has characters the subtitles filter is not given, so the call is refused with `setup_required`.
 - **`make_gif`:** up to 30 s at up to 30 fps and 1280 px wide, with a generated palette.
 
 Full operation reference: [OPERATIONS.md](OPERATIONS.md).

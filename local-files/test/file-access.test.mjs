@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { link, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { buildNameHint, buildOutputFileName, createFileAccess, readFileAccessSettings, redactPathsOutside } from "../lib/file-access.mjs";
 
 const SETTINGS_OPTIONS = { prefix: "TEST", defaultMaxInputBytes: 4096, defaultMaxOutputBytes: 4096, maxBytesCeiling: 1e9 };
@@ -25,9 +25,10 @@ async function withDirectories(work) {
 }
 
 test("settings: comma-separated input directories, ~ expansion, caps from the environment, relative paths refused", () => {
-  const settings = readFileAccessSettings({ HOME: "/home/u", TEST_INPUT_DIRS: "~/a, /b ,", TEST_OUTPUT_DIR: "/c", TEST_MAX_INPUT_BYTES: "2048" }, SETTINGS_OPTIONS);
-  assert.deepEqual(settings.inputDirectories, ["/home/u/a", "/b"]);
-  assert.equal(settings.outputDirectory, "/c");
+  // resolve() gives each path the form of the system the tests run on (a drive letter on Windows).
+  const settings = readFileAccessSettings({ HOME: resolve("/home/u"), TEST_INPUT_DIRS: `~/a, ${resolve("/b")} ,`, TEST_OUTPUT_DIR: resolve("/c"), TEST_MAX_INPUT_BYTES: "2048" }, SETTINGS_OPTIONS);
+  assert.deepEqual(settings.inputDirectories, [resolve("/home/u/a"), resolve("/b")]);
+  assert.equal(settings.outputDirectory, resolve("/c"));
   assert.equal(settings.maxInputBytes, 2048);
   assert.throws(() => readFileAccessSettings({ TEST_INPUT_DIRS: "relative/dir" }, SETTINGS_OPTIONS), { kind: "invalid_input" });
   assert.throws(() => readFileAccessSettings({ TEST_MAX_INPUT_BYTES: "lots" }, SETTINGS_OPTIONS), { kind: "invalid_input" });
@@ -60,8 +61,11 @@ test("directories, FIFOs and oversized files are refused; a symlink inside the a
   withDirectories(async ({ input, fileAccess }) => {
     await mkdir(join(input, "sub"));
     await assert.rejects(fileAccess.resolveInputFile(join(input, "sub")), { kind: "invalid_input" });
-    execFileSync("mkfifo", [join(input, "pipe")]);
-    await assert.rejects(fileAccess.readInputFile(join(input, "pipe")), { kind: "invalid_input" });
+    // Windows has no FIFOs in a folder.
+    if (process.platform !== "win32") {
+      execFileSync("mkfifo", [join(input, "pipe")]);
+      await assert.rejects(fileAccess.readInputFile(join(input, "pipe")), { kind: "invalid_input" });
+    }
     await writeFile(join(input, "big.bin"), Buffer.alloc(5000));
     await assert.rejects(fileAccess.resolveInputFile(join(input, "big.bin")), { kind: "invalid_input" });
     await writeFile(join(input, "real.txt"), "r");
@@ -148,5 +152,7 @@ test("review regression: writeOutputFiles is all or nothing and names what it re
 
 test("review regression: paths outside the allowed directories are redacted from messages", () => {
   const message = "dyld: Library not loaded: /opt/homebrew/lib/x.dylib; reading file:/data/in/a.mp4 from /tmp/graphrt-1/list";
-  assert.equal(redactPathsOutside(message, ["/data/in"]), "dyld: Library not loaded: [path]; reading file:/data/in/a.mp4 from [path]");
+  // On Windows a path written with "/" is never inside an allowed folder, so it is hidden too.
+  const allowedPath = process.platform === "win32" ? "[path]" : "/data/in/a.mp4";
+  assert.equal(redactPathsOutside(message, ["/data/in"]), `dyld: Library not loaded: [path]; reading file:${allowedPath} from [path]`);
 });
