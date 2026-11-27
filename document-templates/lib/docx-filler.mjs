@@ -34,7 +34,7 @@ async function openTemplate(bytes) {
   return { zip, Docxtemplater };
 }
 
-function createDocument(Docxtemplater, zip, settings, modules = []) {
+function createDocument(Docxtemplater, zip, settings) {
   try {
     return new Docxtemplater(zip, {
       delimiters: { start: "{{", end: "}}" },
@@ -42,7 +42,6 @@ function createDocument(Docxtemplater, zip, settings, modules = []) {
       linebreaks: true,
       nullGetter: () => "",
       parser: (tag) => createTagReader(tag, settings),
-      modules,
     });
   } catch (templateError) {
     throw describeTemplateError(templateError);
@@ -84,19 +83,17 @@ function describeTemplateError(templateError) {
  */
 export async function inspectDocx({ bytes }) {
   const { zip, Docxtemplater } = await openTemplate(bytes);
-  const { default: InspectModule } = await import("docxtemplater/js/inspect-module.js");
-  const inspector = new InspectModule();
-  createDocument(Docxtemplater, zip, {}, [inspector]);
+  const document = createDocument(Docxtemplater, zip, {});
   const placeholders = new Set();
   const sections = new Set();
-  const collect = (tags) => {
-    for (const [tagName, nestedTags] of Object.entries(tags)) {
-      const hasNested = Object.keys(nestedTags).length > 0;
-      (hasNested ? sections : placeholders).add(tagName);
-      if (hasNested) collect(nestedTags);
+  // docxtemplater's own inspect module needs lodash, which it does not declare; its parsed parts say the same.
+  const collect = (parts) => {
+    for (const part of parts) {
+      if (part.type === "placeholder") (part.module ? sections : placeholders).add(String(part.value).trim());
+      if (Array.isArray(part.subparsed)) collect(part.subparsed);
     }
   };
-  collect(inspector.getAllTags());
+  for (const compiledFile of Object.values(document.compiled ?? {})) collect(compiledFile.postparsed ?? []);
   return { data: { placeholders: [...placeholders].sort(), sections: [...sections].sort() } };
 }
 
