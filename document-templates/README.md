@@ -89,7 +89,11 @@ certificate instead of a password are refused.
   for a protected PDF also whether its publisher allows filling it in.
 - **`render_pdf`:** a layout template plus `values` becomes a PDF. Tables continue over pages with their header
   repeated, a `bottom` block is pinned to the foot of the last page, pages are numbered, a `watermark` such as
-  PAID is optional, and a `background` PDF (your letterhead) can lie under every page.
+  PAID is optional, and a `background` PDF (your letterhead) can lie under every page. With `number_pattern` it
+  gives the document the next running number itself, and only once the PDF is saved
+  ([Running numbers](#running-numbers)).
+- **`check_values`:** checks an invoice before it is made, with every check `render_pdf` runs, and says what is
+  wrong in plain words. It saves nothing and uses no number, so it can run before anyone approves.
 - **`fill_pdf_form`:** `fields` maps form field names to values. A value may use `{{placeholders}}` from `values`,
   so `{"Total": "{{totals.total | money}}"}` puts the calculated total in the form. `flatten` (default on) turns
   the fields into plain page content. Protected forms are filled in too, with `password` when the form asks
@@ -99,7 +103,8 @@ certificate instead of a password are refused.
 - **`save_template_copy`:** saves your own copy of the built-in invoice in the folder `Templates` of your
   documents folder, to change its texts, colours and layout. It never replaces a file; ask for it in chat, no
   terminal needed.
-- **`next_number`:** running numbers such as `INV-2026-0001` from a pattern.
+- **`next_number`:** running numbers such as `INV-2026-0001` from a pattern, for documents that are not made by
+  `render_pdf` (a Word file, a PDF form).
 - **`save_brand` and `show_brand`:** the look of your documents and your own details, saved once and used for
   every later invoice; your details also fill Word templates and PDF forms
   ([Your logo, colour and wording](#your-logo-colour-and-wording), [Your details in Word and PDF forms](#your-details-in-word-and-pdf-forms)).
@@ -157,10 +162,19 @@ valid workflow: **Make an invoice** ([agents/make-invoice.yaml](agents/make-invo
 
 1. asks for the client, the items (description, quantity, unit, unit price), the tax name and percent (leave
    the percent empty for no tax), the currency and your business name,
-2. shows what it is about to make in plain words (client, currency, tax, each item) and waits for your approval (cancelling makes nothing and uses no number),
-3. takes the next invoice number (`INV-2026-0001`, then `INV-2026-0002`),
-4. makes the PDF with the ready-made invoice in the usual year and month folder,
+2. checks all of it first. A mistake, such as a price written in words ("seratus ribu"), a missing unit price
+   or a currency that is not a three-letter code, ends the run with a message that says what to correct, for
+   example *The unit price of item 1 must be a plain number such as 1500000*. Nothing is made and no number
+   is used,
+3. shows what it is about to make in plain words (client, currency, tax, each item), with the invoice number it
+   will get and the total due, and waits for your approval (cancelling makes nothing and uses no number),
+4. makes the PDF with the ready-made invoice in the usual year and month folder, under the next invoice number
+   (`INV-2026-0001`, then `INV-2026-0002`),
 5. and tells you the total and where the file is.
+
+The invoice number is only used up once the PDF is saved. If the PDF cannot be made after all (for example a
+file with that name was put in the folder meanwhile), the agent says so and the number stays free, so your
+invoice series has no gaps. Two invoices made at the same moment each get their own number.
 
 The items are a list of rows with titled columns (Description, Quantity, Unit, Unit price; in Indonesian
 Deskripsi, Jumlah, Satuan, Harga satuan), which graphrt Desktop shows as a small table to fill in.
@@ -349,8 +363,28 @@ pattern. `{ROMAN}` is the month as a Roman numeral (`{SEQ:3}/INV/{ROMAN}/{YYYY}`
 `start_at: 38` starts a new counter at 38, to continue an existing series. `preview: true` shows the next number
 without using it.
 
-Counters are kept in `.document-templates/numbering.json` inside the output folder. A number is used up when it
-is issued, even if the document is then never made; edit that file to give one back.
+Counters are kept in `.document-templates/numbering.json` inside the output folder. A number from `next_number`
+is used up when it is issued, even if the document is then never made; edit that file to give one back.
+
+For an invoice made with `render_pdf`, give the pattern to `render_pdf` itself instead, so that a failed invoice
+never leaves a gap in the series:
+
+```yaml
+- id: check
+  type: document-templates.check_values      # reads only: no file, no number
+  number_pattern: "INV-{YYYY}-{SEQ:4}"
+  values: { seller: { name: Rina Wijaya }, client: { name: Northwind Analytics Ltd }, items: [...] }
+# check.data.ok is true, or check.data.problem says what is wrong; check.data.number is the number it would get
+- id: invoice
+  type: document-templates.render_pdf
+  number_pattern: "INV-{YYYY}-{SEQ:4}"
+  values: { seller: { name: Rina Wijaya }, client: { name: Northwind Analytics Ltd }, items: [...] }
+```
+
+`render_pdf` draws the invoice with the next free number and uses that number up only at the moment the PDF is
+saved; when saving fails, the number is given back. When another invoice takes the number first, the invoice is
+drawn again with the following one. The series follows the invoice's `date` (a 2027 invoice gets a 2027
+number), and `number_start_at` continues an existing series. `values` may not also give a `number`.
 
 ### A PDF form
 ```yaml
@@ -423,15 +457,17 @@ then drawn with it. A character that no font has is an error that names it, neve
   is read, so one edited by hand into something else is refused; it is written only inside
   `.document-templates/brands/` of the output folder, never through a link.
 - **Ready-made agents:** the shipped workflows use only the start form, an approval, this plugin's own
-  operations and text steps: no model, no network, no shell, no other plugin. The approval comes before the
-  number is taken and before anything is created; `npm test` checks this for every agent.
-- **Agents vs nodes:** all nine operations are available as tools. They read only allowlisted files and add new
+  operations and text steps: no model, no network, no shell, no other plugin. Before the approval they only
+  read (`check_values` writes no file and uses no number); the approval comes before a number is used and
+  before anything is created; `npm test` checks this for every agent.
+- **Agents vs nodes:** all ten operations are available as tools. They read only allowlisted files and add new
   files to the output folder (setting `DOCUMENT_TEMPLATES_OUTPUT_DIR` is the opt-in for writing).
   `save_template_copy` writes only into `Templates` there and never over a file.
   `save_brand` replaces only its own small settings file there; what it saves (including payment details) is
   what a tool could also pass to `render_pdf`, `fill_docx` or `fill_pdf_form` directly, and every document's result names the brand it used.
   `if_exists: overwrite` is for workflow nodes only; a tool call that asks for it gets `permission_denied`.
-  `next_number` uses up a number each time it is called without `preview`.
+  `next_number` uses up a number each time it is called without `preview`; `render_pdf` with `number_pattern`
+  uses one only for a saved PDF. `check_values` reads only.
 
 ## Errors
 | Kind | When |
@@ -442,6 +478,10 @@ then drawn with it. A character that no font has is an error that names it, neve
 | `permission_denied` | A tool call asked for `if_exists: overwrite` |
 | `timeout` / `cancelled` | The worker passed `DOCUMENT_TEMPLATES_TIMEOUT_MS` or the call was cancelled; nothing is saved |
 | `plugin_error` | The worker crashed, the document could not be written, or the numbering file is locked |
+
+`check_values` does not fail for a mistake in the details: `invalid_input`, `not_found` and `permission_denied`
+come back as `ok: false` with the `problem` in plain words. Only what is not the details' fault (no documents
+folder set up, a crashed worker) fails.
 
 ## Tested with
 - **Text read back from the PDF:** letter-spaced labels such as TOTAL DUE are copied, searched and read aloud as
@@ -454,7 +494,9 @@ then drawn with it. A character that no font has is an error that names it, neve
   Affairs Form 80 (RC4 128 bit), filled in with and without `flatten` and opened with Poppler, Ghostscript and
   pdf.js. Password-protected forms in all four formats are made in the tests.
 - **Large forms:** OPM SF 86 (6197 fields, 136 pages), every field filled.
-- **Ready-made agents:** both validated and run from start to finished PDF with the released graphrt CLI 0.6.2.
+- **Ready-made agents:** both validated and run with the released graphrt CLI 0.6.2: from start to finished PDF,
+  cancelled, and with wrong details (a price in words, a missing unit price, a bad currency), which end in a
+  plain message with no file and no number used.
 - **Systems:** the tests run on Linux, Windows and macOS.
 
 ## Fonts
