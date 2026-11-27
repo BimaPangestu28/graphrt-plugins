@@ -110,7 +110,7 @@
   },
   "document-templates": {
     "status": "stable",
-    "reason": "Local only; its example workflow produced a real invoice PDF from real files during the build (PR #PENDING).",
+    "reason": "Local only; its example workflow produced a real invoice PDF from real files during the build (PR #94).",
     "tos_risk": "none"
   },
   "dropbox": {

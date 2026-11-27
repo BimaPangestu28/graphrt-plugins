@@ -183,7 +183,7 @@ export function listTemplatePlaceholders(template) {
 export function expandLayout(template, values, settings, { today }) {
   const context = { settings, nodeCount: 0, imagePaths: [], styleNames: new Set(Object.keys(template.styles ?? {})) };
   const scope = new Scope({ ...values, labels: mergeLabels(template.labels, values.labels, settings.language), today, page: { number: PAGE_NUMBER_MARKER, count: PAGE_COUNT_MARKER } });
-  const section = (name) => (template[name] === undefined ? null : expandBlock(template[name], scope, context, name, 0));
+  const section = (name) => (template[name] === undefined ? null : dropEmptyBlock(expandBlock(template[name], scope, context, name, 0)));
   return {
     page: checkProperties(template.page ?? {}, PAGE_PROPERTIES, "page"),
     defaultStyle: checkProperties(template.defaults ?? {}, STYLE_PROPERTIES, "defaults"),
@@ -196,6 +196,11 @@ export function expandLayout(template, values, settings, { today }) {
     info: expandInfo(template.info, scope, context),
     imagePaths: context.imagePaths,
   };
+}
+
+// A section whose condition was false is an empty text; the renderer should not reserve or measure it.
+function dropEmptyBlock(block) {
+  return block.text === "" && Object.keys(block).length === 1 ? null : block;
 }
 
 // Labels of the document's language, falling back to the template's first language, with the values' own overrides on top.

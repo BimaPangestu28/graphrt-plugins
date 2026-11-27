@@ -70,7 +70,10 @@ export async function fillPdfForm({ bytes, fieldValues, isFlattened }) {
   if (form.hasXFA()) form.deleteXFA();
   try {
     form.updateFieldAppearances(font);
-    if (isFlattened) form.flatten();
+    if (isFlattened) {
+      form.flatten();
+      await removeDanglingAnnotations(document);
+    }
   } catch (drawError) {
     throw invalidInput(`A value could not be drawn in its field: ${drawError.message}`);
   }
@@ -79,6 +82,20 @@ export async function fillPdfForm({ bytes, fieldValues, isFlattened }) {
     data: { page_count: document.getPageCount(), filled_fields: filledNames, empty_fields: [...fieldsByName.keys()].filter((name) => !filledNames.includes(name)), flattened: isFlattened },
     outputs: [await document.save()],
   };
+}
+
+// pdf-lib's flatten() deletes the field widgets but can leave them listed in a page's /Annots; strict readers
+// (poppler: "Invalid XRef entry") then complain about the saved file.
+async function removeDanglingAnnotations(document) {
+  const { PDFArray, PDFName, PDFRef } = await import("pdf-lib");
+  const annotationsKey = PDFName.of("Annots");
+  for (const page of document.getPages()) {
+    const annotations = page.node.lookupMaybe(annotationsKey, PDFArray);
+    if (!annotations) continue;
+    const kept = annotations.asArray().filter((entry) => !(entry instanceof PDFRef) || document.context.lookup(entry) !== undefined);
+    if (kept.length === 0) page.node.delete(annotationsKey);
+    else if (kept.length < annotations.size()) page.node.set(annotationsKey, document.context.obj(kept));
+  }
 }
 
 function setFieldValue(field, name, value) {

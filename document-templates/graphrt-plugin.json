@@ -155,7 +155,7 @@
               "none"
             ],
             "default": "auto",
-            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): calculate when the template asks for it or the values have `items`"
+            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
           },
           "background": {
             "type": "string",
@@ -230,7 +230,7 @@
               "none"
             ],
             "default": "auto",
-            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): calculate when the template asks for it or the values have `items`"
+            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
           },
           "flatten": {
             "type": "boolean",
@@ -301,7 +301,7 @@
               "none"
             ],
             "default": "auto",
-            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): calculate when the template asks for it or the values have `items`"
+            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
           },
           "folder": {
             "type": "string",
@@ -425,7 +425,7 @@
               "none"
             ],
             "default": "auto",
-            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): calculate when the template asks for it or the values have `items`"
+            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
           },
           "background": {
             "type": "string",
@@ -486,7 +486,7 @@
               "none"
             ],
             "default": "auto",
-            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): calculate when the template asks for it or the values have `items`"
+            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
           },
           "flatten": {
             "type": "boolean",
@@ -543,7 +543,7 @@
               "none"
             ],
             "default": "auto",
-            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): calculate when the template asks for it or the values have `items`"
+            "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
           },
           "folder": {
             "type": "string",

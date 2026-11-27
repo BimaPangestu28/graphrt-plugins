@@ -171,7 +171,7 @@ test("the built-in invoice: required fields, placeholders, and a plan with the c
   const itemTable = plan.content.find((node) => node.table?.headerRows === 1).table;
   assert.equal(itemTable.widths.length, 4);
   assert.equal(itemTable.body.length, 3);
-  assert.equal(plan.bottom.text, "");
+  assert.equal(plan.bottom, null);
   assert.equal(plan.watermark, null);
   assert.deepEqual(plan.info, { title: "Invoice INV-2026-0007", author: "CV Kenanga Digital" });
 });

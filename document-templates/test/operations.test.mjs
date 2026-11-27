@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { buildManifest } from "../lib/shared/operations.mjs";
 import { pluginDefinition } from "../definition.mjs";
 import { readDocumentSettings } from "../lib/client.mjs";
+import { runEngineTask } from "../lib/document-engine.mjs";
 import { AS_NODE, AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, buildDocx, buildFormPdf, buildPlainPdf, buildPng, pdfLib, readDocxParagraphs, readPageTexts, withDocumentRunner } from "./helpers.mjs";
 
 const options = { skip: SKIP_WITHOUT_LIBRARIES };
@@ -93,6 +94,23 @@ test("render_pdf: an existing document is kept; a tool may not overwrite, a node
     assert.ok((await readPageTexts(await readFile(first.data.path)))[0].includes("PT Lain"));
   }));
 
+test("render_pdf: a taken file name or a missing output folder is noticed before the document is drawn", options, async () => {
+  let taskCount = 0;
+  const countingTask = (task, payload) => {
+    taskCount += 1;
+    return runEngineTask(task, structuredClone(payload));
+  };
+  await withDocumentRunner({ runTask: countingTask }, async ({ runOperation }) => {
+    await runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL);
+    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL), /already exists/);
+    assert.equal(taskCount, 1);
+  });
+  await withDocumentRunner({ runTask: countingTask, environment: { DOCUMENT_TEMPLATES_OUTPUT_DIR: "" } }, async ({ runOperation }) => {
+    await assert.rejects(runOperation("render_pdf", { values: INVOICE_VALUES }, AS_TOOL), { kind: "setup_required" });
+    assert.equal(taskCount, 1);
+  });
+});
+
 test("render_pdf: missing values, bad numbers and bad file names are refused before anything is written", options, () =>
   withDocumentRunner({}, async ({ runOperation, outputDirectory }) => {
     const refused = [
@@ -120,7 +138,7 @@ test("render_pdf: your own layout, a logo and a letterhead background, all from 
     await writeFile(join(outsideDirectory, "secret.png"), buildPng());
     await symlink(join(outsideDirectory, "secret.png"), join(inputDirectory, "link.png"));
     await writeFile(join(inputDirectory, "letterhead.pdf"), await buildPlainPdf(2));
-    const values = { client: { name: "Ibu Sari" }, body: "Привет, Việt Nam, Ελλάδα — € £", logo: "logo.png" };
+    const values = { client: { name: "Ibu Sari" }, body: "Привет, Việt Nam, Ελλάδα — € £", logo: "logo.png", items: ["not invoice items: this layout does not calculate"] };
     const plain = await runOperation("render_pdf", { template: "letter.json", values, file_name: "plain" }, AS_TOOL);
     assert.deepEqual([plain.data.relative_path, plain.data.template, plain.data.number, plain.data.totals], ["2026/11/plain.pdf", "letter", null, undefined]);
     assert.ok((await readPageTexts(await readFile(plain.data.path)))[0].includes("Kepada Ibu Sari Привет, Việt Nam, Ελλάδα — € £ 1 / 1"));
@@ -146,7 +164,9 @@ test("fill_pdf_form: fields are filled from values and calculated totals; names 
     const form = (await pdfLib.PDFDocument.load(await readFile(editable.data.path))).getForm();
     assert.deepEqual([form.getTextField("InvoiceNo").getText(), form.getTextField("Client").getText(), form.getTextField("Total").getText(), form.getCheckBox("Paid").isChecked()], ["INV-2026-0007", "PT Maju Bersama", "Rp 11.100.000", true]);
     const flattened = await runOperation("fill_pdf_form", { template: "form.pdf", fields: { Client: "Ünïcode Привет", Notes: "Lunas" }, file_name: "flat" }, AS_TOOL);
-    assert.equal((await pdfLib.PDFDocument.load(await readFile(flattened.data.path))).getForm().getFields().length, 0);
+    const flatDocument = await pdfLib.PDFDocument.load(await readFile(flattened.data.path));
+    assert.equal(flatDocument.getForm().getFields().length, 0);
+    assert.equal(flatDocument.getPage(0).node.Annots(), undefined, "no annotation may point at a deleted form widget");
     assert.ok((await readPageTexts(await readFile(flattened.data.path)))[0].includes("Ünïcode Привет"));
     const refused = [
       [{ template: "form.pdf", fields: { Nope: "x" } }, /no form field named "Nope"\. Its fields: InvoiceNo, Client/],

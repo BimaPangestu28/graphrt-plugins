@@ -140,7 +140,7 @@ function readToken(tokenName, filing, parameterName) {
  *
  * @param settings - File settings with `outputDirectory` and `maxOutputBytes` (object)
  * @param dependencies - `{fileSystem, randomSuffix}` overrides for tests (object, optional)
- * @returns `{saveDocument, resolveOutputRoot}` (object)
+ * @returns `{saveDocument, assertCanSave, resolveOutputRoot}` (object)
  */
 export function createOutputOrganiser(settings, dependencies = {}) {
   const context = {
@@ -150,6 +150,7 @@ export function createOutputOrganiser(settings, dependencies = {}) {
   };
   return {
     saveDocument: (request) => saveDocument(context, request),
+    assertCanSave: (request) => assertCanSave(context, request),
     resolveOutputRoot: () => resolveOutputRoot(context),
   };
 }
@@ -171,6 +172,20 @@ async function resolveOutputRoot({ settings, fileSystem }) {
   const rootStats = realRoot ? await fileSystem.stat(realRoot) : null;
   if (!rootStats?.isDirectory()) throw setupRequired(`${OUTPUT_DIR_VARIABLE} (${settings.outputDirectory}) must be an existing folder`);
   return realRoot;
+}
+
+// Run before the document is drawn: an unset output folder or a taken name should not cost a render.
+// saveDocument() still decides; link() there is what never replaces a file.
+async function assertCanSave(context, { plan, ifExists }) {
+  const realRoot = await resolveOutputRoot(context);
+  if (ifExists !== "error") return;
+  const fileName = `${plan.fileStem}.${plan.extension}`;
+  const existing = await context.fileSystem.lstat(join(realRoot, ...plan.folderSegments, fileName)).catch(() => null);
+  if (existing) throw alreadyExists(plan, fileName);
+}
+
+function alreadyExists(plan, fileName) {
+  return invalidInput(`${JSON.stringify([...plan.folderSegments, fileName].join("/"))} already exists; nothing was saved. Use another number or file name, or \`if_exists: number\` to keep both`);
 }
 
 async function saveDocument(context, { plan, bytes, ifExists }) {
@@ -235,9 +250,7 @@ async function publish(context, { stagingPath, directory, plan, ifExists }) {
   }
   const fileName = candidateNames[0];
   if (ifExists === "number") throw invalidInput(`${JSON.stringify(fileName)} and ${MAX_NUMBERED_COPIES - 1} numbered copies already exist; nothing was saved`);
-  if (ifExists !== "overwrite") {
-    throw invalidInput(`${JSON.stringify([...plan.folderSegments, fileName].join("/"))} already exists; nothing was saved. Use another number or file name, or \`if_exists: number\` to keep both`);
-  }
+  if (ifExists !== "overwrite") throw alreadyExists(plan, fileName);
   return replaceExisting(context.fileSystem, stagingPath, join(directory, fileName), fileName);
 }
 

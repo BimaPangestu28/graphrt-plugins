@@ -1,6 +1,6 @@
 # document-templates
 
-**Status:** stable · **ToS risk:** none. Local only; its example workflow produced a real invoice PDF from real files during the build (PR #PENDING). See [plugin status](../README.md#plugin-status).
+**Status:** stable · **ToS risk:** none. Local only; its example workflow produced a real invoice PDF from real files during the build (PR #94). See [plugin status](../README.md#plugin-status).
 
 ## Overview
 A [graphrt](https://github.com/Graphrt/graphrt) plugin that makes **invoices and other documents from templates,

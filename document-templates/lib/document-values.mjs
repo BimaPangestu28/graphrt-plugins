@@ -21,7 +21,7 @@ export const CALCULATE_PARAMETER = {
   type: "string",
   enum: CALCULATE_CHOICES,
   default: "auto",
-  description: "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): calculate when the template asks for it or the values have `items`",
+  description: "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`",
 };
 
 /**
@@ -63,7 +63,7 @@ function parseValuesText(text, label) {
  * Adds defaults and, when asked, the invoice calculation.
  *
  * @param rawValues - Values as given (object)
- * @param options - `{calculate, templateCalculates, now}`; templateCalculates is whether the template declares "calculate": "invoice" (object)
+ * @param options - `{calculate, templateCalculates, now}`; templateCalculates is whether a layout template declares "calculate": "invoice", or null for formats that cannot say (object)
  * @returns `{values, settings, isCalculated}` (object)
  * @throws PluginError kind `invalid_input` - When a setting or an amount is invalid
  */
@@ -71,7 +71,7 @@ export function prepareValues(rawValues, { calculate, templateCalculates, now })
   const settings = readFormatSettings(rawValues);
   const today = toLocalIsoDate(now);
   const values = { ...rawValues, date: isPresent(rawValues.date) ? rawValues.date : today, currency: settings.currency, language: settings.language };
-  const isCalculated = calculate === "invoice" || (calculate === "auto" && (templateCalculates || hasLineItems(values)));
+  const isCalculated = calculate === "invoice" || (calculate === "auto" && (templateCalculates ?? hasLineItems(values)));
   return { values: isCalculated ? calculateInvoice(values, settings.decimals) : values, settings, isCalculated, today };
 }
 

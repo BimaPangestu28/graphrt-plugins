@@ -65,6 +65,9 @@ test("saving: creates the folders, never replaces a file, numbers copies on requ
     const first = await organiser.saveDocument({ plan: plan({}), bytes: Buffer.from("one"), ifExists: "error" });
     assert.deepEqual(first, { path: join(outputDirectory, "2026", "03", "INV-2026-0007.pdf"), relative_path: "2026/03/INV-2026-0007.pdf", folder: "2026/03", file_name: "INV-2026-0007.pdf", size_bytes: 3, replaced_existing: false });
     await assert.rejects(organiser.saveDocument({ plan: plan({}), bytes: Buffer.from("two"), ifExists: "error" }), (error) => error.kind === "invalid_input" && /already exists; nothing was saved/.test(error.message));
+    await assert.rejects(organiser.assertCanSave({ plan: plan({}), ifExists: "error" }), /already exists/);
+    await organiser.assertCanSave({ plan: plan({}), ifExists: "number" });
+    await organiser.assertCanSave({ plan: plan({ fileName: "free" }), ifExists: "error" });
     assert.equal(await readFile(first.path, "utf8"), "one");
     const copy = await organiser.saveDocument({ plan: plan({}), bytes: Buffer.from("two"), ifExists: "number" });
     assert.equal(copy.file_name, "INV-2026-0007-2.pdf");

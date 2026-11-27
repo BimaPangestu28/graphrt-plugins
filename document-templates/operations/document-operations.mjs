@@ -31,10 +31,12 @@ async function readImages(client, imagePaths) {
   return images;
 }
 
-// Resolved before the document is drawn, so a bad folder or file name fails fast and costs nothing.
-function planFiling(client, args, { values, templateName, extension }) {
+// Resolved and checked before the document is drawn, so a bad folder, a taken file name or a missing output folder fails fast.
+async function planFiling(client, args, { values, templateName, extension }) {
   const filing = buildFilingTokens({ values, templateName, now: client.now() });
-  return resolveFilingPlan({ folder: args.folder, fileName: args.file_name, extension, filing });
+  const plan = resolveFilingPlan({ folder: args.folder, fileName: args.file_name, extension, filing });
+  await client.organiser.assertCanSave({ plan, ifExists: args.if_exists });
+  return plan;
 }
 
 function describeResult(savedFile, { template, values, settings, isCalculated }) {
@@ -69,7 +71,7 @@ const renderPdfOperation = {
     if (missingFields.length > 0) throw invalidInput(`The ${template.name} template needs these values: ${missingFields.join(", ")}. describe_template shows every field with an example`);
     const prepared = prepareValues(rawValues, { calculate: args.calculate, templateCalculates: template.layout.calculate === "invoice", now: client.now() });
     const plan = expandLayout(template.layout, prepared.values, prepared.settings, { today: prepared.today });
-    const filingPlan = planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "pdf" });
+    const filingPlan = await planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "pdf" });
     const images = await readImages(client, plan.imagePaths);
     const backgroundPath = args.background ?? plan.page.background_pdf;
     const backgroundPdf = backgroundPath ? await readPdfInput(client, backgroundPath, "background") : null;
@@ -118,9 +120,9 @@ const fillPdfFormOperation = {
     assertIfExistsAllowed(args.if_exists, source);
     const template = await resolveTemplate(client, args.template, ["pdf"]);
     const fieldEntries = await readFieldMap(client, args);
-    const prepared = prepareValues(await readValues(client, args, { isRequired: false }), { calculate: args.calculate, templateCalculates: false, now: client.now() });
+    const prepared = prepareValues(await readValues(client, args, { isRequired: false }), { calculate: args.calculate, templateCalculates: null, now: client.now() });
     const fieldValues = fillFieldValues(fieldEntries, prepared);
-    const filingPlan = planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "pdf" });
+    const filingPlan = await planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "pdf" });
     const { data, outputs } = await client.runTask("fill_pdf_form", { bytes: template.bytes, fieldValues, isFlattened: args.flatten }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
     return { data: { ...describeResult(savedFile, { template, ...prepared }), ...data } };
@@ -144,8 +146,8 @@ const fillDocxOperation = {
   run: async ({ client, args, signal, source }) => {
     assertIfExistsAllowed(args.if_exists, source);
     const template = await resolveTemplate(client, args.template, ["docx"]);
-    const prepared = prepareValues(await readValues(client, args), { calculate: args.calculate, templateCalculates: false, now: client.now() });
-    const filingPlan = planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "docx" });
+    const prepared = prepareValues(await readValues(client, args), { calculate: args.calculate, templateCalculates: null, now: client.now() });
+    const filingPlan = await planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "docx" });
     const { outputs } = await client.runTask("fill_docx", { bytes: template.bytes, values: { ...prepared.values, today: prepared.today }, settings: prepared.settings }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
     return { data: describeResult(savedFile, { template, ...prepared }) };
