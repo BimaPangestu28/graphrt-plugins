@@ -75,7 +75,7 @@ UTC timestamp and random suffix are always added.
   `EXCEL_CSV_MAX_UNZIPPED_BYTES` or 10000 parts. A zip that lies about its sizes fails on the size mismatch inside
   the worker.
 - **Parsing in a worker:** CSV and XLSX parsing runs in a short-lived child process with a memory budget
-  (`EXCEL_CSV_MAX_MEMORY_MB`, enforced as the V8 heap cap and by an RSS watchdog polling every 50 ms), a timeout and
+  (`EXCEL_CSV_MAX_MEMORY_MB`, enforced as the V8 heap cap and by an RSS watchdog polling every 50 ms; on Windows a reading takes a `tasklist` run, so a few times a second), a timeout and
   cancel, all ending in SIGKILL. A crafted file can only exhaust that process, never the plugin.
 - **Cell budget:** only cells that exist are read (one value at XFD1 does not make every row 16384 wide), rows are
   cut to `EXCEL_CSV_MAX_COLUMNS` while parsing, and the budget (`EXCEL_CSV_MAX_CELLS` of rows × width,

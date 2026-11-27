@@ -20,7 +20,7 @@ import { tableOperations } from "./operations/table-operations.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "excel-csv",
-    version: "0.1.0",
+    version: "0.1.1",
     description: "Local CSV/TSV and XLSX files: list sheets, read rows (sheet, A1 range, header row, row cap; formulas as values), write and convert, with CSV-injection protection",
     extraEnv: [FILE_VARIABLES.inputDirs, FILE_VARIABLES.outputDir, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, ...LIMIT_VARIABLES],
     localOnly: true,

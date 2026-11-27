@@ -7,7 +7,8 @@
  * - a V8 heap cap (`--max-old-space-size`), which does NOT cover typed arrays
  *   and other off-heap memory, so also
  * - an RSS watchdog: the parent polls the child's resident memory every
- *   `pollIntervalMs` and SIGKILLs it past the budget, and
+ *   `pollIntervalMs` and SIGKILLs it past the budget (on Windows a reading
+ *   takes a `tasklist` run, so it happens a few times a second), and
  * - a timeout and cancel, both SIGKILL.
  * Bytes travel over IPC with the "advanced" serialisation (structured clone).
  * The child's stdout is ignored (it is never the plugin's protocol stream).
@@ -17,14 +18,35 @@
 import { execFile } from "node:child_process";
 import { fork as defaultFork } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { cancelled, operationFailed, timedOut } from "./errors.mjs";
 import { PluginError } from "./shared/graphrt-plugin.mjs";
 
 const DEFAULT_POLL_INTERVAL_MS = 50;
 const KIBIBYTE = 1024;
+const MEMORY_READ_TIMEOUT_MS = 5000;
 
 /**
- * Reads a process's resident set size.
+ * Reads the memory column of `tasklist /FO CSV /NH` for one process: `"node.exe","1234","Console","1","45,672 K"`.
+ * The thousands separator follows the Windows language ("45.672 K", "45 672 K"), the unit does not.
+ *
+ * @param tasklistOutput - What tasklist printed (string)
+ * @returns Working set in bytes, or null when the output has no process row (number | null)
+ */
+export function parseTasklistMemoryBytes(tasklistOutput) {
+  const memoryColumn = /"([^"]*\d[^"]*)\s*K"\s*$/m.exec(String(tasklistOutput).trim());
+  const kibibytes = memoryColumn ? Number(memoryColumn[1].replace(/\D/g, "")) : Number.NaN;
+  return Number.isFinite(kibibytes) && kibibytes > 0 ? kibibytes * KIBIBYTE : null;
+}
+
+function runMemoryCommand(command, commandArguments) {
+  return new Promise((resolvePromise) => {
+    execFile(command, commandArguments, { timeout: MEMORY_READ_TIMEOUT_MS, windowsHide: true }, (commandError, stdout) => resolvePromise(commandError ? "" : String(stdout)));
+  });
+}
+
+/**
+ * Reads a process's resident set size: /proc on Linux, `ps` on macOS, `tasklist` on Windows (working set).
  *
  * @param processId - Child process id (number)
  * @returns RSS in bytes, or null when it cannot be read (number | null)
@@ -35,12 +57,13 @@ export async function readProcessRssBytes(processId) {
     const match = /^VmRSS:\s+(\d+)\s+kB/m.exec(status);
     return match ? Number(match[1]) * KIBIBYTE : null;
   }
-  return new Promise((resolvePromise) => {
-    execFile("ps", ["-o", "rss=", "-p", String(processId)], { timeout: 2000 }, (psError, stdout) => {
-      const kibibytes = Number(String(stdout).trim());
-      resolvePromise(psError || !Number.isFinite(kibibytes) || kibibytes <= 0 ? null : kibibytes * KIBIBYTE);
-    });
-  });
+  if (process.platform === "win32") {
+    // By full path: the plugin's PATH is whatever the host passed on.
+    const tasklistPath = join(process.env.SystemRoot ?? process.env.windir ?? "C:\\Windows", "System32", "tasklist.exe");
+    return parseTasklistMemoryBytes(await runMemoryCommand(tasklistPath, ["/FI", `PID eq ${processId}`, "/FO", "CSV", "/NH"]));
+  }
+  const kibibytes = Number((await runMemoryCommand("ps", ["-o", "rss=", "-p", String(processId)])).trim());
+  return Number.isFinite(kibibytes) && kibibytes > 0 ? kibibytes * KIBIBYTE : null;
 }
 
 /**
