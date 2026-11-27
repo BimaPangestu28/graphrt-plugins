@@ -70,3 +70,25 @@ export function findUploadedDigestMismatches(uploadedPaths, releaseAssets, sha25
   }
   return mismatches;
 }
+
+const NETWORK_ERROR_PATTERN = /timeout|connection reset|EOF|ECONNRESET|502|503|504/i;
+const RELEASE_NOT_FOUND_PATTERN = /release not found/i;
+
+/**
+ * Whether a failed idempotent gh command is worth running again: a network failure, or "release not found" from
+ * `gh release download`. The publish only downloads from releases it has just seen (`gh release view`), so that
+ * answer is GitHub briefly failing to resolve an existing release (seen while a run downloaded every published
+ * tarball right after creating a release), not a missing one. `gh release view` is not retried on it: there
+ * "release not found" is the normal answer for a version that is not published yet.
+ */
+export function isRetryableGhFailure(ghArguments, stderr) {
+  const errorText = String(stderr ?? "");
+  if (NETWORK_ERROR_PATTERN.test(errorText)) return true;
+  const isReleaseDownload = ghArguments[0] === "release" && ghArguments[1] === "download";
+  return isReleaseDownload && RELEASE_NOT_FOUND_PATTERN.test(errorText);
+}
+
+/** Pause before retry number `attempt` (1-based) of a gh command: 2 s, then 4 s, ... */
+export function ghRetryDelayMilliseconds(attempt) {
+  return 2000 * 2 ** (attempt - 1);
+}

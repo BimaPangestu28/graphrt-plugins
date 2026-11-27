@@ -60,7 +60,13 @@ import {
 import { CATALOG_V2_INDEX_NAME, MAX_RELEASE_ASSETS, RELEASE_ASSETS_WARNING_COUNT, detailConflictError, planDetailUploads } from "./lib/catalog-v2.mjs";
 import { renderReleaseNotes } from "./lib/release-notes.mjs";
 import { signCatalogIndexes } from "./lib/catalog-signing.mjs";
-import { findUploadedDigestMismatches, planCatalogUploadBatches, planReleaseAction } from "./lib/release-plan.mjs";
+import {
+  findUploadedDigestMismatches,
+  ghRetryDelayMilliseconds,
+  isRetryableGhFailure,
+  planCatalogUploadBatches,
+  planReleaseAction,
+} from "./lib/release-plan.mjs";
 import { listRepoDirectoryNames, readCommunityPlugins } from "./lib/community-plugins.mjs";
 import { downloadHttpsBytes, ingestCommunityPlugins, selectCommunityGraphrtBinary } from "./lib/community-ingest.mjs";
 import { runTestSuite } from "./lib/plugin-test-runner.mjs";
@@ -94,19 +100,24 @@ function runCommand(command, commandArguments, { allowFailure = false, cwd = REP
   return result;
 }
 
-const NETWORK_ERROR_PATTERN = /timeout|connection reset|EOF|ECONNRESET|502|503|504/i;
 const GH_READ_ATTEMPTS = 3;
+
+/** Blocks for `milliseconds` (the publish runs its gh commands synchronously). */
+function sleepSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
 
 /**
  * Runs an idempotent gh command (view, download, upload --clobber), retrying
- * network failures. Release creation is not retried: it is not idempotent.
+ * transient failures after a pause (see isRetryableGhFailure). Release creation
+ * is not retried: it is not idempotent.
  */
 function runGhIdempotent(ghArguments, { allowFailure = false } = {}) {
   for (let attempt = 1; ; attempt += 1) {
     const result = runCommand("gh", ghArguments, { allowFailure: true });
-    const isNetworkError = result.status !== 0 && NETWORK_ERROR_PATTERN.test(result.stderr);
-    if (isNetworkError && attempt < GH_READ_ATTEMPTS) {
-      console.error(`gh ${ghArguments[0]} ${ghArguments[1]}: network error, retrying (${attempt}/${GH_READ_ATTEMPTS - 1})`);
+    if (result.status !== 0 && attempt < GH_READ_ATTEMPTS && isRetryableGhFailure(ghArguments, result.stderr)) {
+      console.error(`gh ${ghArguments[0]} ${ghArguments[1]} ${ghArguments[2]}: ${result.stderr.trim()}; retrying (${attempt}/${GH_READ_ATTEMPTS - 1})`);
+      sleepSync(ghRetryDelayMilliseconds(attempt));
       continue;
     }
     if (result.status !== 0 && !allowFailure) throw new Error(`gh ${ghArguments.slice(0, 3).join(" ")} failed: ${result.stderr.trim()}`);
