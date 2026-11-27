@@ -378,7 +378,8 @@ put `{{#items}}` in the first cell of a table row and `{{/items}}` in its last c
 only when there are no notes.
 
 Placeholders work in the text, in tables, in headers and footers, in text boxes and inside content controls
-(the grey "click here" fields of Microsoft's templates). Word may store a placeholder in several pieces or turn
+(the grey "click here" fields of Microsoft's templates; a field you put a placeholder in becomes ordinary text
+in the result, so Word no longer selects and clears it on a click). Word may store a placeholder in several pieces or turn
 `"` into `“ ”`; both are fine. The result is always a `.docx`. Your saved details fill `{{business.name}}`,
 `{{payment.bank}}` and the like ([Your details in Word and PDF forms](#your-details-in-word-and-pdf-forms)).
 
