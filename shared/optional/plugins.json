@@ -1,0 +1,6 @@
+{
+  "lib/isolated-task.mjs": ["document-templates", "excel-csv", "pdf-tools"],
+  "lib/pdf-protection.mjs": ["document-templates", "pdf-tools"],
+  "test/isolated-task.test.mjs": ["document-templates", "excel-csv", "pdf-tools"],
+  "test/protect-pdf.mjs": ["document-templates", "pdf-tools"]
+}

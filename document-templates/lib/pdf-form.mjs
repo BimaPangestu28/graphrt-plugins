@@ -36,7 +36,7 @@ const FILLABLE_KINDS = new Set(["PDFTextField", "PDFCheckBox", "PDFDropdown", "P
 
 async function loadForm({ bytes, password, maxFields = DEFAULT_MAX_FORM_FIELDS }) {
   const { PDFDict, PDFDocument, PDFName } = await import("pdf-lib");
-  const opened = mayBeProtected(bytes) ? await openProtectedPdf({ bytes, password }) : { bytes, protection: null };
+  const opened = mayBeProtected(bytes) ? await openProtectedPdf({ bytes, password, label: "the template" }) : { bytes, protection: null };
   const document = await PDFDocument.load(opened.bytes, { updateMetadata: false, ignoreEncryption: true }).catch((loadError) => {
     throw invalidInput(`The template is not a readable PDF: ${loadError.message}`);
   });
