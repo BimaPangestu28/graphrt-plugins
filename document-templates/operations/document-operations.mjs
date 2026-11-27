@@ -12,6 +12,7 @@ import { CALCULATE_PARAMETER, VALUES_PARAMETERS, prepareValues, readValues, summ
 import { expandLayout, listMissingFields } from "../lib/layout-template.mjs";
 import { checkLogoBytes } from "../lib/logo-file.mjs";
 import { issueNextNumber, readNumberDate, resolveNumberPattern, useNumberWhenSaved } from "../lib/number-sequence.mjs";
+import { resolveMessageLanguage, toPlainProblem, withMessageLanguage } from "../lib/message-language.mjs";
 import { LOOK_PARAMETER, applyLookToValues, applyShowToValues, mergeLooks, readLook } from "../lib/look-options.mjs";
 import { FILING_PARAMETERS, assertIfExistsAllowed, buildFilingTokens, resolveFilingPlan } from "../lib/output-organiser.mjs";
 import { PDF_PASSWORD_PARAMETER } from "../lib/pdf-form.mjs";
@@ -105,6 +106,11 @@ const LAYOUT_DOCUMENT_PARAMETERS = {
   ...FILING_PARAMETERS,
 };
 
+// The language of a call's messages: the document's own language, then the look's, then the saved brand's.
+function decideLanguage(client, args) {
+  return () => resolveMessageLanguage(client, args, [args.values?.language, args.look?.language]);
+}
+
 // How often render_pdf draws again when other calls keep taking the number it drew with.
 const MAX_NUMBER_ATTEMPTS = 5;
 
@@ -161,7 +167,7 @@ const renderPdfOperation = {
   title: "Create a PDF from a template",
   description: "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. `look` gives it your logo, colour, title and language and hides parts you do not use; what save_brand saved is used by itself. With `number_pattern` it takes the next number of a series itself, and only once the PDF is saved, so a failed document leaves no gap. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
   parameters: { type: "object", properties: LAYOUT_DOCUMENT_PARAMETERS },
-  run: async ({ client, args, signal, source }) => {
+  run: ({ client, args, signal, source }) => withMessageLanguage(decideLanguage(client, args), async () => {
     const request = await readLayoutRequest(client, args, source);
     const save = (drawn) => client.organiser.saveDocument({ plan: drawn.filingPlan, bytes: drawn.bytes, ifExists: args.if_exists });
     if (!request.numbering) {
@@ -176,33 +182,18 @@ const renderPdfOperation = {
       if (!used.isTaken) return { data: describeLayoutResult(used.saved, request, drawn) };
     }
     throw operationFailed(`Other documents kept taking the next number of ${JSON.stringify(args.number_pattern)}; nothing was saved and no number was used. Try again`);
-  },
+  }),
 };
 
 // Problems the person can fix in the values, the template or the files they named; anything else is reported as a failure.
 const FIXABLE_PROBLEM_KINDS = ["invalid_input", "not_found", "permission_denied"];
 
-/**
- * Words a person reads more easily than a path into the values: `items[0].unit_price` becomes "the unit price of
- * item 1", `client.name` becomes "client name" and `currency` "currency".
- *
- * @param message - A PluginError message (string)
- * @returns The message with value paths written out, starting with a capital letter (string)
- */
-export function toPlainProblem(message) {
-  const toWords = (path) => path.replaceAll(/[._]/g, " ");
-  const plain = String(message)
-    .replace(/`items\[(\d+)\]\.([A-Za-z_]+)`/g, (_match, index, field) => `the ${toWords(field)} of item ${Number(index) + 1}`)
-    .replace(/`([a-z][a-z_]*(?:\.[a-z][a-z_]*)*)`/g, (_match, path) => toWords(path));
-  return plain.charAt(0).toUpperCase() + plain.slice(1);
-}
-
 const checkValuesOperation = {
   name: "check_values",
   title: "Check a document before creating it",
-  description: "Checks everything render_pdf would check, without saving anything or using up a number: the values, amounts, currency and dates, the fields the template needs, the logo and the file name. The PDF is drawn to be sure, then thrown away. The result says `ok` and, when something is wrong, the `problem` in plain words; when it is fine, the totals, the number the document would get with `number_pattern` and where it would be saved. Use it before asking for an approval and taking a number",
+  description: "Checks everything render_pdf would check, without saving anything or using up a number: the values, amounts, currency and dates, the fields the template needs, the logo and the file name. The PDF is drawn to be sure, then thrown away. The result says `ok` and, when something is wrong, the `problem` in plain words; when it is fine, the totals, the number the document would get with `number_pattern` and where it would be saved. The problem is written in the document's language (English or Indonesian). Use it before asking for an approval and taking a number",
   parameters: { type: "object", properties: LAYOUT_DOCUMENT_PARAMETERS },
-  run: async ({ client, args, signal, source }) => {
+  run: ({ client, args, signal, source }) => withMessageLanguage(decideLanguage(client, args), async () => {
     try {
       const request = await readLayoutRequest(client, args, source);
       const values = request.numbering ? { ...request.branded.values, number: (await previewNumber(request.numbering)).number } : request.branded.values;
@@ -222,9 +213,10 @@ const checkValuesOperation = {
       };
     } catch (checkError) {
       if (!FIXABLE_PROBLEM_KINDS.includes(checkError?.kind)) throw checkError;
-      return { data: { ok: false, problem: toPlainProblem(checkError.message), template: null, number: null, page_count: null, relative_path: null } };
+      const language = await decideLanguage(client, args)();
+      return { data: { ok: false, problem: toPlainProblem(checkError.message, language), template: null, number: null, page_count: null, relative_path: null } };
     }
-  },
+  }),
 };
 
 async function readFieldMap(client, args) {
@@ -265,7 +257,7 @@ const fillPdfFormOperation = {
     },
     required: ["template"],
   },
-  run: async ({ client, args, signal, source }) => {
+  run: ({ client, args, signal, source }) => withMessageLanguage(() => resolveMessageLanguage(client, args, [args.values?.language]), async () => {
     assertIfExistsAllowed(args.if_exists, source);
     const template = await resolveTemplate(client, args.template, ["pdf"]);
     const fieldEntries = await readFieldMap(client, args);
@@ -276,7 +268,7 @@ const fillPdfFormOperation = {
     const { data, outputs } = await client.runTask("fill_pdf_form", { bytes: template.bytes, fieldValues, isFlattened: args.flatten, password: args.password, maxFields: client.settings.maxFormFields }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
     return { data: { ...describeResult(savedFile, { template, ...prepared }), ...data, ...(brandName ? { brand: brandName } : {}) } };
-  },
+  }),
 };
 
 const fillDocxOperation = {
@@ -294,7 +286,7 @@ const fillDocxOperation = {
     },
     required: ["template"],
   },
-  run: async ({ client, args, signal, source }) => {
+  run: ({ client, args, signal, source }) => withMessageLanguage(() => resolveMessageLanguage(client, args, [args.values?.language]), async () => {
     assertIfExistsAllowed(args.if_exists, source);
     const template = await resolveTemplate(client, args.template, ["docx"]);
     const { rawValues, brandName } = await readFormValues(client, args);
@@ -303,7 +295,7 @@ const fillDocxOperation = {
     const { outputs } = await client.runTask("fill_docx", { bytes: template.bytes, values: { ...prepared.values, today: prepared.today }, settings: prepared.settings }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
     return { data: { ...describeResult(savedFile, { template, ...prepared }), ...(brandName ? { brand: brandName } : {}) } };
-  },
+  }),
 };
 
 export const documentOperations = [checkValuesOperation, renderPdfOperation, fillPdfFormOperation, fillDocxOperation];

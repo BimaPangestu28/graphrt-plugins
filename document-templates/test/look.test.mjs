@@ -172,11 +172,11 @@ test("render_pdf: a look changes the title, language, labels and hidden parts of
     await writeFile(join(inputDirectory, "tiny.png"), buildPng(8, 4));
     await writeFile(join(inputDirectory, "logo.svg"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
     for (const [badLook, expected] of [
-      [{ logo: "tiny.png" }, { kind: "invalid_input", message: /smaller than 16 pixels/ }],
-      [{ logo: "logo.svg" }, { kind: "invalid_input", message: /png, jpeg image/ }],
+      [{ logo: "tiny.png" }, { kind: "invalid_input", message: /lebih kecil dari 16 piksel/ }],
+      [{ logo: "logo.svg" }, { kind: "invalid_input", message: /harus berupa gambar png, jpeg/ }],
       [{ logo: "/etc/hostname" }, { kind: "not_found" }],
       [{ logo: "missing.png" }, { kind: "not_found" }],
-      [{ accent_color: "#FFFFFF" }, { kind: "invalid_input", message: /too light/ }],
+      [{ accent_color: "#FFFFFF" }, { kind: "invalid_input", message: /terlalu terang/ }],
     ]) await assert.rejects(runOperation("render_pdf", { values, look: badLook, file_name: "bad" }, AS_TOOL), expected, JSON.stringify(badLook));
   }));
 
@@ -190,8 +190,9 @@ test("save_brand: saved once, used for every later document, changed part by par
     await writeFile(join(inputDirectory, "logo.png"), buildPng(320, 120));
     const saved = await runOperation("save_brand", { ...BRAND, look: { ...BRAND.look, logo: "logo.png" } }, AS_TOOL);
     assert.deepEqual([saved.data.name, saved.data.look.logo, saved.data.logo_checked.width, saved.data.look.accent_color], ["default", join(inputDirectory, "logo.png"), 320, "#1F3A5F"]);
-    assert.match(saved.data.used_for, /^Every document from now on/);
-    assert.match(saved.data.used_for, /logo and colour are not added/);
+    // The brand is saved in Indonesian, so what save_brand says is too.
+    assert.match(saved.data.used_for, /^Setiap dokumen mulai sekarang/);
+    assert.match(saved.data.used_for, /logo dan warna tidak ditambahkan/);
     assert.deepEqual(saved.data.word_and_form_placeholders, ["{{business.name}}", "{{business.address | join}}", "{{payment.bank}}", "{{payment.no_rekening}}", "{{notes}}"]);
     assert.deepEqual(await readdir(join(outputDirectory, ".document-templates", "brands")), ["default.json"]);
 
