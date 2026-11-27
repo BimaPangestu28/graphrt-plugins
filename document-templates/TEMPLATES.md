@@ -47,6 +47,7 @@ A template is data. It cannot run code, read files, or load anything from the ne
 | `page` | `size` (`A3`, `A4`, `A5`, `LETTER`, `LEGAL` or `{"width", "height"}` in points), `orientation`, `margins` `[left, top, right, bottom]`, `background_color`, `background_pdf` (a PDF inside the allowed input folders, drawn under every page) |
 | `defaults` | Text style of the whole document |
 | `styles` | Named styles, used with `"style": "name"` |
+| `colors` | Named colours, at most 20: `{"accent": "#1C1C1A"}`. Any colour property may then say `"@accent"` instead of a hex code, so a colour is changed in one place. The name `accent` is special: `look.accent_color` and a saved brand replace it, which is how people recolour a template without opening it |
 | `labels` | Fixed texts per language: `{"en": {...}, "id": {...}}`, read as `{{labels.name}}`. The document's `language` picks one; the values' own `labels` replace single texts |
 | `fields` | What the template needs: `[{"name", "required", "description"}]`. Required fields are checked before anything is drawn |
 | `sample_values` | Example values, shown by `describe_template` |
@@ -56,7 +57,11 @@ A template is data. It cannot run code, read files, or load anything from the ne
 | `content` | The list of parts that make up the document |
 | `bottom` | A block pinned to the foot of the last page (notes, signatures) |
 
-Sizes are in points (72 per inch; A4 is 595 x 842). Colours are hex: `#1C1C1A`.
+Sizes are in points (72 per inch; A4 is 595 x 842). Colours are hex (`#1C1C1A`) or a named colour (`@accent`).
+
+A template that follows the ready-made invoice works with `look` and saved brands without anything extra: the
+logo is `seller.logo`, the title is `labels.title`, the language picks the `labels`, and hidden parts are the
+flags `flags.has_period` and `flags.has_quantity` and the values `payment.details` and `notes`.
 
 ## Placeholders
 `{{path}}` reads a value: `{{client.name}}`, `{{items.0.description}}`. A missing value is empty. A list of texts

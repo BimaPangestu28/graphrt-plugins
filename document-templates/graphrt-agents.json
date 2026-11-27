@@ -1,0 +1,18 @@
+{
+  "agents": [
+    {
+      "id": "make-invoice",
+      "title": "Make an invoice",
+      "description": "Asks for the client, the items, the tax and the currency, then makes the invoice PDF with the next running number and tells you where the file is. Works without an AI model.",
+      "language": "en",
+      "workflow": "agents/make-invoice.yaml"
+    },
+    {
+      "id": "buat-invoice",
+      "title": "Buat invoice",
+      "description": "Menanyakan klien, daftar item, pajak dan mata uang, lalu membuat PDF invoice dengan nomor urut berikutnya dan memberi tahu di mana filenya. Berjalan tanpa model AI.",
+      "language": "id",
+      "workflow": "agents/buat-invoice.yaml"
+    }
+  ]
+}

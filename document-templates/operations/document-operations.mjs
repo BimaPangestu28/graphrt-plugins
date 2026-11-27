@@ -71,7 +71,7 @@ function describeResult(savedFile, { template, values, settings, isCalculated })
 const renderPdfOperation = {
   name: "render_pdf",
   title: "Create a PDF from a template",
-  description: "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
+  description: "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. `look` gives it your logo, colour, title and language and hides parts you do not use; what save_brand saved is used by itself. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
   parameters: {
     type: "object",
     properties: {
