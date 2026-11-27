@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { buildManifest } from "../lib/shared/operations.mjs";
 import { pluginDefinition } from "../definition.mjs";
 import { readDocumentSettings } from "../lib/client.mjs";
@@ -25,7 +25,7 @@ test("manifest: local only, no secrets, six tools, limits and folders declared",
 });
 
 test("settings: limits and font files are validated", () => {
-  assert.deepEqual(readDocumentSettings({ HOME: "/home/someone", DOCUMENT_TEMPLATES_FONTS: "~/fonts/NotoSansJP-Regular.ttf, /fonts/collection.TTC" }).extraFontPaths, ["/home/someone/fonts/NotoSansJP-Regular.ttf", "/fonts/collection.TTC"]);
+  assert.deepEqual(readDocumentSettings({ HOME: "/home/someone", DOCUMENT_TEMPLATES_FONTS: "~/fonts/NotoSansJP-Regular.ttf, /fonts/collection.TTC" }).extraFontPaths, [join("/home/someone", "fonts", "NotoSansJP-Regular.ttf"), resolve("/fonts/collection.TTC")]);
   for (const environment of [{ DOCUMENT_TEMPLATES_FONTS: "relative.ttf" }, { DOCUMENT_TEMPLATES_FONTS: "/fonts/font.woff2" }, { DOCUMENT_TEMPLATES_FONTS: Array(9).fill("/f.ttf").join(",") }, { DOCUMENT_TEMPLATES_MAX_PAGES: "0" }, { DOCUMENT_TEMPLATES_TIMEOUT_MS: "999999999" }]) {
     assert.throws(() => readDocumentSettings(environment), { kind: "invalid_input" }, JSON.stringify(environment));
   }

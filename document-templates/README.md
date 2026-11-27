@@ -236,7 +236,8 @@ then drawn with it. A character that no font has is an error that names it, neve
   link, atomically.
 - **Isolation:** laying out pages and parsing PDFs, Word files, images and fonts runs in a short-lived child
   process that gets bytes over IPC. `DOCUMENT_TEMPLATES_MAX_MEMORY_MB` is enforced as the V8 heap cap and by an
-  RSS watchdog; on timeout, cancel or the memory budget the child is killed with SIGKILL.
+  RSS watchdog; on timeout, cancel or the memory budget the child is killed with SIGKILL. On Windows the watchdog
+  cannot read the child's memory (it uses `ps`), so the heap cap and the timeout are the limits there.
 - **Caps:** input and output bytes, 2 MiB of values, 2000 line items, 100000 layout parts after loops are
   unrolled, 20 images, 2000 form fields, pages per document (`DOCUMENT_TEMPLATES_MAX_PAGES`).
 - **Agents vs nodes:** all six operations are available as tools. They read only allowlisted files and add new
