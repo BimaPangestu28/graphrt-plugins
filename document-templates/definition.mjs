@@ -25,7 +25,7 @@ import { templateOperations } from "./operations/template-operations.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "document-templates",
-    version: "0.5.0",
+    version: "0.6.0",
     description: "Invoices and other documents from templates, fully local: a ready-made invoice with your logo, colour and wording or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
     // The output folder first: it is the one setting a user has to fill in; every other one has a default.
     extraEnv: [FILE_VARIABLES.outputDir, FILE_VARIABLES.inputDirs, FILE_VARIABLES.maxInputBytes, FILE_VARIABLES.maxOutputBytes, ...LIMIT_VARIABLES, FONTS_VARIABLE],

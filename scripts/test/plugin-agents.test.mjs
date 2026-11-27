@@ -86,6 +86,10 @@ test("a ready-made workflow uses only safe steps, and asks before every step tha
   assert.match(findWorkflowProblems(numberBeforeAsking, "acme").join("; "), /^step `number` \(acme\.next_number\) creates or changes something and can run before the person approves/);
   const sidePath = workflow([START, ASK, { id: "branch", type: "if-else" }, RENDER, END], [["start", "ask"], ["start", "branch"], ["ask", "render", "yes"], ["branch", "render", "false"], ["render", "end"]]);
   assert.match(findWorkflowProblems(sidePath, "acme").join("; "), /step `render`/);
+  const checksFirst = workflow([START, { id: "check", type: "acme.check_values" }, ASK, RENDER, END], [["start", "check"], ["check", "ask"], ["ask", "render", "yes"], ["render", "end"]]);
+  assert.deepEqual(findWorkflowProblems(checksFirst, "acme"), []);
+  // A reading verb first is not enough when the name also sends, as graphrt Desktop decides too.
+  assert.match(findWorkflowProblems(workflow([START, { id: "x", type: "acme.check_and_send" }, END], [["start", "x"], ["x", "end"]]), "acme").join("; "), /step `x`/);
   // "listing" and "getter" are not read operations; only whole words before `_` count.
   assert.match(findWorkflowProblems(workflow([START, { id: "x", type: "acme.listing_delete" }, END], [["start", "x"], ["x", "end"]]), "acme").join("; "), /step `x`/);
 

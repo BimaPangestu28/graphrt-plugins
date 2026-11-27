@@ -33,8 +33,17 @@ export const MAX_AGENT_TITLE_LENGTH = 120;
 export const MAX_AGENT_DESCRIPTION_LENGTH = 400;
 /** Core node kinds a ready-made agent may use: none of them reaches the network, a shell, code or a model. */
 export const SAFE_CORE_NODE_KINDS = Object.freeze(["start", "end", "answer", "human-input", "template-transform", "if-else", "variable-aggregator"]);
-/** An operation whose name starts with one of these only reads; every other one needs the person's approval first. */
-export const READ_OPERATION_PREFIXES = Object.freeze(["get", "list", "search", "find", "read", "fetch", "lookup"]);
+/**
+ * An operation whose name starts with one of these only reads; every other one needs the person's approval first.
+ * Each is also a reading verb in graphrt Desktop (src-tauri/src/plugins/sending.rs, READING_VERBS), which decides
+ * whether a ready-made agent is offered.
+ */
+export const READ_OPERATION_PREFIXES = Object.freeze(["get", "list", "search", "find", "read", "fetch", "lookup", "check"]);
+/**
+ * Words that make an operation one that sends or changes something wherever they appear in its name
+ * (`check_and_send`), as graphrt Desktop's SENDING_WORDS in the same file do.
+ */
+export const SENDING_OPERATION_WORDS = Object.freeze(["send", "publish", "notify", "dispatch", "reply", "upload", "create", "update", "delete", "remove", "write", "put", "patch", "insert", "upsert", "edit", "modify", "mutate", "cancel", "refund", "pay", "charge", "transfer", "invite", "approve", "submit", "execute", "tweet", "repost", "broadcast", "forward", "push", "sync", "invoke", "trigger", "share"]);
 
 /**
  * Words that say whether an input must be filled in. graphrt Desktop adds its own marker to the label of an
@@ -174,7 +183,7 @@ export function findWorkflowProblems(workflow, pluginName) {
   for (const node of nodes) {
     if (!isOwnOperation(node) || !reachedWithoutApproval.has(node.id)) continue;
     const operationName = node.type.slice(operationPrefix.length);
-    const isRead = READ_OPERATION_PREFIXES.some((prefix) => operationName === prefix || operationName.startsWith(`${prefix}_`));
+    const isRead = READ_OPERATION_PREFIXES.some((prefix) => operationName === prefix || operationName.startsWith(`${prefix}_`)) && !operationName.split("_").some((word) => SENDING_OPERATION_WORDS.includes(word));
     if (!isRead) problems.push(`step \`${node.id}\` (${node.type}) creates or changes something and can run before the person approves; put a human-input step before it on every path`);
   }
   return problems;

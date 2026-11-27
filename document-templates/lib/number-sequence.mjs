@@ -11,6 +11,12 @@
  * directory. A lock file (created exclusively) serialises updates between
  * processes, and the file is replaced with rename(), so a crash never leaves
  * half a counter file.
+ *
+ * A document can also take its number only when it is saved
+ * (useNumberWhenSaved, render_pdf's `number_pattern`): it is drawn with the
+ * previewed next number, and under the lock that number is used and the file
+ * saved, or given back when saving fails. A document that cannot be made so
+ * never leaves a gap in the series.
  */
 import { promises as defaultFileSystem } from "node:fs";
 import { join } from "node:path";
@@ -98,6 +104,53 @@ export async function issueNextNumber(outputRoot, { pattern, date, startAt, isPr
     state.counters[counterName] = { last: sequence, updated_at: now().toISOString() };
     await writeState(fileSystem, statePath, state);
     return { number: format(sequence), sequence, counter: counterName, reserved: true };
+  } finally {
+    await releaseLock();
+  }
+}
+
+/**
+ * Uses the next number of a counter for a document, and only when the document is saved.
+ *
+ * The caller first previews the number (issueNextNumber with isPreview), draws the document with it, and then
+ * calls this. Under the lock the number is checked to still be the next one; if another call took it in the
+ * meantime nothing is saved and `isTaken` is true, so the caller draws again with the new next number. Otherwise
+ * the counter is moved on and `saveDocument` runs; when saving fails the counter is put back, so a failed
+ * document never leaves a used number behind.
+ *
+ * @param outputRoot - Real path of the output directory (string)
+ * @param request - `{pattern, date, startAt, sequence}`: sequence is the previewed one the document was drawn with (object)
+ * @param saveDocument - `async () => savedFile`, run while the counter is held (function)
+ * @param dependencies - `{fileSystem, now, sleep, platform}` overrides for tests (object, optional)
+ * @returns `{isTaken: true}`, or `{isTaken: false, saved, number, sequence, counter}` (object)
+ * @throws PluginError kinds `invalid_input` (bad pattern, counter file damaged), `plugin_error` (lock not obtained, I/O failure); what saveDocument throws
+ */
+export async function useNumberWhenSaved(outputRoot, { pattern, date, startAt, sequence }, saveDocument, dependencies = {}) {
+  const fileSystem = dependencies.fileSystem ?? defaultFileSystem;
+  const now = dependencies.now ?? (() => new Date());
+  const { counterName, format } = resolveNumberPattern(pattern, date);
+  const stateDirectory = join(outputRoot, STATE_DIRECTORY_NAME);
+  const statePath = join(stateDirectory, STATE_FILE_NAME);
+  await fileSystem.mkdir(stateDirectory, { recursive: true });
+  const releaseLock = await acquireLock(fileSystem, join(stateDirectory, LOCK_FILE_NAME), now, dependencies.sleep ?? defaultSleep, dependencies.platform ?? process.platform);
+  try {
+    const state = await readState(fileSystem, statePath);
+    if (nextSequence(state, counterName, startAt) !== sequence) return { isTaken: true };
+    if (!Object.hasOwn(state.counters, counterName) && Object.keys(state.counters).length >= MAX_COUNTERS) throw invalidInput(`The numbering file already has ${MAX_COUNTERS} counters; remove old ones from ${STATE_DIRECTORY_NAME}/${STATE_FILE_NAME}`);
+    const previousState = { version: 1, counters: { ...state.counters } };
+    state.counters[counterName] = { last: sequence, updated_at: now().toISOString() };
+    // The counter is written first: a document saved under a number the file does not remember would be given again.
+    await writeState(fileSystem, statePath, state);
+    let saved;
+    try {
+      saved = await saveDocument();
+    } catch (saveError) {
+      await writeState(fileSystem, statePath, previousState).catch((restoreError) => {
+        throw operationFailed(`The document was not saved, and the number ${format(sequence)} could not be given back (${restoreError.message}); the next document gets the number after it`);
+      });
+      throw saveError;
+    }
+    return { isTaken: false, saved, number: format(sequence), sequence, counter: counterName };
   } finally {
     await releaseLock();
   }
