@@ -11,11 +11,21 @@ import { fingerprintHostKey } from "../lib/host-key.mjs";
 
 const ssh2 = await import("ssh2").then((module) => module.default ?? module, () => null);
 
+// About one ed25519 key in 256 that ssh2 1.17.0 generates is refused by its own parser ("Malformed OpenSSH
+// private key"), as a host key too. Such a key is thrown away and another one made.
+function generateHostKey() {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const keys = ssh2.utils.generateKeyPairSync("ed25519");
+    const parsedKey = ssh2.utils.parseKey(keys.private);
+    if (!(parsedKey instanceof Error)) return { privateKey: keys.private, fingerprint: fingerprintHostKey(parsedKey.getPublicSSH()) };
+  }
+  throw new Error("ssh2 generated no usable host key in 50 attempts");
+}
+
 async function withRejectingServer(work) {
-  const keys = ssh2.utils.generateKeyPairSync("ed25519");
-  const fingerprint = fingerprintHostKey(ssh2.utils.parseKey(keys.private).getPublicSSH());
+  const { privateKey, fingerprint } = generateHostKey();
   const counters = { authAttempts: 0 };
-  const server = new ssh2.Server({ hostKeys: [keys.private] }, (connection) => {
+  const server = new ssh2.Server({ hostKeys: [privateKey] }, (connection) => {
     connection.on("authentication", (context) => {
       counters.authAttempts += 1;
       context.reject();
