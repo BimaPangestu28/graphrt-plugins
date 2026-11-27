@@ -109,7 +109,9 @@ function readTaxes(rawTaxes) {
   if (!isPresent(rawTaxes)) return [];
   if (!Array.isArray(rawTaxes)) throw invalidInput("`taxes` must be a list such as [{\"name\": \"PPN\", \"rate\": 11}]");
   if (rawTaxes.length > MAX_TAXES) throw invalidInput(`\`taxes\` has ${rawTaxes.length} entries, over the limit of ${MAX_TAXES}`);
-  return rawTaxes.map((tax, index) => {
+  // A tax line whose rate was left empty on purpose (a form field nobody filled in: `rate: ""`) is no tax at all.
+  const givenTaxes = rawTaxes.filter((tax) => !(typeof tax === "object" && tax !== null && Object.hasOwn(tax, "rate") && !isPresent(tax.rate)));
+  return givenTaxes.map((tax, index) => {
     if (typeof tax !== "object" || tax === null || !isPresent(tax.rate)) throw invalidInput(`\`taxes[${index}]\` needs \`name\` and \`rate\` (a percentage; negative for a withholding)`);
     return { name: String(tax.name ?? "Tax"), rate: parseRate(tax.rate, `taxes[${index}].rate`), rateText: trimRate(tax.rate) };
   });

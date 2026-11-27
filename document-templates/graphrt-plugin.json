@@ -1,7 +1,7 @@
 {
   "name": "document-templates",
-  "version": "0.3.1",
-  "description": "Invoices and other documents from templates, fully local: a ready-made invoice or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
+  "version": "0.4.0",
+  "description": "Invoices and other documents from templates, fully local: a ready-made invoice with your logo, colour and wording or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
   "license": "Apache-2.0",
   "runtime": "process",
   "command": "node",
@@ -91,7 +91,7 @@
     {
       "kind": "document-templates.save_template_copy",
       "title": "Save a copy of a template to change",
-      "description": "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its texts, colours and layout while the original stays as it is. Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
+      "description": "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its layout while the original stays as it is (for a logo, a colour, the title, the language or hidden columns no copy is needed: see save_brand). Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -165,9 +165,94 @@
       ]
     },
     {
+      "kind": "document-templates.save_brand",
+      "title": "Save the look of your documents",
+      "description": "Saves how your documents look and your own details, once, so that every later invoice uses them: a logo, an accent colour, the document's title, the language, other label texts, which optional parts show, your business name and address, your payment details and standard notes. Give only what should change; everything saved before stays. Nothing has to be edited in a template",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "look": {
+            "type": "object",
+            "description": "How the document looks, without changing a template: {\"logo\": \"logo.png\" (a PNG or JPEG in your templates folder), \"accent_color\": \"navy\" or \"#1D4ED8\", \"title\": \"Tax Invoice\", \"language\": \"en\" or \"id\", \"labels\": {\"tax\": \"PPN\"} (other label texts), \"show\": {\"period\": false, \"quantity\": false, \"payment_details\": false, \"notes\": false} (false hides that part)}. Every part is optional"
+          },
+          "seller": {
+            "type": "object",
+            "description": "Your own details, printed on every document: {\"name\": \"CV Kenanga Digital\", \"tagline\": \"Software studio\", \"address\": [\"Jalan Kenanga 12\", \"Bandung 40115\"], \"details\": [\"NPWP 00.000.000.0-000.000\", \"halo@kenanga.example\"]}"
+          },
+          "payment_details": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 12,
+            "description": "How you are paid, as label and value pairs: [{\"label\": \"Bank\", \"value\": \"Example Bank\"}, {\"label\": \"Account number\", \"value\": \"000 111 2222\"}]"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "description": "Notes printed at the foot of every document, one paragraph each"
+          },
+          "name": {
+            "type": "string",
+            "default": "default",
+            "description": "Only when you keep more than one brand: its name, e.g. \"studio\". The brand named \"default\" is used for every document"
+          },
+          "reset": {
+            "type": "boolean",
+            "default": false,
+            "description": "Start again: forget everything saved for this brand before and keep only what this call gives"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
+      "kind": "document-templates.show_brand",
+      "title": "Show the saved look of your documents",
+      "description": "Shows what is saved for your documents: the logo, accent colour, title, language, label texts, hidden parts, your own details, payment details and notes. Also lists the colour names an accent colour may use",
+      "category": "integration",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "default": "default",
+            "description": "Only when you keep more than one brand: its name, e.g. \"studio\". The brand named \"default\" is used for every document"
+          }
+        }
+      },
+      "outputs": [
+        {
+          "name": "data",
+          "type": "any",
+          "description": "API result"
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
+          "description": "Cursor for the next page, empty when there is none"
+        }
+      ]
+    },
+    {
       "kind": "document-templates.render_pdf",
       "title": "Create a PDF from a template",
-      "description": "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
+      "description": "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. `look` gives it your logo, colour, title and language and hides parts you do not use; what save_brand saved is used by itself. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -194,6 +279,15 @@
             ],
             "default": "auto",
             "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
+          },
+          "look": {
+            "type": "object",
+            "description": "How the document looks, without changing a template: {\"logo\": \"logo.png\" (a PNG or JPEG in your templates folder), \"accent_color\": \"navy\" or \"#1D4ED8\", \"title\": \"Tax Invoice\", \"language\": \"en\" or \"id\", \"labels\": {\"tax\": \"PPN\"} (other label texts), \"show\": {\"period\": false, \"quantity\": false, \"payment_details\": false, \"notes\": false} (false hides that part)}. Every part is optional"
+          },
+          "brand": {
+            "type": "string",
+            "default": "default",
+            "description": "Only when you keep more than one saved brand: its name, or `none` for a document without your saved look and details. The look saved with save_brand is used by itself"
           },
           "background": {
             "type": "string",
@@ -418,7 +512,7 @@
     },
     {
       "name": "save_template_copy",
-      "description": "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its texts, colours and layout while the original stays as it is. Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
+      "description": "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its layout while the original stays as it is (for a logo, a colour, the title, the language or hidden columns no copy is needed: see save_brand). Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
       "parameters": {
         "type": "object",
         "properties": {
@@ -465,8 +559,65 @@
       }
     },
     {
+      "name": "save_brand",
+      "description": "Saves how your documents look and your own details, once, so that every later invoice uses them: a logo, an accent colour, the document's title, the language, other label texts, which optional parts show, your business name and address, your payment details and standard notes. Give only what should change; everything saved before stays. Nothing has to be edited in a template",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "look": {
+            "type": "object",
+            "description": "How the document looks, without changing a template: {\"logo\": \"logo.png\" (a PNG or JPEG in your templates folder), \"accent_color\": \"navy\" or \"#1D4ED8\", \"title\": \"Tax Invoice\", \"language\": \"en\" or \"id\", \"labels\": {\"tax\": \"PPN\"} (other label texts), \"show\": {\"period\": false, \"quantity\": false, \"payment_details\": false, \"notes\": false} (false hides that part)}. Every part is optional"
+          },
+          "seller": {
+            "type": "object",
+            "description": "Your own details, printed on every document: {\"name\": \"CV Kenanga Digital\", \"tagline\": \"Software studio\", \"address\": [\"Jalan Kenanga 12\", \"Bandung 40115\"], \"details\": [\"NPWP 00.000.000.0-000.000\", \"halo@kenanga.example\"]}"
+          },
+          "payment_details": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 12,
+            "description": "How you are paid, as label and value pairs: [{\"label\": \"Bank\", \"value\": \"Example Bank\"}, {\"label\": \"Account number\", \"value\": \"000 111 2222\"}]"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "description": "Notes printed at the foot of every document, one paragraph each"
+          },
+          "name": {
+            "type": "string",
+            "default": "default",
+            "description": "Only when you keep more than one brand: its name, e.g. \"studio\". The brand named \"default\" is used for every document"
+          },
+          "reset": {
+            "type": "boolean",
+            "default": false,
+            "description": "Start again: forget everything saved for this brand before and keep only what this call gives"
+          }
+        }
+      }
+    },
+    {
+      "name": "show_brand",
+      "description": "Shows what is saved for your documents: the logo, accent colour, title, language, label texts, hidden parts, your own details, payment details and notes. Also lists the colour names an accent colour may use",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "default": "default",
+            "description": "Only when you keep more than one brand: its name, e.g. \"studio\". The brand named \"default\" is used for every document"
+          }
+        }
+      }
+    },
+    {
       "name": "render_pdf",
-      "description": "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
+      "description": "Creates a PDF document, such as an invoice, from a template and your values: the ready-made `invoice`, or your own template. Totals are calculated for you and a long list of items continues on the next page. `look` gives it your logo, colour, title and language and hides parts you do not use; what save_brand saved is used by itself. The PDF is saved in your documents folder, sorted by year and month (2026/11/INV-2026-0001.pdf), and a document that is already there is never replaced. The result says where the file is",
       "parameters": {
         "type": "object",
         "properties": {
@@ -492,6 +643,15 @@
             ],
             "default": "auto",
             "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
+          },
+          "look": {
+            "type": "object",
+            "description": "How the document looks, without changing a template: {\"logo\": \"logo.png\" (a PNG or JPEG in your templates folder), \"accent_color\": \"navy\" or \"#1D4ED8\", \"title\": \"Tax Invoice\", \"language\": \"en\" or \"id\", \"labels\": {\"tax\": \"PPN\"} (other label texts), \"show\": {\"period\": false, \"quantity\": false, \"payment_details\": false, \"notes\": false} (false hides that part)}. Every part is optional"
+          },
+          "brand": {
+            "type": "string",
+            "default": "default",
+            "description": "Only when you keep more than one saved brand: its name, or `none` for a document without your saved look and details. The look saved with save_brand is used by itself"
           },
           "background": {
             "type": "string",

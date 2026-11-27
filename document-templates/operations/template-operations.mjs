@@ -105,7 +105,7 @@ const nextNumberOperation = {
 const saveTemplateCopyOperation = {
   name: "save_template_copy",
   title: "Save a copy of a template to change",
-  description: "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its texts, colours and layout while the original stays as it is. Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
+  description: "Saves your own copy of a ready-made template in your documents folder (in the folder Templates), so that you can change its layout while the original stays as it is (for a logo, a colour, the title, the language or hidden columns no copy is needed: see save_brand). Nothing is ever replaced: when the name is taken, the copy gets a number. To use your copy, give its `path` as `template` when creating a PDF",
   parameters: {
     type: "object",
     properties: {
@@ -125,7 +125,7 @@ const saveTemplateCopyOperation = {
       data: {
         ...savedFile,
         copied_from: templateName,
-        how_to_use: `To create a PDF with this copy, pass ${JSON.stringify(savedFile.path)} as \`template\` to render_pdf. Open the file in a text editor to change texts (\`labels\`), colours and sizes (\`styles\`) and the layout (\`content\`); describe_template with the same path shows its fields`,
+        how_to_use: `To create a PDF with this copy, pass ${JSON.stringify(savedFile.path)} as \`template\` to render_pdf. Open the file in a text editor to change texts (\`labels\`), colours and sizes (\`styles\`) and the layout (\`content\`); describe_template with the same path shows its fields. For a logo, an accent colour, another title or language, or hidden columns no copy is needed: use \`look\` on render_pdf, or save_brand to keep them for every document`,
       },
     };
   },

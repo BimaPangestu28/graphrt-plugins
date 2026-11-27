@@ -1,0 +1,91 @@
+# Agent siap pakai "Buat invoice": tidak ada langkah yang memakai model AI.
+# Agent ini menanyakan klien, daftar item, pajak dan mata uang, meminta persetujuan sebelum membuat apa pun,
+# mengambil nomor invoice berikutnya, membuat PDF dengan template invoice bawaan di folder tahun/bulan,
+# lalu memberi tahu di mana filenya.
+#   graphrt run document-templates/agents/buat-invoice.yaml --plugins . -i client_name="PT Maju Bersama" -i seller_name="CV Kenanga Digital"
+version: "1"
+name: buat-invoice
+description: Membuat invoice PDF dengan nomor urut berikutnya, setelah Anda setujui, lalu memberi tahu di mana filenya.
+graph:
+  nodes:
+    - id: start
+      type: start
+      variables:
+        - { variable: client_name, type: text-input, required: true, max_length: 200, label: Nama klien }
+        - { variable: client_address, type: paragraph, required: false, max_length: 600, label: Alamat klien (opsional) }
+        - variable: items
+          type: json
+          required: true
+          label: "Daftar item (deskripsi, jumlah, satuan, harga satuan)"
+          default:
+            - { description: Jasa konsultasi, quantity: 8, unit: jam, unit_price: 350000 }
+            - { description: Hosting situs web, quantity: 1, unit: bulan, unit_price: 250000 }
+        - { variable: tax_name, type: text-input, required: false, max_length: 40, label: Nama pajak, default: PPN }
+        - { variable: tax_percent, type: number, required: false, label: Tarif pajak dalam persen (kosongkan bila tanpa pajak) }
+        - { variable: currency, type: text-input, required: true, max_length: 3, label: "Mata uang (IDR, USD, SGD...)", default: IDR }
+        - { variable: seller_name, type: text-input, required: true, max_length: 200, label: Nama Anda atau nama usaha Anda }
+
+    - id: approve
+      type: human-input
+      title: Tanya sebelum membuat invoice
+      prompt: "Buat invoice ini? Invoice akan memakai nomor urut berikutnya.\n\nKlien: {{#start.client_name#}}\nMata uang: {{#start.currency#}}\nPajak: {{#start.tax_name#}} {{#start.tax_percent#}}\nItem: {{#start.items#}}"
+      actions:
+        - { id: create, title: Buat invoice }
+        - { id: cancel, title: Batal }
+
+    - id: take_number
+      type: document-templates.next_number
+      title: Ambil nomor invoice berikutnya
+      pattern: "INV-{YYYY}-{SEQ:4}"
+
+    - id: create_pdf
+      type: document-templates.render_pdf
+      title: Buat dan simpan PDF invoice
+      template: invoice
+      values:
+        number: "{{#take_number.data.number#}}"
+        currency: "{{#start.currency#}}"
+        language: id
+        seller: { name: "{{#start.seller_name#}}" }
+        client: { name: "{{#start.client_name#}}", address: "{{#start.client_address#}}" }
+        items: "{{#start.items#}}"
+        taxes:
+          - { name: "{{#start.tax_name#}}", rate: "{{#start.tax_percent#}}" }
+
+    - id: write_summary
+      type: template-transform
+      title: Beri tahu di mana invoicenya
+      template: "Invoice {{ number }} untuk {{ client }} sudah jadi. Total tagihan: {{ total }}.\nDisimpan sebagai {{ path }}"
+      variables:
+        - { variable: number, value_selector: [create_pdf, data, number] }
+        - { variable: client, value_selector: [start, client_name] }
+        - { variable: total, value_selector: [create_pdf, data, totals, balance_due_text] }
+        - { variable: path, value_selector: [create_pdf, data, path] }
+
+    - id: write_cancelled
+      type: template-transform
+      title: Beri tahu bahwa tidak ada yang dibuat
+      template: "Tidak ada invoice yang dibuat dan tidak ada nomor yang terpakai."
+      variables: []
+
+    - id: result
+      type: variable-aggregator
+      title: Hasil
+      variables:
+        - [write_summary, output]
+        - [write_cancelled, output]
+
+    - id: end
+      type: end
+      outputs:
+        - { variable: summary, value_selector: [result, output] }
+
+  edges:
+    - { source: start, target: approve }
+    - { source: approve, target: take_number, handle: create }
+    - { source: approve, target: write_cancelled, handle: cancel }
+    - { source: take_number, target: create_pdf }
+    - { source: create_pdf, target: write_summary }
+    - { source: write_summary, target: result }
+    - { source: write_cancelled, target: result }
+    - { source: result, target: end }

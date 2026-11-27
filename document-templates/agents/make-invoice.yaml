@@ -1,0 +1,91 @@
+# Ready-made agent "Make an invoice": no AI model is involved in any step.
+# It asks for the client, the items, the tax and the currency, asks before anything is created,
+# takes the next invoice number, creates the PDF with the ready-made invoice template in the
+# usual year/month folder, and says where the file is.
+#   graphrt run document-templates/agents/make-invoice.yaml --plugins . -i client_name="Northwind Analytics Ltd" -i seller_name="Rina Wijaya"
+version: "1"
+name: make-invoice
+description: Makes an invoice PDF with the next running number, after you approve it, and tells you where the file is.
+graph:
+  nodes:
+    - id: start
+      type: start
+      variables:
+        - { variable: client_name, type: text-input, required: true, max_length: 200, label: Client name }
+        - { variable: client_address, type: paragraph, required: false, max_length: 600, label: Client address (optional) }
+        - variable: items
+          type: json
+          required: true
+          label: "Items (description, quantity, unit, unit price)"
+          default:
+            - { description: Consulting, quantity: 8, unit: hours, unit_price: 85 }
+            - { description: Website hosting, quantity: 1, unit: month, unit_price: 24.5 }
+        - { variable: tax_name, type: text-input, required: false, max_length: 40, label: Tax name, default: VAT }
+        - { variable: tax_percent, type: number, required: false, label: Tax percent (leave empty for no tax) }
+        - { variable: currency, type: text-input, required: true, max_length: 3, label: "Currency (USD, EUR, SGD, IDR...)", default: USD }
+        - { variable: seller_name, type: text-input, required: true, max_length: 200, label: Your name or business name }
+
+    - id: approve
+      type: human-input
+      title: Ask before making the invoice
+      prompt: "Make this invoice? It gets the next invoice number.\n\nClient: {{#start.client_name#}}\nCurrency: {{#start.currency#}}\nTax: {{#start.tax_name#}} {{#start.tax_percent#}}\nItems: {{#start.items#}}"
+      actions:
+        - { id: create, title: Make the invoice }
+        - { id: cancel, title: Cancel }
+
+    - id: take_number
+      type: document-templates.next_number
+      title: Take the next invoice number
+      pattern: "INV-{YYYY}-{SEQ:4}"
+
+    - id: create_pdf
+      type: document-templates.render_pdf
+      title: Make and save the invoice PDF
+      template: invoice
+      values:
+        number: "{{#take_number.data.number#}}"
+        currency: "{{#start.currency#}}"
+        language: en
+        seller: { name: "{{#start.seller_name#}}" }
+        client: { name: "{{#start.client_name#}}", address: "{{#start.client_address#}}" }
+        items: "{{#start.items#}}"
+        taxes:
+          - { name: "{{#start.tax_name#}}", rate: "{{#start.tax_percent#}}" }
+
+    - id: write_summary
+      type: template-transform
+      title: Say where the invoice is
+      template: "Invoice {{ number }} for {{ client }} is ready. Total due: {{ total }}.\nSaved as {{ path }}"
+      variables:
+        - { variable: number, value_selector: [create_pdf, data, number] }
+        - { variable: client, value_selector: [start, client_name] }
+        - { variable: total, value_selector: [create_pdf, data, totals, balance_due_text] }
+        - { variable: path, value_selector: [create_pdf, data, path] }
+
+    - id: write_cancelled
+      type: template-transform
+      title: Say that nothing was made
+      template: "No invoice was made and no number was used."
+      variables: []
+
+    - id: result
+      type: variable-aggregator
+      title: Result
+      variables:
+        - [write_summary, output]
+        - [write_cancelled, output]
+
+    - id: end
+      type: end
+      outputs:
+        - { variable: summary, value_selector: [result, output] }
+
+  edges:
+    - { source: start, target: approve }
+    - { source: approve, target: take_number, handle: create }
+    - { source: approve, target: write_cancelled, handle: cancel }
+    - { source: take_number, target: create_pdf }
+    - { source: create_pdf, target: write_summary }
+    - { source: write_summary, target: result }
+    - { source: write_cancelled, target: result }
+    - { source: result, target: end }
