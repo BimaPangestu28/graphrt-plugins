@@ -9,10 +9,9 @@ import { Scope, interpolate } from "../lib/expressions.mjs";
 import { CALCULATE_PARAMETER, VALUES_PARAMETERS, prepareValues, readValues, summariseTotals } from "../lib/document-values.mjs";
 import { expandLayout, listMissingFields } from "../lib/layout-template.mjs";
 import { FILING_PARAMETERS, assertIfExistsAllowed, buildFilingTokens, resolveFilingPlan } from "../lib/output-organiser.mjs";
+import { PDF_PASSWORD_PARAMETER } from "../lib/pdf-form.mjs";
 import { assertRasterFormat } from "../lib/raster-format.mjs";
 import { resolveTemplate } from "../lib/template-library.mjs";
-
-const MAX_FORM_FIELDS = 2000;
 
 async function readPdfInput(client, rawPath, parameterName) {
   const file = await client.fileAccess.readInputFile(rawPath, { parameterName });
@@ -86,7 +85,8 @@ async function readFieldMap(client, args) {
   if (args.fields === undefined && args.fields_file === undefined) throw invalidInput("`fields` is required: an object of form field names and their values (describe_template lists the names)");
   const fieldMap = args.fields ?? (await readValues(client, { values_file: args.fields_file }));
   const entries = Object.entries(fieldMap);
-  if (entries.length === 0 || entries.length > MAX_FORM_FIELDS) throw invalidInput(`\`fields\` must name 1 to ${MAX_FORM_FIELDS} form fields`);
+  const { maxFormFields } = client.settings;
+  if (entries.length === 0 || entries.length > maxFormFields) throw invalidInput(`\`fields\` must name 1 to ${maxFormFields} form fields`);
   return entries;
 }
 
@@ -102,7 +102,7 @@ function fillFieldValues(fieldEntries, prepared) {
 const fillPdfFormOperation = {
   name: "fill_pdf_form",
   title: "Fill in a PDF form",
-  description: "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
+  description: "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. A protected form, as many official forms are, is filled in too, and the result is saved without the protection. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
   parameters: {
     type: "object",
     properties: {
@@ -111,6 +111,7 @@ const fillPdfFormOperation = {
       fields_file: { type: "string", description: "Instead of `fields`: a .json file with the field names and values, in your templates folder (reusable for every document from this form)" },
       ...VALUES_PARAMETERS,
       calculate: CALCULATE_PARAMETER,
+      password: PDF_PASSWORD_PARAMETER,
       flatten: { type: "boolean", default: true, description: "Make the filled-in values a fixed part of the page, so that nobody can change them afterwards (default true)" },
       ...FILING_PARAMETERS,
     },
@@ -123,7 +124,7 @@ const fillPdfFormOperation = {
     const prepared = prepareValues(await readValues(client, args, { isRequired: false }), { calculate: args.calculate, templateCalculates: null, now: client.now() });
     const fieldValues = fillFieldValues(fieldEntries, prepared);
     const filingPlan = await planFiling(client, args, { values: prepared.values, templateName: template.name, extension: "pdf" });
-    const { data, outputs } = await client.runTask("fill_pdf_form", { bytes: template.bytes, fieldValues, isFlattened: args.flatten }, signal);
+    const { data, outputs } = await client.runTask("fill_pdf_form", { bytes: template.bytes, fieldValues, isFlattened: args.flatten, password: args.password, maxFields: client.settings.maxFormFields }, signal);
     const savedFile = await client.organiser.saveDocument({ plan: filingPlan, bytes: Buffer.from(outputs[0]), ifExists: args.if_exists });
     return { data: { ...describeResult(savedFile, { template, ...prepared }), ...data } };
   },

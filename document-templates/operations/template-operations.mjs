@@ -5,7 +5,7 @@
 import { FILTER_NAMES } from "../lib/expressions.mjs";
 import { listTemplatePlaceholders } from "../lib/layout-template.mjs";
 import { DEFAULT_NUMBER_PATTERN, issueNextNumber, readNumberDate } from "../lib/number-sequence.mjs";
-import { XFA_ONLY_MESSAGE } from "../lib/pdf-form.mjs";
+import { FILLING_FORBIDDEN_MESSAGE, PDF_PASSWORD_PARAMETER, XFA_ONLY_MESSAGE } from "../lib/pdf-form.mjs";
 import { invalidInput } from "../lib/errors.mjs";
 import { toSafeSegment } from "../lib/output-organiser.mjs";
 import { BUILT_IN_TEMPLATE_NAMES, loadBuiltInTemplate, readBuiltInTemplateText, resolveTemplate } from "../lib/template-library.mjs";
@@ -36,7 +36,13 @@ const listTemplatesOperation = {
   },
 };
 
-async function describe(client, template, signal, includeLayout) {
+function describePdfHint(data) {
+  if (data.is_xfa_only) return XFA_ONLY_MESSAGE;
+  if (!data.is_form) return "This PDF has no form fields, so it cannot be filled in. Use render_pdf with the built-in invoice template, or a layout template with this PDF as its `background`";
+  return data.filling_allowed ? null : FILLING_FORBIDDEN_MESSAGE;
+}
+
+async function describe(client, template, signal, { includeLayout, password }) {
   if (template.kind === "layout") {
     const { layout } = template;
     return {
@@ -54,9 +60,8 @@ async function describe(client, template, signal, includeLayout) {
     const { data } = await client.runTask("inspect_docx", { bytes: template.bytes }, signal);
     return { kind: "docx", operation: "fill_docx", name: template.name, path: template.path, ...data, filters: FILTER_NAMES };
   }
-  const { data } = await client.runTask("inspect_pdf_form", { bytes: template.bytes }, signal);
-  const hint = data.is_form ? null : data.is_xfa_only ? XFA_ONLY_MESSAGE : "This PDF has no form fields, so it cannot be filled in. Use render_pdf with the built-in invoice template, or a layout template with this PDF as its `background`";
-  return { kind: data.is_form ? "pdf_form" : "pdf", operation: data.is_form ? "fill_pdf_form" : null, name: template.name, path: template.path, ...data, hint };
+  const { data } = await client.runTask("inspect_pdf_form", { bytes: template.bytes, password, maxFields: client.settings.maxFormFields }, signal);
+  return { kind: data.is_form ? "pdf_form" : "pdf", operation: data.is_form ? "fill_pdf_form" : null, name: template.name, path: template.path, ...data, hint: describePdfHint(data) };
 }
 
 const describeTemplateOperation = {
@@ -67,12 +72,13 @@ const describeTemplateOperation = {
     type: "object",
     properties: {
       template: { type: "string", default: "invoice", description: "`invoice` (the ready-made template), or a .json, .docx, .dotx or .pdf file in your templates folder" },
+      password: PDF_PASSWORD_PARAMETER,
       include_layout: { type: "boolean", default: false, description: "For the invoice or your own layout: also return the whole design. To get a copy you can change, use save_template_copy instead" },
     },
   },
   run: async ({ client, args, signal }) => {
     const template = await resolveTemplate(client, args.template, ["layout", "docx", "pdf"]);
-    return { data: await describe(client, template, signal, args.include_layout) };
+    return { data: await describe(client, template, signal, { includeLayout: args.include_layout, password: args.password }) };
   },
 };
 

@@ -1,6 +1,6 @@
 {
   "name": "document-templates",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Invoices and other documents from templates, fully local: a ready-made invoice or your own layout to PDF, fillable PDF forms and Word templates filled in, saved in tidy folders with running numbers",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -17,6 +17,7 @@
       "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES",
       "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES",
       "DOCUMENT_TEMPLATES_MAX_PAGES",
+      "DOCUMENT_TEMPLATES_MAX_FORM_FIELDS",
       "DOCUMENT_TEMPLATES_TIMEOUT_MS",
       "DOCUMENT_TEMPLATES_MAX_MEMORY_MB",
       "DOCUMENT_TEMPLATES_FONTS"
@@ -61,6 +62,11 @@
             "type": "string",
             "default": "invoice",
             "description": "`invoice` (the ready-made template), or a .json, .docx, .dotx or .pdf file in your templates folder"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "Only for a PDF that asks for a password when you open it: that password. It is used to open the file and is not saved or shown anywhere. Most protected forms open without one; leave this empty for them"
           },
           "include_layout": {
             "type": "boolean",
@@ -229,7 +235,7 @@
     {
       "kind": "document-templates.fill_pdf_form",
       "title": "Fill in a PDF form",
-      "description": "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
+      "description": "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. A protected form, as many official forms are, is filled in too, and the result is saved without the protection. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
       "category": "integration",
       "config_schema": {
         "type": "object",
@@ -263,6 +269,11 @@
             ],
             "default": "auto",
             "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "Only for a PDF that asks for a password when you open it: that password. It is used to open the file and is not saved or shown anywhere. Most protected forms open without one; leave this empty for them"
           },
           "flatten": {
             "type": "boolean",
@@ -392,6 +403,11 @@
             "default": "invoice",
             "description": "`invoice` (the ready-made template), or a .json, .docx, .dotx or .pdf file in your templates folder"
           },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "Only for a PDF that asks for a password when you open it: that password. It is used to open the file and is not saved or shown anywhere. Most protected forms open without one; leave this empty for them"
+          },
           "include_layout": {
             "type": "boolean",
             "default": false,
@@ -504,7 +520,7 @@
     },
     {
       "name": "fill_pdf_form",
-      "description": "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
+      "description": "Fills in a PDF form (a PDF with boxes you can type in) and saves the result as a new PDF in your documents folder. A protected form, as many official forms are, is filled in too, and the result is saved without the protection. `fields` says which value goes into which box; a value may use {{placeholders}} from `values`, including calculated totals such as {{totals.total | money}}. A PDF without such boxes (a scan, a picture, plain pages) cannot be filled in: use render_pdf",
       "parameters": {
         "type": "object",
         "properties": {
@@ -537,6 +553,11 @@
             ],
             "default": "auto",
             "description": "invoice: calculate line amounts, subtotal, discount, taxes and totals from `items` (exact decimals) and add them as `totals`; none: use the values as given; auto (default): a layout template decides (the built-in invoice calculates), a Word or PDF form template calculates when the values have `items`"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "Only for a PDF that asks for a password when you open it: that password. It is used to open the file and is not saved or shown anywhere. Most protected forms open without one; leave this empty for them"
           },
           "flatten": {
             "type": "boolean",
