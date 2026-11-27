@@ -1,6 +1,8 @@
 {
+  "lib/file-access.mjs": ["document-templates", "excel-csv", "ffmpeg", "image-tools", "local-files", "ocr-tesseract", "pdf-tools", "qr-code", "sftp"],
   "lib/isolated-task.mjs": ["document-templates", "excel-csv", "pdf-tools"],
   "lib/pdf-protection.mjs": ["document-templates", "pdf-tools"],
+  "test/file-access.test.mjs": ["excel-csv", "ffmpeg", "image-tools", "local-files", "ocr-tesseract", "pdf-tools", "qr-code", "sftp"],
   "test/isolated-task.test.mjs": ["document-templates", "excel-csv", "pdf-tools"],
   "test/protect-pdf.mjs": ["document-templates", "pdf-tools"]
 }

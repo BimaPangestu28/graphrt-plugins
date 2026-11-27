@@ -1,9 +1,13 @@
 {
   "name": "graphrt-plugin-file-watcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "graphrt plugin: notice file changes in allowed directories by polling",
   "type": "module",
-  "engines": { "node": ">=20" },
-  "scripts": { "test": "node --test test/*.test.mjs" }
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
 }
