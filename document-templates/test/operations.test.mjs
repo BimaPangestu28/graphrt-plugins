@@ -256,3 +256,15 @@ test("only the documents folder has to be set up: a copy of the invoice template
     await assert.rejects(runOperation("save_template_copy", { template: "report" }, AS_TOOL), (error) => error.kind === "invalid_input" && /ready-made template \(invoice\)/.test(error.message));
     await assert.rejects(runOperation("save_template_copy", { name: "..." }, AS_TOOL), { kind: "invalid_input" });
   }));
+
+test("graphrt-settings.json: only the documents folder is required, and each default is the one the plugin uses", async () => {
+  const { settings } = JSON.parse(await readFile(new URL("../graphrt-settings.json", import.meta.url), "utf8"));
+  const byName = Object.fromEntries(settings.map((setting) => [setting.name, setting]));
+  assert.deepEqual(Object.keys(byName).sort(), [...buildManifest(pluginDefinition).permissions.env].sort());
+  assert.deepEqual(settings.filter((setting) => setting.required).map((setting) => setting.name), ["DOCUMENT_TEMPLATES_OUTPUT_DIR"]);
+  const defaults = readDocumentSettings({});
+  assert.deepEqual(
+    ["MAX_INPUT_BYTES", "MAX_OUTPUT_BYTES", "MAX_PAGES", "TIMEOUT_MS", "MAX_MEMORY_MB"].map((suffix) => byName[`DOCUMENT_TEMPLATES_${suffix}`].default),
+    [defaults.files.maxInputBytes, defaults.files.maxOutputBytes, defaults.maxPages, defaults.timeoutMs, defaults.maxMemoryMb],
+  );
+});

@@ -1,0 +1,60 @@
+{
+  "settings": [
+    {
+      "name": "DOCUMENT_TEMPLATES_OUTPUT_DIR",
+      "label": "Folder for finished documents",
+      "help": "Where your invoices and other documents are saved, sorted by year and month. Nothing in it is ever replaced.",
+      "kind": "folder",
+      "required": true
+    },
+    {
+      "name": "DOCUMENT_TEMPLATES_INPUT_DIRS",
+      "label": "Folders with your own templates",
+      "help": "Only needed when you use your own templates, logo or letterhead: the folders they are in. The ready-made invoice works without it.",
+      "kind": "folder",
+      "multiple": true
+    },
+    {
+      "name": "DOCUMENT_TEMPLATES_FONTS",
+      "label": "Extra fonts",
+      "help": "Only needed for writing such as Chinese, Japanese, Korean or Thai: font files that have those characters.",
+      "kind": "file",
+      "multiple": true
+    },
+    {
+      "name": "DOCUMENT_TEMPLATES_MAX_PAGES",
+      "label": "Most pages in one document",
+      "help": "A document with more pages than this is not created.",
+      "kind": "number",
+      "default": 200
+    },
+    {
+      "name": "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES",
+      "label": "Largest template file (bytes)",
+      "help": "A template, logo or letterhead larger than this is not read. The usual limit is 20 MB.",
+      "kind": "number",
+      "default": 20971520
+    },
+    {
+      "name": "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES",
+      "label": "Largest finished document (bytes)",
+      "help": "A document larger than this is not saved. The usual limit is 50 MB.",
+      "kind": "number",
+      "default": 52428800
+    },
+    {
+      "name": "DOCUMENT_TEMPLATES_TIMEOUT_MS",
+      "label": "Longest time for one document (milliseconds)",
+      "help": "Creating a document is stopped when it takes longer than this. The usual limit is one minute.",
+      "kind": "number",
+      "default": 60000
+    },
+    {
+      "name": "DOCUMENT_TEMPLATES_MAX_MEMORY_MB",
+      "label": "Most memory for one document (MB)",
+      "help": "Creating a document is stopped when it needs more memory than this.",
+      "kind": "number",
+      "default": 768
+    }
+  ]
+}

@@ -101,6 +101,10 @@ that suits most people and can stay empty.
 
 The plugin is local only: it asks graphrt for no network access and no secrets, and nodes have no `access_token`.
 
+[`graphrt-settings.json`](graphrt-settings.json) tells graphrt Desktop what to call these settings, which one is
+needed (the documents folder) and what the defaults are, so the app shows a folder picker and plain labels
+instead of the variable names.
+
 ## Quick Start
 ```bash
 mkdir -p ~/invoices
