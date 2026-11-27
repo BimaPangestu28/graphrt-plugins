@@ -6,7 +6,7 @@
 import { runEngineTask } from "./document-engine.mjs";
 import { classifyImportError } from "./errors.mjs";
 
-const PACKAGE_NAMES = ["pdfmake", "pdf-lib", "@pdf-lib/fontkit", "fontkit", "docxtemplater", "pizzip"];
+const PACKAGE_NAMES = ["pdfmake", "pdf-lib", "@pdf-lib/fontkit", "fontkit", "docxtemplater", "pizzip", "@neslinesli93/qpdf-wasm"];
 
 // pdf-lib reports what it skips in a damaged or protected PDF with console.warn, one line per object: thousands
 // of lines in the log of whoever runs the plugin, for a file that is then refused with one clear message.

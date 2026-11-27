@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-document-templates",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "graphrt plugin: invoices and other documents from templates to local PDF and DOCX files",
   "type": "module",
@@ -11,6 +11,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@neslinesli93/qpdf-wasm": "0.3.1",
     "@pdf-lib/fontkit": "1.1.1",
     "docxtemplater": "3.71.1",
     "fontkit": "3.0.0",

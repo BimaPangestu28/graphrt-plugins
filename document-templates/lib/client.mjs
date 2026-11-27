@@ -8,12 +8,13 @@ import { createFileAccess, fileAccessVariableNames, readFileAccessSettings } fro
 import { expandHome, readInteger, readText } from "./environment-readers.mjs";
 import { invalidInput } from "./errors.mjs";
 import { createOutputOrganiser } from "./output-organiser.mjs";
+import { DEFAULT_MAX_FORM_FIELDS } from "./pdf-form.mjs";
 import { createWorkerLauncher } from "./worker-launcher.mjs";
 
 export const ENVIRONMENT_PREFIX = "DOCUMENT_TEMPLATES";
 export const FILE_VARIABLES = fileAccessVariableNames(ENVIRONMENT_PREFIX);
 export const FONTS_VARIABLE = "DOCUMENT_TEMPLATES_FONTS";
-export const LIMIT_VARIABLES = ["DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB"];
+export const LIMIT_VARIABLES = ["DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_MAX_FORM_FIELDS", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB"];
 export const CALL_TIMEOUT_MS = 180000;
 const MEBIBYTE = 1024 ** 2;
 const MAX_EXTRA_FONTS = 8;
@@ -23,7 +24,7 @@ const FONT_EXTENSIONS = [".ttf", ".otf", ".ttc"];
  * Builds settings from environment variables.
  *
  * @param environment - Environment variables (object)
- * @returns `{files, maxPages, timeoutMs, maxMemoryMb, extraFontPaths}` (object)
+ * @returns `{files, maxPages, maxFormFields, timeoutMs, maxMemoryMb, extraFontPaths}` (object)
  * @throws PluginError kind `invalid_input` - When a variable has an invalid value
  */
 export function readDocumentSettings(environment = {}) {
@@ -31,6 +32,7 @@ export function readDocumentSettings(environment = {}) {
   return {
     files,
     maxPages: readInteger(environment, "DOCUMENT_TEMPLATES_MAX_PAGES", 200, { minimum: 1, maximum: 5000 }),
+    maxFormFields: readInteger(environment, "DOCUMENT_TEMPLATES_MAX_FORM_FIELDS", DEFAULT_MAX_FORM_FIELDS, { minimum: 1, maximum: 100000 }),
     timeoutMs: readInteger(environment, "DOCUMENT_TEMPLATES_TIMEOUT_MS", 60000, { minimum: 1000, maximum: CALL_TIMEOUT_MS - 20000 }),
     maxMemoryMb: readInteger(environment, "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", 768, { minimum: 128, maximum: 16384 }),
     extraFontPaths: readExtraFontPaths(environment, files.homeDirectory),

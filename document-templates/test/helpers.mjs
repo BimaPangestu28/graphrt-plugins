@@ -4,6 +4,7 @@
  * generated fixtures (a fillable PDF, a Word template, a PNG). No binary
  * fixtures are committed. Library-backed tests skip without `npm install`.
  */
+import { createRequire } from "node:module";
 import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -251,4 +252,26 @@ function crc32(bytes) {
     for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
+ * Protects a PDF the way publishers do, with qpdf (the package the plugin opens protected PDFs with).
+ *
+ * @param bytes - PDF bytes (Uint8Array)
+ * @param protection - `{openPassword, permissionsPassword, bits, isFillingAllowed}`; bits 40, 128 (RC4), "128-aes" or 256 (object)
+ * @returns Protected PDF bytes (Uint8Array)
+ */
+export async function protectPdf(bytes, { openPassword = "", permissionsPassword = "publisher-only", bits = 256, isFillingAllowed = true } = {}) {
+  const require = createRequire(import.meta.url);
+  // qpdf's remarks about old protection formats stay out of the test output.
+  const qpdf = await require("@neslinesli93/qpdf-wasm")({ locateFile: () => require.resolve("@neslinesli93/qpdf-wasm/dist/qpdf.wasm"), noFSInit: true, preRun: [(module) => module.FS.init(() => null, () => {}, () => {})] });
+  qpdf.FS.writeFile("/plain.pdf", bytes);
+  const keyBits = String(bits).replace("-aes", "");
+  // The 40-bit format has one switch for both; the others keep "fill in forms" apart from "annotate".
+  const restrictions = keyBits === "40" ? [`--modify=${isFillingAllowed ? "y" : "n"}`, `--annotate=${isFillingAllowed ? "y" : "n"}`] : [`--modify=${isFillingAllowed ? "form" : "none"}`];
+  const exitCodeBefore = process.exitCode;
+  const exitCode = qpdf.callMain(["/plain.pdf", "--allow-weak-crypto", "--encrypt", `--user-password=${openPassword}`, `--owner-password=${permissionsPassword}`, `--bits=${keyBits}`, ...restrictions, "--extract=n", ...(bits === 128 ? ["--use-aes=n"] : bits === "128-aes" ? ["--use-aes=y"] : []), "--", "/protected.pdf"]);
+  process.exitCode = exitCodeBefore;
+  if (exitCode !== 0) throw new Error(`qpdf could not protect the test PDF (exit ${exitCode})`);
+  return qpdf.FS.readFile("/protected.pdf");
 }

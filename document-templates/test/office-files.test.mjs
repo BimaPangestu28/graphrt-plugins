@@ -132,9 +132,9 @@ test("fill_pdf_form: comb field, radio group, drop-down, list, read-only field a
     await assert.rejects(runOperation("fill_pdf_form", { template: "agency.pdf", fields: { Signature: "me" }, file_name: "never" }, AS_TOOL), isRefused(/"Signature" was not accepted: fields of kind Signature cannot be filled/));
   }));
 
-test("fill_pdf_form: an XFA-only form and a protected PDF are refused with what to do", options, () =>
+test("fill_pdf_form: an XFA-only form is refused with what to do", options, () =>
   withDocumentRunner({}, async ({ runOperation, inputDirectory }) => {
-    const { PDFDocument, PDFHexString, PDFName, PDFString } = pdfLib;
+    const { PDFDocument, PDFName, PDFString } = pdfLib;
     // LiveCycle Designer's dynamic forms: one "Please wait..." page, the form itself only as XFA, at most a signature field.
     const xfaOnly = await PDFDocument.create();
     const page = xfaOnly.addPage([300, 200]);
@@ -148,12 +148,6 @@ test("fill_pdf_form: an XFA-only form and a protected PDF are refused with what 
     assert.deepEqual([described.data.kind, described.data.is_form, described.data.is_xfa_only, described.data.operation], ["pdf", false, true, null]);
     assert.match(described.data.hint, /XFA form/);
     await assert.rejects(runOperation("fill_pdf_form", { template: "dynamic.pdf", fields: { SignatureField1: "x" }, file_name: "never" }, AS_TOOL), isRefused(/XFA form \(made with Adobe LiveCycle Designer.*Ask whoever published the form for a standard fillable PDF/));
-    const protectedForm = await PDFDocument.load(await buildAgencyForm());
-    protectedForm.context.trailerInfo.Encrypt = protectedForm.context.register(protectedForm.context.obj({ Filter: "Standard", V: 1, R: 2, O: PDFHexString.of("00".repeat(32)), U: PDFHexString.of("00".repeat(32)), P: -44 }));
-    await writeFile(join(inputDirectory, "protected.pdf"), await protectedForm.save({ useObjectStreams: false }));
-    for (const operation of ["describe_template", "fill_pdf_form"]) {
-      await assert.rejects(runOperation(operation, { template: "protected.pdf", fields: { Name: "x" }, file_name: "never" }, AS_TOOL), isRefused(/protected \(encrypted\).*copy without protection/), operation);
-    }
   }));
 
 test("fill_pdf_form: values a NeedAppearances form came with are still there after flattening", options, () =>

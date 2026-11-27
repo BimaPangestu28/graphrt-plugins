@@ -26,7 +26,7 @@ bundled Inter and EB Garamond fonts, so a document looks the same on Linux, Wind
 | A letterhead or pre-printed page as a PDF | yes, as the `background` of a layout template | `render_pdf` | PDF |
 | A PDF with form fields (AcroForm) | yes | `fill_pdf_form` | PDF |
 | A Word `.docx` or `.dotx` (Word template) with `{{placeholders}}` | yes | `fill_docx` | DOCX |
-| A PDF form that is protected (encrypted), as many official forms are | **no** | | |
+| A PDF form that is protected (encrypted), as many official forms are | yes; with its password when it asks for one | `fill_pdf_form` | PDF, without the protection |
 | A PDF that is a finished document, a scan or a picture | **no** | | |
 | Word to PDF | **no** | | |
 | Excel `.xlsx` | **no** | | |
@@ -48,22 +48,50 @@ Why not:
 - **XFA** is a different, retired form technology (Adobe LiveCycle Designer) that pdf-lib cannot fill. Most
   official forms carry both kinds: those are filled through their standard fields, and the XFA copy is removed
   so that no viewer shows it empty. A PDF that is XFA only (other programs show "Please wait...") is refused.
-- **Protected PDFs**: many official forms open without a password and are still encrypted, so that they cannot
-  be changed. pdf-lib cannot read them. Use a copy without the protection, for example
-  `qpdf --decrypt form.pdf unprotected.pdf`.
 - **Right-to-left scripts** (Arabic, Hebrew) are not laid out correctly yet.
+
+## Protected PDF forms
+Many official forms are protected (encrypted). There are two kinds, and both work:
+
+- **Forms that open without a password** and are protected only so that the page cannot be changed or copied
+  (USCIS, OPM and many other agencies publish forms this way). They are filled in like any other form; you give
+  no password.
+- **Forms that ask for a password when you open them.** Give that password as `password` to `describe_template`
+  and `fill_pdf_form`. It is used once, in memory, to open the file. It is never saved, never written to a log
+  and never part of a result or an error message. A password is never guessed: without the right one the form
+  is refused, with a message that says a password is needed or that the one given does not fit.
+
+What you get: **the filled-in PDF is saved without the protection.** It opens in every PDF program without a
+password, and other steps (merging, e-mailing, printing) can read it. If the document should stay behind a
+password, protect the result again with your PDF program. The result says `was_protected: true` when this
+happened.
+
+**When the publisher forbids filling in.** A protected PDF carries the publisher's permissions: printing,
+copying, changing, filling in. A form whose permissions forbid filling it in (neither "fill in form fields" nor
+"comment and fill in" is allowed) is **not filled in**: `describe_template` still lists its boxes, with
+`filling_allowed: false`, and `fill_pdf_form` refuses with a message that says so. Give the form's permissions
+password (also called the owner password) as `password` and it is filled in, because that password is the
+publisher's own way to lift the restrictions. Other restrictions (no printing, no copying, no changing the
+pages) do not stop filling in, as in Adobe Reader. None of the official forms tested forbids it.
+
+All protection formats of the PDF standard's password security are opened (RC4 40 and 128 bit, AES 128 and 256
+bit), by [qpdf](https://qpdf.org) compiled to WebAssembly: nothing to install, the same on Windows, macOS and
+Linux, and it runs inside the worker process without touching a file on disk. PDFs protected with a
+certificate instead of a password are refused.
 
 ## Features
 - **`list_templates`:** the built-in templates and the formats above. Needs no configuration.
 - **`describe_template`:** what a template needs. For a layout template: its fields (with what is required), its
   placeholders and sample values; `include_layout: true` also returns the whole layout, to save as a `.json` and
-  adapt. For a `.docx`: its placeholders and repeating sections. For a PDF: its form fields, or that it has none.
+  adapt. For a `.docx`: its placeholders and repeating sections. For a PDF: its form fields, or that it has none;
+  for a protected PDF also whether its publisher allows filling it in.
 - **`render_pdf`:** a layout template plus `values` becomes a PDF. Tables continue over pages with their header
   repeated, a `bottom` block is pinned to the foot of the last page, pages are numbered, a `watermark` such as
   PAID is optional, and a `background` PDF (your letterhead) can lie under every page.
 - **`fill_pdf_form`:** `fields` maps form field names to values. A value may use `{{placeholders}}` from `values`,
   so `{"Total": "{{totals.total | money}}"}` puts the calculated total in the form. `flatten` (default on) turns
-  the fields into plain page content.
+  the fields into plain page content. Protected forms are filled in too, with `password` when the form asks
+  for one ([Protected PDF forms](#protected-pdf-forms)).
 - **`fill_docx`:** the same placeholders in a Word file. A table row between `{{#items}}` and `{{/items}}`
   repeats for every item.
 - **`save_template_copy`:** saves your own copy of the built-in invoice in the folder `Templates` of your
@@ -76,7 +104,7 @@ Full operation reference: [OPERATIONS.md](OPERATIONS.md). Template reference: [T
 ## Prerequisites
 - Node.js 22.13 or newer.
 - `npm install` in this directory (`pdfmake` 0.3.15, `pdf-lib` 1.17.1, `@pdf-lib/fontkit` 1.1.1, `fontkit` 3.0.0,
-  `docxtemplater` 3.71.1, `pizzip` 3.3.0). Without it calls return `setup_required`.
+  `docxtemplater` 3.71.1, `pizzip` 3.3.0, `@neslinesli93/qpdf-wasm` 0.3.1, which is qpdf 12.2.0). Without it calls return `setup_required`.
 
 ## Installation
 ```bash
@@ -96,6 +124,7 @@ that suits most people and can stay empty.
 | `DOCUMENT_TEMPLATES_MAX_INPUT_BYTES` | 20 MiB | Largest input file |
 | `DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES` | 50 MiB | Largest document; nothing is saved above it |
 | `DOCUMENT_TEMPLATES_MAX_PAGES` | `200` | Most pages of a rendered PDF |
+| `DOCUMENT_TEMPLATES_MAX_FORM_FIELDS` | `10000` | Most fields of a PDF form (1 to 100000). The largest official form tested, OPM SF 86 with 6197 fields on 136 pages, is filled in about 7 seconds with 420 MB |
 | `DOCUMENT_TEMPLATES_TIMEOUT_MS` | `60000` | Per call (1000 to 160000); the worker process is killed when it passes |
 | `DOCUMENT_TEMPLATES_MAX_MEMORY_MB` | `768` | Memory budget of the worker process: heap cap and resident-memory (RSS) watchdog |
 
@@ -257,10 +286,15 @@ then drawn with it. A character that no font has is an error that names it, neve
   link, atomically.
 - **Isolation:** laying out pages and parsing PDFs, Word files, images and fonts runs in a short-lived child
   process that gets bytes over IPC. `DOCUMENT_TEMPLATES_MAX_MEMORY_MB` is enforced as the V8 heap cap and by an
-  RSS watchdog; on timeout, cancel or the memory budget the child is killed with SIGKILL. On Windows the watchdog
-  cannot read the child's memory (it uses `ps`), so the heap cap and the timeout are the limits there.
+  RSS watchdog; on timeout, cancel or the memory budget the child is killed with SIGKILL. The watchdog reads the
+  child's memory from `/proc` on Linux, with `ps` on macOS and with `tasklist` on Windows (there a reading
+  takes longer, so memory is checked a few times a second instead of twenty).
+- **Passwords:** a PDF's password travels from the call to the worker process in memory only (never on a
+  command line, in an environment variable or in a file on disk) and is gone when the worker exits. Only the
+  password that was given, or none, is ever tried.
 - **Caps:** input and output bytes, 2 MiB of values, 2000 line items, 100000 layout parts after loops are
-  unrolled, 20 images, 2000 form fields, pages per document (`DOCUMENT_TEMPLATES_MAX_PAGES`).
+  unrolled, 20 images, form fields (`DOCUMENT_TEMPLATES_MAX_FORM_FIELDS`), pages per document
+  (`DOCUMENT_TEMPLATES_MAX_PAGES`).
 - **Agents vs nodes:** all seven operations are available as tools. They read only allowlisted files and add new
   files to the output folder (setting `DOCUMENT_TEMPLATES_OUTPUT_DIR` is the opt-in for writing).
   `save_template_copy` writes only into `Templates` there and never over a file.
@@ -272,7 +306,7 @@ then drawn with it. A character that no font has is an error that names it, neve
 |------|------|
 | `setup_required` | npm packages not installed, `DOCUMENT_TEMPLATES_OUTPUT_DIR` unset or missing, `DOCUMENT_TEMPLATES_INPUT_DIRS` unset when a file is read, a font file unreadable |
 | `not_found` | A template, image, background or values file is missing or outside the allowed folders |
-| `invalid_input` | Required values missing, an amount that is not a plain number, a template with an unknown property or malformed placeholder, a PDF without form fields, a protected or XFA-only PDF, an unknown form field, a value a form field does not accept, a character no font has, a file that already exists, over a cap |
+| `invalid_input` | Required values missing, an amount that is not a plain number, a template with an unknown property or malformed placeholder, a PDF without form fields, an XFA-only PDF, a protected PDF whose password is missing or wrong or whose publisher forbids filling it in, an unknown form field, a value a form field does not accept, a character no font has, a file that already exists, over a cap |
 | `permission_denied` | A tool call asked for `if_exists: overwrite` |
 | `timeout` / `cancelled` | The worker passed `DOCUMENT_TEMPLATES_TIMEOUT_MS` or the call was cancelled; nothing is saved |
 | `plugin_error` | The worker crashed, the document could not be written, or the numbering file is locked |
@@ -284,6 +318,10 @@ then drawn with it. A character that no font has is an error that names it, neve
   Word for Mac, with placeholders in content controls, headers, footers, text boxes and repeating table rows.
 - **PDF forms:** public forms made with Adobe Acrobat, InDesign and LiveCycle Designer (IRS W-9, W-4, 1040, SS-4
   and 8949, USCIS I-9, State Department DS-11, OPM SF 3102, GSA SF 1449, VA 10-10EZ, FDIC 7200/09).
+- **Protected PDF forms:** USCIS G-1145, I-765 and G-28 (AES 128 bit), OPM SF 181 and the Australian Home
+  Affairs Form 80 (RC4 128 bit), filled in with and without `flatten` and opened with Poppler, Ghostscript and
+  pdf.js. Password-protected forms in all four formats are made in the tests.
+- **Large forms:** OPM SF 86 (6197 fields, 136 pages), every field filled.
 - **Systems:** the tests run on Linux, Windows and macOS.
 
 ## Fonts

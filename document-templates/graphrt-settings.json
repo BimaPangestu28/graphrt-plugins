@@ -29,6 +29,13 @@
       "default": 200
     },
     {
+      "name": "DOCUMENT_TEMPLATES_MAX_FORM_FIELDS",
+      "label": "Most boxes in one PDF form",
+      "help": "A PDF form with more boxes to fill in than this is not opened. The largest official forms have about 6000.",
+      "kind": "number",
+      "default": 10000
+    },
+    {
       "name": "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES",
       "label": "Largest template file (bytes)",
       "help": "A template, logo or letterhead larger than this is not read. The usual limit is 20 MB.",

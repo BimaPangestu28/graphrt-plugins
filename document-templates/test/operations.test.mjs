@@ -20,7 +20,7 @@ test("manifest: local only, no secrets, seven tools, the documents folder first,
   assert.deepEqual(manifest.tools.map((tool) => tool.name), ["list_templates", "describe_template", "save_template_copy", "next_number", "render_pdf", "fill_pdf_form", "fill_docx"]);
   assert.equal(manifest.permissions.network, false);
   assert.equal(manifest.permissions.secrets, false);
-  assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);
+  assert.deepEqual(manifest.permissions.env, ["DOCUMENT_TEMPLATES_OUTPUT_DIR", "DOCUMENT_TEMPLATES_INPUT_DIRS", "DOCUMENT_TEMPLATES_MAX_INPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_OUTPUT_BYTES", "DOCUMENT_TEMPLATES_MAX_PAGES", "DOCUMENT_TEMPLATES_MAX_FORM_FIELDS", "DOCUMENT_TEMPLATES_TIMEOUT_MS", "DOCUMENT_TEMPLATES_MAX_MEMORY_MB", "DOCUMENT_TEMPLATES_FONTS"]);
   assert.ok(manifest.limits.timeout_ms > readDocumentSettings({}).timeoutMs);
   // What the app shows to people who set up and build agents: no variable names, no "node".
   for (const text of JSON.stringify(manifest).match(/"description":"(?:[^"\\]|\\.)*"/g)) assert.doesNotMatch(text, /DOCUMENT_TEMPLATES_|\bnodes?\b|AcroForm/, text);
@@ -177,7 +177,7 @@ test("fill_pdf_form: fields are filled from values and calculated totals; names 
       [{ template: "form.pdf", fields: { Nope: "x" } }, /no form field named "Nope"\. Its fields: InvoiceNo, Client/],
       [{ template: "form.pdf", fields: { Client: { nested: true } } }, /must be a text/],
       [{ template: "form.pdf" }, /`fields` is required/],
-      [{ template: "form.pdf", fields: {} }, /1 to 2000/],
+      [{ template: "form.pdf", fields: {} }, /1 to 10000/],
       [{ template: "plain.pdf", fields: { Client: "x" } }, /no fillable form fields/],
       [{ template: "invoice", fields: { Client: "x" } }, /render_pdf/],
     ];
@@ -264,7 +264,7 @@ test("graphrt-settings.json: only the documents folder is required, and each def
   assert.deepEqual(settings.filter((setting) => setting.required).map((setting) => setting.name), ["DOCUMENT_TEMPLATES_OUTPUT_DIR"]);
   const defaults = readDocumentSettings({});
   assert.deepEqual(
-    ["MAX_INPUT_BYTES", "MAX_OUTPUT_BYTES", "MAX_PAGES", "TIMEOUT_MS", "MAX_MEMORY_MB"].map((suffix) => byName[`DOCUMENT_TEMPLATES_${suffix}`].default),
-    [defaults.files.maxInputBytes, defaults.files.maxOutputBytes, defaults.maxPages, defaults.timeoutMs, defaults.maxMemoryMb],
+    ["MAX_INPUT_BYTES", "MAX_OUTPUT_BYTES", "MAX_PAGES", "MAX_FORM_FIELDS", "TIMEOUT_MS", "MAX_MEMORY_MB"].map((suffix) => byName[`DOCUMENT_TEMPLATES_${suffix}`].default),
+    [defaults.files.maxInputBytes, defaults.files.maxOutputBytes, defaults.maxPages, defaults.maxFormFields, defaults.timeoutMs, defaults.maxMemoryMb],
   );
 });

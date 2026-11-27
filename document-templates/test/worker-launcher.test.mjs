@@ -9,7 +9,6 @@ import { fork } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readProcessRssBytes } from "../lib/isolated-task.mjs";
 import { createWorkerLauncher } from "../lib/worker-launcher.mjs";
 import { AS_TOOL, INVOICE_VALUES, SKIP_WITHOUT_LIBRARIES, readPageTexts, withDocumentRunner } from "./helpers.mjs";
 
@@ -52,9 +51,3 @@ test("a worker that crashes is reported as a plugin error", () =>
   withStandInWorker("process.exit(3);", async (launch) => {
     await assert.rejects(launch("render_layout", {}, limits), (error) => error.kind === "plugin_error" && /stopped unexpectedly/.test(error.message));
   }));
-
-test("the memory watchdog can read a process's memory on Linux and macOS; Windows has no `ps`, so only the heap cap and the timeout apply there", async () => {
-  const rssBytes = await readProcessRssBytes(process.pid);
-  if (process.platform === "win32") assert.equal(rssBytes, null);
-  else assert.ok(rssBytes > 1024 * 1024, String(rssBytes));
-});

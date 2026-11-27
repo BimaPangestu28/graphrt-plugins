@@ -72,7 +72,7 @@ Paths may be absolute, `~/...`, or relative to the first input directory. An out
   for `images_to_pdf` must be jpeg or png by content.
 - **Isolation:** all parsing runs in a short-lived child process that gets the bytes over IPC and never touches the
   file system. `PDF_TOOLS_MAX_MEMORY_MB` is enforced twice: as the V8 heap cap, and by an RSS watchdog that polls the
-  child's resident memory every 50 ms and kills it past the budget. The heap cap alone is not enough: decompressed
+  child's resident memory every 50 ms and kills it past the budget. (On Windows a reading takes a `tasklist` run, so it happens a few times a second.) The heap cap alone is not enough: decompressed
   streams live in typed arrays outside the heap, and a 600 KB Flate bomb can otherwise reach well over 1 GB. On
   timeout, cancel or the memory budget the child is killed with SIGKILL, so a hostile PDF can't hang or bloat the
   plugin. Between two polls a very fast allocation can overshoot the budget briefly. pdfjs runs with `isEvalSupported: false`, no font

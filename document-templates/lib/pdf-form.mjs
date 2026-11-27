@@ -9,34 +9,46 @@
  * AcroForms; when a PDF carries both, as most government forms do, the XFA
  * part is dropped so viewers show the filled AcroForm fields. A PDF that has
  * only the XFA part is refused.
+ *
+ * Protected (encrypted) PDFs are opened first (pdf-protection.mjs). The
+ * filled copy is saved without protection, so it opens everywhere and other
+ * steps can read it. A form whose publisher forbids filling it in is listed
+ * but not filled, unless the permissions password is given.
  */
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { invalidInput } from "./errors.mjs";
+import { mayBeProtected, openProtectedPdf } from "./pdf-protection.mjs";
 
 const FORM_FONT_PATH = fileURLToPath(new URL("../fonts/Inter-Regular.ttf", import.meta.url));
-const MAX_FIELDS = 2000;
+// The largest official form met so far (OPM SF 86, 6197 fields on 136 pages) is filled in about 7 s with 420 MB.
+export const DEFAULT_MAX_FORM_FIELDS = 10000;
 const MAX_VALUE_LENGTH = 20000;
 const TRUE_TEXTS = new Set(["true", "yes", "1", "on", "x", "ya"]);
-const ENCRYPTED_MESSAGE = "The PDF is protected (encrypted), which many official forms are even when they open without a password, and a protected PDF cannot be filled in here. Use a copy without protection: ask whoever published the form for one, or remove the protection with a PDF program (for example `qpdf --decrypt form.pdf unprotected.pdf`)";
+const UNREADABLE_PROTECTION_MESSAGE = "The PDF is protected in a way that cannot be opened here. Ask whoever published it for a copy without protection";
+export const FILLING_FORBIDDEN_MESSAGE = "Whoever published this form has locked it against being filled in, so it is not filled in here either. With the form's permissions password (the one that lifts its restrictions, also called the owner password) given as `password` it can be filled in; without it, ask the publisher for a form that may be filled in";
 export const XFA_ONLY_MESSAGE = "This PDF is an XFA form (made with Adobe LiveCycle Designer; other programs show \"Please wait...\" instead of the form). XFA forms cannot be filled in here: only Adobe Acrobat reads them. Ask whoever published the form for a standard fillable PDF (AcroForm), or recreate the document as a layout template for render_pdf";
+
+/** Only for a PDF that asks for a password when it opens; forms that are merely restricted open without one. */
+export const PDF_PASSWORD_PARAMETER = { type: "string", format: "password", description: "Only for a PDF that asks for a password when you open it: that password. It is used to open the file and is not saved or shown anywhere. Most protected forms open without one; leave this empty for them" };
 
 const FILLABLE_KINDS = new Set(["PDFTextField", "PDFCheckBox", "PDFDropdown", "PDFRadioGroup", "PDFOptionList"]);
 
-async function loadForm(bytes) {
+async function loadForm({ bytes, password, maxFields = DEFAULT_MAX_FORM_FIELDS }) {
   const { PDFDict, PDFDocument, PDFName } = await import("pdf-lib");
-  const document = await PDFDocument.load(bytes, { updateMetadata: false, ignoreEncryption: true }).catch((loadError) => {
+  const opened = mayBeProtected(bytes) ? await openProtectedPdf({ bytes, password }) : { bytes, protection: null };
+  const document = await PDFDocument.load(opened.bytes, { updateMetadata: false, ignoreEncryption: true }).catch((loadError) => {
     throw invalidInput(`The template is not a readable PDF: ${loadError.message}`);
   });
-  if (document.isEncrypted) throw invalidInput(ENCRYPTED_MESSAGE);
+  if (document.isEncrypted) throw invalidInput(UNREADABLE_PROTECTION_MESSAGE);
   // Read before getForm(), which drops the XFA part.
   const hasXfa = Boolean(document.catalog.lookupMaybe(PDFName.of("AcroForm"), PDFDict)?.has(PDFName.of("XFA")));
   const form = document.getForm();
   const fields = form.getFields();
-  if (fields.length > MAX_FIELDS) throw invalidInput(`The PDF has ${fields.length} form fields, over the limit of ${MAX_FIELDS}`);
+  if (fields.length > maxFields) throw invalidInput(`The PDF has ${fields.length} form fields, over the limit of ${maxFields} (DOCUMENT_TEMPLATES_MAX_FORM_FIELDS)`);
   // A pure XFA form has no standard fields, or only the signature field Adobe adds for signing.
   const isXfaOnly = hasXfa && !fields.some((field) => FILLABLE_KINDS.has(field.constructor.name));
-  return { document, form, fields, isXfaOnly };
+  return { document, form, fields, isXfaOnly, protection: opened.protection };
 }
 
 function describeField(field) {
@@ -50,24 +62,31 @@ function describeField(field) {
 /**
  * Lists a PDF's form fields.
  *
- * @param request - `{bytes}` (object)
- * @returns `{data: {page_count, is_form, is_xfa_only, fields: [{name, kind, read_only, required, options?, max_length?}]}}`; an XFA-only PDF is not a form here (object)
+ * @param request - `{bytes, password, maxFields}`; password only for a PDF that asks for one (object)
+ * @returns `{data: {page_count, is_form, is_xfa_only, is_protected, filling_allowed, fields: [{name, kind, read_only, required, options?, max_length?}]}}`; an XFA-only PDF is not a form here (object)
  */
-export async function inspectPdfForm({ bytes }) {
-  const { document, fields, isXfaOnly } = await loadForm(bytes);
-  return { data: { page_count: document.getPageCount(), is_form: fields.length > 0 && !isXfaOnly, is_xfa_only: isXfaOnly, fields: fields.map(describeField) } };
+export async function inspectPdfForm(request) {
+  const { document, fields, isXfaOnly, protection } = await loadForm(request);
+  return {
+    data: {
+      page_count: document.getPageCount(), is_form: fields.length > 0 && !isXfaOnly, is_xfa_only: isXfaOnly,
+      is_protected: protection !== null, filling_allowed: protection?.isFillingAllowed ?? true,
+      fields: fields.map(describeField),
+    },
+  };
 }
 
 /**
  * Fills form fields by name.
  *
- * @param request - `{bytes, fieldValues: {name: text | number | boolean}, isFlattened}` (object)
- * @returns `{data: {page_count, filled_fields, empty_fields}, outputs: [Uint8Array]}` (object)
- * @throws PluginError kind `invalid_input` - When the PDF has no form, a name is unknown, or a value does not fit its field
+ * @param request - `{bytes, fieldValues: {name: text | number | boolean}, isFlattened, password, maxFields}` (object)
+ * @returns `{data: {page_count, filled_fields, empty_fields, flattened, was_protected}, outputs: [Uint8Array]}`; the output has no protection (object)
+ * @throws PluginError kind `invalid_input` - When the PDF has no form, its publisher forbids filling it in, a name is unknown, or a value does not fit its field
  */
-export async function fillPdfForm({ bytes, fieldValues, isFlattened }) {
-  const { document, form, fields, isXfaOnly } = await loadForm(bytes);
+export async function fillPdfForm({ bytes, fieldValues, isFlattened, password, maxFields }) {
+  const { document, form, fields, isXfaOnly, protection } = await loadForm({ bytes, password, maxFields });
   if (isXfaOnly) throw invalidInput(XFA_ONLY_MESSAGE);
+  if (protection && !protection.isFillingAllowed) throw invalidInput(FILLING_FORBIDDEN_MESSAGE);
   if (fields.length === 0) throw invalidInput("This PDF has no fillable form fields. A PDF that is a picture or plain page content cannot be filled in; use the built-in invoice template, or a layout template with this PDF as its background");
   const fieldsByName = new Map(fields.map((field) => [field.getName(), field]));
   const unknownNames = Object.keys(fieldValues).filter((name) => !fieldsByName.has(name));
@@ -91,7 +110,7 @@ export async function fillPdfForm({ bytes, fieldValues, isFlattened }) {
   }
   const filledNames = Object.keys(fieldValues);
   return {
-    data: { page_count: document.getPageCount(), filled_fields: filledNames, empty_fields: [...fieldsByName.keys()].filter((name) => !filledNames.includes(name)), flattened: isFlattened },
+    data: { page_count: document.getPageCount(), filled_fields: filledNames, empty_fields: [...fieldsByName.keys()].filter((name) => !filledNames.includes(name)), flattened: isFlattened, was_protected: protection !== null },
     outputs: [await document.save()],
   };
 }
