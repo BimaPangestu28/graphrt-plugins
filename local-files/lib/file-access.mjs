@@ -351,7 +351,7 @@ const WINDOWS_PATH_PATTERN = /(?<![\w.])(?:(?:\\\\[?.]\\(?:UNC\\)?)?(?:[A-Za-z]:
  */
 export function redactPathsOutside(text, allowedDirectories, platform = process.platform) {
   if (platform !== "win32") {
-    return String(text ?? "").replace(POSIX_PATH_PATTERN, (candidatePath) => (isInsideAny(candidatePath, allowedDirectories) ? candidatePath : "[path]"));
+    return String(text ?? "").replace(POSIX_PATH_PATTERN, (candidatePath) => (isInsideAny(candidatePath, allowedDirectories, "/") ? candidatePath : "[path]"));
   }
   const allowedKeys = allowedDirectories.map(toWindowsComparisonKey);
   return String(text ?? "").replace(WINDOWS_PATH_PATTERN, (candidatePath) => (isInsideAnyWindows(candidatePath, allowedKeys) ? candidatePath : "[path]"));
@@ -378,6 +378,6 @@ async function realpathAll(directories, fileSystem) {
   return realDirectories.filter(Boolean);
 }
 
-function isInsideAny(candidatePath, directories) {
-  return directories.some((directory) => candidatePath.startsWith(directory.endsWith(sep) ? directory : `${directory}${sep}`));
+function isInsideAny(candidatePath, directories, separator = sep) {
+  return directories.some((directory) => candidatePath.startsWith(directory.endsWith(separator) ? directory : `${directory}${separator}`));
 }

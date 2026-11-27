@@ -152,9 +152,7 @@ test("review regression: writeOutputFiles is all or nothing and names what it re
 
 test("review regression: paths outside the allowed directories are redacted from messages", () => {
   const message = "dyld: Library not loaded: /opt/homebrew/lib/x.dylib; reading file:/data/in/a.mp4 from /tmp/graphrt-1/list";
-  // On Windows a path written with "/" is never inside an allowed folder, so it is hidden too.
-  const allowedPath = process.platform === "win32" ? "[path]" : "/data/in/a.mp4";
-  assert.equal(redactPathsOutside(message, ["/data/in"]), `dyld: Library not loaded: [path]; reading file:${allowedPath} from [path]`);
+  assert.equal(redactPathsOutside(message, ["/data/in"]), "dyld: Library not loaded: [path]; reading file:/data/in/a.mp4 from [path]");
 });
 
 test("Windows paths outside the allowed directories are redacted: drive, UNC and \\\\?\\ forms, either separator", () => {
