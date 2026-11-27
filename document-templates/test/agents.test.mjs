@@ -19,6 +19,8 @@ const INPUTS = {
   id: { client_name: "PT Maju Bersama", client_address: "", tax_name: "PPN", tax_percent: null, currency: "IDR", seller_name: "CV Kenanga Digital", expected: ["DITAGIHKAN KEPADA", "PT Maju Bersama", "CV Kenanga Digital", "Rp 3.050.000"], total: "3050000" },
 };
 
+const COLUMN_TITLES = { en: ["Description", "Quantity", "Unit", "Unit price"], id: ["Deskripsi", "Jumlah", "Satuan", "Harga satuan"] };
+
 // What graphrt does with a node's config: a text that is exactly one {{#start.x#}} becomes that input, with its type.
 function fillFromStart(value, inputs, numberResult) {
   if (Array.isArray(value)) return value.map((entry) => fillFromStart(entry, inputs, numberResult));
@@ -39,14 +41,22 @@ for (const agent of agents) {
     // The one path that creates something, in order.
     const next = (id, handle) => workflow.graph.edges.find((edge) => edge.source === id && (handle === undefined || edge.handle === handle)).target;
     const path = ["start"];
-    for (const handle of [undefined, "create", undefined, undefined]) path.push(next(path.at(-1), handle));
-    assert.deepEqual(path.map((id) => nodes.get(id).type), ["start", "human-input", "document-templates.next_number", "document-templates.render_pdf", "template-transform"]);
+    for (const handle of [undefined, undefined, "create", undefined, undefined]) path.push(next(path.at(-1), handle));
+    assert.deepEqual(path.map((id) => nodes.get(id).type), ["start", "template-transform", "human-input", "document-templates.next_number", "document-templates.render_pdf", "template-transform"]);
+    // The approval shows the invoice in plain words, never the raw data of the items.
+    assert.equal(nodes.get("approve").prompt.includes("start.items"), false);
+    assert.ok(nodes.get("approve").prompt.includes("{{#list_details.output#}}"));
     assert.deepEqual(nodes.get("approve").actions.map((action) => action.id), ["create", "cancel"]);
     assert.equal(nodes.get(next("approve", "cancel")).type, "template-transform", "cancelling creates nothing");
     assert.ok(!JSON.stringify(workflow).includes("llm"), "no model step");
 
     const inputs = Object.fromEntries(nodes.get("start").variables.map((variable) => [variable.variable, variable.default]));
     assert.deepEqual(Object.keys(inputs), ["client_name", "client_address", "items", "tax_name", "tax_percent", "currency", "seller_name"]);
+    // The items are a list of rows; each column has a title in the agent's language and the right type.
+    const itemColumns = nodes.get("start").variables.find((variable) => variable.variable === "items").json_schema.items.properties;
+    assert.deepEqual(Object.entries(itemColumns).map(([name, column]) => [name, column.type]), [["description", "string"], ["quantity", "number"], ["unit", "string"], ["unit_price", "number"]]);
+    assert.deepEqual(Object.values(itemColumns).map((column) => column.title), COLUMN_TITLES[agent.language]);
+    for (const row of inputs.items) assert.deepEqual(Object.keys(row), Object.keys(itemColumns), "the example rows have exactly the columns");
     const renderNode = nodes.get("create_pdf");
     assert.deepEqual([renderNode.template, renderNode.folder, renderNode.file_name, renderNode.values.language], ["invoice", undefined, undefined, agent.language]);
 

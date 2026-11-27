@@ -17,6 +17,16 @@ graph:
           type: json
           required: true
           label: "Daftar item (deskripsi, jumlah, satuan, harga satuan)"
+          json_schema:
+            type: array
+            items:
+              type: object
+              properties:
+                description: { type: string, title: Deskripsi }
+                quantity: { type: number, title: Jumlah }
+                unit: { type: string, title: Satuan }
+                unit_price: { type: number, title: Harga satuan }
+              required: [description, quantity, unit_price]
           default:
             - { description: Jasa konsultasi, quantity: 8, unit: jam, unit_price: 350000 }
             - { description: Hosting situs web, quantity: 1, unit: bulan, unit_price: 250000 }
@@ -25,10 +35,21 @@ graph:
         - { variable: currency, type: text-input, required: true, max_length: 3, label: "Mata uang (IDR, USD, SGD...)", default: IDR }
         - { variable: seller_name, type: text-input, required: true, max_length: 200, label: Nama Anda atau nama usaha Anda }
 
+    - id: list_details
+      type: template-transform
+      title: Tulis isi invoice dengan kata-kata biasa
+      template: "Klien: {{ client }}\nMata uang: {{ currency }}\nPajak: {% if tax_percent is number %}{{ tax_name }} {{ tax_percent }}%{% else %}tidak ada{% endif %}\nItem:\n{% for item in items %}- {{ item.description }}{% if item.quantity is defined and item.unit_price is defined %}: {{ item.quantity }} {{ item.unit }} x {{ item.unit_price }}{% elif item.amount is defined %}: {{ item.amount }}{% endif %}\n{% endfor %}"
+      variables:
+        - { variable: client, value_selector: [start, client_name] }
+        - { variable: currency, value_selector: [start, currency] }
+        - { variable: tax_name, value_selector: [start, tax_name] }
+        - { variable: tax_percent, value_selector: [start, tax_percent] }
+        - { variable: items, value_selector: [start, items] }
+
     - id: approve
       type: human-input
       title: Tanya sebelum membuat invoice
-      prompt: "Buat invoice ini? Invoice akan memakai nomor urut berikutnya.\n\nKlien: {{#start.client_name#}}\nMata uang: {{#start.currency#}}\nPajak: {{#start.tax_name#}} {{#start.tax_percent#}}\nItem: {{#start.items#}}"
+      prompt: "Buat invoice ini? Invoice akan memakai nomor urut berikutnya.\n\n{{#list_details.output#}}"
       actions:
         - { id: create, title: Buat invoice }
         - { id: cancel, title: Batal }
@@ -81,7 +102,8 @@ graph:
         - { variable: summary, value_selector: [result, output] }
 
   edges:
-    - { source: start, target: approve }
+    - { source: start, target: list_details }
+    - { source: list_details, target: approve }
     - { source: approve, target: take_number, handle: create }
     - { source: approve, target: write_cancelled, handle: cancel }
     - { source: take_number, target: create_pdf }

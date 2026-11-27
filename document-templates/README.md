@@ -156,10 +156,13 @@ valid workflow: **Make an invoice** ([agents/make-invoice.yaml](agents/make-invo
 
 1. asks for the client, the items (description, quantity, unit, unit price), the tax name and percent (leave
    the percent empty for no tax), the currency and your business name,
-2. shows what it is about to make and waits for your approval (cancelling makes nothing and uses no number),
+2. shows what it is about to make in plain words (client, currency, tax, each item) and waits for your approval (cancelling makes nothing and uses no number),
 3. takes the next invoice number (`INV-2026-0001`, then `INV-2026-0002`),
 4. makes the PDF with the ready-made invoice in the usual year and month folder,
 5. and tells you the total and where the file is.
+
+The items are a list of rows with titled columns (Description, Quantity, Unit, Unit price; in Indonesian
+Deskripsi, Jumlah, Satuan, Harga satuan), which graphrt Desktop shows as a small table to fill in.
 
 No step uses an AI model, so they run the same with any model, or with none. A saved brand
 ([Your logo, colour and wording](#your-logo-colour-and-wording)) adds your logo, colour, address and payment
