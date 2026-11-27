@@ -23,7 +23,7 @@ import { transferOperations } from "./operations/transfer.mjs";
 export function createPluginDefinition(dependencies = {}) {
   return {
     name: "sftp",
-    version: "0.1.0",
+    version: "0.1.1",
     description: "SFTP with a pinned host key: list, stat and read remote files inside SFTP_ROOT, download to an allowed local directory, upload from one (staged, no overwrite unless a node asks); agent writes opt-in, deletes node only",
     extraEnv: [...CONNECTION_VARIABLES, ...Object.values(FILE_VARIABLES), TOOL_WRITES_VARIABLE, ...LIMIT_VARIABLES],
     noCredentials: true,

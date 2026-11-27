@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-ffmpeg",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "graphrt plugin: probe, convert, cut and join local media files with the system ffmpeg",
   "type": "module",

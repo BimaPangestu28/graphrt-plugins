@@ -1,6 +1,6 @@
 {
   "name": "graphrt-plugin-excel-csv",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "graphrt plugin: read and write local CSV and XLSX files with CSV-injection protection",
   "type": "module",

@@ -325,19 +325,52 @@ export function describeOutputFile(outputPath, sizeBytes) {
   return { path: outputPath, file_name: basename(outputPath), size_bytes: sizeBytes };
 }
 
+const POSIX_PATH_PATTERN = /(?<![\w.])\/[^\s'"`,;()<>|]+/g;
+// A Windows path: an optional `\\?\` or `\\.\` prefix, then a drive (`C:\`, `C:/`) or two separators (`\\server`,
+// `//server`), then its folders and a last name. Windows folder names often hold spaces ("Program Files (x86)",
+// a user's full name), so a folder may have up to six more words after a space; the last name ends at the first space.
+const WINDOWS_PATH_PATTERN = /(?<![\w.])(?:(?:\\\\[?.]\\(?:UNC\\)?)?(?:[A-Za-z]:[\\/]|[\\/]{2})|\\\\[?.]\\)(?:[^\s\\/:'"`,;()<>|]+(?: [^\s\\/:'"`,;<>|]+){0,6}[\\/])*[^\s\\/:'"`,;()<>|]*|(?<![\w.])\/[^\s'"`,;()<>|]+/gi;
+
 /**
  * Replaces absolute paths outside the given directories with "[path]", so error messages from
  * programs (temp directories, library locations) do not reveal the rest of the file system.
  *
+ * On Windows this covers drive paths with either separator (`C:\Users\me\x`, `C:/Users/me/x`), network paths
+ * (`\\server\share\x`) and the long forms (`\\?\C:\x`, `\\?\UNC\server\share\x`); the comparison with the allowed
+ * directories ignores letter case and the separator used, and a path with a `..` part is always hidden. Paths
+ * written with a single leading `/` are hidden there too. On other systems only `/` paths are looked at.
+ *
  * @param text - Message text (string)
  * @param allowedDirectories - Directories whose paths may stay (string[])
+ * @param platform - `process.platform` of the system the paths come from (string, optional)
  * @returns Redacted text (string)
  *
  * @example
  * redactPathsOutside("Library not loaded: /opt/lib/x.dylib", ["/data"]); // "Library not loaded: [path]"
+ * redactPathsOutside("Cannot open C:\\Users\\me\\x.dll", ["D:\\data"], "win32"); // "Cannot open [path]"
  */
-export function redactPathsOutside(text, allowedDirectories) {
-  return String(text ?? "").replace(/(?<![\w.])\/[^\s'"`,;()<>|]+/g, (candidatePath) => (isInsideAny(candidatePath, allowedDirectories) ? candidatePath : "[path]"));
+export function redactPathsOutside(text, allowedDirectories, platform = process.platform) {
+  if (platform !== "win32") {
+    return String(text ?? "").replace(POSIX_PATH_PATTERN, (candidatePath) => (isInsideAny(candidatePath, allowedDirectories, "/") ? candidatePath : "[path]"));
+  }
+  const allowedKeys = allowedDirectories.map(toWindowsComparisonKey);
+  return String(text ?? "").replace(WINDOWS_PATH_PATTERN, (candidatePath) => (isInsideAnyWindows(candidatePath, allowedKeys) ? candidatePath : "[path]"));
+}
+
+// The same folder can be written C:\Data\In, c:/data/in or \\?\C:\Data\In; all three give `c:\data\in`.
+function toWindowsComparisonKey(windowsPath) {
+  return windowsPath
+    .replaceAll("/", "\\")
+    .replace(/^\\\\[?.]\\UNC\\/i, "\\\\")
+    .replace(/^\\\\[?.]\\(?=[A-Za-z]:)/, "")
+    .replace(/\\+$/, "")
+    .toLowerCase();
+}
+
+function isInsideAnyWindows(candidatePath, allowedKeys) {
+  const candidateKey = toWindowsComparisonKey(candidatePath);
+  if (candidateKey.split("\\").includes("..")) return false;
+  return allowedKeys.some((allowedKey) => candidateKey.startsWith(`${allowedKey}\\`));
 }
 
 async function realpathAll(directories, fileSystem) {
@@ -345,6 +378,6 @@ async function realpathAll(directories, fileSystem) {
   return realDirectories.filter(Boolean);
 }
 
-function isInsideAny(candidatePath, directories) {
-  return directories.some((directory) => candidatePath.startsWith(directory.endsWith(sep) ? directory : `${directory}${sep}`));
+function isInsideAny(candidatePath, directories, separator = sep) {
+  return directories.some((directory) => candidatePath.startsWith(directory.endsWith(separator) ? directory : `${directory}${separator}`));
 }

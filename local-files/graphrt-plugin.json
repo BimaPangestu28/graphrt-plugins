@@ -1,6 +1,6 @@
 {
   "name": "local-files",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local files in allowed directories: list, stat, read (text or base64, capped), search by name or content, and staged writes that never overwrite unless a node asks; deletes are node only",
   "license": "Apache-2.0",
   "runtime": "process",

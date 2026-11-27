@@ -3,6 +3,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { promises as realFileSystem } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, utimes, writeFile, link } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -134,6 +135,22 @@ test("numbering: counts per counter, previews without reserving, starts where as
     assert.equal((await issue({ pattern: "QUO-{SEQ:3}", startAt: 38 })).number, "QUO-038");
     const state = JSON.parse(await readFile(join(outputDirectory, ".document-templates", "numbering.json"), "utf8"));
     assert.deepEqual(Object.fromEntries(Object.entries(state.counters).map(([name, counter]) => [name, counter.last])), { "INV-2026-{SEQ:4}": 2, "INV-2027-{SEQ:4}": 1, "QUO-{SEQ:3}": 38 });
+  }));
+
+test("numbering on Windows: EPERM while a removed lock is still going away is waited out; elsewhere and when it lasts it is reported", () =>
+  withOutputDirectory(async ({ outputDirectory }) => {
+    const request = { pattern: "INV-{SEQ}", date: new Date(Date.UTC(2026, 0, 1)), startAt: 1, isPreview: false };
+    const failingOpens = (failures) => {
+      let remaining = failures;
+      return { ...realFileSystem, open: (...openArguments) => ((remaining -= 1) >= 0 ? Promise.reject(Object.assign(new Error("operation not permitted"), { code: "EPERM" })) : realFileSystem.open(...openArguments)) };
+    };
+    const sleep = async () => {};
+    assert.equal((await issueNextNumber(outputDirectory, request, { fileSystem: failingOpens(3), sleep, platform: "win32" })).sequence, 1);
+    await assert.rejects(issueNextNumber(outputDirectory, request, { fileSystem: failingOpens(3), sleep, platform: "linux" }), (error) => error.kind === "plugin_error" && /Could not lock the numbering file: EPERM/.test(error.message));
+    let clock = Date.now();
+    const lasting = { fileSystem: failingOpens(Infinity), sleep, platform: "win32", now: () => new Date((clock += 2000)) };
+    await assert.rejects(issueNextNumber(outputDirectory, request, lasting), (error) => error.kind === "plugin_error" && /Could not lock the numbering file: EPERM/.test(error.message));
+    assert.equal((await issueNextNumber(outputDirectory, request)).sequence, 2);
   }));
 
 test("numbering: calls at the same time never share a number; a stale lock is taken over; a damaged file is reported", () =>
