@@ -12,11 +12,21 @@ graph:
       type: start
       variables:
         - { variable: client_name, type: text-input, required: true, max_length: 200, label: Client name }
-        - { variable: client_address, type: paragraph, required: false, max_length: 600, label: Client address (optional) }
+        - { variable: client_address, type: paragraph, required: false, max_length: 600, label: Client address }
         - variable: items
           type: json
           required: true
           label: "Items (description, quantity, unit, unit price)"
+          json_schema:
+            type: array
+            items:
+              type: object
+              properties:
+                description: { type: string, title: Description }
+                quantity: { type: number, title: Quantity }
+                unit: { type: string, title: Unit }
+                unit_price: { type: number, title: Unit price }
+              required: [description, quantity, unit_price]
           default:
             - { description: Consulting, quantity: 8, unit: hours, unit_price: 85 }
             - { description: Website hosting, quantity: 1, unit: month, unit_price: 24.5 }
@@ -25,10 +35,21 @@ graph:
         - { variable: currency, type: text-input, required: true, max_length: 3, label: "Currency (USD, EUR, SGD, IDR...)", default: USD }
         - { variable: seller_name, type: text-input, required: true, max_length: 200, label: Your name or business name }
 
+    - id: list_details
+      type: template-transform
+      title: Put the invoice in plain words
+      template: "Client: {{ client }}\nCurrency: {{ currency }}\nTax: {% if tax_percent is number %}{{ tax_name }} {{ tax_percent }}%{% else %}none{% endif %}\nItems:\n{% for item in items %}- {{ item.description }}{% if item.quantity is defined and item.unit_price is defined %}: {{ item.quantity }} {{ item.unit }} at {{ item.unit_price }}{% elif item.amount is defined %}: {{ item.amount }}{% endif %}\n{% endfor %}"
+      variables:
+        - { variable: client, value_selector: [start, client_name] }
+        - { variable: currency, value_selector: [start, currency] }
+        - { variable: tax_name, value_selector: [start, tax_name] }
+        - { variable: tax_percent, value_selector: [start, tax_percent] }
+        - { variable: items, value_selector: [start, items] }
+
     - id: approve
       type: human-input
       title: Ask before making the invoice
-      prompt: "Make this invoice? It gets the next invoice number.\n\nClient: {{#start.client_name#}}\nCurrency: {{#start.currency#}}\nTax: {{#start.tax_name#}} {{#start.tax_percent#}}\nItems: {{#start.items#}}"
+      prompt: "Make this invoice? It gets the next invoice number.\n\n{{#list_details.output#}}"
       actions:
         - { id: create, title: Make the invoice }
         - { id: cancel, title: Cancel }
@@ -81,7 +102,8 @@ graph:
         - { variable: summary, value_selector: [result, output] }
 
   edges:
-    - { source: start, target: approve }
+    - { source: start, target: list_details }
+    - { source: list_details, target: approve }
     - { source: approve, target: take_number, handle: create }
     - { source: approve, target: write_cancelled, handle: cancel }
     - { source: take_number, target: create_pdf }

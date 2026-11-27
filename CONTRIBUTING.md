@@ -311,6 +311,15 @@ Nobody reviews a ready-made workflow before it runs, so it must be safe as writt
   after the approval, so that cancelling wastes none.
 - **Prefer steps that need no model**, give every start input a `label` in the agent's language and a `default`
   where one makes sense, and end by saying what was made and where it is.
+- **Labels say what to fill in, not whether it is optional.** The app adds its own marker to an input that may
+  stay empty, so `Client address (optional)` is shown as "Client address (optional) (optional)". Set `required`
+  on the input and leave `(optional)`, `(opsional)`, `(required)`, `(wajib)` and a trailing `*` out of the label.
+  A hint in brackets is fine: `Tax percent (leave empty for no tax)`.
+- **A list input gets titled columns.** Give a `json` input that is a list of rows a `json_schema`
+  (`type: array`, `items.properties` with a `type` and a `title` per column, in the agent's language): the app
+  shows it as a table with those titles instead of the data's key names.
+- **An approval reads like a sentence.** Build what the approval shows with a `template-transform` step (one
+  line per item), instead of putting a list or an object into the prompt, where it shows as raw data.
 
 `npm test` checks every file and workflow ([`scripts/lib/plugin-agents.mjs`](scripts/lib/plugin-agents.mjs),
 [`scripts/test/plugin-agents.test.mjs`](scripts/test/plugin-agents.test.mjs)); the workflows are read with the

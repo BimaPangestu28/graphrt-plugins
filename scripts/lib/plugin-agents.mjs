@@ -36,6 +36,12 @@ export const SAFE_CORE_NODE_KINDS = Object.freeze(["start", "end", "answer", "hu
 /** An operation whose name starts with one of these only reads; every other one needs the person's approval first. */
 export const READ_OPERATION_PREFIXES = Object.freeze(["get", "list", "search", "find", "read", "fetch", "lookup"]);
 
+/**
+ * Words that say whether an input must be filled in. graphrt Desktop adds its own marker to the label of an
+ * input that may stay empty ("Client address (optional)"), so a label that carries one reads double.
+ */
+const REQUIREDNESS_MARKER_PATTERN = /[([]\s*(?:optional|opsional|required|wajib(?:\s+diisi)?|mandatory)\s*[)\]]|\*\s*$/i;
+
 const ITEM_KEYS = new Set(["id", "title", "description", "language", "workflow"]);
 const ID_PATTERN = /^[a-z0-9-]{1,64}$/;
 const LANGUAGE_PATTERN = /^[a-z]{2}$/;
@@ -129,7 +135,8 @@ export function findWorkflowFileProblems(pluginDirectory, workflowPath) {
  *
  * A fit workflow uses only SAFE_CORE_NODE_KINDS and the plugin's own operations, and every operation that is
  * not a read (see READ_OPERATION_PREFIXES) can only be reached through a `human-input` step that waits for the
- * person without a time limit.
+ * person without a time limit. A label of an input says what to fill in, never whether it is optional or
+ * required: the app adds that itself.
  *
  * @param workflow - The parsed workflow document (object)
  * @param pluginName - The plugin the agent belongs to (string)
@@ -148,6 +155,7 @@ export function findWorkflowProblems(workflow, pluginName) {
     // An approval that answers itself after a while is no approval.
     if (node.type === "human-input" && ["expire_after_ms", "on_expire", "timeout", "timeout_ms"].some((key) => node[key] !== undefined)) problems.push(`step \`${node.id}\` must wait for the person without a time limit`);
   }
+  problems.push(...findLabelProblems(nodes));
   const startNodes = nodes.filter((node) => node.type === "start");
   if (startNodes.length !== 1) return [...problems, "must have exactly one `start` step"];
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
@@ -168,6 +176,21 @@ export function findWorkflowProblems(workflow, pluginName) {
     const operationName = node.type.slice(operationPrefix.length);
     const isRead = READ_OPERATION_PREFIXES.some((prefix) => operationName === prefix || operationName.startsWith(`${prefix}_`));
     if (!isRead) problems.push(`step \`${node.id}\` (${node.type}) creates or changes something and can run before the person approves; put a human-input step before it on every path`);
+  }
+  return problems;
+}
+
+// The labels a person fills in: the inputs of the start form and the fields of an approval form.
+function findLabelProblems(nodes) {
+  const problems = [];
+  for (const node of nodes) {
+    const inputs = node.type === "start" ? node.variables : node.type === "human-input" ? node.form?.fields : null;
+    if (!Array.isArray(inputs)) continue;
+    for (const input of inputs) {
+      const label = input?.label;
+      if (typeof label !== "string" || !REQUIREDNESS_MARKER_PATTERN.test(label)) continue;
+      problems.push(`step \`${node.id}\`: the label ${JSON.stringify(label)} says whether the input must be filled in; leave that out (set \`required\` instead), the app adds its own marker`);
+    }
   }
   return problems;
 }

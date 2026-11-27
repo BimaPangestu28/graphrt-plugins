@@ -103,6 +103,21 @@ test("a ready-made workflow uses only safe steps, and asks before every step tha
   assert.match(findWorkflowProblems(workflow([START, { id: 7 }], []), "acme").join("; "), /`id` and a `type`/);
 });
 
+test("a label says what to fill in, not whether it is optional or required: the app adds that marker itself", () => {
+  const withLabels = (labels, fieldLabels = []) => workflow([
+    { id: "start", type: "start", variables: labels.map((label, index) => ({ variable: `v${index}`, type: "text-input", label })) },
+    { ...ASK, form: { fields: fieldLabels.map((label, index) => ({ name: `f${index}`, label })) } },
+    END,
+  ], [["start", "ask"], ["ask", "end", "yes"]]);
+  const fine = ["Client address", "Tax percent (leave empty for no tax)", "Currency (USD, EUR, SGD, IDR...)", "Optional extras to mention", "Tarif pajak dalam persen (kosongkan bila tanpa pajak)", "Dokumen wajib pajak", "Rating * weight"];
+  assert.deepEqual(findWorkflowProblems(withLabels(fine, ["Comment"]), "acme"), []);
+  assert.deepEqual(findWorkflowProblems(workflow([{ id: "start", type: "start", variables: [{ variable: "a", type: "number" }] }, END], [["start", "end"]]), "acme"), []);
+  for (const label of ["Client address (optional)", "Alamat klien (opsional)", "Client name (required)", "Nama klien (wajib)", "Nama klien (Wajib diisi)", "Client name [Optional]", "Note ( OPTIONAL )", "Client name (mandatory)", "Client name *"]) {
+    assert.match(findWorkflowProblems(withLabels(["Client name", label]), "acme").join("; "), /^step `start`: the label ".*" says whether the input must be filled in/, label);
+    assert.match(findWorkflowProblems(withLabels([], [label]), "acme").join("; "), /^step `ask`: the label/, label);
+  }
+});
+
 test("every plugin's graphrt-agents.json is valid, and its workflows are fit to run as written", (context) => {
   const pluginsWithAgents = listPluginNames().filter((pluginName) => existsSync(join(REPO_ROOT, pluginName, AGENTS_FILE_NAME)));
   assert.ok(pluginsWithAgents.includes("document-templates"));
